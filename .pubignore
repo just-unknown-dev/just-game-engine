@@ -1,0 +1,32 @@
+# Dart/Flutter tool artifacts
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+
+# IDE & editor files
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Internal documentation (not needed by package consumers)
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+CORE_SYSTEM_SUMMARY.md
+TESTING.md
+TEST_RESULTS.md
+API.md
+
+# Build outputs
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
