@@ -1,0 +1,37 @@
+name: Flutter CI
+
+# Trigger the workflow on pushes or PRs to the main branch
+on:
+  push:
+    branches: [ "main", "dev", "release-v*.*.*" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.1' # Uses the latest stable 3.x version
+          channel: 'stable'
+          cache: true # Speeds up future runs by caching the SDK
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Check formatting
+        run: dart format --set-exit-if-changed .
+        # This fails the build if your code isn't formatted correctly!
+
+      - name: Analyze code
+        run: flutter analyze
+        # This catches syntax errors and linter warnings
+
+      - name: Run tests
+        run: flutter test
