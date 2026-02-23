@@ -1,125 +1,48 @@
 /// Networking
 ///
-/// Facilitates multiplayer functionality and server-client communication.
-/// This module handles network communication for multiplayer games.
+/// Multiplayer networking module for just_game_engine.
+/// Sub-barrel that re-exports all networking sub-modules:
+///   • transport/   — WebSocket & UDP transport, packets, connection state
+///   • matchmaking/ — rooms, lobbies, matchmaking service
+///   • session/     — authenticated player session management
+///   • backend/     — leaderboards, profiles, analytics, remote config
+///   • gameplay/    — client prediction, lag compensation, network sync
+///   • dev_tools/   — simulator, debugger, mocks for testing
 library;
 
-/// Main networking class
-class NetworkManager {
-  /// Initialize the networking system
-  void initialize() {
-    // TODO: Initialize network system
-  }
+// ---------------------------------------------------------------------------
+// Transport layer
+// ---------------------------------------------------------------------------
+export 'transport/packet.dart';
+export 'transport/connection.dart';
+export 'transport/transport_layer.dart';
 
-  /// Connect to a server
-  Future<void> connect(String host, int port) async {
-    // TODO: Implement server connection
-  }
+// ---------------------------------------------------------------------------
+// Matchmaking & Session Management
+// ---------------------------------------------------------------------------
+export 'matchmaking/lobby.dart';
+export 'matchmaking/room.dart';
+export 'matchmaking/matchmaking_service.dart';
+export 'session/session_manager.dart';
 
-  /// Disconnect from server
-  void disconnect() {
-    // TODO: Implement disconnection
-  }
+// ---------------------------------------------------------------------------
+// Backend & LiveOps Services
+// ---------------------------------------------------------------------------
+export 'backend/leaderboard_service.dart';
+export 'backend/player_profile_service.dart';
+export 'backend/analytics_service.dart';
+export 'backend/remote_config_service.dart';
 
-  /// Send data to server
-  void sendData(dynamic data) {
-    // TODO: Implement data sending
-  }
+// ---------------------------------------------------------------------------
+// Gameplay & Optimisation Features
+// ---------------------------------------------------------------------------
+export 'gameplay/prediction.dart';
+export 'gameplay/lag_compensation.dart';
+export 'gameplay/network_sync.dart';
 
-  /// Clean up networking resources
-  void dispose() {
-    // TODO: Dispose network resources
-  }
-}
-
-/// Handles server-side networking
-class NetworkServer {
-  /// Start the server
-  Future<void> start(int port) async {
-    // TODO: Implement server start
-  }
-
-  /// Stop the server
-  void stop() {
-    // TODO: Implement server stop
-  }
-
-  /// Broadcast data to all clients
-  void broadcast(dynamic data) {
-    // TODO: Implement broadcast
-  }
-
-  /// Handle client connections
-  void onClientConnected() {
-    // TODO: Implement client connection handling
-  }
-}
-
-/// Handles client-side networking
-class NetworkClient {
-  /// Connect to a server
-  Future<void> connect(String host, int port) async {
-    // TODO: Implement client connection
-  }
-
-  /// Disconnect from server
-  void disconnect() {
-    // TODO: Implement client disconnection
-  }
-
-  /// Send data to server
-  void send(dynamic data) {
-    // TODO: Implement data sending
-  }
-
-  /// Receive data from server
-  void onDataReceived() {
-    // TODO: Implement data receiving
-  }
-}
-
-/// Manages network synchronization
-class NetworkSync {
-  /// Sync game state
-  void syncState() {
-    // TODO: Implement state synchronization
-  }
-
-  /// Sync object transforms
-  void syncTransform(String objectId) {
-    // TODO: Implement transform sync
-  }
-}
-
-/// Handles network protocols
-class NetworkProtocol {
-  /// Serialize data for network transmission
-  dynamic serialize(dynamic data) {
-    // TODO: Implement serialization
-    return null;
-  }
-
-  /// Deserialize received data
-  dynamic deserialize(dynamic data) {
-    // TODO: Implement deserialization
-    return null;
-  }
-}
-
-/// Manages player sessions
-class SessionManager {
-  /// Create a new session
-  void createSession(String sessionId) {
-    // TODO: Implement session creation
-  }
-
-  /// Join an existing session
-  void joinSession(String sessionId) {
-    // TODO: Implement session joining
-  }
-
-  /// Leave a session
-  void leaveSession() {
-    // TODO: Implement session leaving
-  }
-}
+// ---------------------------------------------------------------------------
+// Development & Testing Tools
+// ---------------------------------------------------------------------------
+export 'dev_tools/network_simulator.dart';
+export 'dev_tools/network_debugger.dart';
+export 'dev_tools/mock_server.dart';
