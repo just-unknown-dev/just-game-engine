@@ -105,5 +105,48 @@ lobby.addPlayer(LobbyPlayer(playerId: 'p1', displayName: 'Player 1'));
 lobby.setReady('p1', ready: true);
 ```
 
+### 5. Backend Server Setup (`just_game_engine_backend`)
+
+The engine provides a standalone Python-based backend that implements the server-side logic for the modules described above (transport, session, matchmaking).
+
+**Installation:**
+```bash
+# Navigate to the backend directory
+cd ../../just_game_engine_backend
+
+# Create and activate a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows use: venv\\Scripts\\activate
+
+# Install the backend package
+pip install -e .
+```
+
+**Running the Server:**
+The backend uses standard library `asyncio` combined with the `websockets` library for efficient real-time communication.
+```bash
+# Run the main server script
+python src/just_game_engine_backend/main.py
+```
+The server will start listening for WebSocket connections (default: `ws://localhost:8080`).
+
+---
+
+## Integrations with External LiveOps (Firebase, Supabase, etc.)
+
+While the `just_game_engine` networking layer handles real-time multiplayer logic natively, you may want to connect external services like **Firebase**, **Supabase**, or **PlayFab** to manage persistent data (player accounts, analytics, inventory, and global leaderboards). 
+
+### Firebase Integration
+If using Firebase, you can implement the engine's `ILeaderboardService` and `IAnalyticsService` interfaces using the standard `cloud_firestore` and `firebase_analytics` Flutter packages.
+1. **Authentication:** Authenticate the user via `firebase_auth` on the client. Retrieve the user's UID and supply it to the engine's `SessionManager` as the internal Player ID.
+2. **Analytics:** Create a class implementing `IAnalyticsService` that maps the engine's `flush()` batched events into `FirebaseAnalytics.instance.logEvent()`.
+3. **Backend Validation:** Secure your Python server by having the backend require and verify the Firebase ID Token (using the Firebase Admin SDK for Python) upon the initial WebSocket connection.
+
+### Supabase Integration
+Supabase provides a Postgres database with real-time subscriptions, making it highly synergistic with the engine's architecture.
+1. **Database & Leaderboards:** Implement `ILeaderboardService` by querying your Supabase Postgres tables natively via the `supabase_flutter` client.
+2. **Matchmaking Discovery:** If you prefer database-backed matchmaking instead of the in-memory Python one, you can leverage Supabase Realtime channels. When a player creates a lobby, insert a row into a `lobbies` table. Other clients can subscribe to inserts/updates on this table to discover active lobbies seamlessly.
+3. **Backend Security:** On the `just_game_engine_backend` side, use the `supabase-py` client library to validate user JWTs or securely report match results directly to the database.
+
 ---
 *For testing and verification, see `test/networking/` which breaks down test suites natively per module.*
