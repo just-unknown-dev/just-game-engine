@@ -130,7 +130,10 @@ void main() {
       final engine = Engine();
       await engine.initialize();
 
-      final body = PhysicsBody(position: const Offset(0, 0), radius: 30);
+      final body = PhysicsBody(
+        position: const Offset(0, 0),
+        shape: CircleShape(30),
+      );
 
       engine.physics.addBody(body);
       expect(engine.physics.bodies, contains(body));
@@ -140,7 +143,10 @@ void main() {
       final engine = Engine();
       await engine.initialize();
 
-      final body = PhysicsBody(position: const Offset(0, 0), radius: 30);
+      final body = PhysicsBody(
+        position: const Offset(0, 0),
+        shape: CircleShape(30),
+      );
 
       engine.physics.addBody(body);
       engine.physics.removeBody(body);
@@ -151,14 +157,14 @@ void main() {
       final body = PhysicsBody(
         position: const Offset(100, 200),
         velocity: const Offset(50, 30),
-        radius: 30,
+        shape: CircleShape(30),
         mass: 2.0,
         restitution: 0.8,
       );
 
       expect(body.position, const Offset(100, 200));
       expect(body.velocity, const Offset(50, 30));
-      expect(body.radius, 30);
+      expect((body.shape as CircleShape).radius, 30);
       expect(body.mass, 2.0);
       expect(body.restitution, 0.8);
     });
@@ -376,7 +382,7 @@ void main() {
       engine.rendering.addRenderable(circle);
 
       // Add physics body
-      final body = PhysicsBody(position: Offset.zero, radius: 30);
+      final body = PhysicsBody(position: Offset.zero, shape: CircleShape(30));
       engine.physics.addBody(body);
 
       // Create entity

@@ -4,7 +4,6 @@
 library;
 
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:just_storage/just_storage.dart';
 import 'package:just_database/just_database.dart';
@@ -74,7 +73,7 @@ class CacheManager {
   Future<String?> getString(String key) async {
     if (!_initialized || _keyValueCache == null) return null;
     try {
-      return await _keyValueCache!.read(key) as String?;
+      return await _keyValueCache!.read(key);
     } catch (e) {
       debugPrint('Error getting string from cache: $e');
       return null;

@@ -362,7 +362,10 @@ void main() {
       final engine = Engine();
       await engine.initialize();
 
-      final body = PhysicsBody(position: const Offset(0, 0), radius: 30);
+      final body = PhysicsBody(
+        position: const Offset(0, 0),
+        shape: CircleShape(30),
+      );
 
       engine.physics.addBody(body);
       expect(engine.physics.bodies, contains(body));
@@ -378,7 +381,8 @@ void main() {
       final body = PhysicsBody(
         position: const Offset(0, 0),
         velocity: const Offset(100, 0),
-        radius: 30,
+        shape: CircleShape(30),
+        drag: 0.0,
       );
 
       engine.physics.addBody(body);
@@ -392,23 +396,30 @@ void main() {
       final engine = Engine();
       await engine.initialize();
 
-      final body1 = PhysicsBody(position: const Offset(0, 0), radius: 30);
+      final body1 = PhysicsBody(
+        position: const Offset(0, 0),
+        shape: CircleShape(30),
+      );
 
-      final body2 = PhysicsBody(position: const Offset(50, 0), radius: 30);
+      final body2 = PhysicsBody(
+        position: const Offset(50, 0),
+        shape: CircleShape(30),
+      );
 
       engine.physics.addBody(body1);
       engine.physics.addBody(body2);
 
-      // Bodies should be colliding (distance = 50, combined radius = 60)
       final distance = (body1.position - body2.position).distance;
-      final combinedRadius = body1.radius + body2.radius;
+      final combinedRadius =
+          (body1.shape as CircleShape).radius +
+          (body2.shape as CircleShape).radius;
       expect(distance < combinedRadius, true);
     });
 
     test('Physics body mass and restitution', () async {
       final body = PhysicsBody(
         position: const Offset(0, 0),
-        radius: 30,
+        shape: CircleShape(30),
         mass: 2.0,
         restitution: 0.8,
       );
@@ -424,7 +435,7 @@ void main() {
       final body = PhysicsBody(
         position: const Offset(0, 0),
         velocity: Offset.zero,
-        radius: 30,
+        shape: CircleShape(30),
       );
 
       engine.physics.gravity = const Offset(0, 100);
@@ -478,11 +489,12 @@ void main() {
       emitter.update(0.3);
       final particleCount = emitter.particleCount;
 
+      emitter.isEmitting = false; // Stop emission so we only observe death
       // Update past lifetime
       emitter.update(0.5);
 
       // Old particles should have died
-      expect(emitter.particleCount <= particleCount, true);
+      expect(emitter.particleCount < particleCount, true);
     });
 
     test('Particle preset effects', () {

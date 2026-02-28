@@ -46,7 +46,7 @@ void setupECSExample(Engine engine) {
     ),
   );
   player.addComponent(
-    PhysicsBodyComponent(radius: 30, mass: 1.0, restitution: 0.8),
+    PhysicsBodyComponent(shape: CircleShape(30), mass: 1.0, restitution: 0.8),
   );
   player.addComponent(HealthComponent(maxHealth: 100));
   player.addComponent(TagComponent('player'));
@@ -77,7 +77,7 @@ void setupECSExample(Engine engine) {
       ),
     );
     enemy.addComponent(
-      PhysicsBodyComponent(radius: 20, mass: 0.8, restitution: 0.9),
+      PhysicsBodyComponent(shape: CircleShape(20), mass: 0.8, restitution: 0.9),
     );
     enemy.addComponent(HealthComponent(maxHealth: 50));
     enemy.addComponent(TagComponent('enemy'));
@@ -95,7 +95,9 @@ void setupECSExample(Engine engine) {
       ),
     ),
   );
-  wall1.addComponent(PhysicsBodyComponent(radius: 200, isStatic: true));
+  wall1.addComponent(
+    PhysicsBodyComponent(shape: CircleShape(200), isStatic: true),
+  );
 
   // Create temporary entities with lifetime
   for (int i = 0; i < 3; i++) {
@@ -290,7 +292,7 @@ class _ECSExampleScreenState extends State<ECSExampleScreen> {
     );
     entity.addComponent(
       PhysicsBodyComponent(
-        radius: 15 + random.nextDouble() * 15,
+        shape: CircleShape(15 + random.nextDouble() * 15),
         mass: 0.5 + random.nextDouble() * 0.5,
       ),
     );

@@ -658,38 +658,53 @@ Both paths can coexist. ECS entities that also attach their `RenderableComponent
 ```
 PhysicsEngine
    List<PhysicsBody> _bodies
-   gravity: Offset       (default: Offset(0, 980) — pixels/s²)
+   SpatialGrid _spatialGrid  (broad-phase optimization)
+   CacheManager? cacheManager
+   gravity: Offset       (default: Offset(0, 98.0) — pixels/s²)
    enabled: bool
 
    update(dt):
      for each body (non-static):
-       body.velocity += gravity * dt
-       body.velocity *= (1 - body.drag * dt)    ← drag
-       body.velocity = clampMagnitude(vel, maxSpeed)
+       if (!body.isAwake) continue
+       body.velocity += (body.acceleration + gravity) * dt
+       body.velocity *= (1 - body.drag * dt)
+       body.angularVelocity += (body.torque * body.invInertia) * dt
+       body.angularVelocity *= (1 - body.drag * dt)
        body.position += body.velocity * dt
-     broadPhaseCircleCollision()
+       body.angle += body.angularVelocity * dt
+       clear acceleration and torque
+     
+       // Object Sleeping logic
+       if velocity and acceleration are very low for sleepTimeThreshold:
+         body.isAwake = false
+     
+     _detectCollisions()
 
-   broadPhaseCircleCollision():
-     for each pair (A, B):
-       if layers don't overlap: skip
-       dist = (A.position - B.position).distance
-       if dist < A.radius + B.radius:
-         resolveCollision(A, B, dist)
+   _detectCollisions():
+     Populate _spatialGrid using body.shape.getBounds()
+     for each potential pair in cells:
+       CollisionManifold? manifold = SAT.test(A.shape, B.shape)
+       if manifold.isColliding:
+         _resolveCollision(A, B, manifold)
 
-   resolveCollision(A, B, dist):
-     normal = (B.pos - A.pos) / dist
-     overlap = A.radius + B.radius - dist
-     // positional correction (weighted by inverse mass)
-     totalInvMass = 1/A.mass + 1/B.mass
-     A.position -= normal * overlap * (1/A.mass / totalInvMass)
-     B.position += normal * overlap * (1/B.mass / totalInvMass)
-     // impulse resolution
-     relVel = dot(B.velocity - A.velocity, normal)
-     if relVel > 0: return       ← already separating
+   _resolveCollision(A, B, manifold):
+     // Linear projection to prevent sinking
+     A.position -= manifold.normal * overlap * ratioA
+     B.position += manifold.normal * overlap * ratioB
+     
+     // Wake up bodies
+     A.isAwake = true; B.isAwake = true
+     
+     // True Impulse Resolution
+     compute relative velocity along normal
      e = min(A.restitution, B.restitution)
      j = -(1 + e) * relVel / totalInvMass
-     A.velocity -= normal * j / A.mass
-     B.velocity += normal * j / B.mass
+     apply normal impulses scaling by invMass
+     
+     // Coulomb Surface Friction
+     compute tangent vector t
+     compute friction impulse scalar jt and clamp by j * mu
+     apply tangent impulses
 ```
 
 **`PhysicsBody` Properties:**
@@ -697,14 +712,15 @@ PhysicsEngine
 | Property | Type | Description |
 |---|---|---|
 | `position` | `Offset` | World-space center |
-| `velocity` | `Offset` | Pixels per second |
-| `mass` | `double` | Kg-equivalent |
-| `radius` | `double` | Collision circle radius (pixels) |
+| `velocity` | `Offset` | Linear velocity (pixels per second) |
+| `angularVelocity` | `double` | Angular velocity (radians per second) |
+| `mass` | `double` | Kg-equivalent (0 = static) |
+| `shape` | `CollisionShape` | Physical geometry (Circle, Poly, Rect) |
 | `restitution` | `double` | Bounciness 0–1 |
+| `friction` | `double` | Surface friction scalar |
 | `drag` | `double` | Velocity damping coefficient |
-| `isStatic` | `bool` | Immovable; still participates in collision |
+| `isAwake` | `bool` | True if actively updated (Object Sleeping) |
 | `collisionLayers` | `int` | Bitmask; bodies only collide if layers overlap |
-| `maxSpeed` | `double` | Velocity magnitude cap |
 
 ---
 
@@ -714,16 +730,9 @@ Mirrors `PhysicsEngine` logic but operates on entities carrying `PhysicsBodyComp
 
 ---
 
-### 7.3 Future Physics Stubs
+### 7.3 Advanced Features & Caching
 
-These classes exist as shells in `physics_engine.dart` for planned expansion:
-
-| Class | Purpose (planned) |
-|---|---|
-| `RigidBody` | Full rigid-body dynamics with torque/angular momentum; has `x/y/z` fields suggesting 3D |
-| `CollisionDetector` | Separate broad-phase / narrow-phase passes (SAT, AABB, etc.) |
-| `ForceManager` | Named persistent forces (wind, gravity zones) |
-| `CollisionShape` *(abstract)* | Pluggable shapes (box, polygon, capsule, mesh) |
+The Physics engine is integrated with the `CacheManager`. Heavy polygonal operations like triangulations or pre-computed structures can be saved to persistent storage via `cachePolygonShape` and retrieved via `getCachedPolygonShape`. This drastically minimizes load times for scenes with dense rigid-body structures.
 
 ---
 

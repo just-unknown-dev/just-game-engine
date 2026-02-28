@@ -140,13 +140,13 @@ void setupPhysics(Engine engine) {
   final body1 = PhysicsBody(
     position: Offset(-100, 0),
     velocity: Offset(50, 0),
-    radius: 30,
+    shape: CircleShape(30),
   );
   
   final body2 = PhysicsBody(
     position: Offset(100, 0),
     velocity: Offset(-50, 0),
-    radius: 30,
+    shape: CircleShape(30),
   );
   
   engine.physics.addBody(body1);
@@ -226,7 +226,7 @@ void setupECSPhysics(Engine engine) {
     renderable: CircleRenderable(radius: 25, fillColor: Colors.red),
   ));
   ball.addComponent(PhysicsBodyComponent(
-    radius: 25,
+    shape: CircleShape(25),
     mass: 1.0,
     restitution: 0.9,  // Bounciness (0-1)
   ));
@@ -242,8 +242,8 @@ void setupECSPhysics(Engine engine) {
     ),
   ));
   ground.addComponent(PhysicsBodyComponent(
-    radius: 400,
-    isStatic: true,  // Won't move
+    shape: RectangleShape(const Size(800, 20)),
+    mass: 0.0,  // mass = 0 means static
   ));
 }
 ```
