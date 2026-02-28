@@ -18,6 +18,7 @@ import '../editor/scene_editor.dart';
 import '../animation/animation_system.dart';
 import '../assets/asset_management.dart';
 import '../networking/networking.dart';
+import '../cache/cache_manager.dart';
 import '../ecs/ecs.dart';
 
 /// Main game engine class that orchestrates all subsystems
@@ -83,6 +84,7 @@ class Engine implements ILifecycle {
   late final SceneEditor sceneEditor;
   late final AnimationSystem animation;
   late final AssetManager assets;
+  late final CacheManager cache;
   late final NetworkManager network;
   late final World world; // ECS World
 
@@ -137,12 +139,14 @@ class Engine implements ILifecycle {
     audio = AudioEngine();
     sceneEditor = SceneEditor();
     animation = AnimationSystem();
+    cache = CacheManager();
     assets = AssetManager();
     network = NetworkManager();
     world = World(); // ECS World
 
     // Initialize each subsystem
-    assets.initialize(); // Initialize asset manager first
+    await cache.initialize(); // Initialize cache manager first
+    assets.initialize(); // Then initialize asset manager
     rendering.initialize();
     physics.initialize();
     input.initialize();
@@ -163,6 +167,7 @@ class Engine implements ILifecycle {
     _systemManager.registerSystem('audio', audio);
     _systemManager.registerSystem('editor', sceneEditor);
     _systemManager.registerSystem('animation', animation);
+    _systemManager.registerSystem('cache', cache);
     _systemManager.registerSystem('assets', assets);
     _systemManager.registerSystem('network', network);
     _systemManager.registerSystem('ecs', world);
@@ -270,6 +275,7 @@ class Engine implements ILifecycle {
     physics.dispose();
     rendering.dispose();
     assets.dispose();
+    cache.dispose();
     world.dispose(); // Dispose ECS
 
     _systemManager.dispose();

@@ -53,3 +53,6 @@ export 'src/networking/networking.dart';
 export 'src/ecs/ecs.dart';
 export 'src/ecs/components.dart';
 export 'src/ecs/systems.dart';
+
+// Cache Management - Storage and caching architecture
+export 'src/cache/cache_manager.dart';
