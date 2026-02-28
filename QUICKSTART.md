@@ -210,7 +210,7 @@ void setupECSPhysics(Engine engine) {
   final world = engine.world;
   
   // Add physics system
-  final physicsSystem = PhysicsSystemECS()
+  final physicsSystem = PhysicsSystem()
     ..gravity = const Offset(0, 100);  // Downward gravity
   world.addSystem(physicsSystem);
   

@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart' show rootBundle;
+import '../core/engine.dart';
 
 /// Base class for all assets
 abstract class Asset {
@@ -65,9 +66,26 @@ class ImageAsset extends Asset {
     if (_isLoaded) return;
 
     try {
+      final cache = Engine.instance.cache;
+      if (cache.isInitialized) {
+        final cachedData = await cache.getBinary(path);
+        if (cachedData != null) {
+          _imageData = cachedData;
+          final codec = await ui.instantiateImageCodec(_imageData!);
+          final frame = await codec.getNextFrame();
+          _image = frame.image;
+          _isLoaded = true;
+          return;
+        }
+      }
+
       // Load image data from assets
       final data = await rootBundle.load(path);
       _imageData = data.buffer.asUint8List();
+
+      if (cache.isInitialized) {
+        await cache.setBinary(path, _imageData!);
+      }
 
       // Decode image
       final codec = await ui.instantiateImageCodec(_imageData!);
@@ -120,22 +138,41 @@ class AudioAsset extends Asset {
     if (_isLoaded) return;
 
     try {
+      final cache = Engine.instance.cache;
+      if (cache.isInitialized) {
+        final cachedData = await cache.getBinary(path);
+        if (cachedData != null) {
+          _audioData = cachedData;
+          _detectFormat();
+          _isLoaded = true;
+          return;
+        }
+      }
+
       // Load audio data from assets
       final data = await rootBundle.load(path);
       _audioData = data.buffer.asUint8List();
 
-      // Detect format from extension
-      if (path.endsWith('.mp3')) {
-        _format = AudioFormat.mp3;
-      } else if (path.endsWith('.wav')) {
-        _format = AudioFormat.wav;
-      } else if (path.endsWith('.ogg')) {
-        _format = AudioFormat.ogg;
+      if (cache.isInitialized) {
+        await cache.setBinary(path, _audioData!);
       }
+
+      _detectFormat();
 
       _isLoaded = true;
     } catch (e) {
       throw AssetLoadException('Failed to load audio asset: $path', e);
+    }
+  }
+
+  void _detectFormat() {
+    // Detect format from extension
+    if (path.endsWith('.mp3')) {
+      _format = AudioFormat.mp3;
+    } else if (path.endsWith('.wav')) {
+      _format = AudioFormat.wav;
+    } else if (path.endsWith('.ogg')) {
+      _format = AudioFormat.ogg;
     }
   }
 
@@ -171,7 +208,22 @@ class TextAsset extends Asset {
     if (_isLoaded) return;
 
     try {
+      final cache = Engine.instance.cache;
+      if (cache.isInitialized) {
+        final cachedContent = await cache.getString(path);
+        if (cachedContent != null) {
+          _content = cachedContent;
+          _isLoaded = true;
+          return;
+        }
+      }
+
       _content = await rootBundle.loadString(path);
+
+      if (cache.isInitialized && _content != null) {
+        await cache.setString(path, _content!);
+      }
+
       _isLoaded = true;
     } catch (e) {
       throw AssetLoadException('Failed to load text asset: $path', e);
@@ -205,8 +257,23 @@ class JsonAsset extends Asset {
     if (_isLoaded) return;
 
     try {
+      final cache = Engine.instance.cache;
+      if (cache.isInitialized) {
+        final cachedData = await cache.getJson(path);
+        if (cachedData != null) {
+          _data = cachedData;
+          _isLoaded = true;
+          return;
+        }
+      }
+
       final content = await rootBundle.loadString(path);
       _data = jsonDecode(content);
+
+      if (cache.isInitialized && _data != null) {
+        await cache.setJson(path, _data);
+      }
+
       _isLoaded = true;
     } catch (e) {
       throw AssetLoadException('Failed to load JSON asset: $path', e);
@@ -240,8 +307,23 @@ class BinaryAsset extends Asset {
     if (_isLoaded) return;
 
     try {
+      final cache = Engine.instance.cache;
+      if (cache.isInitialized) {
+        final cachedData = await cache.getBinary(path);
+        if (cachedData != null) {
+          _data = cachedData;
+          _isLoaded = true;
+          return;
+        }
+      }
+
       final byteData = await rootBundle.load(path);
       _data = byteData.buffer.asUint8List();
+
+      if (cache.isInitialized && _data != null) {
+        await cache.setBinary(path, _data!);
+      }
+
       _isLoaded = true;
     } catch (e) {
       throw AssetLoadException('Failed to load binary asset: $path', e);
