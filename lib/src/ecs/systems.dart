@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'ecs.dart';
 import 'components.dart';
+import '../physics/physics_engine.dart';
 
 /// Movement system - Applies velocity to transform
 class MovementSystem extends System {
@@ -139,11 +140,14 @@ class PhysicsSystem extends System {
           continue;
         }
 
-        // Check collision
-        final distance = (transform1.position - transform2.position).distance;
-        final minDistance = body1.radius + body2.radius;
+        // Check collision using SAT
+        final manifold = body1.shape.getManifold(
+          transform1.position,
+          body2.shape,
+          transform2.position,
+        );
 
-        if (distance < minDistance) {
+        if (manifold.isColliding) {
           _resolveCollision(
             entity1,
             entity2,
@@ -151,6 +155,7 @@ class PhysicsSystem extends System {
             transform2,
             body1,
             body2,
+            manifold,
           );
         }
       }
@@ -164,55 +169,55 @@ class PhysicsSystem extends System {
     TransformComponent transform2,
     PhysicsBodyComponent body1,
     PhysicsBodyComponent body2,
+    CollisionManifold manifold,
   ) {
     final velocity1 = entity1.getComponent<VelocityComponent>()!;
     final velocity2 = entity2.getComponent<VelocityComponent>()!;
 
-    // Calculate collision normal
-    final delta = transform1.position - transform2.position;
-    final distance = delta.distance;
-    if (distance == 0) return;
+    final normal = manifold.normal;
 
-    final normal = delta / distance;
+    final penetration = manifold.penetration;
+    if (penetration <= 0) return;
 
-    // Separate bodies
-    final overlap = body1.radius + body2.radius - distance;
-    if (!body1.isStatic && !body2.isStatic) {
-      transform1.position += normal * (overlap / 2);
-      transform2.position -= normal * (overlap / 2);
-    } else if (!body1.isStatic) {
-      transform1.position += normal * overlap;
-    } else if (!body2.isStatic) {
-      transform2.position -= normal * overlap;
-    }
+    final invMass1 = body1.isStatic
+        ? 0.0
+        : (body1.mass > 0 ? 1.0 / body1.mass : 0.0);
+    final invMass2 = body2.isStatic
+        ? 0.0
+        : (body2.mass > 0 ? 1.0 / body2.mass : 0.0);
+    final invMassSum = invMass1 + invMass2;
 
+    if (invMassSum == 0) return;
+
+    // ── Positional correction (Linear Projection) ──────────────────────────
+    // Push bodies apart weighted by inverse mass so heavier objects move less.
+    const correctionPercent = 0.8;
+    const slop = 0.05; // ignore tiny overlaps to avoid jitter
+    final correctionMag =
+        math.max(penetration - slop, 0.0) / invMassSum * correctionPercent;
+
+    transform1.position -= normal * (correctionMag * invMass1);
+    transform2.position += normal * (correctionMag * invMass2);
+
+    // ── Impulse resolution ───────────────────────────────────────────────────
     // Calculate relative velocity
-    final relativeVelocity = velocity1.velocity - velocity2.velocity;
+    final relativeVelocity = velocity2.velocity - velocity1.velocity;
     final velocityAlongNormal =
         relativeVelocity.dx * normal.dx + relativeVelocity.dy * normal.dy;
 
     // Don't resolve if velocities are separating
     if (velocityAlongNormal > 0) return;
 
-    // Calculate restitution
+    // Use the lesser restitution so collisions are never artificially springy.
     final restitution = math.min(body1.restitution, body2.restitution);
 
-    // Calculate impulse
-    final totalMass = body1.isStatic
-        ? body2.mass
-        : body2.isStatic
-        ? body1.mass
-        : body1.mass + body2.mass;
-
-    final impulse = -(1 + restitution) * velocityAlongNormal / totalMass;
+    // Calculate impulse scalar j
+    final impulseScalar =
+        -(1.0 + restitution) * velocityAlongNormal / invMassSum;
 
     // Apply impulse
-    if (!body1.isStatic) {
-      velocity1.velocity += normal * (impulse * body2.mass);
-    }
-    if (!body2.isStatic) {
-      velocity2.velocity -= normal * (impulse * body1.mass);
-    }
+    velocity1.velocity -= normal * (impulseScalar * invMass1);
+    velocity2.velocity += normal * (impulseScalar * invMass2);
   }
 
   @override
@@ -227,7 +232,26 @@ class PhysicsSystem extends System {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.0;
 
-      canvas.drawCircle(transform.position, body.radius, paint);
+      final shape = body.shape;
+      if (shape is CircleShape) {
+        canvas.drawCircle(transform.position, shape.radius, paint);
+      } else if (shape is PolygonShape) {
+        final path = Path();
+        if (shape.vertices.isNotEmpty) {
+          path.moveTo(
+            transform.position.dx + shape.vertices[0].dx,
+            transform.position.dy + shape.vertices[0].dy,
+          );
+          for (int i = 1; i < shape.vertices.length; i++) {
+            path.lineTo(
+              transform.position.dx + shape.vertices[i].dx,
+              transform.position.dy + shape.vertices[i].dy,
+            );
+          }
+          path.close();
+        }
+        canvas.drawPath(path, paint);
+      }
     });
   }
 }

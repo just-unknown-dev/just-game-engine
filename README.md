@@ -52,11 +52,11 @@ Just Game Engine is a complete game development framework with 11 major subsyste
 - **Custom Particles**: Create your own particle systems
 
 ### ⚛️ Physics Engine
-- **Rigid Body Dynamics**: Position, velocity, mass, and drag simulation
-- **Collision Detection**: Circular collision detection
-- **Collision Resolution**: Elastic collisions with restitution
-- **Debug Rendering**: Visualize physics bodies and velocity vectors
-- **Performance**: Optimized broad-phase and narrow-phase collision detection
+- **Rigid Body Dynamics**: Semi-implicit Euler integration for reliable mass, drag, torque, and inertia simulation
+- **Advanced Collision Shapes**: Circles, Rectangles, and arbitrary complex Polygons via SAT calculation
+- **True Impulse Resolution**: Elastic collisions resolving linear constraints and Coulomb surface friction
+- **Broad-Phase Optimization**: Performant $O(n)$ Spatial Grid queries with Object Sleeping features
+- **Physics Caching**: Triangulation and expensive geometry processing can be reliably disk-cached
 
 ### 🌳 Scene Graph
 - **Hierarchical Structure**: Parent-child node relationships
@@ -100,7 +100,21 @@ Just Game Engine is a complete game development framework with 11 major subsyste
   - **Caching**: Automatic asset caching with memory usage statistics
   - **Asset Bundles**: Group multiple assets for batch loading/unloading
 
-- **Networking**: Multiplayer and server communication (placeholder)
+- **Networking**: Multiplayer and server communication (Not Implemented Yet)
+
+## Just Game Engine vs. Flame Engine
+
+While [Flame](https://flame-engine.org/) is the most popular 2D game engine for Flutter, Just Game Engine takes a different architectural approach tailored for developers who want more explicit control over their game loop, physics, and state. 
+
+| Feature | Just Game Engine | Flame Engine |
+| :--- | :--- | :--- |
+| **Architecture** | Pure Entity-Component-System (ECS) combined with a flexible Scene Graph. | Component-based system (FCS), heavily relying on OOP inheritance. |
+| **Game Loop** | True Fixed-Timestep update loop preventing physics "spiral of death". | Variable delta-time loop natively. |
+| **Physics** | Custom-built, lightweight impulse-based 2D physics with SAT. | Wraps the mature (but heavier) Box2D / Forge2D engine. |
+| **Performance** | Highly optimized for 2D with $O(n)$ Spatial Grid physics broadcast, zero-allocation game loops, and direct `dart:ui` Canvas draws. Predictable execution due to fixed-timestep. | Solid general performance, but heavy component trees or Forge2D physics can introduce overhead and GC pressure. Natively relies on variable delta-time. |
+| **Input Handling** | Unified polling system (`input.keyboard.isKeyDown()`) handled in the update loop. | Event-driven callbacks via Mixins (`KeyboardEvents`, etc.). |
+| **Dependencies** | Extremely lightweight; relies primarily on raw `dart:ui` Canvas operations. | Modular but large ecosystem pulling in numerous external dependencies. |
+| **Learning Curve** | Explicit, linear data flows. Excellent for fully understanding engine internals. | Massive community, but highly opinionated and sometimes "magical". |
 
 ## Getting Started
 
@@ -320,9 +334,10 @@ if (enemy != null) {
 final body1 = PhysicsBody(
   position: Offset(-100, 0),
   velocity: Offset(50, 0),
-  radius: 30,
+  shape: CircleShape(30),
   mass: 1.0,
   restitution: 0.8,
+  friction: 0.2,
 );
 
 engine.physics.addBody(body1);
@@ -556,7 +571,7 @@ Just Game Engine
 │   ├── MusicManager (Background music)
 │   └── AudioMixer (Volume control)
 └── Additional Systems
-    └── Networking (Placeholder)
+    └── Networking (Not Implemented)
 ```
 
 ## Performance Tips
@@ -671,10 +686,6 @@ Contributions are welcome! This engine is in active development.
 ## License
 
 This project is licensed under the BSD-3-Clause License - see the LICENSE file for details.
-
-## Authors
-
-- **Just Unknown** - Initial work
 
 ## Acknowledgments
 
