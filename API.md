@@ -741,6 +741,8 @@ void addBody(PhysicsBody body) // Add rigid body
 void removeBody(PhysicsBody body)  // Remove body
 void renderDebug(Canvas canvas, Size size)  // Debug visualization
 void clear()                   // Remove all bodies
+Future<void> cachePolygonShape(String id, List<Offset> vertices) // Cache heavy polygons
+Future<List<Offset>?> getCachedPolygonShape(String id) // Fetch cached polygon
 ```
 
 ---
@@ -754,18 +756,27 @@ Rigid body with collision.
 ```dart
 Offset position                // Body position
 Offset velocity                // Current velocity
-double radius                  // Collision radius
+Offset acceleration            // Current acceleration
+CollisionShape shape           // Collision shape (Circle, Rectangle, Polygon)
 double mass                    // Body mass
 double restitution             // Bounciness (0-1)
-double drag                    // Air resistance
+double friction                // Surface friction
+double drag                    // Velocity damping
+double angle                   // Current rotation angle (radians)
+double angularVelocity         // Current rotation speed
+double torque                  // Accumulated torque
+double inertia                 // Rotational inertia
+bool isAwake                   // True if actively simulating
+bool useGravity                // Whether affected by global gravity
 bool isActive                  // Active state
 ```
 
 #### Methods
 
 ```dart
-void applyForce(Offset force)  // Apply force
-void update(double deltaTime)  // Update physics
+void applyForce(Offset force)  // Apply linear force
+void applyTorque(double torque) // Apply angular force
+void applyImpulse(Offset impulse) // Apply instant velocity change
 ```
 
 #### Example
@@ -774,13 +785,43 @@ void update(double deltaTime)  // Update physics
 final body = PhysicsBody(
   position: Offset(100, 0),
   velocity: Offset(50, 0),
-  radius: 30,
+  shape: CircleShape(30),
   mass: 1.0,
   restitution: 0.8,
-  drag: 0.98,
+  friction: 0.2,
+  drag: 0.1,
 );
 
 engine.physics.addBody(body);
+```
+
+---
+
+### CollisionShapes
+
+Defines the physical boundaries for narrow-phase collision detection.
+
+#### Available Shapes
+
+```dart
+// Circle
+CircleShape(double radius)
+
+// Rectangle (Width, Height)
+RectangleShape(Size size)
+
+// Arbitrary Convex Polygon
+PolygonShape(List<Offset> vertices)
+```
+
+#### Example
+
+```dart
+final boxBody = PhysicsBody(
+  position: Offset.zero,
+  shape: RectangleShape(Size(100, 20)),
+  mass: 0.0, // Static objects have 0 mass
+);
 ```
 
 ---

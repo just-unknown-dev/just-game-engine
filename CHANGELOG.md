@@ -2,8 +2,31 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
-## [1.0.1] - 2026-02-24
+## [1.1.0] - 2026-03-01
 
+### Added - Advanced Physics Engine
+
+- **Rigid Body Dynamics**
+  - Upgraded physics integration to Semi-Implicit Euler.
+  - Added new dynamic properties to `PhysicsBody`: `angularVelocity`, `angle`, `torque`, `inertia`, and `friction`.
+  - Added support for static bodies by setting `mass: 0.0`.
+- **Advanced Collision Shapes**
+  - Implemented `CollisionShape` hierarchy replacing simple `radius`.
+  - Added `CircleShape`, `RectangleShape`, and `PolygonShape`.
+  - Implemented Separating Axis Theorem (SAT) for true polygon-polygon and circle-polygon collision detection.
+- **Impulse-Based Resolution**
+  - Added rigorous impulse delivery resolving velocity along collision normals using inverse mass scaling.
+  - Included Coulomb friction handling for sliding objects.
+- **Broad-Phase Optimization**
+  - Implemented $O(n)$ `SpatialGrid` broad-phase for massive performance gains in dense scenes.
+  - Added Object Sleeping: resting bodies are excluded from integration until awoken, saving CPU cycles.
+- **Physics Caching**
+  - Integrated `CacheManager` utilizing `just_storage` and `just_database`.
+  - Added `cachePolygonShape` and `getCachedPolygonShape` routines to persist heavy math computations across sessions.
+
+---
+
+## [1.0.1] - 2026-02-24
 ### Fixed
 
 - **Audio Engine**
@@ -239,18 +262,10 @@ All notable changes to the Just Game Engine will be documented in this file.
 - Optimized rendering pipeline
 - Low memory footprint
 
-## [0.0.1] - 2026-02-15
-
-### Added
-
-- Initial project structure
-- Package scaffolding
-- Basic placeholder classes for all 8 subsystems
-
 ---
 
 ## Version History
 
+- **1.1.0** - Complete Physics Engine overhaul (Rigid Body Dynamics, SAT Shapes, Spatial Grid, and Impulse Resolution)
 - **1.0.1** - Bug fix for audio asset path and license update to BSD-3-Clause
 - **1.0.0** - Full production release with all core features
-- **0.0.1** - Initial project setup
