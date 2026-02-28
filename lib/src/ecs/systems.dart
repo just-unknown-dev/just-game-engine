@@ -86,7 +86,7 @@ class LifetimeSystem extends System {
 }
 
 /// Physics system - Handles physics simulation for ECS entities
-class PhysicsSystemECS extends System {
+class PhysicsSystem extends System {
   /// Gravity
   Offset gravity = const Offset(0, 0);
 

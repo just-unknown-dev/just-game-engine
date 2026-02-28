@@ -934,7 +934,7 @@ final world = engine.world;
 // Add systems
 world.addSystem(MovementSystem());
 world.addSystem(RenderSystem());
-world.addSystem(PhysicsSystemECS()..gravity = const Offset(0, 100));
+world.addSystem(PhysicsSystem()..gravity = const Offset(0, 100));
 
 // Create entity
 final player = world.createEntity(name: 'Player');
@@ -1152,7 +1152,7 @@ Base class for systems that process entities with specific components.
 - Requires: `TransformComponent`, `RenderableComponent`
 - Syncs transforms and renders entities
 
-**PhysicsSystemECS**
+**PhysicsSystem**
 - Requires: `TransformComponent`, `VelocityComponent`, `PhysicsBodyComponent`
 - Handles gravity, drag, collision detection and resolution
 - Properties: `Offset gravity`, `bool enableCollisions`
@@ -1249,7 +1249,7 @@ void setupGame(Engine engine) {
   
   // Add systems in order
   world.addSystem(MovementSystem());
-  world.addSystem(PhysicsSystemECS()..gravity = const Offset(0, 200));
+  world.addSystem(PhysicsSystem()..gravity = const Offset(0, 200));
   world.addSystem(BoundarySystem(
     bounds: const Rect.fromLTWH(-400, -300, 800, 600),
     behavior: BoundaryBehavior.bounce,

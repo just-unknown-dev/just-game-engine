@@ -26,7 +26,7 @@ void setupECSExample(Engine engine) {
   // Add systems
   world.addSystem(MovementSystem());
   world.addSystem(RenderSystem());
-  world.addSystem(PhysicsSystemECS()..gravity = const Offset(0, 100));
+  world.addSystem(PhysicsSystem()..gravity = const Offset(0, 100));
   world.addSystem(
     BoundarySystem(
       bounds: const Rect.fromLTWH(-400, -300, 800, 600),
