@@ -1,13 +1,13 @@
 /// Built-in Components
 ///
 /// Common component types that work with the engine's subsystems.
-/// These provide data for position, rendering, physics, etc.
 library;
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'ecs.dart';
 import '../rendering/renderable.dart';
+import '../physics/physics_engine.dart';
 
 /// Transform component - Position, rotation, and scale
 class TransformComponent extends Component {
@@ -89,8 +89,8 @@ class RenderableComponent extends Component {
 
 /// Physics body component - Collision and physics properties
 class PhysicsBodyComponent extends Component {
-  /// Collision radius
-  double radius;
+  /// The physical shape used for collision detection
+  CollisionShape shape;
 
   /// Mass
   double mass;
@@ -112,7 +112,7 @@ class PhysicsBodyComponent extends Component {
 
   /// Create a physics body component
   PhysicsBodyComponent({
-    required this.radius,
+    required this.shape,
     this.mass = 1.0,
     this.restitution = 0.8,
     this.drag = 0.98,
@@ -127,7 +127,8 @@ class PhysicsBodyComponent extends Component {
   }
 
   @override
-  String toString() => 'PhysicsBody(r: $radius, m: $mass, static: $isStatic)';
+  String toString() =>
+      'PhysicsBody(shape: $shape, m: $mass, static: $isStatic)';
 }
 
 /// Tag component - Simple marker component
