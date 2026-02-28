@@ -578,9 +578,9 @@ class PolygonShape extends CollisionShape {
       final normal = axis / distance; // normalize
 
       final overlap = _getOverlapOnAxis(polyA, posA, polyB, posB, normal);
-      if (overlap == null)
+      if (overlap == null) {
         return CollisionManifold.empty(); // Separating axis found
-
+      }
       if (overlap < minPenetration) {
         minPenetration = overlap;
         bestNormal = normal;
@@ -597,9 +597,9 @@ class PolygonShape extends CollisionShape {
       final normal = axis / distance; // normalize
 
       final overlap = _getOverlapOnAxis(polyA, posA, polyB, posB, normal);
-      if (overlap == null)
+      if (overlap == null) {
         return CollisionManifold.empty(); // Separating axis found
-
+      }
       if (overlap < minPenetration) {
         minPenetration = overlap;
         bestNormal = normal;
