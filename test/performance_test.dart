@@ -377,7 +377,7 @@ void main() {
       // Add systems
       engine.world.addSystem(MovementSystem());
       engine.world.addSystem(RenderSystem());
-      engine.world.addSystem(PhysicsSystemECS());
+      engine.world.addSystem(PhysicsSystem());
 
       // Create 500 entities with components
       for (int i = 0; i < 500; i++) {

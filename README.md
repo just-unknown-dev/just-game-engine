@@ -274,7 +274,7 @@ final world = engine.world;
 // Add systems
 world.addSystem(MovementSystem());
 world.addSystem(RenderSystem());
-world.addSystem(PhysicsSystemECS()..gravity = const Offset(0, 100));
+world.addSystem(PhysicsSystem()..gravity = const Offset(0, 100));
 
 // Create an entity
 final player = world.createEntity(name: 'Player');
@@ -533,7 +533,7 @@ Just Game Engine
 │   └── Built-in Systems:
 │       ├── MovementSystem
 │       ├── RenderSystem
-│       ├── PhysicsSystemECS
+│       ├── PhysicsSystem
 │       └── 6 more...
 ├── Input Management
 │   ├── InputManager (Main coordinator)
@@ -624,7 +624,7 @@ Check out the `example/` folder for complete examples:
 - `Component` - Base class for data components
 - `System` - Base class for processing systems
 - **Built-in Components**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `PhysicsBodyComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `AnimationStateComponent`, `SpriteComponent`
-- **Built-in Systems**: `MovementSystem`, `RenderSystem`, `PhysicsSystemECS`, `LifetimeSystem`, `HierarchySystem`, `HealthSystem`, `AnimationSystemECS`, `BoundarySystem`
+- **Built-in Systems**: `MovementSystem`, `RenderSystem`, `PhysicsSystem`, `LifetimeSystem`, `HierarchySystem`, `HealthSystem`, `AnimationSystemECS`, `BoundarySystem`
 
 ### Input Classes
 

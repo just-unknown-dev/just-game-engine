@@ -140,7 +140,7 @@ All notable changes to the Just Game Engine will be documented in this file.
     - `MovementSystem` - Applies velocity to transform with max speed clamping
     - `RenderSystem` - Renders entities with transform sync
     - `LifetimeSystem` - Updates lifetime and destroys expired entities
-    - `PhysicsSystemECS` - Full physics with gravity, drag, collision detection/resolution, layer-based filtering
+    - `PhysicsSystem` - Full physics with gravity, drag, collision detection/resolution, layer-based filtering
     - `HierarchySystem` - Propagates parent transforms to children
     - `HealthSystem` - Health regeneration and death handling
     - `AnimationSystemECS` - Animation time updates
