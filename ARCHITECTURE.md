@@ -1,7 +1,7 @@
 # Just Game Engine - Architectural and Design Blueprints
 
-> **Version:** 1.0.1  
-> **Date:** February 28, 2026  
+> **Version:** 1.1.1  
+> **Date:** March 7, 2026  
 > **Scope:** `packages/just_game_engine` — a 2D Flutter game engine
 
 ---
@@ -20,6 +20,7 @@
 10. [Animation System](#10-animation-system)
 11. [Asset Management](#11-asset-management)
 12. [Scene Graph & Editor](#12-scene-graph--editor)
+13. [Reactive ECS Layer](#13-reactive-ecs-layer)
 14. [Design Patterns Reference](#14-design-patterns-reference)
 15. [Known Gaps & Future Work](#15-known-gaps--future-work)
 
@@ -54,6 +55,7 @@ packages/just_game_engine/
 │       ├── animation/                 ← AnimationSystem, Tweens, Easings
 │       ├── assets/                    ← AssetManager, Asset types
 │       ├── ecs/                       ← World, Entity, Component, System, built-ins
+│       ├── reactive/                  ← ComponentSignal, EntitySignal, WorldSignal, ReactiveSystem, ReactiveComponent
 │       ├── editor/                    ← SceneEditor, Scene, SceneNode
 │       └── networking/                ← NetworkManager (Upcoming)
 ├── example/
@@ -75,15 +77,15 @@ The engine is organized into **six horizontal layers**, each depending only on t
                                │  vsync ticks · key/pointer events
 ┌──────────────────────────────▼──────────────────────────────────────────┐
 │                         Engine Core Layer                               │
-│    Engine (singleton FSM) ─ GameLoop ─ TimeManager ─ SystemManager     │
-└───┬──────┬───────┬──────────┬────────┬──────────────┬───────┬──────────┘
+│    Engine (singleton FSM) ─ GameLoop ─ TimeManager ─ SystemManager      │
+└───┬──────┬───────┬──────────┬────────┬──────────────┬───────┬───────────┘
     │      │       │          │        │              │       │
 ┌───▼──┐ ┌─▼────┐ ┌▼──────┐ ┌▼─────┐ ┌▼──────────┐ ┌▼─────┐ ┌▼─────────┐
 │Render│ │Physic│ │Input  │ │Audio │ │ Animation │ │Asset │ │ Network  │
 │Engine│ │Engine│ │Manager│ │Engine│ │ System    │ │Manag.│ │ Manager  │
 └───┬──┘ └──────┘ └───────┘ └──────┘ └───────────┘ └──┬───┘ └──────────┘
     │                                                   │
-┌───▼───────────────────────────────────────────────────▼────────────────┐
+┌───▼───────────────────────────────────────────────────▼─────────────────┐
 │                       ECS World Layer                                   │
 │  World ─ Entity ─ Component bag ─ System (priority-ordered dispatch)    │
 └──────────────────────────┬──────────────────────────────────────────────┘
@@ -1088,7 +1090,110 @@ This means detaching a node and re-attaching it to a different parent will immed
 
 ---
 
-## 13. Design Patterns Reference
+## 13. Reactive ECS Layer
+
+The `src/reactive/` directory provides signal-driven wrappers around the ECS primitives, powered by the `just_signals` package. This layer is entirely optional — the core ECS works without it — but enables Flutter widgets to rebuild surgically when specific component properties change rather than polling the world every frame.
+
+### 13.1 Class Inventory
+
+| Class | File | Role |
+|---|---|---|
+| `ComponentSignal<C, T>` | `component_signal.dart` | Typed `Signal` that binds to a single component property via getter/setter pair |
+| `EntitySignal` | `entity_signal.dart` | Lazy per-component `Signal<T?>` accessors + active-state signal for one entity |
+| `WorldSignal` | `world_signal.dart` | Entity/system count signals + reactive entity list; wraps a `World` |
+| `ReactiveSystem` | `reactive_system.dart` | Abstract `System` subclass; only processes dirty entities (change-tracked set) |
+| `ReactiveComponent` | `reactive_component.dart` | Mixin for `Component`; adds `propertySignal<T>()`, `notifyChange()`, `batchChanges()` |
+
+### 13.2 Class Diagram
+
+```
+just_signals
+  Signal<T> ◄─────────────────────────────────────────────────────┐
+                                                                    │
+packages/just_game_engine/lib/src/reactive/                        │
+  ComponentSignal<C, T>  extends Signal<T>   ──────────────────────┘
+  │  - _component : C
+  │  - _getter    : T Function(C)
+  │  - _setter    : void Function(C, T)
+  │
+  EntitySignal
+  │  - _entity           : Entity
+  │  - _componentSignals : Map<Type, Signal<Component?>>
+  │  - _activeSignal     : Signal<bool>
+  │  + component<T>()    → Signal<T?>
+  │  + watch<T>(handler) → void
+  │
+  WorldSignal
+  │  - _world            : World
+  │  - _entityCount      : Signal<int>
+  │  - _systemCount      : Signal<int>
+  │  - _entitiesSignal   : Signal<List<Entity>>
+  │  - _entitySignals    : Map<EntityId, EntitySignal>
+  │  + entity(id)        → EntitySignal
+  │  + refresh()         → void
+  │
+  ReactiveSystem  extends System
+  │  - _dirtyEntities    : Set<EntityId>
+  │  + markDirty(entity) : void
+  │  + processEntity(entity, dt) abstract
+  │
+  ReactiveComponent  mixin on Component
+     - _propertySignals  : Map<String, Signal<dynamic>>
+     + propertySignal<T>(name, initial) → Signal<T>
+     + notifyChange(propertyName)       → void
+     + batchChanges(fn)                 → void
+```
+
+### 13.3 Data Flow
+
+```
+[Game loop update()]
+        │
+        │  System.update() sets component property
+        ▼
+  ReactiveComponent.notifyChange('position')
+        │
+        │  Signal.forceSet() notifies all subscribers
+        ▼
+  Signal observers (Effects / SignalBuilders in Flutter widget tree)
+        │
+        │  Flutter marks affected widgets dirty
+        ▼
+  Widget.build() runs only for affected subtree   ← surgical rebuild
+```
+
+### 13.4 Usage Snapshot
+
+```dart
+// Wrap a component property
+final posX = ComponentSignal<TransformComponent, double>(
+  player.getComponent<TransformComponent>()!,
+  getter: (c) => c.position.dx,
+  setter: (c, v) => c.position = Offset(v, c.position.dy),
+);
+
+// Observe world entity count in a widget
+SignalBuilder(
+  signal: WorldSignal(world).entityCount,
+  builder: (_, count, __) => Text('$count entities'),
+);
+
+// Dirty-only processing
+class HealthFlashSystem extends ReactiveSystem {
+  @override
+  List<Type> get requiredComponents => [HealthComponent, RenderableComponent];
+
+  @override
+  void processEntity(Entity e, double dt) {
+    final hp = e.getComponent<HealthComponent>()!;
+    e.getComponent<RenderableComponent>()!.opacity = hp.health < 20 ? 0.5 : 1.0;
+  }
+}
+```
+
+---
+
+## 14. Design Patterns Reference
 
 | Pattern | Implementation Location | Description |
 |---|---|---|
@@ -1107,7 +1212,7 @@ This means detaching a node and re-attaching it to a different parent will immed
 
 ---
 
-## 14. Known Gaps & Future Work
+## 15. Known Gaps & Future Work
 
 | Area | Status | Notes |
 |---|---|---|
@@ -1124,4 +1229,4 @@ This means detaching a node and re-attaching it to a different parent will immed
 
 ---
 
-*Document generated from source analysis of `packages/just_game_engine` v1.0.1*
+*Document generated from source analysis of `packages/just_game_engine` v1.1.1*

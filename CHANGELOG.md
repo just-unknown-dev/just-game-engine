@@ -2,6 +2,11 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [1.1.1] - 2026-03-07
+
+- Homepage URL updated in `pubspec.yaml`.
+- Added reactive ECS components and signals for improved state management.
+
 ## [1.1.0] - 2026-03-01
 
 ### Added - Advanced Physics Engine
