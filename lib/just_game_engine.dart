@@ -56,3 +56,10 @@ export 'src/ecs/systems.dart';
 
 // Cache Management - Storage and caching architecture
 export 'src/cache/cache_manager.dart';
+
+// Reactive ECS - Signal-driven wrappers for ECS types (requires just_signals)
+export 'src/reactive/component_signal.dart';
+export 'src/reactive/entity_signal.dart';
+export 'src/reactive/world_signal.dart';
+export 'src/reactive/reactive_system.dart';
+export 'src/reactive/reactive_component.dart';
