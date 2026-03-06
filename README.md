@@ -73,6 +73,7 @@ Just Game Engine is a complete game development framework with 11 major subsyste
 - **Query System**: Find entities by component types
 - **World Management**: Centralized entity and system coordination
 - **Hierarchy Support**: Parent-child entity relationships
+- **Reactive ECS** (`src/reactive/`): Signal-driven wrappers powered by `just_signals` — `ComponentSignal`, `EntitySignal`, `WorldSignal`, `ReactiveSystem`, and `ReactiveComponent` enable surgical UI updates without polling
 
 ### � Input Management
 - **Keyboard Input**: Key press, hold, and release detection with axis support
@@ -324,6 +325,70 @@ for (final entity in movingEntities) {
 final enemy = world.findEntityByName('Enemy');
 if (enemy != null) {
   enemy.getComponent<HealthComponent>()?.damage(10);
+}
+```
+
+### Using Reactive ECS with Signals
+
+The `src/reactive/` layer wraps ECS types with `just_signals` primitives so Flutter
+widgets can rebuild surgically when game state changes — no polling, no full-tree
+rebuilds.
+
+```dart
+import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_signals/just_signals.dart';
+
+// 1. Wrap a component property in a ComponentSignal
+final transform = player.getComponent<TransformComponent>()!;
+final posX = ComponentSignal<TransformComponent, double>(
+  transform,
+  getter: (c) => c.position.dx,
+  setter: (c, v) => c.position = Offset(v, c.position.dy),
+);
+
+posX.value = 150; // Updates the component AND notifies all signal observers
+
+// 2. Track entity-level changes with EntitySignal
+final entitySignal = EntitySignal(player);
+entitySignal.watch<HealthComponent>((health) {
+  print('Health is now: ${health?.health}');
+});
+
+// 3. Observe world-level counts with WorldSignal
+final worldSignal = WorldSignal(world);
+
+SignalBuilder(
+  signal: worldSignal.entityCount,
+  builder: (_, count, __) => Text('Active entities: $count'),
+);
+
+// 4. Dirty-only processing with ReactiveSystem
+class DamageFlashSystem extends ReactiveSystem {
+  @override
+  List<Type> get requiredComponents => [RenderableComponent, HealthComponent];
+
+  @override
+  void processEntity(Entity entity, double deltaTime) {
+    // Called only when this entity was marked dirty this frame
+    final health = entity.getComponent<HealthComponent>()!;
+    final renderable = entity.getComponent<RenderableComponent>()!;
+    renderable.opacity = health.health < 20 ? 0.5 : 1.0;
+  }
+}
+
+// 5. Reactive components via the ReactiveComponent mixin
+class EnemyComponent extends Component with ReactiveComponent {
+  double _armor = 10;
+
+  double get armor => _armor;
+  set armor(double v) {
+    if (_armor != v) {
+      _armor = v;
+      notifyChange('armor');
+    }
+  }
+
+  Signal<double> get armorSignal => propertySignal('armor', _armor);
 }
 ```
 
