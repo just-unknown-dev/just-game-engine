@@ -1,6 +1,6 @@
 name: just_game_engine
 description: "A 2D game engine for Flutter."
-version: 1.1.0
+version: 1.1.1
 homepage: https://github.com/just-unknown-dev/just-game-engine
 repository: https://github.com/just-unknown-dev/just-game-engine
 issue_tracker: https://github.com/just-unknown-dev/just-game-engine/issues
@@ -15,6 +15,7 @@ dependencies:
   audioplayers: ^6.1.0
   just_storage: ^1.0.0
   just_database: ^1.1.0
+  just_signals: ^1.0.1
 
 dev_dependencies:
   flutter_test:
