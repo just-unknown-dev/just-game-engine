@@ -52,11 +52,11 @@ Just Game Engine is a complete game development framework with 11 major subsyste
 - **Custom Particles**: Create your own particle systems
 
 ### ⚛️ Physics Engine
-- **Rigid Body Dynamics**: Position, velocity, mass, and drag simulation
-- **Collision Detection**: Circular collision detection
-- **Collision Resolution**: Elastic collisions with restitution
-- **Debug Rendering**: Visualize physics bodies and velocity vectors
-- **Performance**: Optimized broad-phase and narrow-phase collision detection
+- **Rigid Body Dynamics**: Semi-implicit Euler integration for reliable mass, drag, torque, and inertia simulation
+- **Advanced Collision Shapes**: Circles, Rectangles, and arbitrary complex Polygons via SAT calculation
+- **True Impulse Resolution**: Elastic collisions resolving linear constraints and Coulomb surface friction
+- **Broad-Phase Optimization**: Performant $O(n)$ Spatial Grid queries with Object Sleeping features
+- **Physics Caching**: Triangulation and expensive geometry processing can be reliably disk-cached
 
 ### 🌳 Scene Graph
 - **Hierarchical Structure**: Parent-child node relationships
@@ -73,6 +73,7 @@ Just Game Engine is a complete game development framework with 11 major subsyste
 - **Query System**: Find entities by component types
 - **World Management**: Centralized entity and system coordination
 - **Hierarchy Support**: Parent-child entity relationships
+- **Reactive ECS** (`src/reactive/`): Signal-driven wrappers powered by `just_signals` — `ComponentSignal`, `EntitySignal`, `WorldSignal`, `ReactiveSystem`, and `ReactiveComponent` enable surgical UI updates without polling
 
 ### � Input Management
 - **Keyboard Input**: Key press, hold, and release detection with axis support
@@ -100,7 +101,21 @@ Just Game Engine is a complete game development framework with 11 major subsyste
   - **Caching**: Automatic asset caching with memory usage statistics
   - **Asset Bundles**: Group multiple assets for batch loading/unloading
 
-- **Networking**: Multiplayer and server communication (placeholder)
+- **Networking**: Multiplayer and server communication (Not Implemented Yet)
+
+## Just Game Engine vs. Flame Engine
+
+While [Flame](https://flame-engine.org/) is the most popular 2D game engine for Flutter, Just Game Engine takes a different architectural approach tailored for developers who want more explicit control over their game loop, physics, and state. 
+
+| Feature | Just Game Engine | Flame Engine |
+| :--- | :--- | :--- |
+| **Architecture** | Pure Entity-Component-System (ECS) combined with a flexible Scene Graph. | Component-based system (FCS), heavily relying on OOP inheritance. |
+| **Game Loop** | True Fixed-Timestep update loop preventing physics "spiral of death". | Variable delta-time loop natively. |
+| **Physics** | Custom-built, lightweight impulse-based 2D physics with SAT. | Wraps the mature (but heavier) Box2D / Forge2D engine. |
+| **Performance** | Highly optimized for 2D with $O(n)$ Spatial Grid physics broadcast, zero-allocation game loops, and direct `dart:ui` Canvas draws. Predictable execution due to fixed-timestep. | Solid general performance, but heavy component trees or Forge2D physics can introduce overhead and GC pressure. Natively relies on variable delta-time. |
+| **Input Handling** | Unified polling system (`input.keyboard.isKeyDown()`) handled in the update loop. | Event-driven callbacks via Mixins (`KeyboardEvents`, etc.). |
+| **Dependencies** | Extremely lightweight; relies primarily on raw `dart:ui` Canvas operations. | Modular but large ecosystem pulling in numerous external dependencies. |
+| **Learning Curve** | Explicit, linear data flows. Excellent for fully understanding engine internals. | Massive community, but highly opinionated and sometimes "magical". |
 
 ## Getting Started
 
@@ -274,7 +289,7 @@ final world = engine.world;
 // Add systems
 world.addSystem(MovementSystem());
 world.addSystem(RenderSystem());
-world.addSystem(PhysicsSystemECS()..gravity = const Offset(0, 100));
+world.addSystem(PhysicsSystem()..gravity = const Offset(0, 100));
 
 // Create an entity
 final player = world.createEntity(name: 'Player');
@@ -313,6 +328,70 @@ if (enemy != null) {
 }
 ```
 
+### Using Reactive ECS with Signals
+
+The `src/reactive/` layer wraps ECS types with `just_signals` primitives so Flutter
+widgets can rebuild surgically when game state changes — no polling, no full-tree
+rebuilds.
+
+```dart
+import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_signals/just_signals.dart';
+
+// 1. Wrap a component property in a ComponentSignal
+final transform = player.getComponent<TransformComponent>()!;
+final posX = ComponentSignal<TransformComponent, double>(
+  transform,
+  getter: (c) => c.position.dx,
+  setter: (c, v) => c.position = Offset(v, c.position.dy),
+);
+
+posX.value = 150; // Updates the component AND notifies all signal observers
+
+// 2. Track entity-level changes with EntitySignal
+final entitySignal = EntitySignal(player);
+entitySignal.watch<HealthComponent>((health) {
+  print('Health is now: ${health?.health}');
+});
+
+// 3. Observe world-level counts with WorldSignal
+final worldSignal = WorldSignal(world);
+
+SignalBuilder(
+  signal: worldSignal.entityCount,
+  builder: (_, count, __) => Text('Active entities: $count'),
+);
+
+// 4. Dirty-only processing with ReactiveSystem
+class DamageFlashSystem extends ReactiveSystem {
+  @override
+  List<Type> get requiredComponents => [RenderableComponent, HealthComponent];
+
+  @override
+  void processEntity(Entity entity, double deltaTime) {
+    // Called only when this entity was marked dirty this frame
+    final health = entity.getComponent<HealthComponent>()!;
+    final renderable = entity.getComponent<RenderableComponent>()!;
+    renderable.opacity = health.health < 20 ? 0.5 : 1.0;
+  }
+}
+
+// 5. Reactive components via the ReactiveComponent mixin
+class EnemyComponent extends Component with ReactiveComponent {
+  double _armor = 10;
+
+  double get armor => _armor;
+  set armor(double v) {
+    if (_armor != v) {
+      _armor = v;
+      notifyChange('armor');
+    }
+  }
+
+  Signal<double> get armorSignal => propertySignal('armor', _armor);
+}
+```
+
 ### Physics Simulation
 
 ```dart
@@ -320,9 +399,10 @@ if (enemy != null) {
 final body1 = PhysicsBody(
   position: Offset(-100, 0),
   velocity: Offset(50, 0),
-  radius: 30,
+  shape: CircleShape(30),
   mass: 1.0,
   restitution: 0.8,
+  friction: 0.2,
 );
 
 engine.physics.addBody(body1);
@@ -533,7 +613,7 @@ Just Game Engine
 │   └── Built-in Systems:
 │       ├── MovementSystem
 │       ├── RenderSystem
-│       ├── PhysicsSystemECS
+│       ├── PhysicsSystem
 │       └── 6 more...
 ├── Input Management
 │   ├── InputManager (Main coordinator)
@@ -556,7 +636,7 @@ Just Game Engine
 │   ├── MusicManager (Background music)
 │   └── AudioMixer (Volume control)
 └── Additional Systems
-    └── Networking (Placeholder)
+    └── Networking (Not Implemented)
 ```
 
 ## Performance Tips
@@ -624,7 +704,7 @@ Check out the `example/` folder for complete examples:
 - `Component` - Base class for data components
 - `System` - Base class for processing systems
 - **Built-in Components**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `PhysicsBodyComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `AnimationStateComponent`, `SpriteComponent`
-- **Built-in Systems**: `MovementSystem`, `RenderSystem`, `PhysicsSystemECS`, `LifetimeSystem`, `HierarchySystem`, `HealthSystem`, `AnimationSystemECS`, `BoundarySystem`
+- **Built-in Systems**: `MovementSystem`, `RenderSystem`, `PhysicsSystem`, `LifetimeSystem`, `HierarchySystem`, `HealthSystem`, `AnimationSystemECS`, `BoundarySystem`
 
 ### Input Classes
 
@@ -671,10 +751,6 @@ Contributions are welcome! This engine is in active development.
 ## License
 
 This project is licensed under the BSD-3-Clause License - see the LICENSE file for details.
-
-## Authors
-
-- **Just Unknown** - Initial work
 
 ## Acknowledgments
 

@@ -210,7 +210,7 @@ void main() {
               (i % 2 == 0 ? 1 : -1) * 50.0,
               (i % 3 == 0 ? 1 : -1) * 30.0,
             ),
-            radius: 15,
+            shape: CircleShape(15),
             mass: 1.0,
           ),
         );
@@ -244,7 +244,7 @@ void main() {
             PhysicsBody(
               position: Offset(i * 40.0, j * 40.0),
               velocity: Offset.zero,
-              radius: 15,
+              shape: CircleShape(15),
             ),
           );
         }
@@ -377,7 +377,7 @@ void main() {
       // Add systems
       engine.world.addSystem(MovementSystem());
       engine.world.addSystem(RenderSystem());
-      engine.world.addSystem(PhysicsSystemECS());
+      engine.world.addSystem(PhysicsSystem());
 
       // Create 500 entities with components
       for (int i = 0; i < 500; i++) {
@@ -466,7 +466,7 @@ void main() {
               (i % 2 == 0 ? 1 : -1) * 50.0,
               (i % 3 == 0 ? 1 : -1) * 30.0,
             ),
-            radius: 15,
+            shape: CircleShape(15),
           ),
         );
       }
