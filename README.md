@@ -87,10 +87,10 @@ Just Game Engine is a complete game development framework with 11 major subsyste
 ### 🎵 Additional Systems
 - **Audio Engine**: Complete audio playback system with multi-channel mixing
   - **Multi-Channel**: Master, Music, SFX, Voice, and Ambient channels with independent volume control
-  - **Sound Effects**: Player pooling (10 concurrent SFX) with automatic cleanup
+  - **Sound Effects**: Unlimited concurrent SFX via SoLoud's native voice management with automatic cleanup
   - **Music**: Background music with fade in/out effects and seamless looping
   - **Audio Mixer**: Per-channel volume control, mute/unmute, and master volume
-  - **Integration**: Built on audioplayers package for cross-platform support
+  - **Integration**: Built on `flutter_soloud` (SoLoud C++ engine) for low-latency, game-grade audio
 
 - **Asset Management**: Efficient loading and caching of game resources
   - **Image Assets**: Load PNG/JPG images with memory tracking
@@ -742,7 +742,7 @@ Check out the `example/` folder for complete examples:
 
 - **Flutter SDK**: 3.11.0 or higher
 - **Dart SDK**: 3.0.0 or higher
-- **audioplayers**: ^6.1.0 (for Audio Engine)
+- **flutter_soloud**: ^3.5.0 (for Audio Engine — low-latency game audio via SoLoud C++ engine)
 
 ## Contributing
 
