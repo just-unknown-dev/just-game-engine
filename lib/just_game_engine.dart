@@ -27,9 +27,13 @@ export 'src/rendering/sprite.dart';
 export 'src/rendering/particles.dart';
 export 'src/rendering/camera.dart';
 export 'src/rendering/game_widget.dart';
+export 'src/rendering/ray_renderable.dart'; // Beam / laser / bullet-trail visuals
 
 // Physics Engine - Movement, gravity, and collision
 export 'src/physics/physics_engine.dart';
+
+// Ray Casting & Ray Tracing - Hitscan, LOS, multi-bounce tracing
+export 'src/physics/ray_casting.dart';
 
 // Input Management - Keyboard, mouse, controller, and touch input
 export 'src/input/input_management.dart';
