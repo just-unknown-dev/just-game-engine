@@ -64,9 +64,9 @@ Performance benchmarks to ensure the engine meets frame rate targets.
 **Test Count:** 17 benchmarks (15 performance + 2 scalability tests)
 
 **Known Limitations:**
-- ⚠️ Audio plugin (audioplayers) may cause `MissingPluginException` in test environment
-- This is expected behavior - audio requires native platform implementations unavailable during unit testing
-- Tests handle this gracefully with try-catch blocks
+- ⚠️ Audio plugin (`flutter_soloud`) requires native platform libraries unavailable in the unit test environment
+- This is expected behavior — SoLoud initialises via FFI which is not available during unit testing
+- Tests handle this gracefully with try-catch blocks and the `isInitialized` guard in `AudioEngine`
 - Audio functionality works correctly in actual applications
 
 **Run Command:**
@@ -179,7 +179,7 @@ genhtml coverage/lcov.info -o coverage/html
 
 1. ✅ **RESOLVED - Audio Engine Tests**: Flutter bindings initialization added (`TestWidgetsFlutterBinding.ensureInitialized()`)
 2. ✅ **RESOLVED - API Consistency**: All API mismatches in test files have been fixed
-3. ⚠️ **Audio Plugin Limitation**: The `audioplayers` package requires native platform implementations that are not available in unit test environments. Tests may show `MissingPluginException` warnings, which are expected and handled gracefully. Audio functionality works correctly in actual applications.
+3. ⚠️ **Audio Plugin Limitation**: The `flutter_soloud` package initialises a native C++ audio engine via FFI, which is not available in unit test environments. Tests may show initialisation errors or warnings, which are expected and handled gracefully via the `isInitialized` guard. Audio functionality works correctly in actual applications.
 4. 📊 **Performance Baseline**: Performance tests should be run on reference hardware to establish project-specific baselines
 
 ## Performance Benchmarks

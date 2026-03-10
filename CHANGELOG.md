@@ -2,6 +2,20 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [1.1.2] - 2026-03-08
+
+### Changed
+- **Audio Engine**: Replaced `audioplayers` with `flutter_soloud` (^3.5.0) as the audio backend.
+  - SoLoud is a low-latency, C++-based audio engine purpose-built for games.
+  - Removed the fixed-size `AudioPlayer` pool; SoLoud handles unlimited concurrent voices natively.
+  - `AudioClip` now holds an `AudioSource` + `SoundHandle` instead of an `AudioPlayer`.
+  - `AudioEngine.initialize()` is now `async` and calls `SoLoud.instance.init()`; the engine
+    properly `await`s it during startup so audio is guaranteed ready before any play calls.
+  - Added `isInitialized` guard in `initialize()` to be safe against duplicate init (e.g. hot restart).
+  - `playSfx()` and `playMusic()` return early with a debug message if called before initialization.
+  - Music fade-in/fade-out now delegates to `SoLoud.instance.fadeVolume()` instead of a manual step loop.
+  - `dispose()` calls `SoLoud.instance.deinit()` to fully shut down the engine.
+
 ## [1.1.1] - 2026-03-07
 
 - Homepage URL updated in `pubspec.yaml`.
@@ -208,11 +222,11 @@ All notable changes to the Just Game Engine will be documented in this file.
   - `AudioMixer` for volume and mute control
   - 5 audio channels: Master, Music, SFX, Voice, Ambient
   - Per-channel volume control with independent mute/unmute
-  - Sound effect pooling with 10 concurrent players
+  - Unlimited concurrent SFX via SoLoud's native voice management
   - Automatic cleanup of finished audio clips
   - Music fade in/out support (configurable duration)
   - Looping support for music and ambient sounds
-  - Built on `audioplayers` package (^6.1.0)
+  - Built on `audioplayers` package (^6.1.0) *(replaced by flutter_soloud in v1.1.2)*
   - Supports MP3, WAV, OGG, FLAC audio formats
   - State tracking (stopped, playing, paused)
   - Integration methods: `playSfx()`, `playMusic()`, `stopMusic()`, `setMasterVolume()`
@@ -251,7 +265,7 @@ All notable changes to the Just Game Engine will be documented in this file.
 - Minimum Flutter SDK: 3.11.0
 - Minimum Dart SDK: 3.0.0
 - External dependencies:
-  - `audioplayers: ^6.1.0` (for Audio Engine)
+  - `audioplayers: ^6.1.0` (for Audio Engine) *(replaced by flutter_soloud in v1.1.2)*
 - Singleton pattern for Engine
 - Observer pattern for lifecycle events
 - Component-based architecture

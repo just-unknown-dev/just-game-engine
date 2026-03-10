@@ -5,7 +5,7 @@
 library;
 
 import 'dart:async';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:flutter/foundation.dart';
 
 /// Audio channel types
@@ -19,78 +19,92 @@ class AudioClip {
   final String id;
   final String path;
   final AudioChannel channel;
-  final AudioPlayer player;
+  AudioSource? _source;
+  SoundHandle? _handle;
   AudioState state = AudioState.stopped;
   double volume = 1.0;
   bool loop = false;
 
-  AudioClip({
-    required this.id,
-    required this.path,
-    required this.channel,
-    required this.player,
-  });
+  AudioClip({required this.id, required this.path, required this.channel});
+
+  /// Returns the asset path with the 'assets/' prefix ensured.
+  String get _assetPath => path.startsWith('assets/') ? path : 'assets/$path';
 
   /// Play the audio clip
   Future<void> play() async {
-    // audioplayers' AudioCache prepends 'assets/' internally, so we must
-    // strip that prefix if the caller already included it to avoid
-    // 'assets/assets/...' lookups that fail at PlatformAssetBundle.load.
-    final assetPath = path.startsWith('assets/')
-        ? path.substring('assets/'.length)
-        : path;
-    await player.play(AssetSource(assetPath));
+    final soloud = SoLoud.instance;
+    _source ??= await soloud.loadAsset(_assetPath);
+    _handle = await soloud.play(_source!, volume: volume, looping: loop);
     state = AudioState.playing;
   }
 
   /// Pause the audio clip
   Future<void> pause() async {
-    await player.pause();
-    state = AudioState.paused;
+    if (_handle != null && SoLoud.instance.getIsValidVoiceHandle(_handle!)) {
+      SoLoud.instance.setPause(_handle!, true);
+      state = AudioState.paused;
+    }
   }
 
   /// Resume the audio clip
   Future<void> resume() async {
-    await player.resume();
-    state = AudioState.playing;
+    if (_handle != null && SoLoud.instance.getIsValidVoiceHandle(_handle!)) {
+      SoLoud.instance.setPause(_handle!, false);
+      state = AudioState.playing;
+    }
   }
 
   /// Stop the audio clip
   Future<void> stop() async {
-    await player.stop();
+    if (_handle != null && SoLoud.instance.getIsValidVoiceHandle(_handle!)) {
+      await SoLoud.instance.stop(_handle!);
+    }
+    _handle = null;
     state = AudioState.stopped;
   }
 
   /// Set volume (0.0 to 1.0)
   Future<void> setVolume(double vol) async {
     volume = vol.clamp(0.0, 1.0);
-    await player.setVolume(volume);
+    if (_handle != null && SoLoud.instance.getIsValidVoiceHandle(_handle!)) {
+      SoLoud.instance.setVolume(_handle!, volume);
+    }
   }
 
   /// Set looping
   Future<void> setLoop(bool shouldLoop) async {
     loop = shouldLoop;
-    await player.setReleaseMode(
-      shouldLoop ? ReleaseMode.loop : ReleaseMode.release,
-    );
+    if (_handle != null && SoLoud.instance.getIsValidVoiceHandle(_handle!)) {
+      SoLoud.instance.setLooping(_handle!, shouldLoop);
+    }
   }
+
+  /// Returns true when the underlying voice is still active.
+  bool get isPlaying =>
+      _handle != null && SoLoud.instance.getIsValidVoiceHandle(_handle!);
 
   /// Dispose the audio clip
   void dispose() {
-    player.dispose();
+    if (_handle != null && SoLoud.instance.getIsValidVoiceHandle(_handle!)) {
+      SoLoud.instance.stop(_handle!);
+    }
+    _handle = null;
+    if (_source != null) {
+      SoLoud.instance.disposeSource(_source!);
+      _source = null;
+    }
   }
 }
 
 /// Main audio engine class
 class AudioEngine {
-  /// Audio player pool for sound effects
-  final List<AudioPlayer> _sfxPool = [];
+  /// Cached audio sources keyed by normalised asset path (for SFX reuse)
+  final Map<String, AudioSource> _sfxSources = {};
 
-  /// Active audio clips
+  /// Active audio clips (tracked SFX)
   final Map<String, AudioClip> _activeClips = {};
 
-  /// Music player
-  AudioPlayer? _musicPlayer;
+  /// Current music clip
   AudioClip? _currentMusic;
 
   /// Volume levels for each channel
@@ -112,13 +126,11 @@ class AudioEngine {
   /// Stored so _updateAllVolumes can re-apply scaling without compounding.
   double _rawMusicVolume = 1.0;
 
-  /// SFX pool size
-  static const int _sfxPoolSize = 10;
-
   /// Initialize the audio engine
-  void initialize() {
-    // AudioPlayers are created lazily on first use to avoid platform-channel
-    // calls in environments where the plugin is not registered (e.g. tests).
+  Future<void> initialize() async {
+    if (!SoLoud.instance.isInitialized) {
+      await SoLoud.instance.init();
+    }
     debugPrint('Audio Engine initialized');
   }
 
@@ -128,35 +140,33 @@ class AudioEngine {
     double volume = 1.0,
     bool loop = false,
   }) async {
+    if (!SoLoud.instance.isInitialized) {
+      debugPrint('AudioEngine: cannot playSfx — engine not initialized');
+      return null;
+    }
     try {
-      // Get available player from pool
-      final player = _getAvailableSfxPlayer();
-      if (player == null) {
-        debugPrint('No available SFX player in pool');
-        return null;
-      }
+      final assetPath = path.startsWith('assets/') ? path : 'assets/$path';
 
-      final id = 'sfx_${DateTime.now().millisecondsSinceEpoch}';
-      final clip = AudioClip(
-        id: id,
-        path: path,
-        channel: AudioChannel.sfx,
-        player: player,
+      // Load (or reuse a cached) AudioSource for this path.
+      _sfxSources[assetPath] ??= await SoLoud.instance.loadAsset(assetPath);
+      final source = _sfxSources[assetPath]!;
+
+      final effectiveVolume = volume * _getEffectiveVolume(AudioChannel.sfx);
+      final handle = await SoLoud.instance.play(
+        source,
+        volume: effectiveVolume,
+        looping: loop,
       );
 
-      await clip.setVolume(volume * _getEffectiveVolume(AudioChannel.sfx));
-      await clip.setLoop(loop);
-      await clip.play();
+      final id = 'sfx_${DateTime.now().millisecondsSinceEpoch}';
+      final clip = AudioClip(id: id, path: path, channel: AudioChannel.sfx);
+      clip._source = source;
+      clip._handle = handle;
+      clip.volume = effectiveVolume;
+      clip.loop = loop;
+      clip.state = AudioState.playing;
 
       _activeClips[id] = clip;
-
-      // Auto-remove when complete (if not looping)
-      if (!loop) {
-        player.onPlayerComplete.listen((_) {
-          _activeClips.remove(id);
-        });
-      }
-
       return id;
     } catch (e) {
       debugPrint('Error playing SFX: $e');
@@ -172,13 +182,15 @@ class AudioEngine {
     bool fadeIn = false,
     Duration fadeDuration = const Duration(seconds: 2),
   }) async {
+    if (!SoLoud.instance.isInitialized) {
+      debugPrint('AudioEngine: cannot playMusic — engine not initialized');
+      return;
+    }
     try {
       // Stop current music if playing
       if (_currentMusic != null) {
         await stopMusic(fadeOut: true);
       }
-
-      _musicPlayer ??= AudioPlayer();
 
       // Store the raw volume so _updateAllVolumes can re-apply it correctly.
       _rawMusicVolume = volume;
@@ -187,9 +199,7 @@ class AudioEngine {
         id: 'music',
         path: path,
         channel: AudioChannel.music,
-        player: _musicPlayer!,
       );
-
       await clip.setLoop(loop);
 
       if (fadeIn) {
@@ -290,22 +300,6 @@ class AudioEngine {
     _updateAllVolumes();
   }
 
-  /// Get available SFX player from pool (creates players lazily up to pool limit)
-  AudioPlayer? _getAvailableSfxPlayer() {
-    for (final player in _sfxPool) {
-      if (player.state != PlayerState.playing) {
-        return player;
-      }
-    }
-    // Pool not full yet — create a new player lazily.
-    if (_sfxPool.length < _sfxPoolSize) {
-      final player = AudioPlayer();
-      _sfxPool.add(player);
-      return player;
-    }
-    return null;
-  }
-
   /// Calculate effective volume for a channel
   double _getEffectiveVolume(AudioChannel channel) {
     if (_isMuted) return 0.0;
@@ -317,45 +311,35 @@ class AudioEngine {
 
   /// Update all active clip volumes
   void _updateAllVolumes() {
-    // Use the stored raw music volume to avoid compounding the scaling factor
-    // on every call (which would silently drive the volume towards zero).
     if (_currentMusic != null) {
       _currentMusic!.setVolume(
         _rawMusicVolume * _getEffectiveVolume(AudioChannel.music),
       );
     }
 
-    // For SFX, volume is managed per-clip at play time; we only need to handle
-    // mute/unmute by zeroing or restoring via the effective-volume calculation.
     for (final clip in _activeClips.values) {
       clip.setVolume(clip.volume * (_isMuted ? 0.0 : 1.0));
     }
   }
 
-  /// Fade volume over duration
+  /// Fade volume over duration using SoLoud's native fade.
   Future<void> _fadeVolume(
     AudioClip clip,
     double targetVolume,
     Duration duration,
   ) async {
-    final steps = 20;
-    final stepDuration = duration.inMilliseconds ~/ steps;
-    final startVolume = clip.volume;
-    final volumeDelta = targetVolume - startVolume;
-
-    for (int i = 0; i <= steps; i++) {
-      final t = i / steps;
-      final volume = startVolume + (volumeDelta * t);
-      await clip.setVolume(volume);
-      await Future.delayed(Duration(milliseconds: stepDuration));
+    if (clip._handle != null &&
+        SoLoud.instance.getIsValidVoiceHandle(clip._handle!)) {
+      SoLoud.instance.fadeVolume(clip._handle!, targetVolume, duration);
+      await Future.delayed(duration);
+      clip.volume = targetVolume;
     }
   }
 
-  /// Update audio processing
+  /// Update audio processing — cleans up finished non-looping SFX.
   void update() {
-    // Clean up completed non-looping SFX
     _activeClips.removeWhere((key, clip) {
-      if (!clip.loop && clip.state == AudioState.stopped) {
+      if (!clip.loop && !clip.isPlaying) {
         return true;
       }
       return false;
@@ -364,24 +348,19 @@ class AudioEngine {
 
   /// Clean up audio resources
   void dispose() {
-    // Stop and dispose all active clips
     for (final clip in _activeClips.values) {
       clip.stop();
       clip.dispose();
     }
     _activeClips.clear();
 
-    // Dispose music
     _currentMusic?.stop();
-    _musicPlayer?.dispose();
-    _musicPlayer = null;
+    _currentMusic?.dispose();
+    _currentMusic = null;
 
-    // Dispose SFX pool
-    for (final player in _sfxPool) {
-      player.dispose();
-    }
-    _sfxPool.clear();
+    _sfxSources.clear();
 
+    SoLoud.instance.deinit();
     debugPrint('Audio Engine disposed');
   }
 }

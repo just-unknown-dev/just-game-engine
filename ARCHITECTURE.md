@@ -36,7 +36,7 @@
 | **Version** | `1.0.1` |
 | **Dart SDK** | `^3.11.0` |
 | **Flutter** | `>=1.17.0` |
-| **Runtime dependency** | `audioplayers: ^6.1.0` |
+| **Runtime dependency** | `flutter_soloud: ^3.5.0` |
 | **Dev dependencies** | `flutter_test`, `flutter_lints: ^6.0.0` |
 | **Repository** | https://github.com/just-unknown-dev/just-game-engine |
 
@@ -105,7 +105,7 @@ Engine
  ├─► RenderingEngine   uses  Camera, List<Renderable>, AssetManager (indirect)
  ├─► PhysicsEngine     standalone; mirrored by PhysicsSystem in World
  ├─► InputManager      aggregates Keyboard/Mouse/Touch/Controller
- ├─► AudioEngine       uses  audioplayers package
+ ├─► AudioEngine       uses  flutter_soloud (SoLoud C++ engine via FFI)
  ├─► AnimationSystem   uses  Renderable (to mutate properties)
  ├─► AssetManager      uses  Flutter rootBundle / dart:ui codec
  ├─► SceneEditor       uses  SceneNode → Renderable → RenderingEngine
@@ -821,42 +821,45 @@ InputManager
 ```
 AudioEngine
    │  Map<AudioChannel, double> _channelVolumes
-   │  Map<AudioChannel, bool>   _channelMuted
-   │  List<AudioPlayer> _sfxPool        (10 pre-created players)
-   │  AudioPlayer? _musicPlayer
-   │  Map<String, AudioClip> _activeClips
+   │  Map<String, AudioSource>  _sfxSources   (cached per asset path)
+   │  Map<String, AudioClip>    _activeClips
+   │  AudioClip? _currentMusic
    │
-   ├── playSfx(path, {volume, loop, channel})
-   │     └── acquire free slot from _sfxPool (round-robin)
-   │     └── AudioPlayer.play(AssetSource(path))
+   ├── initialize()    → await SoLoud.instance.init()
+   │
+   ├── playSfx(path, {volume, loop})
+   │     └── loadAsset(path) → AudioSource  (cached)
+   │     └── SoLoud.instance.play(source, volume, looping)
+   │     └── returns clip id string
    │
    ├── playMusic(path, {volume, loop, fadeIn})
-   │     └── _musicPlayer ??= AudioPlayer()
-   │     └── apply fadeIn tween if specified
+   │     └── loadAsset(path) → AudioSource
+   │     └── SoLoud.instance.play(source, looping: true)
+   │     └── SoLoud.instance.fadeVolume() for fade-in
    │
-   ├── stopMusic({fadeOut})
-   ├── pauseMusic() / resumeMusic()
+   ├── stopMusic({fadeOut})  → SoLoud.instance.fadeVolume() then stop()
+   ├── pauseMusic() / resumeMusic()  → SoLoud.instance.setPause()
    ├── setChannelVolume(channel, volume)   ← 0.0–1.0
-   ├── muteChannel(channel) / unmuteChannel(channel)
-   └── getMasterVolume() / setMasterVolume(v)
+   ├── mute() / unmute() / toggleMute()
+   └── setMasterVolume(v)
 ```
 
 ---
 
 ### 9.2 AudioClip
 
-Wraps an `audioplayers.AudioPlayer` instance. Returned by `playSfx()` / `playMusic()` for programmatic control.
+Holds an `AudioSource` (loaded asset) and a `SoundHandle` (active voice) from `flutter_soloud`. Returned by `playSfx()` / `playMusic()` for programmatic control.
 
 | Method | Description |
 |---|---|
-| `play()` | Start / restart playback |
-| `pause()` | Pause, retaining position |
-| `resume()` | Resume from paused position |
-| `stop()` | Stop and reset to beginning |
-| `setVolume(double v)` | Local volume [0–1]; multiplied by channel volume |
-| `setLoop(bool loop)` | Toggle looping |
-| `fadeIn(Duration d)` | Linearly ramp volume from 0 to `volume` over duration |
-| `fadeOut(Duration d)` | Linearly ramp volume to 0, then stop |
+| `play()` | Load asset (cached) and start a new voice via `SoLoud.instance.play()` |
+| `pause()` | `SoLoud.instance.setPause(handle, true)` |
+| `resume()` | `SoLoud.instance.setPause(handle, false)` |
+| `stop()` | `SoLoud.instance.stop(handle)` |
+| `setVolume(double v)` | Local volume [0–1]; `SoLoud.instance.setVolume(handle, v)` |
+| `setLoop(bool loop)` | `SoLoud.instance.setLooping(handle, loop)` |
+| `isPlaying` | `SoLoud.instance.getIsValidVoiceHandle(handle)` |
+| `dispose()` | Stops the voice and calls `SoLoud.instance.disposeSource()` |
 | `state` | `AudioState` enum: `stopped` \| `playing` \| `paused` |
 
 ---
@@ -1013,7 +1016,7 @@ AssetManager
 | Format | Asset Type | Notes |
 |---|---|---|
 | `.png`, `.jpg`, `.jpeg` | `ImageAsset` | Decoded to `dart:ui Image` via codec |
-| `.mp3`, `.wav`, `.ogg`, `.flac` | `AudioAsset` | Loaded as `Uint8List`; played via `audioplayers.AssetSource` |
+| `.mp3`, `.wav`, `.ogg`, `.flac` | `AudioAsset` | Loaded as `Uint8List`; played via `flutter_soloud` (`SoLoud.instance.loadAsset`) |
 | `.txt` | `TextAsset` | Raw UTF-8 string |
 | `.json` | `JsonAsset` | Auto-decoded with `dart:convert jsonDecode` |
 | `.*` (other) | `BinaryAsset` | Raw `Uint8List` |
@@ -1200,7 +1203,7 @@ class HealthFlashSystem extends ReactiveSystem {
 | **Singleton** | `Engine` | `Engine._instance` + factory constructor; `Engine.resetInstance()` for test isolation |
 | **Service Locator** | `SystemManager` | `getSystem<T>()` and `getSystemByName(String)` for runtime subsystem retrieval |
 | **Observer / Callback** | `InputManager`, `Animation` | `onKeyEvent`/`onPointerEvent` listener registration; `Animation.onComplete` callback |
-| **Object Pool** | `AudioEngine._sfxPool` | 10 pre-created `AudioPlayer` instances reused for concurrent SFX playback |
+| **Asset Cache** | `AudioEngine._sfxSources` | `AudioSource` objects cached per asset path; SoLoud handles concurrent voices natively without a fixed pool |
 | **Entity-Component-System** | `World`, `Entity`, `Component`, `System` | Data-oriented composition: entities are pure IDs; systems query components and apply logic |
 | **Template Method** | `Animation` | `update()` is concrete and calls abstract `updateAnimation()`, defined by each subclass |
 | **Strategy** | `TweenAnimation`, `Easings` | `Easing` typedef injected into tweens; any easing function can be swapped at construction |

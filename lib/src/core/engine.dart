@@ -150,7 +150,7 @@ class Engine implements ILifecycle {
     rendering.initialize();
     physics.initialize();
     input.initialize();
-    audio.initialize();
+    await audio.initialize();
     sceneEditor.initialize();
     animation.initialize();
     network.initialize();
