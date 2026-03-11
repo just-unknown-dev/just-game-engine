@@ -163,6 +163,71 @@ void setupPhysics(Engine engine) {
 }
 ```
 
+## Ray Casting
+
+Ray casting enables hit detection, line-of-sight checks, and laser/projectile effects.
+
+### Basic Ray Cast
+
+```dart
+void setupRayCasting(Engine engine) {
+  final world = engine.world;
+  
+  // Add the raycast system
+  final raycastSystem = RaycastSystem();
+  world.addSystem(raycastSystem);
+  
+  // Create a target entity with a raycast collider
+  final target = world.createEntity(name: 'Target');
+  target.addComponent(TransformComponent(position: const Offset(200, 0)));
+  target.addComponent(RaycastColliderComponent(
+    radius: 25.0,
+    tag: 'enemy',
+  ));
+  
+  // Cast a ray from the origin toward the right
+  final ray = Ray(
+    origin: Offset.zero,
+    direction: const Offset(1, 0),  // Right
+    maxDistance: 500,
+  );
+  
+  final hit = raycastSystem.castRay(ray, filterTag: 'enemy');
+  if (hit != null) {
+    print('Hit ${hit.entity.name} at ${hit.point}');
+  }
+}
+```
+
+### Line-of-Sight Check
+
+```dart
+// Check if two points have clear visibility
+if (raycastSystem.hasLineOfSight(playerPos, targetPos)) {
+  print('Target is visible!');
+}
+```
+
+### Visual Laser Effect
+
+```dart
+// Create a laser beam visual
+final beam = RayRenderable(
+  start: gunPosition,
+  end: hitPoint,
+  color: Colors.red,
+  width: 3.0,
+  lifetime: 0.2,  // Fades over 0.2 seconds
+);
+engine.rendering.addRenderable(beam);
+
+// In your update loop:
+beam.update(deltaTime);
+if (beam.isExpired) {
+  engine.rendering.removeRenderable(beam);
+}
+```
+
 ## Using the Entity-Component System (ECS)
 
 The ECS is a flexible architecture for composing game entities from reusable components. It's ideal for games with many similar objects.

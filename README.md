@@ -10,7 +10,7 @@ A comprehensive 2D game engine built for Flutter, providing everything you need 
 
 ## Features
 
-Just Game Engine is a complete game development framework with 11 major subsystems:
+Just Game Engine is a complete game development framework with 13 major subsystems:
 
 ### 🎮 Core Engine
 - **Game Loop**: Fixed timestep (60 UPS) with variable rendering for consistent gameplay
@@ -21,6 +21,7 @@ Just Game Engine is a complete game development framework with 11 major subsyste
 ### 🎨 Rendering Engine
 - **2D Canvas-Based Rendering**: High-performance drawing with Flutter's Canvas API
 - **Renderable Objects**: Circles, rectangles, lines, text, and custom renderables
+- **Ray Renderable**: Glowing beam/laser/bullet-trail visuals with automatic fade-out
 - **Camera System**: Pan, zoom, and rotation with smooth transforms
 - **Layer Management**: Z-order sorting for proper depth rendering
 - **Debug Visualization**: Bounding boxes, coordinate grids, and performance metrics
@@ -56,7 +57,14 @@ Just Game Engine is a complete game development framework with 11 major subsyste
 - **Advanced Collision Shapes**: Circles, Rectangles, and arbitrary complex Polygons via SAT calculation
 - **True Impulse Resolution**: Elastic collisions resolving linear constraints and Coulomb surface friction
 - **Broad-Phase Optimization**: Performant $O(n)$ Spatial Grid queries with Object Sleeping features
-- **Physics Caching**: Triangulation and expensive geometry processing can be reliably disk-cached
+- **Physics Caching**: Triangulation and expensive geometry processing can be reliably disk-cached via `CacheManager`
+
+### 🎯 Ray Casting System
+- **Ray Queries**: Cast rays to detect intersections with entities (`castRay`, `castRayAll`)
+- **Line-of-Sight**: Check visibility between two points with `hasLineOfSight()`
+- **Tag Filtering**: Filter ray hits by semantic tags (e.g., `'enemy'`, `'wall'`)
+- **Multi-Bounce Tracing**: `RayTracer` performs reflective ray traces with energy decay
+- **ECS Integration**: `RaycastColliderComponent` marks entities as hittable with configurable radius, blocking, and reflectivity
 
 ### 🌳 Scene Graph
 - **Hierarchical Structure**: Parent-child node relationships
@@ -68,12 +76,13 @@ Just Game Engine is a complete game development framework with 11 major subsyste
 ### 🧩 Entity-Component System (ECS)
 - **Data-Oriented Architecture**: Composition over inheritance for flexible entity design
 - **Entity Management**: Create and destroy entities with unique IDs
-- **Component System**: 13 built-in components (Transform, Velocity, Physics, Health, etc.)
-- **System Processing**: 9 built-in systems for movement, rendering, physics, and more
+- **Component System**: 14 built-in components (Transform, Velocity, Physics, Health, RaycastCollider, etc.)
+- **System Processing**: 10 built-in systems for movement, rendering, physics, raycasting, and more
 - **Query System**: Find entities by component types
 - **World Management**: Centralized entity and system coordination
-- **Hierarchy Support**: Parent-child entity relationships
-- **Reactive ECS** (`src/reactive/`): Signal-driven wrappers powered by `just_signals` — `ComponentSignal`, `EntitySignal`, `WorldSignal`, `ReactiveSystem`, and `ReactiveComponent` enable surgical UI updates without polling
+- **Hierarchy Support**: Parent-child entity relationships via `HierarchySystem`
+- **Boundary System**: Keep entities within bounds with clamp, bounce, wrap, or destroy behaviors
+- **Reactive ECS** (`src/reactive/`): Signal-driven wrappers powered by `just_signals` — `ComponentSignal`, `EntitySignal`, `WorldSignal`, `ReactiveSystem`, `ReactiveComponent`, and `TransformSignals` enable surgical UI updates without polling
 
 ### � Input Management
 - **Keyboard Input**: Key press, hold, and release detection with axis support
@@ -100,6 +109,11 @@ Just Game Engine is a complete game development framework with 11 major subsyste
   - **Binary Assets**: Load raw binary data for custom formats
   - **Caching**: Automatic asset caching with memory usage statistics
   - **Asset Bundles**: Group multiple assets for batch loading/unloading
+
+- **Cache Management**: Persistent storage for game data and physics calculations
+  - **Key-Value Storage**: Fast string/JSON caching via `just_storage`
+  - **Binary Storage**: Large data and asset caching via `just_database`
+  - **Physics Caching**: Cache expensive polygon triangulations to disk
 
 - **Networking**: Multiplayer and server communication (Not Implemented Yet)
 

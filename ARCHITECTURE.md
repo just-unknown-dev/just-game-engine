@@ -1,7 +1,7 @@
 # Just Game Engine - Architectural and Design Blueprints
 
-> **Version:** 1.1.1  
-> **Date:** March 7, 2026  
+> **Version:** 1.2.0  
+> **Date:** March 11, 2026  
 > **Scope:** `packages/just_game_engine` — a 2D Flutter game engine
 
 ---
@@ -15,14 +15,16 @@
 5. [Rendering System](#5-rendering-system)
 6. [Entity-Component-System (ECS)](#6-entity-component-system-ecs)
 7. [Physics System](#7-physics-system)
-8. [Input System](#8-input-system)
-9. [Audio System](#9-audio-system)
-10. [Animation System](#10-animation-system)
-11. [Asset Management](#11-asset-management)
-12. [Scene Graph & Editor](#12-scene-graph--editor)
-13. [Reactive ECS Layer](#13-reactive-ecs-layer)
-14. [Design Patterns Reference](#14-design-patterns-reference)
-15. [Known Gaps & Future Work](#15-known-gaps--future-work)
+8. [Ray Casting System](#8-ray-casting-system)
+9. [Input System](#9-input-system)
+10. [Audio System](#10-audio-system)
+11. [Animation System](#11-animation-system)
+12. [Asset Management](#12-asset-management)
+13. [Cache Management](#13-cache-management)
+14. [Scene Graph & Editor](#14-scene-graph--editor)
+15. [Reactive ECS Layer](#15-reactive-ecs-layer)
+16. [Design Patterns Reference](#16-design-patterns-reference)
+17. [Known Gaps & Future Work](#17-known-gaps--future-work)
 
 ---
 
@@ -33,10 +35,10 @@
 | Field | Value |
 |---|---|
 | **Package name** | `just_game_engine` |
-| **Version** | `1.0.1` |
+| **Version** | `1.2.0` |
 | **Dart SDK** | `^3.11.0` |
 | **Flutter** | `>=1.17.0` |
-| **Runtime dependency** | `flutter_soloud: ^3.5.0` |
+| **Runtime dependencies** | `flutter_soloud: ^3.5.0`, `just_storage: ^1.0.0`, `just_database: ^1.1.0`, `just_signals: ^1.0.1` |
 | **Dev dependencies** | `flutter_test`, `flutter_lints: ^6.0.0` |
 | **Repository** | https://github.com/just-unknown-dev/just-game-engine |
 
@@ -54,6 +56,7 @@ packages/just_game_engine/
 │       ├── audio/                     ← AudioEngine, AudioClip
 │       ├── animation/                 ← AnimationSystem, Tweens, Easings
 │       ├── assets/                    ← AssetManager, Asset types
+│       ├── cache/                     ← CacheManager (key-value + binary storage)
 │       ├── ecs/                       ← World, Entity, Component, System, built-ins
 │       ├── reactive/                  ← ComponentSignal, EntitySignal, WorldSignal, ReactiveSystem, ReactiveComponent
 │       ├── editor/                    ← SceneEditor, Scene, SceneNode
@@ -103,13 +106,14 @@ Engine
  ├─► GameLoop          uses  TimeManager
  ├─► SystemManager     registrar for all subsystems
  ├─► RenderingEngine   uses  Camera, List<Renderable>, AssetManager (indirect)
- ├─► PhysicsEngine     standalone; mirrored by PhysicsSystem in World
+ ├─► PhysicsEngine     standalone; uses CacheManager for polygon caching
  ├─► InputManager      aggregates Keyboard/Mouse/Touch/Controller
  ├─► AudioEngine       uses  flutter_soloud (SoLoud C++ engine via FFI)
  ├─► AnimationSystem   uses  Renderable (to mutate properties)
  ├─► AssetManager      uses  Flutter rootBundle / dart:ui codec
+ ├─► CacheManager      uses  just_storage (key-value) + just_database (binary)
  ├─► SceneEditor       uses  SceneNode → Renderable → RenderingEngine
- ├─► World (ECS)       owns  List<Entity>, List<System>
+ ├─► World (ECS)       owns  List<Entity>, List<System>; includes RaycastSystem
  └─► NetworkManager    (upcoming)
 ```
 
@@ -163,14 +167,15 @@ When `Engine.initialize()` is called, subsystems are brought up in dependency or
 | 1 | `TimeManager` | Needed by `GameLoop` immediately |
 | 2 | `SystemManager` | Registry must exist before anything registers |
 | 3 | `GameLoop` | Wired to `_update` + `_render` callbacks, references `TimeManager` |
-| 4a | `AssetManager` | First subsystem; others may load assets during init |
-| 4b | `RenderingEngine` | Creates default `Camera` |
-| 4c | `PhysicsEngine` | — |
-| 4d | `InputManager` | — |
-| 4e | `AudioEngine` | — |
-| 4f | `SceneEditor` | — |
-| 4g | `AnimationSystem` | — |
-| 4h | `NetworkManager` | — |
+| 4a | `CacheManager` | First subsystem; provides storage for others |
+| 4b | `AssetManager` | Uses cache for asset storage |
+| 4c | `RenderingEngine` | Creates default `Camera` |
+| 4d | `PhysicsEngine` | Can use `CacheManager` for polygon caching |
+| 4e | `InputManager` | — |
+| 4f | `AudioEngine` | — |
+| 4g | `SceneEditor` | — |
+| 4h | `AnimationSystem` | — |
+| 4i | `NetworkManager` | — |
 | 5 | `World` (ECS) | Invokes `System.initialize()` on all pre-added systems |
 
 After each subsystem initializes, it is registered with `SystemManager` by both **name** (string) and **type** (generic `T`).
@@ -191,7 +196,7 @@ NetworkManager → AnimationSystem → SceneEditor → AudioEngine
 
 ### 3.4 GameLoop — Fixed-Timestep Algorithm
 
-`GameLoop` drives the update cycle at a configurable `targetUPS` (updates per second, default 120). It decouples physics/game-logic tick rate from the Flutter frame rate.
+`GameLoop` drives the update cycle at a configurable `targetUPS` (updates per second, default 60). It decouples physics/game-logic tick rate from the Flutter frame rate.
 
 ```
 GameLoop.start()
@@ -210,7 +215,7 @@ GameLoop.start()
 ```
 
 **Key properties:**
-- `targetUPS` — target updates per second (default: 120)
+- `targetUPS` — target updates per second (default: 60)
 - `fixedDt` — `1.0 / targetUPS`
 - `accumulator` — leftover time carried between ticks
 - `interpolationAlpha` — fraction into current step for sub-frame interpolation
@@ -738,7 +743,46 @@ The Physics engine is integrated with the `CacheManager`. Heavy polygonal operat
 
 ---
 
-## 8. Input System
+## 8. Ray Casting System
+
+The ray casting system provides spatial queries for hit detection, line-of-sight checks, and multi-bounce ray tracing. It integrates with the ECS through `RaycastColliderComponent` and `RaycastSystem`.
+
+### 8.1 Core Types
+
+| Type | Description |
+|---|---|
+| `Ray` | Origin + normalized direction + max distance |
+| `RaycastHit` | Intersection result: entity, point, distance, normal |
+| `RaycastColliderComponent` | ECS component marking an entity as hittable |
+| `RaycastSystem` | ECS system providing query API |
+| `RayTrace` / `RayTracer` | Multi-bounce reflective ray tracing |
+
+### 8.2 RaycastSystem API
+
+```dart
+// Single hit (nearest)
+RaycastHit? castRay(Ray ray, {String? filterTag})
+
+// All hits (sorted by distance)
+List<RaycastHit> castRayAll(Ray ray, {String? filterTag})
+
+// Line-of-sight check
+bool hasLineOfSight(Offset from, Offset to, {String? ignoreTag})
+```
+
+The system uses analytic ray–circle intersection against each entity's `RaycastColliderComponent.radius`.
+
+### 8.3 Multi-Bounce Tracing
+
+`RayTracer.trace()` performs reflective ray tracing up to `maxBounces`, recording each segment and applying `reflectivity` energy decay at each reflection. Useful for laser puzzles, ricochet bullets, and lighting effects.
+
+### 8.4 RayRenderable
+
+`RayRenderable` is a visual `Renderable` that draws glowing beam/laser/bullet-trail effects. It automatically fades over its `lifetime` and can be removed when `isExpired` returns `true`.
+
+---
+
+## 9. Input System
 
 ### 8.1 Architecture
 
@@ -814,7 +858,7 @@ InputManager
 
 ---
 
-## 9. Audio System
+## 10. Audio System
 
 ### 9.1 Architecture
 
@@ -873,7 +917,7 @@ enum AudioState   { stopped, playing, paused }
 
 ---
 
-## 10. Animation System
+## 11. Animation System
 
 ### 10.1 Class Hierarchy
 
@@ -966,7 +1010,7 @@ AnimationSystem
 
 ---
 
-## 11. Asset Management
+## 12. Asset Management
 
 ### 11.1 Class Hierarchy
 
@@ -1029,9 +1073,50 @@ Failures during `load()` throw `AssetLoadException(path, cause)`. Callers should
 
 ---
 
-## 12. Scene Graph & Editor
+## 13. Cache Management
 
-### 12.1 Class Hierarchy
+The `CacheManager` provides persistent storage for game data using `just_storage` (key-value) and `just_database` (binary/structured data).
+
+### 13.1 Architecture
+
+```
+CacheManager
+   JustStandardStorage? _keyValueCache   ← fast key-value via just_storage
+   JustDatabase?        _databaseCache   ← binary + SQL via just_database
+
+   initialize():
+     1. _keyValueCache = JustStorage.standard()
+     2. _databaseCache = JustDatabase.open(...)
+     3. CREATE TABLE IF NOT EXISTS binary_cache (key, data, timestamp)
+```
+
+### 13.2 Storage Types
+
+| Method | Storage Backend | Use Case |
+|---|---|---|
+| `setString / getString` | `just_storage` | User preferences, small config |
+| `setJson / getJson` | `just_storage` | Structured game settings, save data |
+| `setBinary / getBinary` | `just_database` | Large binary data, processed assets |
+
+### 13.3 Physics Integration
+
+The `PhysicsEngine` can cache expensive polygon computations:
+
+```dart
+// Cache triangulated polygon
+await physics.cachePolygonShape('ship_hull', vertices);
+
+// Retrieve later (instant load)
+final cached = await physics.getCachedPolygonShape('ship_hull');
+```
+
+This drastically reduces load times for complex scenes.
+
+---
+
+## 14. Scene Graph & Editor
+
+### 14.1 Class Hierarchy
 
 ```
 SceneEditor
@@ -1076,7 +1161,7 @@ SceneNode
 
 ---
 
-### 12.2 Transform Propagation
+### 14.2 Transform Propagation
 
 Each `SceneNode` computes its world transform lazily from its local transform and its parent's world transform:
 
@@ -1093,11 +1178,11 @@ This means detaching a node and re-attaching it to a different parent will immed
 
 ---
 
-## 13. Reactive ECS Layer
+## 15. Reactive ECS Layer
 
 The `src/reactive/` directory provides signal-driven wrappers around the ECS primitives, powered by the `just_signals` package. This layer is entirely optional — the core ECS works without it — but enables Flutter widgets to rebuild surgically when specific component properties change rather than polling the world every frame.
 
-### 13.1 Class Inventory
+### 15.1 Class Inventory
 
 | Class | File | Role |
 |---|---|---|
@@ -1107,7 +1192,7 @@ The `src/reactive/` directory provides signal-driven wrappers around the ECS pri
 | `ReactiveSystem` | `reactive_system.dart` | Abstract `System` subclass; only processes dirty entities (change-tracked set) |
 | `ReactiveComponent` | `reactive_component.dart` | Mixin for `Component`; adds `propertySignal<T>()`, `notifyChange()`, `batchChanges()` |
 
-### 13.2 Class Diagram
+### 15.2 Class Diagram
 
 ```
 just_signals
@@ -1147,7 +1232,7 @@ packages/just_game_engine/lib/src/reactive/                        │
      + batchChanges(fn)                 → void
 ```
 
-### 13.3 Data Flow
+### 15.3 Data Flow
 
 ```
 [Game loop update()]
@@ -1165,7 +1250,7 @@ packages/just_game_engine/lib/src/reactive/                        │
   Widget.build() runs only for affected subtree   ← surgical rebuild
 ```
 
-### 13.4 Usage Snapshot
+### 15.4 Usage Snapshot
 
 ```dart
 // Wrap a component property
@@ -1196,7 +1281,7 @@ class HealthFlashSystem extends ReactiveSystem {
 
 ---
 
-## 14. Design Patterns Reference
+## 16. Design Patterns Reference
 
 | Pattern | Implementation Location | Description |
 |---|---|---|
@@ -1215,7 +1300,7 @@ class HealthFlashSystem extends ReactiveSystem {
 
 ---
 
-## 15. Known Gaps & Future Work
+## 17. Known Gaps & Future Work
 
 | Area | Status | Notes |
 |---|---|---|

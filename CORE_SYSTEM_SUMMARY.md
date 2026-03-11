@@ -7,14 +7,23 @@ The core system has been successfully implemented with a professional, productio
 ## 📁 File Structure
 
 ```
-lib/src/core/
-├── core.dart              # Main export file
-├── engine.dart            # Main engine class with state management
-├── game_loop.dart         # Fixed timestep game loop implementation
-├── time_manager.dart      # Time tracking and time scale management
-├── system_manager.dart    # System registry and coordination
-├── lifecycle.dart         # Lifecycle interfaces and mixins
-└── README.md             # Comprehensive documentation
+lib/src/
+├── core/
+│   ├── core.dart              # Main export file
+│   ├── engine.dart            # Main engine class with state management
+│   ├── game_loop.dart         # Fixed timestep game loop implementation
+│   ├── time_manager.dart      # Time tracking and time scale management
+│   ├── system_manager.dart    # System registry and coordination
+│   └── lifecycle.dart         # Lifecycle interfaces and mixins
+├── cache/
+│   └── cache_manager.dart     # Persistent storage (just_storage + just_database)
+├── physics/
+│   ├── physics_engine.dart    # Collision detection and rigid body dynamics
+│   └── ray_casting.dart       # Ray queries, LOS checks, multi-bounce tracing
+├── rendering/
+│   ├── ray_renderable.dart    # Beam/laser visual effects
+│   └── ...
+└── ...
 ```
 
 ## 🎯 Key Features Implemented
@@ -113,15 +122,17 @@ lib/src/core/
 
 ## 🔧 Integration with Existing Systems
 
-The core system properly integrates with all placeholder subsystems:
-- ✅ Rendering Engine
-- ✅ Physics Engine
+The core system properly integrates with all subsystems:
+- ✅ Rendering Engine (with RayRenderable for beam effects)
+- ✅ Physics Engine (with CacheManager integration for polygon caching)
+- ✅ Ray Casting System (RaycastSystem, Ray, RaycastHit, RayTracer)
 - ✅ Input Management
 - ✅ Audio Engine
 - ✅ Scene Editor
 - ✅ Animation System
 - ✅ Asset Management
-- ✅ Networking
+- ✅ Cache Management (just_storage + just_database)
+- ✅ Networking (placeholder)
 
 All subsystems are:
 - Registered in the system manager

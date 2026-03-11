@@ -10,10 +10,12 @@ Comprehensive API documentation for all major classes and methods in the Just Ga
 4. [Animation System](#animation-system)
 5. [Particle Effects](#particle-effects)
 6. [Physics Engine](#physics-engine)
-7. [Scene Graph](#scene-graph)
-8. [Entity-Component System](#entity-component-system)
-9. [Asset Management](#asset-management)
-10. [Audio Engine](#audio-engine)
+7. [Ray Casting](#ray-casting)
+8. [Scene Graph](#scene-graph)
+9. [Entity-Component System](#entity-component-system)
+10. [Asset Management](#asset-management)
+11. [Audio Engine](#audio-engine)
+12. [Cache Management](#cache-management)
 
 ---
 
@@ -39,7 +41,9 @@ AudioEngine audio
 SceneEditor sceneEditor
 AnimationSystem animation
 AssetManager assets
+CacheManager cache
 NetworkManager network
+World world                    // ECS World
 ```
 
 #### Methods
@@ -826,6 +830,196 @@ final boxBody = PhysicsBody(
 
 ---
 
+## Ray Casting
+
+Ray casting provides spatial queries for hit detection, line-of-sight checks, and multi-bounce ray tracing.
+
+### Ray
+
+Defines a ray in 2D world space.
+
+#### Constructor
+
+```dart
+Ray({
+  required Offset origin,      // Starting point
+  required Offset direction,   // Direction (normalized automatically)
+  double maxDistance = 2000.0, // Maximum travel distance
+})
+
+// Create from two points
+Ray.fromPoints(Offset from, Offset to, {double? maxDistance})
+```
+
+#### Methods
+
+```dart
+Offset at(double t)            // Get point at distance t along ray
+```
+
+---
+
+### RaycastHit
+
+Result of a ray-entity intersection.
+
+#### Properties
+
+```dart
+Entity entity                  // The entity that was hit
+Offset point                   // World-space hit point
+double distance                // Distance from ray origin
+Offset normal                  // Surface normal at hit point
+```
+
+---
+
+### RaycastColliderComponent
+
+ECS component that marks an entity as hittable by rays.
+
+#### Constructor
+
+```dart
+RaycastColliderComponent({
+  required double radius,      // Collision radius
+  String? tag,                 // Semantic tag for filtering (e.g., 'enemy')
+  bool isBlocker = true,       // Whether ray stops on hit
+  bool isReflective = false,   // Whether ray bounces off surface
+  double reflectivity = 0.8,   // Energy retained after bounce (0-1)
+})
+```
+
+---
+
+### RaycastSystem
+
+ECS system providing ray query APIs.
+
+#### Methods
+
+```dart
+// Cast ray and return closest hit
+RaycastHit? castRay(Ray ray, {String? filterTag})
+
+// Cast ray and return all hits (sorted by distance)
+List<RaycastHit> castRayAll(Ray ray, {String? filterTag})
+
+// Check if there's clear line-of-sight between two points
+bool hasLineOfSight(Offset from, Offset to, {String? ignoreTag})
+```
+
+#### Example
+
+```dart
+// Setup
+final raycastSystem = RaycastSystem();
+world.addSystem(raycastSystem);
+
+// Mark entity as hittable
+enemy.addComponent(RaycastColliderComponent(
+  radius: 20.0,
+  tag: 'enemy',
+));
+
+// Cast ray from player toward aim direction
+final ray = Ray(origin: playerPos, direction: aimDir);
+final hit = raycastSystem.castRay(ray, filterTag: 'enemy');
+if (hit != null) {
+  print('Hit ${hit.entity.name} at ${hit.point}');
+}
+
+// Line-of-sight check
+if (raycastSystem.hasLineOfSight(playerPos, targetPos)) {
+  print('Target is visible!');
+}
+```
+
+---
+
+### RayTracer
+
+Performs multi-bounce ray tracing with reflections.
+
+#### Methods
+
+```dart
+// Trace ray with bounces
+RayTrace trace(Ray ray, {
+  int maxBounces = 5,
+  String? filterTag,
+})
+```
+
+---
+
+### RayTrace
+
+Result of a multi-bounce trace.
+
+#### Properties
+
+```dart
+List<RayTraceSegment> segments // All path segments
+List<RaycastHit> hits          // All hits across segments
+double totalLength             // Total path length
+```
+
+---
+
+### RayRenderable
+
+Visual representation of a ray/beam/laser with glow effect.
+
+#### Constructor
+
+```dart
+RayRenderable({
+  required Offset start,       // Start point
+  required Offset end,         // End point
+  Color color = const Color(0xFFFFFF44),  // Beam color
+  double width = 2.5,          // Core line width
+  double glowWidthMultiplier = 4.0,       // Glow width relative to core
+  double glowBlurSigma = 5.0,  // Blur amount for glow
+  double lifetime = 0.25,      // Fade duration (0 = permanent)
+})
+```
+
+#### Properties
+
+```dart
+bool isExpired                 // True when fade complete
+```
+
+#### Methods
+
+```dart
+void update(double dt)         // Advance fade timer
+```
+
+#### Example
+
+```dart
+// Create laser beam visual
+final beam = RayRenderable(
+  start: gunPosition,
+  end: hitPoint,
+  color: Colors.red,
+  width: 3.0,
+  lifetime: 0.2,
+);
+
+engine.rendering.addRenderable(beam);
+
+// Update in game loop
+beam.update(deltaTime);
+if (beam.isExpired) {
+  engine.rendering.removeRenderable(beam);
+}
+```
+
+---
+
 ## Scene Graph
 
 ### SceneEditor
@@ -1164,6 +1358,17 @@ SpriteComponent({
 })
 ```
 
+**RaycastColliderComponent**
+```dart
+RaycastColliderComponent({
+  required double radius,      // Collision radius for ray tests
+  String? tag,                 // Semantic tag for filtering ('enemy', 'wall')
+  bool isBlocker = true,       // Whether rays stop on hit
+  bool isReflective = false,   // Whether rays can bounce off
+  double reflectivity = 0.8,   // Energy retained after bounce (0-1)
+})
+```
+
 ### System
 
 Base class for systems that process entities with specific components.
@@ -1220,6 +1425,12 @@ Base class for systems that process entities with specific components.
 - Enforces world boundaries with configurable behavior
 - Constructor: `BoundarySystem({required Rect bounds, BoundaryBehavior behavior})`
 - Behaviors: `clamp`, `bounce`, `wrap`, `destroy`
+
+**RaycastSystem**
+- Requires: `TransformComponent`, `RaycastColliderComponent`
+- Provides ray query API (no automatic per-frame processing)
+- Methods: `castRay()`, `castRayAll()`, `hasLineOfSight()`
+- See [Ray Casting](#ray-casting) section for details
 
 #### Custom System Example
 
@@ -1774,6 +1985,67 @@ enum AudioState {
   playing,     // Currently playing
   paused,      // Paused (can resume)
 }
+```
+
+---
+
+## Cache Management
+
+The CacheManager provides persistent storage for game data, using `just_storage` for key-value data and `just_database` for binary data.
+
+### CacheManager
+
+Manages caching of game resources and data.
+
+#### Properties
+
+```dart
+bool isInitialized             // Whether cache is ready
+```
+
+#### Methods
+
+```dart
+// Initialization
+Future<void> initialize()      // Initialize cache systems
+
+// String/JSON Storage
+Future<void> setString(String key, String value)
+Future<String?> getString(String key)
+Future<void> setJson(String key, dynamic data)
+Future<dynamic> getJson(String key)
+
+// Binary Storage
+Future<void> setBinary(String key, Uint8List data)
+Future<Uint8List?> getBinary(String key)
+
+// Cleanup
+Future<void> remove(String key)
+Future<void> clear()           // Clear all cached data
+void dispose()
+```
+
+#### Example
+
+```dart
+final cache = engine.cache;
+
+// Store game settings
+await cache.setJson('settings', {
+  'volume': 0.8,
+  'difficulty': 'hard',
+});
+
+// Retrieve settings
+final settings = await cache.getJson('settings');
+print(settings['volume']);  // 0.8
+
+// Cache binary data (e.g., processed textures)
+await cache.setBinary('level_data', levelBytes);
+
+// Physics caching (via PhysicsEngine)
+await engine.physics.cachePolygonShape('complex_ship', vertices);
+final cached = await engine.physics.getCachedPolygonShape('complex_ship');
 ```
 
 ---

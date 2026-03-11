@@ -2,6 +2,42 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [1.2.0] - 2026-03-11
+
+### Added - Ray Casting System
+
+- **Core Ray Casting**
+  - `Ray` class representing a ray in 2D space with origin, normalized direction, and max distance.
+  - `Ray.fromPoints()` factory for creating rays between two points.
+  - `RaycastHit` result type containing entity, hit point, distance, and surface normal.
+
+- **ECS Integration**
+  - `RaycastColliderComponent` marks entities as hittable by rays with configurable radius, tag filtering, blocking behavior, and reflectivity.
+  - `RaycastSystem` provides query API for ray-based spatial queries:
+    - `castRay()` returns the closest hit entity.
+    - `castRayAll()` returns all hit entities sorted by distance.
+    - `hasLineOfSight()` checks clear visibility between two points.
+
+- **Multi-Bounce Ray Tracing**
+  - `RayTracer` performs reflective ray traces with configurable max bounces.
+  - `RayTrace` result contains all path segments with energy decay at each reflection.
+  - `RayTraceSegment` represents individual segments of a traced path.
+
+- **Visual Effects**
+  - `RayRenderable` draws glowing beam/laser/bullet-trail effects.
+  - Configurable core width, glow width multiplier, and blur sigma.
+  - Automatic fade-out over configurable lifetime.
+  - `isExpired` property for cleanup when fade completes.
+
+### Documentation
+
+- Updated README.md with Ray Casting and Cache Management sections.
+- Updated API.md with complete Ray Casting API reference.
+- Updated ARCHITECTURE.md with Ray Casting System and Cache Management sections.
+- Updated QUICKSTART.md with Ray Casting examples.
+
+---
+
 ## [1.1.2] - 2026-03-08
 
 ### Changed
@@ -285,6 +321,9 @@ All notable changes to the Just Game Engine will be documented in this file.
 
 ## Version History
 
+- **1.2.0** - Ray Casting System (RaycastSystem, RayTracer, RayRenderable) and Cache Management integration
+- **1.1.2** - Audio Engine migration from audioplayers to flutter_soloud for low-latency game audio
+- **1.1.1** - Reactive ECS components and signals integration
 - **1.1.0** - Complete Physics Engine overhaul (Rigid Body Dynamics, SAT Shapes, Spatial Grid, and Impulse Resolution)
 - **1.0.1** - Bug fix for audio asset path and license update to BSD-3-Clause
 - **1.0.0** - Full production release with all core features
