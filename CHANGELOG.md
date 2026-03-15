@@ -2,6 +2,43 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [1.2.1] - 2026-03-15
+
+### Changed
+- **GameWidget**: `_GamePainter.paint()` now also calls `engine.world.render(canvas, size)`, so ECS entities registered with `RenderSystem` are drawn automatically alongside the classic rendering pipeline.
+
+### Update
+- Audio engine updated with better support for web
+
+### Fixed
+- **Example**: Simplified `example/example.dart` to a minimal renderer setup for easier onboarding.
+
+---
+
+## [1.2.0] - 2026-03-12
+
+### Added - Ray Casting & Ray Tracing
+- **Ray** — 2-D ray descriptor with origin, normalised direction, and maximum travel distance.
+  - `Ray.fromPoints()` convenience constructor for aiming between two world positions.
+  - `at(t)` helper returns the world-space point at a given distance along the ray.
+- **RaycastColliderComponent** — ECS component that marks an entity as hittable by rays.
+  - Configurable `radius`, semantic `tag` for filtering, `isBlocker` flag, and `isReflective` / `reflectivity` properties for multi-bounce tracing.
+- **RaycastHit** — intersection result containing the hit entity, world-space point, distance, and outward surface normal.
+- **RaycastSystem** — query-only ECS system for ray-vs-collider tests.
+  - `castRay()` returns the closest hit; `castRayAll()` returns all hits sorted nearest-first.
+  - `hasLineOfSight()` performs a line-of-sight / LOS check between two points.
+- **RayTracer** — multi-bounce ray tracing against reflective surfaces.
+  - Configurable `maxBounces` and `minReflectivity` thresholds.
+  - `trace()` returns a `RayTrace` containing every `RayTraceSegment` (path segment + optional hit).
+
+### Added - Ray Renderable
+- **RayRenderable** — a `Renderable` that draws a glowing beam / laser / bullet trail in world space.
+  - Two-layer visual: a sharp core line and a wider blurred glow halo for a neon/laser effect.
+  - Automatic fade-out over a configurable `lifetime`; `isExpired` flag for easy cleanup.
+  - Customisable `color`, `width`, `glowWidthMultiplier`, and `glowBlurSigma`.
+
+---
+
 ## [1.1.2] - 2026-03-08
 
 ### Changed
@@ -285,6 +322,8 @@ All notable changes to the Just Game Engine will be documented in this file.
 
 ## Version History
 
+- **1.2.1** - GameWidget ECS rendering integration and example cleanup
+- **1.2.0** - Ray Casting, Ray Tracing, and Ray Renderable systems
 - **1.1.0** - Complete Physics Engine overhaul (Rigid Body Dynamics, SAT Shapes, Spatial Grid, and Impulse Resolution)
 - **1.0.1** - Bug fix for audio asset path and license update to BSD-3-Clause
 - **1.0.0** - Full production release with all core features
