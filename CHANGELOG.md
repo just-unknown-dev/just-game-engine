@@ -2,13 +2,41 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [1.3.0] - 2026-03-15
+
+### Added - Tiled Map ECS Integration
+
+`just_tiled` is now a first-class runtime dependency of `just_game_engine`. The engine ships four new types that bridge parsed Tiled map data directly into the ECS world, covering rendering, collision, and object-to-entity spawning.
+
+- **TileMapLayerComponent** — ECS component that attaches a `TileLayer` and its pre-compiled `TileMapRenderer` to a single entity. One entity per tile layer keeps the world free of per-tile entity bloat.
+- **TiledObjectComponent** — ECS component for Tiled map objects. Exposes `properties`, `type`, and `name` directly on the entity for easy custom-logic dispatch.
+- **TiledMapFactory** — Static factory that translates an entire `TiledMap` into ECS entities in one call.
+  - Tile layers → one entity with `TileMapLayerComponent` + `TransformComponent` (respects layer offset).
+  - Object groups → one entity per visible `TiledObject` with `TransformComponent` + `TiledObjectComponent`.
+  - `GroupLayer` children are traversed recursively.
+  - `ComponentMapper` callback maps any Tiled class name + custom properties to additional engine components (e.g. `HealthComponent`, `EnemyAIComponent`).
+- **TileMapRenderSystem** — ECS `System` that GPU-batches all `TileMapLayerComponent` entities. Uses `Camera.getVisibleBounds()` for viewport frustum culling so only in-view tiles are processed. Runs at priority `100` so tile layers are painted before game entities.
+- **TiledCollisionSystem** — ECS `System` that converts TMX object-group collision shapes into static `PhysicsBody` instances and registers them with `PhysicsEngine`.
+  - Supports **rectangle**, **polygon**, and **ellipse** shapes (mapped to `RectangleShape`, `PolygonShape`, `CircleShape`).
+  - Per-object `restitution` and `friction` read from Tiled custom properties.
+  - Optional `SpatialHashGrid<PhysicsBody>` for O(1) proximity queries.
+  - `loadCollisions(TiledMap)` / `loadObjectGroupCollisions(ObjectGroup)` / `clearCollisions()` lifecycle methods.
+---
+
 ## [1.2.1] - 2026-03-15
 
 ### Changed
-- **GameWidget**: `_GamePainter.paint()` now also calls `engine.world.render(canvas, size)`, so ECS entities registered with `RenderSystem` are drawn automatically alongside the classic rendering pipeline.
+- **GameWidget**: `_GamePainter.paint()` now also calls `engine.world.render(canvas, size)`, so ECS entities registered with `RenderSystem` are drawn automatically alongside the classic 
+rendering pipeline.
 
-### Update
-- Audio engine updated with better support for web
+### Added - Audio ECS Integration
+
+Audio playback is now fully ECS-driven alongside the existing `AudioEngine` API.
+
+- **AudioSourceComponent** — Persistent audio source on an entity. Properties: `clipPath`, `volume`, `pan`, `loop`, `playOnAdd`, `channel` (`AudioChannel`), `is3d`. When `is3d` is `true`, stereo pan is ignored and 3D position is derived from `TransformComponent`.
+- **AudioPlayComponent** — Fire-and-forget one-shot playback trigger. `AudioSystem` plays the sound and removes the component automatically.
+- **AudioListenerComponent** — Marks an entity (typically the camera or player) as the SoLoud 3D listener. `AudioSystem` forwards the entity's `TransformComponent` position to the native listener each frame.
+- **AudioSystem** — ECS `System` that drives all audio ECS components. Runs at priority `-10` (after transforms) to ensure 3D positions are up to date before the listener and source positions are sent to SoLoud.
 
 ### Fixed
 - **Example**: Simplified `example/example.dart` to a minimal renderer setup for easier onboarding.
@@ -322,6 +350,7 @@ All notable changes to the Just Game Engine will be documented in this file.
 
 ## Version History
 
+- **1.3.0** - Tiled Map ECS integration (TiledMapFactory, TileMapRenderSystem, TiledCollisionSystem) and Audio ECS integration (AudioSourceComponent, AudioSystem)
 - **1.2.1** - GameWidget ECS rendering integration and example cleanup
 - **1.2.0** - Ray Casting, Ray Tracing, and Ray Renderable systems
 - **1.1.0** - Complete Physics Engine overhaul (Rigid Body Dynamics, SAT Shapes, Spatial Grid, and Impulse Resolution)

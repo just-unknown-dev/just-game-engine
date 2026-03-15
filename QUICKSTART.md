@@ -10,8 +10,7 @@ Add the engine to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  just_game_engine:
-    path: ../packages/just_game_engine  # Adjust path to your setup
+  just_game_engine: latest_version
 ```
 
 ### Step 2: Get Packages
@@ -660,4 +659,4 @@ class MyGame extends StatelessWidget {
 }
 ```
 
-Happy game development with Just Engine! 🎮
+Happy game development with Just Game Engine! 🎮
