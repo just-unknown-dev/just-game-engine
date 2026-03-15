@@ -40,6 +40,8 @@ export 'src/input/input_management.dart';
 
 // Audio Engine - Sound effects and music
 export 'src/audio/audio_engine.dart';
+export 'src/audio/audio_components.dart';
+export 'src/audio/audio_system.dart';
 
 // Scene/Level Editor - Scene assembly and level design
 export 'src/editor/scene_editor.dart';
