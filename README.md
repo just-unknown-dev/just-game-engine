@@ -130,8 +130,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  just_game_engine:
-    path: ../packages/just_game_engine  # Adjust path as needed
+  just_game_engine: ^1.2.1
 ```
 
 Then run:
