@@ -7,10 +7,13 @@ A comprehensive 2D game engine built for Flutter, providing everything you need 
 - **[Quick Start Guide](QUICKSTART.md)** - Get started in 5 minutes
 - **[API Reference](API.md)** - Detailed API documentation for all classes
 - **[Changelog](CHANGELOG.md)** - Version history and release notes
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to the project
+- **[Code of Conduct](CODE_OF_CONDUCT.md)** - Our community guidelines
+- **[Discord](https://discord.com/invite/AaAZayn3)** - Join our community
 
 ## Features
 
-Just Game Engine is a complete game development framework with 11 major subsystems:
+Just Game Engine is a complete game development framework with 12 major subsystems:
 
 ### 🎮 Core Engine
 - **Game Loop**: Fixed timestep (60 UPS) with variable rendering for consistent gameplay
@@ -21,9 +24,11 @@ Just Game Engine is a complete game development framework with 11 major subsyste
 ### 🎨 Rendering Engine
 - **2D Canvas-Based Rendering**: High-performance drawing with Flutter's Canvas API
 - **Renderable Objects**: Circles, rectangles, lines, text, and custom renderables
+- **Ray Renderable**: `RayRenderable` draws a glowing beam / laser / bullet trail with a two-layer glow effect and configurable fade lifetime
 - **Camera System**: Pan, zoom, and rotation with smooth transforms
 - **Layer Management**: Z-order sorting for proper depth rendering
 - **Debug Visualization**: Bounding boxes, coordinate grids, and performance metrics
+- **ECS Integration**: `GameWidget` automatically renders ECS entities via `RenderSystem` alongside the classic pipeline
 
 ### 🖼️ Sprite System
 - **Image Rendering**: Load and display images with easy asset management
@@ -58,6 +63,12 @@ Just Game Engine is a complete game development framework with 11 major subsyste
 - **Broad-Phase Optimization**: Performant $O(n)$ Spatial Grid queries with Object Sleeping features
 - **Physics Caching**: Triangulation and expensive geometry processing can be reliably disk-cached
 
+### 🔦 Ray Casting & Tracing
+- **Ray**: 2D ray descriptor with origin, normalised direction, and max-distance; `Ray.fromPoints()` convenience constructor
+- **RaycastColliderComponent**: ECS component marking an entity as hittable — configurable `radius`, `tag`, `isBlocker`, `isReflective`, and `reflectivity`
+- **RaycastSystem**: Query-only ECS system — `castRay()` (closest hit), `castRayAll()` (all hits sorted nearest-first), and `hasLineOfSight()` for LOS checks
+- **RayTracer**: Multi-bounce ray tracing against reflective surfaces — configurable `maxBounces` and `minReflectivity`; returns a `RayTrace` containing every path segment
+
 ### 🌳 Scene Graph
 - **Hierarchical Structure**: Parent-child node relationships
 - **Transform Propagation**: Automatic world-space transform calculation
@@ -65,11 +76,20 @@ Just Game Engine is a complete game development framework with 11 major subsyste
 - **Node Queries**: Find nodes by name or traverse the tree
 - **Attachable Renderables**: Link visual objects to scene nodes
 
+### 🗺️ Tiled Map Support (via `just_tiled`)
+- **TMX / TSX Parsing**: Full support for Tiled map editor files — orthogonal, isometric, staggered, and hexagonal orientations
+- **Tile Layers, Object Layers, Image Layers & Group Layers**: Complete layer hierarchy with custom properties
+- **GPU-Batched Rendering**: `TileMapRenderer` uses `Canvas.drawRawAtlas` to submit all tiles in a single draw call for maximum throughput
+- **Texture Atlas**: `TextureAtlas.fromTileMap()` builds a packed atlas from any loaded `TileMap`
+- **Animated Tiles**: Per-tile animation sequences driven by the engine game loop
+- **Spatial Hash Grid**: `SpatialHashGrid<T>` enables $O(1)$ AABB, point, and radius queries against map objects
+- **Encodings & Compression**: CSV, Base64, and XML tile data; GZIP, Zlib, and Zstandard compression (via `just_zstd`)
+
 ### 🧩 Entity-Component System (ECS)
 - **Data-Oriented Architecture**: Composition over inheritance for flexible entity design
 - **Entity Management**: Create and destroy entities with unique IDs
-- **Component System**: 13 built-in components (Transform, Velocity, Physics, Health, etc.)
-- **System Processing**: 9 built-in systems for movement, rendering, physics, and more
+- **Component System**: 14 built-in components (Transform, Velocity, Physics, Health, RaycastCollider, etc.)
+- **System Processing**: 9 built-in systems for movement, rendering, physics, ray casting, and more
 - **Query System**: Find entities by component types
 - **World Management**: Centralized entity and system coordination
 - **Hierarchy Support**: Parent-child entity relationships
@@ -526,6 +546,47 @@ await levelBundle.load(assetManager);
 levelBundle.unload(assetManager);
 ```
 
+### Loading and Rendering Tiled Maps
+
+```dart
+import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_tiled/just_tiled.dart';
+
+// Parse a .tmx map from the asset bundle
+final tileMap = await TileMapParser.parseAsset('assets/maps/level1.tmx');
+
+// Build a packed texture atlas from all tilesets in the map
+final atlas = await TextureAtlas.fromTileMap(tileMap);
+
+// Create a renderer for each tile layer
+final renderers = tileMap.layers
+    .whereType<TileLayer>()
+    .map((layer) => TileMapRenderer(tileMap: tileMap, layer: layer, atlas: atlas))
+    .toList();
+
+// Render inside a CustomRenderable each frame
+engine.rendering.addRenderable(
+  CustomRenderable(
+    onRender: (canvas, size) {
+      for (final renderer in renderers) {
+        renderer.render(canvas);
+      }
+    },
+  ),
+);
+
+// Use SpatialHashGrid for fast object-layer queries
+final grid = SpatialHashGrid<MapObject>(cellSize: 128);
+for (final layer in tileMap.layers.whereType<ObjectLayer>()) {
+  for (final obj in layer.objects) {
+    grid.insert(obj, obj.bounds);
+  }
+}
+
+// Query which objects overlap the player's bounding box
+final nearby = grid.queryAABB(playerBounds);
+```
+
 ### Playing Audio
 
 ```dart
@@ -593,6 +654,18 @@ Just Game Engine
 ├── Physics Engine
 │   ├── PhysicsEngine (Simulation)
 │   └── PhysicsBody (Rigid body)
+├── Ray Casting & Tracing
+│   ├── Ray (Origin + direction descriptor)
+│   ├── RaycastColliderComponent (ECS hittable marker)
+│   ├── RaycastSystem (castRay / castRayAll / hasLineOfSight)
+│   ├── RaycastHit (Intersection result)
+│   └── RayTracer / RayTrace (Multi-bounce reflection)
+├── Tiled Map Support (just_tiled)
+│   ├── TileMapParser (async TMX/TSX parser)
+│   ├── TileMapRenderer (GPU-batched Canvas.drawRawAtlas)
+│   ├── TextureAtlas (Packed atlas builder)
+│   ├── SpatialHashGrid (O(1) spatial queries)
+│   └── TileMap / Layer / MapObject (Data model)
 ├── Scene Graph
 │   ├── SceneEditor (Scene management)
 │   ├── Scene (Node container)
@@ -690,6 +763,25 @@ Check out the `example/` folder for complete examples:
 - `PhysicsEngine` - Physics simulation
 - `PhysicsBody` - Rigid body with collision
 
+### Ray Casting & Tracing Classes
+
+- `Ray` - 2D ray descriptor (origin, direction, maxDistance)
+- `RaycastColliderComponent` - ECS component marking an entity as hittable
+- `RaycastHit` - Intersection result (entity, point, distance, normal)
+- `RaycastSystem` - On-demand query system (`castRay`, `castRayAll`, `hasLineOfSight`)
+- `RayTracer` / `RayTrace` / `RayTraceSegment` - Multi-bounce reflective ray tracing
+- `RayRenderable` - Glowing beam/laser visual with configurable fade lifetime
+
+### Tiled Map Classes (via `just_tiled`)
+
+- `TileMapParser` - Async parser for `.tmx` / `.tsx` files (CSV, Base64, XML; GZIP, Zlib, Zstd)
+- `TileMap` - Parsed map data model with layers, tilesets, and properties
+- `TileLayer`, `ObjectLayer`, `ImageLayer`, `GroupLayer` - Layer hierarchy
+- `TileMapRenderer` - GPU-batched renderer using `Canvas.drawRawAtlas`
+- `TextureAtlas` - Packed texture atlas built from a `TileMap`
+- `SpatialHashGrid<T>` - Generic $O(1)$ spatial hash for AABB, point, and radius queries
+- `MapObject` - Tiled object with geometry, type, and custom properties
+
 ### Scene Classes
 
 - `SceneEditor` - Scene management
@@ -702,8 +794,8 @@ Check out the `example/` folder for complete examples:
 - `Entity` - Component container with unique ID
 - `Component` - Base class for data components
 - `System` - Base class for processing systems
-- **Built-in Components**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `PhysicsBodyComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `AnimationStateComponent`, `SpriteComponent`
-- **Built-in Systems**: `MovementSystem`, `RenderSystem`, `PhysicsSystem`, `LifetimeSystem`, `HierarchySystem`, `HealthSystem`, `AnimationSystemECS`, `BoundarySystem`
+- **Built-in Components**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `PhysicsBodyComponent`, `RaycastColliderComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `AnimationStateComponent`, `SpriteComponent`
+- **Built-in Systems**: `MovementSystem`, `RenderSystem`, `PhysicsSystem`, `RaycastSystem`, `LifetimeSystem`, `HierarchySystem`, `HealthSystem`, `AnimationSystemECS`, `BoundarySystem`
 
 ### Input Classes
 
@@ -737,15 +829,10 @@ Check out the `example/` folder for complete examples:
 - `AudioChannel` - Audio channel enum (master, music, sfx, voice, ambient)
 - `AudioState` - Playback state enum (stopped, playing, paused)
 
-## Dependencies
-
-- **Flutter SDK**: 3.11.0 or higher
-- **Dart SDK**: 3.0.0 or higher
-- **flutter_soloud**: ^3.5.0 (for Audio Engine — low-latency game audio via SoLoud C++ engine)
 
 ## Contributing
 
-Contributions are welcome! This engine is in active development.
+Contributions are welcome! This engine is in active development. Join us on [Discord](https://discord.com/invite/AaAZayn3) to discuss ideas, ask questions, and connect with other developers.
 
 ## License
 

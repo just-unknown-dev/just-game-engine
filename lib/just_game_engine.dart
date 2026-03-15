@@ -69,3 +69,9 @@ export 'src/reactive/entity_signal.dart';
 export 'src/reactive/world_signal.dart';
 export 'src/reactive/reactive_system.dart';
 export 'src/reactive/reactive_component.dart';
+
+// Tiled Map Editor Integration - ECS components, factory, and systems
+export 'src/ecs/tiled_components.dart';
+export 'src/ecs/tiled_map_factory.dart';
+export 'src/ecs/tiled_render_system.dart';
+export 'src/ecs/tiled_collision_system.dart';
