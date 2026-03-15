@@ -233,6 +233,8 @@ class _GamePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Render through the engine
     engine.rendering.render(canvas, size);
+    // Render ECS entities via world systems (e.g., RenderSystem)
+    engine.world.render(canvas, size);
   }
 
   @override
