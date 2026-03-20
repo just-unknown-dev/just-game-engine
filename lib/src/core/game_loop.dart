@@ -173,7 +173,8 @@ class GameLoop {
 
       // Update at fixed timestep
       while (_accumulator >= _fixedDeltaTime) {
-        onUpdate(_fixedDeltaTime);
+        // Use scaled delta so TimeManager.timeScale affects simulation speed.
+        onUpdate(_fixedDeltaTime * timeManager.timeScale);
         _accumulator -= _fixedDeltaTime;
       }
     }

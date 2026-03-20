@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
-import 'package:just_game_engine/src/animation/animation_system.dart' as anim;
+import 'package:just_game_engine/src/features/animation/animation_system.dart'
+    as anim;
 import 'dart:math' as math;
 
 /// Performance benchmarks for the Just Game Engine
