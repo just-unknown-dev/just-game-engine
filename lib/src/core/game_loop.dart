@@ -1,10 +1,9 @@
 /// Game Loop
 ///
 /// Implements the main game loop with fixed timestep and variable rendering.
-/// Manages frame timing and calls update/render callbacks.
+/// This loop is driven externally by the rendering widget's vsync Ticker
+/// (or by a manual caller for headless / test scenarios).
 library;
-
-import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
@@ -21,14 +20,16 @@ typedef RenderCallback = void Function();
 /// This class manages the game's update-render cycle with proper timing.
 /// It uses a fixed timestep for updates and variable timestep for rendering.
 ///
-/// The game loop runs continuously, calling update at a fixed rate and
-/// render as fast as possible (limited by vsync when available).
+/// The loop is *externally driven* — call [tick] once per frame (typically
+/// from a [Ticker] in [GameWidget]).  For headless / server scenarios you can
+/// call [tick] from your own timer or test harness.
 class GameLoop {
   /// Update callback function
   final UpdateCallback onUpdate;
 
-  /// Render callback function
-  final RenderCallback onRender;
+  /// Render callback function (kept for headless compatibility — a no-op when
+  /// rendering is handled by Flutter's [CustomPainter]).
+  final RenderCallback? onRender;
 
   /// Time manager for tracking time
   final TimeManager timeManager;
@@ -41,9 +42,6 @@ class GameLoop {
 
   /// Whether the loop is paused
   bool _isPaused = false;
-
-  /// Timer for the game loop
-  Timer? _timer;
 
   /// Fixed timestep in seconds
   late final double _fixedDeltaTime;
@@ -75,19 +73,22 @@ class GameLoop {
   /// Create a game loop
   ///
   /// [onUpdate] - Called at fixed intervals for game logic
-  /// [onRender] - Called every frame for rendering
+  /// [onRender] - Optional render callback (no-op when a widget drives rendering)
   /// [timeManager] - Time manager instance
   /// [targetUPS] - Target updates per second (default: 60)
   GameLoop({
     required this.onUpdate,
-    required this.onRender,
+    this.onRender,
     required this.timeManager,
     this.targetUPS = 60,
   }) {
     _fixedDeltaTime = 1.0 / targetUPS;
   }
 
-  /// Start the game loop
+  /// Mark the game loop as running and reset timing state.
+  ///
+  /// No internal timer is created — the loop must be driven externally via
+  /// [tick] (e.g. from a vsync [Ticker] in the rendering widget).
   void start() {
     if (_isRunning) {
       debugPrint('Game loop is already running');
@@ -99,13 +100,6 @@ class GameLoop {
     _lastFrameTime = DateTime.now();
     _fpsTimer = DateTime.now();
     _frameCount = 0;
-
-    // Start the loop with a periodic timer
-    // This runs at approximately 120Hz to allow smooth updates
-    _timer = Timer.periodic(
-      const Duration(microseconds: 8333), // ~120Hz
-      (_) => _tick(),
-    );
 
     debugPrint('Game loop started (Target UPS: $targetUPS)');
   }
@@ -128,6 +122,9 @@ class GameLoop {
 
     _isPaused = false;
     _lastFrameTime = DateTime.now();
+    // Reset accumulator to prevent a burst of fixed-timestep updates after
+    // a long pause.
+    _accumulator = 0.0;
     debugPrint('Game loop resumed');
   }
 
@@ -139,17 +136,16 @@ class GameLoop {
 
     _isRunning = false;
     _isPaused = false;
-    _timer?.cancel();
-    _timer = null;
 
     debugPrint('Game loop stopped');
   }
 
-  /// Main loop tick
-  void _tick() {
-    if (!_isRunning) {
-      return;
-    }
+  /// Advance the game loop by one frame.
+  ///
+  /// Call this once per vsync frame from the rendering widget's [Ticker],
+  /// or from a manual timer / test harness for headless usage.
+  void tick() {
+    if (!_isRunning) return;
 
     final now = DateTime.now();
     final frameTime = now.difference(_lastFrameTime).inMicroseconds / 1000000.0;
@@ -179,8 +175,8 @@ class GameLoop {
       }
     }
 
-    // Always render (even when paused)
-    onRender();
+    // Optional render callback (no-op when CustomPainter renders).
+    onRender?.call();
   }
 
   /// Calculate frames per second

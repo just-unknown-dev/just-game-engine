@@ -9,3 +9,4 @@ export 'game_loop.dart';
 export 'time_manager.dart';
 export 'system_manager.dart';
 export 'lifecycle.dart';
+export 'compute_helper.dart';
