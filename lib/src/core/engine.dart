@@ -10,16 +10,16 @@ import 'game_loop.dart';
 import 'time_manager.dart';
 import 'system_manager.dart';
 import 'lifecycle.dart';
-import '../rendering/rendering_engine.dart';
-import '../physics/physics_engine.dart';
-import '../input/input_management.dart';
-import '../audio/audio_engine.dart';
-import '../editor/scene_editor.dart';
-import '../animation/animation_system.dart';
-import '../assets/asset_management.dart';
-import '../networking/networking.dart';
-import '../cache/cache_manager.dart';
-import '../ecs/ecs.dart';
+import '../features/rendering/rendering_engine.dart';
+import '../features/physics/physics_engine.dart';
+import '../features/input/input_management.dart';
+import '../features/audio/audio_engine.dart';
+import '../features/editor/scene_editor.dart';
+import '../features/animation/animation_system.dart';
+import '../features/assets/asset_management.dart';
+import '../features/networking/networking.dart';
+import '../features/cache/cache_manager.dart';
+import '../features/ecs/ecs.dart';
 
 /// Main game engine class that orchestrates all subsystems
 ///

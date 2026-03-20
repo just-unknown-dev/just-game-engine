@@ -21,57 +21,57 @@ library;
 export 'src/core/core.dart';
 
 // Rendering Engine - Graphics and visual representation
-export 'src/rendering/rendering_engine.dart';
-export 'src/rendering/renderable.dart';
-export 'src/rendering/sprite.dart';
-export 'src/rendering/particles.dart';
-export 'src/rendering/camera.dart';
-export 'src/rendering/game_widget.dart';
-export 'src/rendering/ray_renderable.dart'; // Beam / laser / bullet-trail visuals
+export 'src/features/rendering/rendering_engine.dart';
+export 'src/features/rendering/renderable.dart';
+export 'src/features/rendering/sprite.dart';
+export 'src/features/rendering/particles.dart';
+export 'src/features/rendering/camera.dart';
+export 'src/features/rendering/game_widget.dart';
+export 'src/features/rendering/ray_renderable.dart'; // Beam / laser / bullet-trail visuals
 
 // Physics Engine - Movement, gravity, and collision
-export 'src/physics/physics_engine.dart';
+export 'src/features/physics/physics_engine.dart';
 
 // Ray Casting & Ray Tracing - Hitscan, LOS, multi-bounce tracing
-export 'src/physics/ray_casting.dart';
+export 'src/features/physics/ray_casting.dart';
 
 // Input Management - Keyboard, mouse, controller, and touch input
-export 'src/input/input_management.dart';
+export 'src/features/input/input_management.dart';
+export 'src/features/input/virtual_joystick.dart';
 
 // Audio Engine - Sound effects and music
-export 'src/audio/audio_engine.dart';
-export 'src/audio/audio_components.dart';
-export 'src/audio/audio_system.dart';
+export 'src/features/audio/audio_engine.dart';
+export 'src/features/audio/audio_components.dart';
+export 'src/features/audio/audio_system.dart';
 
 // Scene/Level Editor - Scene assembly and level design
-export 'src/editor/scene_editor.dart';
+export 'src/features/editor/scene_editor.dart';
 
 // Animation System - Character and object animations
-export 'src/animation/animation_system.dart';
+export 'src/features/animation/animation_system.dart';
 
 // Asset Management - Loading and managing game assets
-export 'src/assets/asset_management.dart';
+export 'src/features/assets/asset_management.dart';
 
 // Networking - Multiplayer and server-client communication
-export 'src/networking/networking.dart';
+export 'src/features/networking/networking.dart';
 
-// Entity-Component System - Flexible entity architecture
-export 'src/ecs/ecs.dart';
-export 'src/ecs/components.dart';
-export 'src/ecs/systems.dart';
+/// Entity-Component System (ECS)
+/// A flexible architecture for organizing game logic where:
+/// - Entities are containers for components (just an ID)
+/// - Components are pure data (no logic)
+/// - Systems process entities with specific components
+export 'src/features/ecs/ecs.dart';
+export 'src/features/ecs/entities/entities.dart';
+export 'src/features/ecs/components/components.dart';
+export 'src/features/ecs/systems/systems.dart';
 
 // Cache Management - Storage and caching architecture
-export 'src/cache/cache_manager.dart';
+export 'src/features/cache/cache_manager.dart';
 
 // Reactive ECS - Signal-driven wrappers for ECS types (requires just_signals)
-export 'src/reactive/component_signal.dart';
-export 'src/reactive/entity_signal.dart';
-export 'src/reactive/world_signal.dart';
-export 'src/reactive/reactive_system.dart';
-export 'src/reactive/reactive_component.dart';
-
-// Tiled Map Editor Integration - ECS components, factory, and systems
-export 'src/ecs/tiled_components.dart';
-export 'src/ecs/tiled_map_factory.dart';
-export 'src/ecs/tiled_render_system.dart';
-export 'src/ecs/tiled_collision_system.dart';
+export 'src/features/reactive/component_signal.dart';
+export 'src/features/reactive/entity_signal.dart';
+export 'src/features/reactive/world_signal.dart';
+export 'src/features/reactive/reactive_system.dart';
+export 'src/features/reactive/reactive_component.dart';
