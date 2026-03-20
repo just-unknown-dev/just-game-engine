@@ -14,6 +14,7 @@ lib/src/core/
 ├── time_manager.dart      # Time tracking and time scale management
 ├── system_manager.dart    # System registry and coordination
 ├── lifecycle.dart         # Lifecycle interfaces and mixins
+├── compute_helper.dart    # Background isolate helpers
 └── README.md             # Comprehensive documentation
 ```
 
@@ -33,7 +34,7 @@ lib/src/core/
 - ✅ Frame accumulation for frame rate independence
 - ✅ Spiral of death prevention (clamped accumulator)
 - ✅ FPS calculation
-- ✅ Pause/resume support
+- ✅ Pause/resume support with accumulator reset on resume
 - ✅ Interpolation factor for smooth rendering
 
 ### 3. **Time Manager** (`time_manager.dart`)
@@ -113,7 +114,7 @@ lib/src/core/
 
 ## 🔧 Integration with Existing Systems
 
-The core system properly integrates with all placeholder subsystems:
+The core system properly integrates with all subsystems:
 - ✅ Rendering Engine
 - ✅ Physics Engine
 - ✅ Input Management
@@ -121,7 +122,12 @@ The core system properly integrates with all placeholder subsystems:
 - ✅ Scene Editor
 - ✅ Animation System
 - ✅ Asset Management
-- ✅ Networking
+- ✅ Cache Manager
+- ✅ Camera System
+- ✅ ECS World (with CommandBuffer, EventBus, EntityPrefab)
+- ✅ Math Module (Vec2, Quadtree)
+- ✅ Memory Management (ObjectPool, CacheManager)
+- ✅ Networking (stub)
 
 All subsystems are:
 - Registered in the system manager
@@ -131,9 +137,9 @@ All subsystems are:
 
 ## 📊 Code Metrics
 
-- **Total Lines**: ~1,200+ lines
-- **Files Created**: 7 core files
-- **Classes**: 5 main classes
+- **Total Lines**: ~10,000+ lines across all subsystems
+- **Files Created**: 7 core files + 80+ subsystem/ECS files
+- **Classes**: 5 core classes + 24+ components + 14+ systems
 - **Interfaces**: 5 interfaces + 1 mixin
 - **Documentation**: 500+ lines
 - **Examples**: 250+ lines
@@ -158,6 +164,8 @@ void main() async {
   final physics = engine.physics;
   final rendering = engine.rendering;
   final time = engine.time;
+  final cache = engine.cache;
+  final world = engine.world;
   
   // Use time management
   print('FPS: ${time.fps}');
@@ -173,15 +181,23 @@ void main() async {
 }
 ```
 
-## ✨ Next Steps
+## ✨ What’s Shipped (v1.4.0)
 
-The core system is now ready for:
-1. ✅ Implementing individual subsystems (rendering, physics, etc.)
-2. ✅ Adding entity-component system
-3. ✅ Building the scene graph
-4. ✅ Implementing asset loading
-5. ✅ Adding event system
-6. ✅ Creating game samples
+All core systems and subsystems are implemented:
+1. ✅ Core engine, game loop, and time management
+2. ✅ Rendering engine with SpriteBatch and Quadtree culling
+3. ✅ Physics engine with Vec2 hot-path, collision events, and spatial grid
+4. ✅ Entity-Component System with CommandBuffer, EventBus, EntityPrefab, and generational IDs
+5. ✅ Reactive ECS layer with signal-driven change tracking
+6. ✅ Scene graph and level editor
+7. ✅ Asset management with LRU binary caching
+8. ✅ Animation system (subsystem + ECS)
+9. ✅ Audio engine (subsystem + ECS AudioSystem)
+10. ✅ Input system with virtual joystick and ECS InputSystem bridge
+11. ✅ Math module (Vec2, Quadtree)
+12. ✅ Memory management (ObjectPool, CacheManager)
+13. ✅ 24+ built-in ECS components and 14+ built-in systems
+14. ✅ Tiled map ECS integration (TileMapRenderSystem, TiledCollisionSystem)
 
 ## 🎓 Key Takeaways
 

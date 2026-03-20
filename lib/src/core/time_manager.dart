@@ -37,6 +37,9 @@ class TimeManager {
   /// Maximum allowed delta time (prevents huge jumps)
   double _maxDeltaTime = 0.1; // 100ms
 
+  /// Exponential moving average of delta time (for smooth queries).
+  double _smoothDeltaTime = 0.0;
+
   /// Start time
   final DateTime _startTime = DateTime.now();
 
@@ -94,6 +97,11 @@ class TimeManager {
     // Update total time
     _totalTime += _deltaTime;
 
+    // Update smooth delta time (EMA)
+    _smoothDeltaTime = _smoothDeltaTime == 0.0
+        ? _deltaTime
+        : _smoothDeltaTime * 0.9 + _deltaTime * 0.1;
+
     // Increment frame count
     _frameCount++;
   }
@@ -124,16 +132,20 @@ class TimeManager {
     _totalTime = 0.0;
     _timeScale = 1.0;
     _unscaledDeltaTime = 0.0;
+    _smoothDeltaTime = 0.0;
     _frameCount = 0;
   }
 
-  /// Get smooth delta time (exponential moving average)
+  /// Get smooth delta time (exponential moving average).
   ///
   /// This provides a smoother delta time value that's less affected by
   /// individual frame spikes. Useful for camera movement and other
   /// time-sensitive operations that need to be smooth.
+  ///
+  /// [smoothing] controls the weight of the current frame (0.0–1.0).
+  /// Lower values produce more smoothing but more lag.
   double getSmoothDeltaTime([double smoothing = 0.1]) {
-    // TODO: Implement exponential moving average
-    return _deltaTime;
+    // Re-compute EMA using the caller's smoothing factor.
+    return _smoothDeltaTime * (1.0 - smoothing) + _deltaTime * smoothing;
   }
 }
