@@ -10,10 +10,12 @@ Comprehensive API documentation for all major classes and methods in the Just Ga
 4. [Animation System](#animation-system)
 5. [Particle Effects](#particle-effects)
 6. [Physics Engine](#physics-engine)
-7. [Scene Graph](#scene-graph)
-8. [Entity-Component System](#entity-component-system)
-9. [Asset Management](#asset-management)
-10. [Audio Engine](#audio-engine)
+7. [Ray Casting & Tracing](#ray-casting--tracing)
+8. [Scene Graph](#scene-graph)
+9. [Entity-Component System](#entity-component-system)
+10. [Asset Management](#asset-management)
+11. [Audio Engine](#audio-engine)
+12. [Tiled Map Support](#tiled-map-support)
 
 ---
 
@@ -276,6 +278,63 @@ GameWidget({
   bool showFPS = false,
   bool showDebug = false,
 })
+```
+
+As of v1.2.1, `GameWidget` automatically calls `engine.world.render(canvas, size)` during each paint, so ECS entities registered with `RenderSystem` are drawn alongside the classic rendering pipeline without any extra wiring.
+
+---
+
+### RayRenderable
+
+A `Renderable` that draws a glowing beam, laser, or bullet trail in world space and fades it out over its lifetime. Useful for visualising ray casts or projectile trails.
+
+#### Constructor
+
+```dart
+RayRenderable({
+  required Offset start,         // World-space start point
+  required Offset end,           // World-space end point
+  Color color = const Color(0xFFFFFF44),  // Core beam colour
+  double width = 2.5,            // Core line stroke width (world units)
+  double glowWidthMultiplier = 4.0,  // Glow width relative to core
+  double glowBlurSigma = 5.0,    // Blur applied to glow (0 = no blur)
+  double lifetime = 0.25,        // Fade duration in seconds (0 = permanent)
+  int layer = 5,
+  int zOrder = 10,
+})
+```
+
+#### Properties
+
+```dart
+bool get isExpired             // true once the fade timer elapses
+```
+
+#### Methods
+
+```dart
+void update(double dt)         // Advance fade timer; call every frame before render
+void render(Canvas canvas, Size size)  // Draw the glowing beam
+```
+
+#### Example
+
+```dart
+// Create a laser beam that fades over 0.5 seconds
+final beam = RayRenderable(
+  start: playerPos,
+  end: hitPoint,
+  color: Colors.cyanAccent,
+  width: 3.0,
+  lifetime: 0.5,
+);
+engine.rendering.addRenderable(beam);
+
+// In game loop — advance timer and remove when expired
+beam.update(deltaTime);
+if (beam.isExpired) {
+  engine.rendering.removeRenderable(beam);
+}
 ```
 
 ---
@@ -826,6 +885,153 @@ final boxBody = PhysicsBody(
 
 ---
 
+## Ray Casting & Tracing
+
+Spatial query system for hit detection, line-of-sight checks, and multi-bounce reflections. Added in v1.2.0.
+
+### Ray
+
+A 2D ray descriptor with an origin, normalised direction, and maximum travel distance.
+
+```dart
+Ray({
+  required Offset origin,
+  required Offset direction,   // Auto-normalised; Offset.zero falls back to +x axis
+  double maxDistance = 2000.0,
+})
+
+// Convenience constructor
+factory Ray.fromPoints(Offset from, Offset to, {double? maxDistance})
+```
+
+#### Methods
+
+```dart
+Offset at(double t)            // World-space point at distance t along the ray
+```
+
+---
+
+### RaycastSystem
+
+ECS system that provides ray-vs-collider intersection tests. Performs no per-frame work — it is a pure on-demand query API.
+
+```dart
+final raycastSys = RaycastSystem();
+world.addSystem(raycastSys);
+```
+
+#### Methods
+
+```dart
+// Returns the closest hit entity, or null if nothing is intersected
+RaycastHit? castRay(Ray ray, {String? filterTag})
+
+// Returns all intersected entities, sorted nearest-first
+List<RaycastHit> castRayAll(Ray ray, {String? filterTag})
+
+// Returns true if no blocking collider exists between two points (LOS check)
+bool hasLineOfSight(Offset from, Offset to, {String? ignoreTag})
+```
+
+---
+
+### RaycastHit
+
+Intersection result returned by `RaycastSystem`.
+
+#### Properties
+
+```dart
+Entity entity                  // The entity that was intersected
+Offset point                   // World-space hit point
+double distance                // Distance from ray origin to hit point
+Offset normal                  // Outward surface normal at hit point
+```
+
+---
+
+### RayTracer
+
+Performs multi-bounce ray tracing against reflective surfaces (`isReflective = true`).
+
+```dart
+RayTracer({
+  required RaycastSystem raycastSystem,
+  int maxBounces = 3,          // Maximum reflection bounces
+  double minReflectivity = 0.1, // Minimum reflectivity to produce a bounce
+})
+```
+
+#### Methods
+
+```dart
+// Trace ray through world, bouncing off reflective surfaces
+RayTrace trace(Ray ray, {String? filterTag})
+```
+
+---
+
+### RayTrace / RayTraceSegment
+
+Result of a `RayTracer.trace()` call.
+
+```dart
+class RayTrace {
+  List<RayTraceSegment> segments  // Ordered path segments (first = initial ray)
+  List<RaycastHit> get hits       // All non-null hits across all segments
+  double get totalLength          // Total path length (world units)
+}
+
+class RayTraceSegment {
+  Offset from                  // World-space start of segment
+  Offset to                    // World-space end of segment
+  RaycastHit? hit              // Hit at 'to', or null if ray missed
+}
+```
+
+#### Full Example
+
+```dart
+// Setup
+final raycastSys = RaycastSystem();
+world.addSystem(raycastSys);
+
+// Mark entities as hittable
+enemy.addComponent(RaycastColliderComponent(radius: 14.0, tag: 'enemy'));
+wall.addComponent(RaycastColliderComponent(
+  radius: 50.0, tag: 'wall',
+  isReflective: true, reflectivity: 0.7,
+));
+
+// Simple ray cast
+final ray = Ray(origin: playerPos, direction: aimDir);
+final hit = raycastSys.castRay(ray, filterTag: 'enemy');
+if (hit != null) {
+  enemy.getComponent<HealthComponent>()?.damage(25);
+  // Visualise the hit
+  engine.rendering.addRenderable(RayRenderable(
+    start: playerPos, end: hit.point,
+    color: Colors.red, lifetime: 0.3,
+  ));
+}
+
+// Line-of-sight check
+final canSee = raycastSys.hasLineOfSight(guardPos, playerPos, ignoreTag: 'guard');
+
+// Multi-bounce trace
+final tracer = RayTracer(raycastSystem: raycastSys, maxBounces: 3);
+final trace = tracer.trace(Ray(origin: laserPos, direction: laserDir));
+for (final seg in trace.segments) {
+  engine.rendering.addRenderable(RayRenderable(
+    start: seg.from, end: seg.to,
+    color: Colors.cyanAccent, lifetime: 0.5,
+  ));
+}
+```
+
+---
+
 ## Scene Graph
 
 ### SceneEditor
@@ -1085,6 +1291,19 @@ PhysicsBodyComponent({
 bool canCollideWith(PhysicsBodyComponent other)
 ```
 
+**RaycastColliderComponent**
+```dart
+RaycastColliderComponent({
+  required double radius,    // Collision radius in world units
+  String? tag,               // Optional filter tag (e.g. 'enemy', 'wall')
+  bool isBlocker = true,     // When true ray terminates on hit; false = ray passes through
+  bool isReflective = false, // Whether rays can bounce off this surface
+  double reflectivity = 0.8, // Energy coefficient for reflected ray (0–1)
+})
+```
+
+Used with `RaycastSystem` and `RayTracer`. Add to entities that should participate in ray queries.
+
 **HealthComponent**
 ```dart
 HealthComponent({
@@ -1220,6 +1439,11 @@ Base class for systems that process entities with specific components.
 - Enforces world boundaries with configurable behavior
 - Constructor: `BoundarySystem({required Rect bounds, BoundaryBehavior behavior})`
 - Behaviors: `clamp`, `bounce`, `wrap`, `destroy`
+
+**RaycastSystem**
+- Requires: `TransformComponent`, `RaycastColliderComponent`
+- Query-only: no per-frame logic. Call `castRay()`, `castRayAll()`, or `hasLineOfSight()` on demand.
+- See the [Ray Casting & Tracing](#ray-casting--tracing) section for full API.
 
 #### Custom System Example
 
@@ -1801,3 +2025,289 @@ const int DEFAULT_MAX_PARTICLES = 1000;    // Max particles per emitter
 ---
 
 For more examples and tutorials, see the README.md and check the demo application.
+
+---
+
+## Tiled Map Support
+
+Tiled map integration is provided by the companion package [`just_tiled`](https://pub.dev/packages/just_tiled). Add it to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  just_tiled: ^0.2.0
+```
+
+---
+
+### TileMapParser
+
+Async parser for Tiled `.tmx` map files and `.tsx` tileset files.
+
+#### Methods
+
+```dart
+// Parse a map from the Flutter asset bundle
+static Future<TileMap> parseAsset(String assetPath)
+
+// Parse a map from a raw XML string
+static Future<TileMap> parseString(String xmlContent)
+
+// Parse a map from a file path (non-web platforms)
+static Future<TileMap> parseFile(String filePath)
+```
+
+Supported tile encodings: **CSV**, **Base64**, **XML**.
+Supported compressions: **GZIP**, **Zlib**, **Zstandard** (via `just_zstd`).
+
+#### Example
+
+```dart
+import 'package:just_tiled/just_tiled.dart';
+
+final tileMap = await TileMapParser.parseAsset('assets/maps/level1.tmx');
+print('Map size: ${tileMap.width}x${tileMap.height} tiles');
+print('Tile size: ${tileMap.tileWidth}x${tileMap.tileHeight}px');
+print('Layers: ${tileMap.layers.length}');
+```
+
+---
+
+### TileMap
+
+The parsed map data model.
+
+#### Properties
+
+```dart
+int width                      // Map width in tiles
+int height                     // Map height in tiles
+int tileWidth                  // Tile width in pixels
+int tileHeight                 // Tile height in pixels
+MapOrientation orientation     // orthogonal | isometric | staggered | hexagonal
+List<Layer> layers             // All layers (tile, object, image, group)
+List<Tileset> tilesets         // All referenced tilesets
+Map<String, String> properties // Custom map properties
+```
+
+---
+
+### Layer Types
+
+**TileLayer** — grid of tile GIDs.
+```dart
+String name
+List<int> data                 // Flat list of tile GIDs (width * height)
+int width
+int height
+Map<String, String> properties
+```
+
+**ObjectLayer** — collection of map objects.
+```dart
+String name
+List<MapObject> objects
+DrawOrder drawOrder            // topDown | index
+Map<String, String> properties
+```
+
+**ImageLayer** — background/foreground image.
+```dart
+String name
+String imagePath
+Offset offset
+Map<String, String> properties
+```
+
+**GroupLayer** — contains nested layers.
+```dart
+String name
+List<Layer> layers
+Map<String, String> properties
+```
+
+---
+
+### MapObject
+
+Represents a Tiled object (rectangle, ellipse, point, polygon, polyline, or tile object).
+
+#### Properties
+
+```dart
+int id
+String name
+String type
+Rect bounds                    // position and size in world-space pixels
+List<Offset>? polygon          // polygon vertices (relative to bounds.topLeft)
+List<Offset>? polyline         // polyline points
+bool isPoint
+bool isEllipse
+Map<String, String> properties // Custom properties
+```
+
+---
+
+### TextureAtlas
+
+Builds a packed texture atlas from all tilesets referenced by a `TileMap`.
+
+#### Constructor
+
+```dart
+static Future<TextureAtlas> fromTileMap(TileMap tileMap)
+```
+
+#### Properties
+
+```dart
+ui.Image image                 // The packed atlas image
+Map<int, Rect> sourceRects     // GID → source rect in the atlas
+```
+
+---
+
+### TileMapRenderer
+
+GPU-batched renderer that draws a single `TileLayer` using `Canvas.drawRawAtlas`, submitting all tiles in one draw call.
+
+#### Constructor
+
+```dart
+TileMapRenderer({
+  required TileMap tileMap,
+  required TileLayer layer,
+  required TextureAtlas atlas,
+  Offset offset = Offset.zero,  // World-space render offset
+})
+```
+
+#### Methods
+
+```dart
+void render(Canvas canvas)      // Draw all tiles in the layer
+void update(double dt)          // Advance animated tile timers
+```
+
+#### Example
+
+```dart
+final tileMap = await TileMapParser.parseAsset('assets/maps/level1.tmx');
+final atlas   = await TextureAtlas.fromTileMap(tileMap);
+
+final renderers = tileMap.layers
+    .whereType<TileLayer>()
+    .map((layer) => TileMapRenderer(tileMap: tileMap, layer: layer, atlas: atlas))
+    .toList();
+
+engine.rendering.addRenderable(
+  CustomRenderable(
+    onRender: (canvas, size) {
+      for (final r in renderers) {
+        r.update(engine.time.deltaTime); // animate tiles
+        r.render(canvas);
+      }
+    },
+  ),
+);
+```
+
+---
+
+### SpatialHashGrid\<T\>
+
+Generic $O(1)$ spatial hash grid for fast AABB, point, and radius queries. Ideal for indexing map objects and querying which ones overlap the camera or player.
+
+#### Constructor
+
+```dart
+SpatialHashGrid<T>({
+  required double cellSize,     // Grid cell size in world units
+})
+```
+
+#### Methods
+
+```dart
+void insert(T item, Rect bounds)       // Insert item with AABB
+void remove(T item, Rect bounds)       // Remove item
+void update(T item, Rect oldBounds, Rect newBounds)  // Move item
+
+List<T> queryAABB(Rect bounds)         // Items overlapping a rectangle
+List<T> queryPoint(Offset point)       // Items containing a point
+List<T> queryRadius(Offset center, double radius)    // Items within radius
+
+void clear()                           // Remove all items
+```
+
+#### Example
+
+```dart
+// Index all map objects from object layers
+final grid = SpatialHashGrid<MapObject>(cellSize: 128);
+for (final layer in tileMap.layers.whereType<ObjectLayer>()) {
+  for (final obj in layer.objects) {
+    grid.insert(obj, obj.bounds);
+  }
+}
+
+// Every frame: check which objects the player overlaps
+final overlapping = grid.queryAABB(player.bounds);
+for (final obj in overlapping) {
+  if (obj.type == 'trigger') activateTrigger(obj);
+  if (obj.type == 'enemy_spawn') spawnEnemy(obj.bounds.center);
+}
+
+// Radius-based interaction check
+final nearby = grid.queryRadius(playerPos, interactRadius);
+```
+
+---
+
+### Tileset
+
+Describes a tileset referenced by a `TileMap`.
+
+#### Properties
+
+```dart
+int firstGid                   // First global tile ID in this tileset
+String name
+int tileWidth
+int tileHeight
+int spacing
+int margin
+int columns
+String? imagePath              // Path to the tileset image
+Map<int, TileData> tiles       // Per-tile metadata (animations, properties)
+```
+
+---
+
+### TileData / AnimationFrame
+
+Per-tile metadata including animation sequences.
+
+```dart
+class TileData {
+  int localId
+  List<AnimationFrame> animation   // Non-empty = animated tile
+  Map<String, String> properties
+}
+
+class AnimationFrame {
+  int tileId      // Local tile ID for this frame
+  int duration    // Frame duration in milliseconds
+}
+```
+
+#### Example
+
+```dart
+// Log all animated tiles in a tileset
+for (final entry in tileMap.tilesets.first.tiles.entries) {
+  final tile = entry.value;
+  if (tile.animation.isNotEmpty) {
+    print('Tile ${entry.key}: ${tile.animation.length} frames');
+  }
+}
+```

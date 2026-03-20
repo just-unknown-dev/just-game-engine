@@ -1,7 +1,7 @@
 # Just Game Engine - Architectural and Design Blueprints
 
-> **Version:** 1.1.1  
-> **Date:** March 7, 2026  
+> **Version:** 1.2.1  
+> **Date:** March 15, 2026  
 > **Scope:** `packages/just_game_engine` — a 2D Flutter game engine
 
 ---
@@ -23,6 +23,7 @@
 13. [Reactive ECS Layer](#13-reactive-ecs-layer)
 14. [Design Patterns Reference](#14-design-patterns-reference)
 15. [Known Gaps & Future Work](#15-known-gaps--future-work)
+16. [Tiled Map Integration](#16-tiled-map-integration)
 
 ---
 
@@ -33,11 +34,12 @@
 | Field | Value |
 |---|---|
 | **Package name** | `just_game_engine` |
-| **Version** | `1.0.1` |
+| **Version** | `1.2.1` |
 | **Dart SDK** | `^3.11.0` |
 | **Flutter** | `>=1.17.0` |
 | **Runtime dependency** | `flutter_soloud: ^3.5.0` |
 | **Dev dependencies** | `flutter_test`, `flutter_lints: ^6.0.0` |
+| **Companion packages** | `just_tiled: ^0.2.0` (Tiled map support), `just_zstd: ^1.0.0` (Zstandard decompressor) |
 | **Repository** | https://github.com/just-unknown-dev/just-game-engine |
 
 ### Source Layout
@@ -48,8 +50,8 @@ packages/just_game_engine/
 │   ├── just_game_engine.dart          ← public API barrel export
 │   └── src/
 │       ├── core/                      ← Engine, GameLoop, TimeManager, SystemManager, Lifecycle
-│       ├── rendering/                 ← RenderingEngine, Renderables, Sprite, Camera, GameWidget, Particles
-│       ├── physics/                   ← PhysicsEngine, PhysicsBody
+│       ├── rendering/                 ← RenderingEngine, Renderables (incl. RayRenderable), Sprite, Camera, GameWidget, Particles
+│       ├── physics/                   ← PhysicsEngine, PhysicsBody, ray_casting (Ray, RaycastColliderComponent, RaycastSystem, RayTracer)
 │       ├── input/                     ← InputManager, Keyboard/Mouse/Touch/Controller
 │       ├── audio/                     ← AudioEngine, AudioClip
 │       ├── animation/                 ← AnimationSystem, Tweens, Easings
@@ -61,6 +63,15 @@ packages/just_game_engine/
 ├── example/
 ├── test/
 └── pubspec.yaml
+
+Companion packages (separate pub packages, used alongside just_game_engine):
+  packages/just_tiled/
+  │   ├── lib/src/parser/             ← TileMapParser (async TMX/TSX parser)
+  │   ├── lib/src/renderer/          ← TileMapRenderer (Canvas.drawRawAtlas), TextureAtlas
+  │   ├── lib/src/models/            ← TileMap, Layer types, Tileset, MapObject, TileData
+  │   └── lib/src/spatial/           ← SpatialHashGrid<T>
+  packages/just_zstd/
+      └── lib/src/                   ← ZstdDecoder (Zstandard RFC 8878 decompressor)
 ```
 
 ---
@@ -93,6 +104,12 @@ The engine is organized into **six horizontal layers**, each depending only on t
 ┌──────────────────────────▼──────────────────────────────────────────────┐
 │                     Scene Graph Layer                                   │
 │          SceneEditor ─ Scene ─ SceneNode (tree) ─ Renderable attach     │
+└──────────────────────────┬──────────────────────────────────────────────┘
+                           │  canvas · AssetManager
+┌──────────────────────────▼──────────────────────────────────────────────┐
+│              Tiled Map Layer  (just_tiled companion package)            │
+│   TileMapParser ─ TileMap ─ TileMapRenderer ─ TextureAtlas              │
+│   SpatialHashGrid<T> ─ MapObject queries                                │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -103,14 +120,23 @@ Engine
  ├─► GameLoop          uses  TimeManager
  ├─► SystemManager     registrar for all subsystems
  ├─► RenderingEngine   uses  Camera, List<Renderable>, AssetManager (indirect)
- ├─► PhysicsEngine     standalone; mirrored by PhysicsSystem in World
+ ├─► PhysicsEngine     standalone; mirrored by PhysicsSystem in World; ray-casting queries via RaycastSystem / RayTracer
  ├─► InputManager      aggregates Keyboard/Mouse/Touch/Controller
  ├─► AudioEngine       uses  flutter_soloud (SoLoud C++ engine via FFI)
  ├─► AnimationSystem   uses  Renderable (to mutate properties)
  ├─► AssetManager      uses  Flutter rootBundle / dart:ui codec
  ├─► SceneEditor       uses  SceneNode → Renderable → RenderingEngine
  ├─► World (ECS)       owns  List<Entity>, List<System>
- └─► NetworkManager    (upcoming)
+ ├─► NetworkManager    (upcoming)
+ │
+ │  External companion packages (not owned by Engine, used alongside it):
+ ├─► just_tiled
+ │     ├── TileMapParser    uses  AssetManager / rootBundle to load .tmx / .tsx
+ │     ├── TextureAtlas     uses  dart:ui codec to build packed atlas image
+ │     ├── TileMapRenderer  uses  Canvas.drawRawAtlas (RenderingEngine canvas)
+ │     └── SpatialHashGrid  standalone; application code bridges to ECS queries
+ └─► just_zstd
+       └── ZstdDecoder      used by TileMapParser for Zstandard-compressed tile data
 ```
 
 ---
@@ -1223,7 +1249,9 @@ class HealthFlashSystem extends ReactiveSystem {
 | **Scene serialization** | Not implemented | Coming in next release |
 | **Camera shake** | Not implemented | Coming in next release |
 | **Smooth delta time** | Not implemented | Coming in next release |
-| **ECS render pipeline** | Manual wiring required | `World.render()` is not automatically called by the engine; must be triggered explicitly |
+| **ECS render pipeline** | Fixed in v1.2.1 | `GameWidget._GamePainter.paint()` now calls `engine.world.render(canvas, size)` automatically — no manual wiring needed |
+| **Tiled animated tiles** | Caller must drive `TileMapRenderer.update(dt)` | No automatic timer integration into the engine game loop; caller must call `update()` each frame |
+| **Tiled image layers** | Parsed, not auto-rendered | `ImageLayer` is part of the data model but `TileMapRenderer` only renders `TileLayer`; caller must handle image layer drawing manually |
 | **3D expansion** | Not implemented | Coming in next release |
 | **Sub-frame interpolation** | Computed, unused | `GameLoop` computes `interpolationAlpha` but nothing consumes it yet |
 | **Controller input** | Partial | `ControllerInput` is implemented but Flutter does not natively support gamepads; requires a plugin bridge |
@@ -1232,4 +1260,175 @@ class HealthFlashSystem extends ReactiveSystem {
 
 ---
 
-*Document generated from source analysis of `packages/just_game_engine` v1.1.1*
+---
+
+## 16. Tiled Map Integration
+
+Tiled map support is provided by the companion package `just_tiled` (with Zstandard decompression via `just_zstd`). Neither package is a dependency of `just_game_engine` itself — they are used alongside it at the application layer.
+
+### 16.1 Integration Architecture
+
+```
+ Flutter asset bundle
+         │
+         ▼
+ TileMapParser.parseAsset('assets/maps/level.tmx')
+         │  reads XML, resolves TSX external tilesets
+         │  decodes tile data: CSV / Base64 / XML
+         │  decompresses: GZIP / Zlib / Zstandard (just_zstd)
+         ▼
+ TileMap  (pure data model)
+   ├── List<Layer>       ← TileLayer | ObjectLayer | ImageLayer | GroupLayer
+   ├── List<Tileset>     ← firstGid, tileWidth/Height, imagePath, per-tile TileData
+   └── Map<String, String> properties
+         │
+         ├─────────────────────────────────────────────────────────────┐
+         │                                                             │
+         ▼                                                             ▼
+ TextureAtlas.fromTileMap(tileMap)                    ObjectLayer objects
+   └── for each Tileset:                              └── SpatialHashGrid<MapObject>
+         load image → dart:ui Image                        .insert(obj, obj.bounds)
+         pack into atlas image                             .queryAABB(playerBounds)
+         record GID → Rect mapping                        .queryRadius(center, r)
+         │
+         ▼
+ TileMapRenderer(tileMap, layer, atlas)
+   └── render(Canvas):
+         build Float32List rsts (transform per tile)
+         build Float32List rects (source rect per tile)
+         canvas.drawRawAtlas(atlas.image, rsts, rects, …)
+         ← single draw call for entire tile layer
+```
+
+### 16.2 Data Model
+
+```
+TileMap
+ │  width, height              (map dimensions in tiles)
+ │  tileWidth, tileHeight      (tile dimensions in pixels)
+ │  orientation: MapOrientation (orthogonal | isometric | staggered | hexagonal)
+ │  renderOrder: RenderOrder
+ │  List<Layer> layers
+ │  List<Tileset> tilesets
+ │  Map<String, String> properties
+ │
+ ├── TileLayer
+ │     data: List<int>          (flat GID array, width × height)
+ │     width, height
+ │     Map<String, String> properties
+ │
+ ├── ObjectLayer
+ │     List<MapObject> objects
+ │     DrawOrder drawOrder      (topDown | index)
+ │
+ ├── ImageLayer
+ │     imagePath: String
+ │     offset: Offset
+ │
+ └── GroupLayer
+       List<Layer> layers       (recursive nesting)
+
+MapObject
+   id, name, type
+   bounds: Rect                 (position + size in world pixels)
+   polygon: List<Offset>?       (polygon vertices, relative to bounds.topLeft)
+   polyline: List<Offset>?
+   isPoint, isEllipse: bool
+   Map<String, String> properties
+
+Tileset
+   firstGid: int                (GID offset for this tileset)
+   name, tileWidth, tileHeight, spacing, margin, columns
+   imagePath: String?
+   Map<int, TileData> tiles     (localId → per-tile metadata)
+
+TileData
+   localId: int
+   List<AnimationFrame> animation
+   Map<String, String> properties
+
+AnimationFrame
+   tileId: int                  (local tile ID for this frame)
+   duration: int                (milliseconds)
+```
+
+### 16.3 SpatialHashGrid\<T\>
+
+Generic $O(1)$ spatial hash grid independent of the ECS. Used to index `MapObject` instances from `ObjectLayer` for fast overlap queries during gameplay.
+
+```
+SpatialHashGrid<T>
+   cellSize: double             ← grid cell size in world units
+   Map<String, List<T>> _cells  ← cell key → items list
+
+   insert(item, Rect bounds)    ← registers item in all overlapping cells
+   remove(item, Rect bounds)
+   update(item, Rect old, Rect new)
+
+   queryAABB(Rect) → List<T>   ← items overlapping rectangle
+   queryPoint(Offset) → List<T>
+   queryRadius(Offset, double) → List<T>
+```
+
+Typical bridge pattern between `SpatialHashGrid` and ECS:
+```dart
+// Build grid once after map load
+final grid = SpatialHashGrid<MapObject>(cellSize: 128);
+for (final obj in objectLayer.objects) {
+  grid.insert(obj, obj.bounds);
+}
+
+// Each ECS update — query and post to InputComponent / custom event
+void update(double dt) {
+  final transform = entity.getComponent<TransformComponent>()!;
+  final nearby = grid.queryRadius(transform.position, 64);
+  for (final obj in nearby) {
+    if (obj.type == 'damage_zone') {
+      entity.getComponent<HealthComponent>()?.damage(dt * 10);
+    }
+  }
+}
+```
+
+### 16.4 GPU-Batched Rendering
+
+`TileMapRenderer` achieves minimal draw calls by using `Canvas.drawRawAtlas`:
+
+```
+For each visible tile in TileLayer:
+  look up GID → source Rect in TextureAtlas
+  compute destination RST (Rotation-Scale-Translation) Float32
+  append to rsts and rects buffers
+
+canvas.drawRawAtlas(
+  atlas.image,          ← single packed texture
+  rsts,                 ← Float32List: [cos, -sin, tx, sin, cos, ty] × N
+  rects,                ← Float32List: [srcL, srcT, srcR, srcB] × N
+  null,                 ← colors (null = no per-tile tint)
+  BlendMode.srcOver,
+  null,                 ← cullRect (null = draw all)
+  Paint(),
+)
+← one GPU draw call per layer regardless of tile count
+```
+
+### 16.5 Animated Tiles
+
+Animated tiles store a `List<AnimationFrame>` in `TileData`. `TileMapRenderer` maintains a per-tile elapsed timer. Each call to `renderer.update(dt)` advances all timers; when a timer exceeds the current frame's `duration`, the renderer advances to the next frame index and resets the timer. The corresponding GID in the internal render buffer is updated accordingly.
+
+The engine game loop does **not** automatically call `renderer.update(dt)` — the caller must wire it:
+
+```dart
+engine.rendering.addRenderable(CustomRenderable(
+  onRender: (canvas, size) {
+    for (final r in renderers) {
+      r.update(engine.time.deltaTime);
+      r.render(canvas);
+    }
+  },
+));
+```
+
+---
+
+*Document generated from source analysis of `packages/just_game_engine` v1.2.1*
