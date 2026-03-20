@@ -6,10 +6,8 @@ A comprehensive 2D game engine built for Flutter, providing everything you need 
 
 - **[Quick Start Guide](QUICKSTART.md)** - Get started in 5 minutes
 - **[API Reference](API.md)** - Detailed API documentation for all classes
-- **[Changelog](CHANGELOG.md)** - Version history and release notes
-- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to the project
-- **[Code of Conduct](CODE_OF_CONDUCT.md)** - Our community guidelines
-- **[Discord](https://discord.gg/xnbChKrp)** - Join our community
+- **[Documentation](https://engine.justunknown.com/docs/getting-started)** - Just Game Engine documentation.
+- **[Discord](https://discord.gg/VXFxVj4Y)** - Join our community
 
 ## Features
 
