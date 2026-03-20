@@ -16,6 +16,9 @@ Comprehensive API documentation for all major classes and methods in the Just Ga
 10. [Asset Management](#asset-management)
 11. [Audio Engine](#audio-engine)
 12. [Tiled Map Support](#tiled-map-support)
+13. [Math Module](#math-module)
+14. [Memory Management](#memory-management)
+15. [System Priorities](#system-priorities)
 
 ---
 
@@ -42,6 +45,10 @@ SceneEditor sceneEditor
 AnimationSystem animation
 AssetManager assets
 NetworkManager network
+CacheManager cache             // LRU binary cache (via just_storage / just_database)
+CameraSystem cameraSystem      // Camera management subsystem
+World world                    // ECS World
+GameLoop gameLoop              // Game loop reference
 ```
 
 #### Methods
@@ -71,6 +78,10 @@ engine.start();
 // Access subsystems
 engine.rendering.addRenderable(myCircle);
 engine.physics.addBody(myBody);
+engine.cache;           // CacheManager
+engine.cameraSystem;    // CameraSystem
+engine.world;           // ECS World
+engine.gameLoop;        // GameLoop
 
 // Lifecycle control
 engine.pause();
@@ -280,7 +291,7 @@ GameWidget({
 })
 ```
 
-As of v1.2.1, `GameWidget` automatically calls `engine.world.render(canvas, size)` during each paint, so ECS entities registered with `RenderSystem` are drawn alongside the classic rendering pipeline without any extra wiring.
+As of v1.2.1, `GameWidget` automatically calls `engine.world.render(canvas, size)` during each paint, so ECS entities registered with `RenderSystem` are drawn alongside the classic rendering pipeline without any extra wiring. In v1.4.0, the rendering pipeline additionally supports `SpriteBatch` (via `Canvas.drawAtlas`) and `Quadtree` viewport culling for large renderable counts.
 
 ---
 
@@ -813,9 +824,9 @@ Rigid body with collision.
 #### Properties
 
 ```dart
-Offset position                // Body position
-Offset velocity                // Current velocity
-Offset acceleration            // Current acceleration
+Offset position                // Body position (also available as Vec2 via .pos)
+Offset velocity                // Current velocity (also available as Vec2 via .vel)
+Offset acceleration            // Current acceleration (also available as Vec2 via .acc)
 CollisionShape shape           // Collision shape (Circle, Rectangle, Polygon)
 double mass                    // Body mass
 double restitution             // Bounciness (0-1)
@@ -1157,9 +1168,11 @@ final world = engine.world;  // Access from Engine
 
 #### Properties
 
-- `List<Entity> entities` - All active entities
+- `LinkedHashSet<Entity> entities` - All active entities (O(1) add/remove)
 - `List<System> systems` - All registered systems
 - `Map<String, dynamic> stats` - Statistics (entity count, system count, etc.)
+- `CommandBuffer commands` - Deferred mutation queue (see [CommandBuffer](#commandbuffer))
+- `EventBus events` - Typed event bus (see [EventBus](#eventbus))
 
 #### Methods
 
@@ -1168,32 +1181,162 @@ final world = engine.world;  // Access from Engine
 - `void destroyAllEntities()` - Remove all entities
 - `void addSystem(System system)` - Register a system for processing
 - `void removeSystem(System system)` - Unregister a system
-- `void update(double deltaTime)` - Update all systems
+- `void update(double deltaTime)` - Update all systems, then flush CommandBuffer
 - `void render(Canvas canvas, Size size)` - Render all systems
-- `List<Entity> query(List<Type> componentTypes)` - Find entities with specific components
+- `UnmodifiableListView<Entity> query(List<Type> componentTypes)` - Find entities with specific components (cached; selective invalidation via XOR hash)
 - `Entity? findEntityByName(String name)` - Find entity by name
+- `bool isEntityAlive(EntityId id)` - Generational check for stale entity references
+- `EntityId instantiate(EntityPrefab prefab)` - Create entity from a reusable blueprint
 
 #### Example
 
 ```dart
 final world = engine.world;
 
-// Add systems
-world.addSystem(MovementSystem());
-world.addSystem(RenderSystem());
+// Add systems (priority order is automatic)
+world.addSystem(InputSystem());          // priority 100
+world.addSystem(MovementSystem());       // priority 80
+world.addSystem(RenderSystem());         // priority 40
 world.addSystem(PhysicsSystem()..gravity = const Offset(0, 100));
 
-// Create entity
-final player = world.createEntity(name: 'Player');
-player.addComponent(TransformComponent(position: Offset.zero));
-player.addComponent(VelocityComponent(velocity: const Offset(100, 0)));
+// Create entity from prefab
+final enemyPrefab = EntityPrefab(
+  name: 'Enemy',
+  components: [
+    TransformComponent(position: Offset.zero),
+    VelocityComponent(velocity: const Offset(0, 50)),
+    HealthComponent(maxHealth: 30),
+  ],
+);
+final enemyId = world.instantiate(enemyPrefab);
 
-// Query entities
+// Deferred mutations via CommandBuffer
+world.commands.destroyEntity(enemyId);  // queued, applied after update()
+
+// Typed events via EventBus
+world.events.on<CollisionEvent>((event) {
+  print('Collision: ${event.entityA} vs ${event.entityB}');
+});
+
+// Check entity validity
+if (world.isEntityAlive(enemyId)) {
+  print('Entity is alive');
+}
+
+// Query entities (cached, returns UnmodifiableListView)
 final movingEntities = world.query([TransformComponent, VelocityComponent]);
 print('Found ${movingEntities.length} moving entities');
 
 // Get stats
 print('Total entities: ${world.stats['totalEntities']}');
+```
+
+### CommandBuffer
+
+Queues entity mutations during system updates to prevent concurrent-modification errors. Flushed automatically at the end of `World.update()`.
+
+#### Methods
+
+- `void createEntity({String? name, List<Component>? components})` - Queue entity creation
+- `void destroyEntity(EntityId id)` - Queue entity destruction
+- `void addComponent(EntityId id, Component component)` - Queue component addition
+- `void removeComponent<T extends Component>(EntityId id)` - Queue component removal
+- `void flush(World world)` - Execute all queued operations (called automatically)
+
+#### Example
+
+```dart
+class SpawnerSystem extends System {
+  @override
+  void update(double deltaTime) {
+    // Safe to queue mutations during update — no ConcurrentModificationError
+    world.commands.createEntity(
+      name: 'Bullet',
+      components: [
+        TransformComponent(position: gunTip),
+        VelocityComponent(velocity: Offset(500, 0)),
+        LifetimeComponent(2.0),
+      ],
+    );
+  }
+}
+```
+
+### EventBus
+
+Typed publish-subscribe event system. Events are dispatched synchronously.
+
+#### Methods
+
+- `void fire<T extends GameEvent>(T event)` - Publish an event to all subscribers
+- `void on<T extends GameEvent>(void Function(T) callback)` - Subscribe to event type
+- `void off<T extends GameEvent>(void Function(T) callback)` - Unsubscribe
+
+#### Built-in Events
+
+**CollisionEvent**
+```dart
+CollisionEvent({
+  required EntityId entityA,
+  required EntityId entityB,
+  required Offset contactPoint,
+  required Offset normal,
+})
+```
+
+#### Custom Event Example
+
+```dart
+class DamageEvent extends GameEvent {
+  final EntityId target;
+  final double amount;
+  DamageEvent({required this.target, required this.amount});
+}
+
+// Subscribe
+world.events.on<DamageEvent>((event) {
+  final health = world.getComponent<HealthComponent>(event.target);
+  health?.damage(event.amount);
+});
+
+// Fire
+world.events.fire(DamageEvent(target: enemyId, amount: 25));
+```
+
+### EntityPrefab
+
+Reusable entity blueprint. Define once, instantiate many times.
+
+#### Constructor
+
+```dart
+EntityPrefab({
+  String? name,
+  required List<Component> components,
+})
+```
+
+#### Example
+
+```dart
+final bulletPrefab = EntityPrefab(
+  name: 'Bullet',
+  components: [
+    TransformComponent(),
+    VelocityComponent(maxSpeed: 800),
+    PhysicsBodyComponent(radius: 4, mass: 0.1),
+    LifetimeComponent(3.0),
+    RenderableComponent(renderable: CircleRenderable(radius: 4, fillColor: Colors.yellow)),
+  ],
+);
+
+// Stamp out bullets
+for (int i = 0; i < 5; i++) {
+  final id = world.instantiate(bulletPrefab);
+  // Customize after creation
+  final transform = world.getComponent<TransformComponent>(id);
+  transform?.position = gunTip + Offset(i * 10.0, 0);
+}
 ```
 
 ### Entity
@@ -1366,6 +1509,9 @@ String? currentAnimation
 double time
 bool isPlaying
 bool loop
+int frameCount                 // Total frames in current animation
+double frameDuration           // Duration per frame (seconds)
+int currentFrame               // Current frame index
 
 // Methods
 void play(String name, {bool loop = true})
@@ -1383,6 +1529,106 @@ SpriteComponent({
 })
 ```
 
+**PhysicsBodyRefComponent**
+```dart
+PhysicsBodyRefComponent({
+  required PhysicsBody body,   // Reference to a standalone PhysicsBody
+})
+```
+Used with `PhysicsBridgeSystem` to sync standalone `PhysicsEngine` bodies into ECS components.
+
+**JoystickInputComponent**
+```dart
+JoystickInputComponent()
+
+// Properties
+Offset direction               // Normalized joystick direction
+double magnitude               // Joystick displacement (0.0–1.0)
+```
+Populated by `InputSystem` from `VirtualJoystick` widget data.
+
+**AudioSourceComponent**
+```dart
+AudioSourceComponent({
+  required String clipPath,
+  double volume = 1.0,
+  double pan = 0.0,
+  bool loop = false,
+  bool is3D = false,
+  AudioChannel channel = AudioChannel.sfx,
+})
+```
+Attach to an entity for ECS-driven audio playback via `AudioSystem`.
+
+**AudioPlayComponent**
+```dart
+AudioPlayComponent({
+  required String clipPath,
+  double volume = 1.0,
+})
+```
+One-shot audio trigger. `AudioSystem` plays the clip and removes the component.
+
+**TileMapLayerComponent**
+```dart
+TileMapLayerComponent({
+  required TileLayer tileLayer,
+  required TileMapRenderer renderer,
+})
+```
+Pairs a parsed `TileLayer` with its GPU-batched renderer for ECS-driven tile map rendering via `TileMapRenderSystem`.
+
+**TiledObjectComponent**
+```dart
+TiledObjectComponent({
+  required MapObject object,
+  Map<String, String>? properties,
+})
+```
+Attaches Tiled map object metadata to an entity for collision or trigger logic.
+
+**UIComponent**
+```dart
+UIComponent({
+  Size size = Size.zero,
+  bool visible = true,
+  bool enabled = true,
+  int layer = 0,
+})
+```
+Base UI element. Rendered by `RenderSystem`.
+
+**TextComponent**
+```dart
+TextComponent({
+  required String text,
+  TextStyle? style,
+  TextAlign alignment = TextAlign.left,
+})
+```
+
+**ButtonComponent**
+```dart
+ButtonComponent({
+  ButtonState state = ButtonState.normal,
+  VoidCallback? onClick,
+})
+```
+
+**LinearProgressComponent**
+```dart
+LinearProgressComponent({
+  double progress = 0.0,       // 0.0 – 1.0
+})
+```
+
+**CircularProgressComponent**
+```dart
+CircularProgressComponent({
+  double progress = 0.0,       // 0.0 – 1.0
+})
+```
+
 ### System
 
 Base class for systems that process entities with specific components.
@@ -1392,7 +1638,7 @@ Base class for systems that process entities with specific components.
 - `List<Type> requiredComponents` - Components needed for entity to be processed
 - `List<Entity> entities` - Filtered entities matching requirements
 - `bool enabled` - Whether system is active
-- `int priority` - Processing order (lower = earlier)
+- `int priority` - Processing order (higher = runs first)
 
 #### Methods
 
@@ -1404,46 +1650,71 @@ Base class for systems that process entities with specific components.
 
 #### Built-in Systems
 
-**MovementSystem**
+**TileMapRenderSystem** (priority 110)
+- Requires: `TileMapLayerComponent`
+- Renders tile layers as background
+
+**InputSystem** (priority 100)
+- Requires: `InputComponent` (+ optional `JoystickInputComponent`)
+- Bridges `InputManager` → `InputComponent` / `JoystickInputComponent` via configurable `ButtonMapping`
+
+**PhysicsSystem** (priority 90)
+- Requires: `TransformComponent`, `VelocityComponent`, `PhysicsBodyComponent`
+- Handles gravity, drag, collision detection and resolution
+- Fires `CollisionEvent` via `world.events`
+- Properties: `Offset gravity`, `bool enableCollisions`
+
+**PhysicsBridgeSystem** (priority 89)
+- Requires: `TransformComponent`, `VelocityComponent`, `PhysicsBodyRefComponent`
+- Syncs standalone `PhysicsBody.pos/vel/angle` → ECS components (runs after PhysicsSystem)
+
+**MovementSystem** (priority 80)
 - Requires: `TransformComponent`, `VelocityComponent`
 - Applies velocity to position, clamps to max speed
 
-**RenderSystem**
+**AnimationSystemECS** (priority 70)
+- Requires: `AnimationStateComponent` (+ optional `SpriteComponent`)
+- Advances animation timers, drives `SpriteComponent.frame`, stops non-looping animations
+
+**HealthSystem** (priority 60)
+- Requires: `HealthComponent`
+- Handles health regeneration and death
+- Properties: `double regenRate`, `bool destroyOnDeath`
+
+**HierarchySystem** (priority 50)
+- Requires: `TransformComponent`, `ParentComponent`
+- Propagates parent transforms to children
+
+**RenderSystem** (priority 40)
 - Requires: `TransformComponent`, `RenderableComponent`
 - Syncs transforms and renders entities
+- Also renders UI components (`TextComponent`, `ButtonComponent`, `LinearProgressComponent`, `CircularProgressComponent`)
 
-**PhysicsSystem**
-- Requires: `TransformComponent`, `VelocityComponent`, `PhysicsBodyComponent`
-- Handles gravity, drag, collision detection and resolution
-- Properties: `Offset gravity`, `bool enableCollisions`
+**BoundarySystem** (priority 30)
+- Requires: `TransformComponent`
+- Enforces world boundaries with configurable behavior via `world.commands`
+- Constructor: `BoundarySystem({required Rect bounds, BoundaryBehavior behavior})`
+- Behaviors: `clamp`, `bounce`, `wrap`, `destroy`
+
+**DebugSystem** (priority 10)
+- Internal diagnostics overlay (not exported)
+
+**AudioSystem** (priority -10)
+- Requires: `AudioSourceComponent` (+ optional `AudioPlayComponent`)
+- Plays audio via `AudioSourceComponent`; consumes `AudioPlayComponent` one-shot triggers
 
 **LifetimeSystem**
 - Requires: `LifetimeComponent`
 - Updates lifetime and destroys expired entities
 
-**HierarchySystem**
-- Requires: `TransformComponent`, `ParentComponent`
-- Propagates parent transforms to children
-
-**HealthSystem**
-- Requires: `HealthComponent`
-- Handles health regeneration and death
-- Properties: `double regenRate`, `bool destroyOnDeath`
-
-**AnimationSystemECS**
-- Requires: `AnimationStateComponent`
-- Updates animation time
-
-**BoundarySystem**
-- Requires: `TransformComponent`
-- Enforces world boundaries with configurable behavior
-- Constructor: `BoundarySystem({required Rect bounds, BoundaryBehavior behavior})`
-- Behaviors: `clamp`, `bounce`, `wrap`, `destroy`
-
 **RaycastSystem**
 - Requires: `TransformComponent`, `RaycastColliderComponent`
 - Query-only: no per-frame logic. Call `castRay()`, `castRayAll()`, or `hasLineOfSight()` on demand.
 - See the [Ray Casting & Tracing](#ray-casting--tracing) section for full API.
+
+**TiledCollisionSystem**
+- Requires: `TransformComponent`, `PhysicsBodyComponent`
+- Collision detection against Tiled map obstacles
 
 #### Custom System Example
 
@@ -1512,18 +1783,25 @@ The ECS follows these principles:
 void setupGame(Engine engine) {
   final world = engine.world;
   
-  // Add systems in order
-  world.addSystem(MovementSystem());
-  world.addSystem(PhysicsSystem()..gravity = const Offset(0, 200));
+  // Add systems — priority order is automatic
+  world.addSystem(InputSystem());       // 100
+  world.addSystem(MovementSystem());    // 80
+  world.addSystem(PhysicsSystem()..gravity = const Offset(0, 200));  // 90
   world.addSystem(BoundarySystem(
     bounds: const Rect.fromLTWH(-400, -300, 800, 600),
     behavior: BoundaryBehavior.bounce,
-  ));
+  ));                                    // 30
   world.addSystem(LifetimeSystem());
   world.addSystem(HealthSystem()
     ..regenRate = 5.0
-    ..destroyOnDeath = true);
-  world.addSystem(RenderSystem());
+    ..destroyOnDeath = true);           // 60
+  world.addSystem(RenderSystem());      // 40
+  world.addSystem(AudioSystem());       // -10
+  
+  // Listen for collisions
+  world.events.on<CollisionEvent>((event) {
+    print('Collision between ${event.entityA} and ${event.entityB}');
+  });
   
   // Create player
   final player = world.createEntity(name: 'Player');
@@ -1535,37 +1813,35 @@ void setupGame(Engine engine) {
   player.addComponent(PhysicsBodyComponent(
     radius: 30,
     mass: 1.0,
-    layer: 1,  // Player layer
-    collisionMask: 0xFF,  // Collides with all
+    layer: 1,
+    collisionMask: 0xFF,
   ));
   player.addComponent(HealthComponent(maxHealth: 100));
   player.addComponent(InputComponent());
+  player.addComponent(JoystickInputComponent());  // Touch controls
   
-  // Create enemies
-  for (int i = 0; i < 10; i++) {
-    final enemy = world.createEntity(name: 'Enemy_$i');
-    enemy.addComponent(TransformComponent(
-      position: Offset(
-        (i - 5) * 80.0,
-        -200,
+  // Create enemies from prefab
+  final enemyPrefab = EntityPrefab(
+    name: 'Enemy',
+    components: [
+      TransformComponent(),
+      VelocityComponent(velocity: const Offset(0, 50)),
+      RenderableComponent(
+        renderable: CircleRenderable(radius: 20, fillColor: Colors.red),
       ),
-    ));
-    enemy.addComponent(VelocityComponent(
-      velocity: const Offset(0, 50),
-    ));
-    enemy.addComponent(RenderableComponent(
-      renderable: CircleRenderable(radius: 20, fillColor: Colors.red),
-    ));
-    enemy.addComponent(PhysicsBodyComponent(
-      radius: 20,
-      mass: 0.8,
-      layer: 2,  // Enemy layer
-    ));
-    enemy.addComponent(HealthComponent(maxHealth: 30));
-    enemy.addComponent(LifetimeComponent(10.0));  // Die after 10 seconds
+      PhysicsBodyComponent(radius: 20, mass: 0.8, layer: 2),
+      HealthComponent(maxHealth: 30),
+      LifetimeComponent(10.0),
+    ],
+  );
+  
+  for (int i = 0; i < 10; i++) {
+    final id = world.instantiate(enemyPrefab);
+    final transform = world.getComponent<TransformComponent>(id);
+    transform?.position = Offset((i - 5) * 80.0, -200);
   }
   
-  // Query and modify
+  // Query and check
   final allEnemies = world.query([HealthComponent])
     .where((e) => e.name?.startsWith('Enemy') ?? false);
   print('Created ${allEnemies.length} enemies');
@@ -2017,10 +2293,15 @@ const int DEFAULT_MAX_PARTICLES = 1000;    // Max particles per emitter
 1. **Initialize before use**: Always call `engine.initialize()` before starting
 2. **Dispose when done**: Call `engine.dispose()` to clean up resources
 3. **Use layers**: Organize renderables with layer numbers for proper z-ordering
-4. **Pool objects**: Reuse particles and projectiles instead of creating new ones
-5. **Check state**: Verify `engine.isInitialized` before accessing subsystems
-6. **Animation management**: Add animations to `AnimationSystem` for automatic updates
-7. **Scene graph**: Use for complex hierarchies, simple games can use flat rendering
+4. **Use ObjectPool**: Recycle bullets, particles, and short-lived objects via `ObjectPool<T>` instead of allocating new ones
+5. **Use CommandBuffer**: Queue entity creation/destruction inside systems via `world.commands` to avoid concurrent-modification errors
+6. **Use EventBus**: Decouple systems with typed events via `world.events.fire()` / `world.events.on<T>()`
+7. **Use EntityPrefab**: Define reusable entity templates and stamp them out with `world.instantiate(prefab)`
+8. **Use Vec2 on hot paths**: Prefer mutable `Vec2` over `Offset` in per-frame physics/math code to avoid allocations
+9. **Use SpriteBatch**: Combine sprites sharing an atlas into a single `Canvas.drawAtlas()` call
+10. **Check state**: Verify `engine.isInitialized` before accessing subsystems
+11. **Animation management**: Add animations to `AnimationSystem` for automatic updates
+12. **Use system priorities**: Let the built-in priority order handle execution sequence; only override when adding custom systems
 
 ---
 
@@ -2311,3 +2592,207 @@ for (final entry in tileMap.tilesets.first.tiles.entries) {
   }
 }
 ```
+
+---
+
+## Math Module
+
+### Vec2
+
+Mutable 2D vector for zero-allocation math on hot paths. Used internally by `PhysicsBody` for position, velocity, and acceleration.
+
+#### Constructor
+
+```dart
+Vec2(double x, double y)
+Vec2.zero()
+Vec2.fromOffset(Offset offset)
+```
+
+#### Properties
+
+```dart
+double x
+double y
+double get length              // Euclidean magnitude
+double get lengthSquared       // Squared magnitude (avoids sqrt)
+```
+
+#### Methods
+
+```dart
+Vec2 add(Vec2 other)           // this += other (mutates, returns this)
+Vec2 sub(Vec2 other)           // this -= other
+Vec2 scale(double s)           // this *= s
+Vec2 normalize()               // Normalize in-place (returns this)
+double dot(Vec2 other)         // Dot product
+double cross(Vec2 other)       // 2D cross product (scalar)
+Vec2 setFrom(Vec2 other)       // Copy values from other
+Vec2 setValues(double x, double y)
+Offset toOffset()              // Convert to immutable Offset
+
+// Operator overloads
+Vec2 operator +(Vec2 other)    // Returns NEW Vec2 (allocation)
+Vec2 operator -(Vec2 other)
+Vec2 operator *(double s)
+```
+
+#### Example
+
+```dart
+// Hot-path usage (zero allocation)
+final pos = Vec2(100, 200);
+final vel = Vec2(50, -10);
+pos.add(vel.scale(dt));        // Mutates pos in-place
+
+// Convenience conversion
+final offset = pos.toOffset(); // For Flutter painting APIs
+```
+
+---
+
+### Quadtree
+
+Spatial index for efficient viewport culling. Used by `RenderingEngine` when renderable count exceeds ~200.
+
+#### Constructor
+
+```dart
+Quadtree<T>({
+  required Rect bounds,        // World-space coverage
+  int maxObjects = 10,         // Split threshold per node
+  int maxDepth = 5,            // Maximum tree depth
+})
+```
+
+#### Methods
+
+```dart
+void insert(T item, Rect bounds)       // Insert item with AABB
+void remove(T item)                    // Remove item
+List<T> query(Rect region)             // Items intersecting region
+void clear()                           // Remove all items
+```
+
+---
+
+## Memory Management
+
+### ObjectPool\<T\>
+
+Generic object pool for GC-friendly recycling of short-lived objects.
+
+#### Constructor
+
+```dart
+ObjectPool<T>({
+  required T Function() factory,   // Creates new instances
+  int initialSize = 0,            // Pre-allocated instances
+  int? maxSize,                   // Maximum pool capacity (null = unlimited)
+})
+```
+
+`T` should implement the `Recyclable` interface for automatic reset on release.
+
+#### Methods
+
+```dart
+T acquire()                    // Get an object from the pool (or create new)
+void release(T object)         // Return object to pool (calls reset() if Recyclable)
+void clear()                   // Discard all pooled objects
+int get available              // Number of idle objects in pool
+int get activeCount            // Number of objects currently in use
+Map<String, dynamic> get stats // Pool statistics
+```
+
+#### Example
+
+```dart
+final bulletPool = ObjectPool<Bullet>(
+  factory: () => Bullet(),
+  initialSize: 50,
+  maxSize: 200,
+);
+
+// Acquire
+final bullet = bulletPool.acquire();
+bullet.position = gunTip;
+bullet.velocity = aimDir * 500;
+
+// Release when done
+bulletPool.release(bullet);     // bullet.reset() called automatically
+
+// Check stats
+print(bulletPool.stats);        // {available: 49, active: 1, maxSize: 200}
+```
+
+### Recyclable
+
+Interface for objects managed by `ObjectPool`.
+
+```dart
+abstract class Recyclable {
+  void reset();                // Called automatically on release()
+}
+```
+
+---
+
+### CacheManager
+
+LRU binary cache backed by `just_storage` / `just_database`. Accessible via `engine.cache`.
+
+#### Properties
+
+```dart
+int maxBinaryEntries           // Maximum cached entries before eviction
+```
+
+#### Methods
+
+```dart
+Future<void> initialize()
+Future<void> store(String key, Uint8List data)   // Store binary data
+Future<Uint8List?> retrieve(String key)          // Retrieve cached data
+Future<void> evict(String key)                   // Remove specific entry
+Future<void> clear()                             // Clear all cached data
+Map<String, dynamic> get stats                   // Cache hit/miss statistics
+```
+
+#### Example
+
+```dart
+final cache = engine.cache;
+
+// Store pre-computed data
+await cache.store('level1_navmesh', navmeshBytes);
+
+// Retrieve later
+final data = await cache.retrieve('level1_navmesh');
+if (data != null) {
+  loadNavmesh(data);
+}
+```
+
+---
+
+## System Priorities
+
+Built-in systems run in descending priority order. Higher priority = runs first.
+
+| Priority | System | Responsibility |
+|---|---|---|
+| 110 | `TileMapRenderSystem` | Render tile layers (background) |
+| 100 | `InputSystem` | Bridge InputManager → ECS components |
+| 90 | `PhysicsSystem` | Gravity, drag, collision, impulse |
+| 89 | `PhysicsBridgeSystem` | Sync standalone PhysicsBody → ECS |
+| 80 | `MovementSystem` | Apply velocity to position |
+| 70 | `AnimationSystemECS` | Advance animation timers |
+| 60 | `HealthSystem` | Regen, death events |
+| 50 | `HierarchySystem` | Parent-child transform propagation |
+| 40 | `RenderSystem` | Sync transforms, draw entities + UI |
+| 30 | `BoundarySystem` | Enforce world boundaries |
+| 10 | `DebugSystem` | Diagnostics overlay (internal) |
+| -10 | `AudioSystem` | ECS-driven audio playback |
+
+Custom systems can use any priority value to slot in at the desired execution point.

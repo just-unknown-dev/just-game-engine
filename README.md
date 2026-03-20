@@ -9,11 +9,11 @@ A comprehensive 2D game engine built for Flutter, providing everything you need 
 - **[Changelog](CHANGELOG.md)** - Version history and release notes
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to the project
 - **[Code of Conduct](CODE_OF_CONDUCT.md)** - Our community guidelines
-- **[Discord](https://discord.com/invite/AaAZayn3)** - Join our community
+- **[Discord](https://discord.gg/xnbChKrp)** - Join our community
 
 ## Features
 
-Just Game Engine is a complete game development framework with 12 major subsystems:
+Just Game Engine is a complete game development framework with 14 major subsystems:
 
 ### 🎮 Core Engine
 - **Game Loop**: Fixed timestep (60 UPS) with variable rendering for consistent gameplay
@@ -33,6 +33,7 @@ Just Game Engine is a complete game development framework with 12 major subsyste
 ### 🖼️ Sprite System
 - **Image Rendering**: Load and display images with easy asset management
 - **Sprite Sheets**: Efficiently manage multiple sprites in a single texture
+- **Sprite Batching**: `SpriteBatch` submits all sprites sharing an atlas in a single `Canvas.drawAtlas()` call for dramatic draw-call reduction
 - **Nine-Slice Scaling**: Scalable UI elements that maintain corner details
 - **Flipping**: Horizontal and vertical sprite flipping
 
@@ -87,11 +88,14 @@ Just Game Engine is a complete game development framework with 12 major subsyste
 
 ### 🧩 Entity-Component System (ECS)
 - **Data-Oriented Architecture**: Composition over inheritance for flexible entity design
-- **Entity Management**: Create and destroy entities with unique IDs
-- **Component System**: 14 built-in components (Transform, Velocity, Physics, Health, RaycastCollider, etc.)
-- **System Processing**: 9 built-in systems for movement, rendering, physics, ray casting, and more
-- **Query System**: Find entities by component types
-- **World Management**: Centralized entity and system coordination
+- **Entity Management**: Create and destroy entities with generational IDs for use-after-destroy safety
+- **Component System**: 24+ built-in components (Transform, Velocity, Physics, Health, RaycastCollider, UI, Audio, Tiled, etc.)
+- **System Processing**: 14+ built-in systems with standardized priorities for movement, rendering, physics, input, audio, ray casting, and more
+- **Query System**: Find entities by component types with selective cache invalidation and integer-based hashing
+- **World Management**: Centralized entity and system coordination with `LinkedHashSet` for $O(1)$ entity removal
+- **Command Buffer**: Deferred entity mutations via `world.commands` — safe to call from within system updates
+- **Event Bus**: Typed inter-system messaging via `world.events` — subscribe with `on<T>()`, dispatch with `fire()`
+- **Entity Prefabs**: Reusable entity blueprints via `EntityPrefab` — batch-spawn with `world.instantiate()`
 - **Hierarchy Support**: Parent-child entity relationships
 - **Reactive ECS** (`src/reactive/`): Signal-driven wrappers powered by `just_signals` — `ComponentSignal`, `EntitySignal`, `WorldSignal`, `ReactiveSystem`, and `ReactiveComponent` enable surgical UI updates without polling
 
@@ -100,8 +104,10 @@ Just Game Engine is a complete game development framework with 12 major subsyste
 - **Mouse Input**: Position tracking, button states, scroll wheel, and delta movement
 - **Touch Input**: Multi-touch support with pressure and size tracking
 - **Controller/Gamepad**: Analog sticks, triggers, buttons, and D-pad support
+- **Virtual Joystick**: Touch-based virtual joystick widget with `JoystickInputComponent` ECS integration
 - **Event System**: Callbacks for custom input handling
 - **Dead Zone**: Configurable dead zones for analog inputs
+- **ECS Bridge**: `InputSystem` automatically maps `InputManager` state to `InputComponent` and `JoystickInputComponent` each frame
 - **Integrated**: Automatic event capture through GameWidget with Focus and Listener
 
 ### 🎵 Additional Systems
@@ -122,6 +128,14 @@ Just Game Engine is a complete game development framework with 12 major subsyste
   - **Asset Bundles**: Group multiple assets for batch loading/unloading
 
 - **Networking**: Multiplayer and server communication (Not Implemented Yet)
+
+### 🧮 Math Module
+- **Vec2**: Mutable 2D vector type for zero-allocation hot-path physics — in-place `add()`, `sub()`, `addScaled()`, `scale()`, `setZero()`, and `Offset` interop
+- **Quadtree**: Spatial indexing for viewport culling with configurable `maxItems` and `maxDepth`
+
+### 🗄️ Memory Management
+- **Object Pool**: Generic `ObjectPool<T>` with configurable `maxSize`, `acquire()`/`release()` lifecycle, and `totalAcquired`/`peakAvailable` statistics
+- **Cache Manager**: Multi-tier caching via `just_storage` (key-value) and `just_database` (binary) with LRU eviction, SQL-safe key validation, and configurable `maxBinaryEntries`
 
 ## Just Game Engine vs. Flame Engine
 
@@ -150,7 +164,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  just_game_engine: ^1.2.1
+  just_game_engine: ^1.4.0
 ```
 
 Then run:
@@ -633,10 +647,17 @@ Just Game Engine
 │   ├── GameLoop (Fixed timestep loop)
 │   ├── TimeManager (Delta time tracking)
 │   └── SystemManager (Subsystem coordination)
+├── Math Module
+│   ├── Vec2 (Mutable 2D vector for hot-path code)
+│   └── Quadtree (Spatial indexing for culling)
+├── Memory Management
+│   ├── ObjectPool (GC-friendly object recycling)
+│   └── CacheManager (LRU binary caching via just_storage/just_database)
 ├── Rendering Engine
 │   ├── RenderingEngine (Canvas rendering)
-│   ├── Camera (View transformation)
+│   ├── Camera / CameraSystem (View transformation)
 │   ├── Renderable (Base class)
+│   ├── SpriteBatch (Canvas.drawAtlas batching)
 │   └── GameWidget (Flutter integration)
 ├── Sprite System
 │   ├── Sprite (Image rendering)
@@ -652,8 +673,9 @@ Just Game Engine
 │   ├── Particle (Individual particle)
 │   └── ParticleEffects (Presets)
 ├── Physics Engine
-│   ├── PhysicsEngine (Simulation)
-│   └── PhysicsBody (Rigid body)
+│   ├── PhysicsEngine (Vec2-based simulation)
+│   ├── PhysicsBody (Rigid body with Vec2 internals)
+│   └── CollisionEvent (Typed physics event)
 ├── Ray Casting & Tracing
 │   ├── Ray (Origin + direction descriptor)
 │   ├── RaycastColliderComponent (ECS hittable marker)
@@ -671,28 +693,48 @@ Just Game Engine
 │   ├── Scene (Node container)
 │   └── SceneNode (Transform hierarchy)
 ├── Entity-Component System
-│   ├── World (Entity management)
-│   ├── Entity (Component container)
-│   ├── Component (Data storage)
-│   ├── System (Processing logic)
-│   ├── Built-in Components:
-│   │   ├── TransformComponent
-│   │   ├── VelocityComponent
-│   │   ├── RenderableComponent
-│   │   ├── PhysicsBodyComponent
-│   │   ├── HealthComponent
-│   │   └── 8 more...
-│   └── Built-in Systems:
-│       ├── MovementSystem
-│       ├── RenderSystem
-│       ├── PhysicsSystem
-│       └── 6 more...
+│   ├── World (Entity management + CommandBuffer + EventBus)
+│   ├── Entity (Generational IDs, component container)
+│   ├── Component (Data storage + lifecycle callbacks)
+│   ├── System (Priority-ordered processing logic)
+│   ├── EntityPrefab (Reusable entity blueprints)
+│   ├── Built-in Components (24+):
+│   │   ├── TransformComponent, VelocityComponent
+│   │   ├── RenderableComponent, SpriteComponent
+│   │   ├── PhysicsBodyComponent, PhysicsBodyRefComponent
+│   │   ├── HealthComponent, LifetimeComponent, TagComponent
+│   │   ├── ParentComponent, ChildrenComponent
+│   │   ├── InputComponent, JoystickInputComponent
+│   │   ├── AnimationStateComponent, RaycastColliderComponent
+│   │   ├── AudioSourceComponent, AudioPlayComponent
+│   │   ├── TileMapLayerComponent, TiledObjectComponent
+│   │   └── UIComponent, TextComponent, ButtonComponent,
+│   │     LinearProgressComponent, CircularProgressComponent
+│   └── Built-in Systems (14+):
+│       ├── InputSystem (priority 100)
+│       ├── PhysicsSystem (priority 90)
+│       ├── PhysicsBridgeSystem
+│       ├── MovementSystem (priority 80)
+│       ├── AnimationSystemECS (priority 70)
+│       ├── HealthSystem (priority 60)
+│       ├── HierarchySystem (priority 50)
+│       ├── RenderSystem (priority 40) + UI rendering
+│       ├── BoundarySystem (priority 30)
+│       ├── AudioSystem, RaycastSystem
+│       └── TileMapRenderSystem, TiledCollisionSystem
+├── Reactive ECS
+│   ├── ComponentSignal (Typed property signal)
+│   ├── EntitySignal (Entity-level change tracking)
+│   ├── WorldSignal (Global world state signals)
+│   ├── ReactiveSystem (Dirty-only entity processing)
+│   └── ReactiveComponent (Mixin with notifyChange)
 ├── Input Management
 │   ├── InputManager (Main coordinator)
 │   ├── KeyboardInput (Key states)
 │   ├── MouseInput (Position, buttons, scroll)
 │   ├── TouchInput (Multi-touch)
-│   └── ControllerInput (Gamepad support)
+│   ├── ControllerInput (Gamepad support)
+│   └── VirtualJoystick (Touch joystick widget)
 ├── Asset Management
 │   ├── AssetManager (Loading & caching)
 │   ├── ImageAsset (PNG/JPG)
@@ -794,8 +836,8 @@ Check out the `example/` folder for complete examples:
 - `Entity` - Component container with unique ID
 - `Component` - Base class for data components
 - `System` - Base class for processing systems
-- **Built-in Components**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `PhysicsBodyComponent`, `RaycastColliderComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `AnimationStateComponent`, `SpriteComponent`
-- **Built-in Systems**: `MovementSystem`, `RenderSystem`, `PhysicsSystem`, `RaycastSystem`, `LifetimeSystem`, `HierarchySystem`, `HealthSystem`, `AnimationSystemECS`, `BoundarySystem`
+- **Built-in Components (24+)**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `SpriteComponent`, `PhysicsBodyComponent`, `PhysicsBodyRefComponent`, `RaycastColliderComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `JoystickInputComponent`, `AnimationStateComponent`, `AudioSourceComponent`, `AudioPlayComponent`, `TileMapLayerComponent`, `TiledObjectComponent`, `UIComponent`, `TextComponent`, `ButtonComponent`, `LinearProgressComponent`, `CircularProgressComponent`
+- **Built-in Systems (14+)**: `MovementSystem`, `RenderSystem`, `PhysicsSystem`, `PhysicsBridgeSystem`, `InputSystem`, `RaycastSystem`, `LifetimeSystem`, `HierarchySystem`, `HealthSystem`, `AnimationSystemECS`, `BoundarySystem`, `AudioSystem`, `TileMapRenderSystem`, `TiledCollisionSystem`
 
 ### Input Classes
 
