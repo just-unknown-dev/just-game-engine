@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
-import 'package:just_game_engine/src/features/animation/animation_system.dart'
+import 'package:just_game_engine/src/subsystems/animation/animation_system.dart'
     as anim;
 import 'dart:math' as math;
 
@@ -363,10 +363,7 @@ void main() {
       final engine = Engine();
       await engine.initialize();
 
-      final body = PhysicsBody(
-        position: const Offset(0, 0),
-        shape: CircleShape(30),
-      );
+      final body = PhysicsBody(position: Vector2(0, 0), shape: CircleShape(30));
 
       engine.physics.addBody(body);
       expect(engine.physics.bodies, contains(body));
@@ -380,17 +377,17 @@ void main() {
       await engine.initialize();
 
       final body = PhysicsBody(
-        position: const Offset(0, 0),
-        velocity: const Offset(100, 0),
+        position: Vector2(0, 0),
+        velocity: Vector2(100, 0),
         shape: CircleShape(30),
         drag: 0.0,
       );
 
       engine.physics.addBody(body);
-      final initialPos = body.position;
+      final initialPosX = body.position.x;
       engine.physics.update(1.0); // 1 second
 
-      expect(body.position.dx, closeTo(initialPos.dx + 100, 0.01));
+      expect(body.position.x, closeTo(initialPosX + 100, 0.01));
     });
 
     test('Collision detection', () async {
@@ -398,19 +395,20 @@ void main() {
       await engine.initialize();
 
       final body1 = PhysicsBody(
-        position: const Offset(0, 0),
+        position: Vector2(0, 0),
         shape: CircleShape(30),
       );
 
       final body2 = PhysicsBody(
-        position: const Offset(50, 0),
+        position: Vector2(50, 0),
         shape: CircleShape(30),
       );
 
       engine.physics.addBody(body1);
       engine.physics.addBody(body2);
 
-      final distance = (body1.position - body2.position).distance;
+      final distance =
+          (body1.position.toOffset() - body2.position.toOffset()).distance;
       final combinedRadius =
           (body1.shape as CircleShape).radius +
           (body2.shape as CircleShape).radius;
@@ -419,7 +417,7 @@ void main() {
 
     test('Physics body mass and restitution', () async {
       final body = PhysicsBody(
-        position: const Offset(0, 0),
+        position: Vector2(0, 0),
         shape: CircleShape(30),
         mass: 2.0,
         restitution: 0.8,
@@ -434,19 +432,19 @@ void main() {
       await engine.initialize();
 
       final body = PhysicsBody(
-        position: const Offset(0, 0),
-        velocity: Offset.zero,
+        position: Vector2(0, 0),
+        velocity: Vector2.zero(),
         shape: CircleShape(30),
       );
 
-      engine.physics.gravity = const Offset(0, 100);
+      engine.physics.gravity.setValues(0, 100);
       engine.physics.addBody(body);
 
-      final initialY = body.position.dy;
+      final initialY = body.position.y;
       engine.physics.update(1.0);
 
       // Body should have fallen due to gravity
-      expect(body.position.dy > initialY, true);
+      expect(body.position.y > initialY, true);
     });
   });
 

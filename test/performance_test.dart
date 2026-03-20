@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
-import 'package:just_game_engine/src/features/animation/animation_system.dart'
+import 'package:just_game_engine/src/subsystems/animation/animation_system.dart'
     as anim;
 import 'dart:math' as math;
 
@@ -206,8 +206,8 @@ void main() {
       for (int i = 0; i < 50; i++) {
         engine.physics.addBody(
           PhysicsBody(
-            position: Offset(i * 20.0, i * 10.0),
-            velocity: Offset(
+            position: Vector2(i * 20.0, i * 10.0),
+            velocity: Vector2(
               (i % 2 == 0 ? 1 : -1) * 50.0,
               (i % 3 == 0 ? 1 : -1) * 30.0,
             ),
@@ -243,8 +243,8 @@ void main() {
         for (int j = 0; j < 30; j++) {
           engine.physics.addBody(
             PhysicsBody(
-              position: Offset(i * 40.0, j * 40.0),
-              velocity: Offset.zero,
+              position: Vector2(i * 40.0, j * 40.0),
+              velocity: Vector2.zero(),
               shape: CircleShape(15),
             ),
           );
@@ -462,8 +462,8 @@ void main() {
       for (int i = 0; i < 30; i++) {
         engine.physics.addBody(
           PhysicsBody(
-            position: Offset(i * 50.0, i * 30.0),
-            velocity: Offset(
+            position: Vector2(i * 50.0, i * 30.0),
+            velocity: Vector2(
               (i % 2 == 0 ? 1 : -1) * 50.0,
               (i % 3 == 0 ? 1 : -1) * 30.0,
             ),
