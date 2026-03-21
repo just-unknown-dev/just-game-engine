@@ -2,6 +2,50 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [1.4.0] - 2026-03-21
+
+### Changed - Architecture & Performance
+
+- Major change in architecture and imporved performance
+
+### Added - Parallax Background System
+
+New first-class subsystem for multi-layer scrolling backgrounds, accessible via `Engine.parallax`.
+
+- **ParallaxLayer** — Individual layer with depth-based scrolling.
+  - `scrollFactorX` / `scrollFactorY` control camera-relative scroll speed (0.0 = fixed, 1.0 = camera speed).
+  - `velocityX` / `velocityY` for continuous auto-scroll independent of camera movement.
+  - `scale`, `repeat`, `offset`, `opacity`, and `tint` for full visual control.
+  - `ParallaxLayer.uniform()` convenience constructor for equal X/Y scroll factors.
+- **ParallaxBackground** — Ordered container of `ParallaxLayer` instances (index 0 = furthest back).
+  - `addLayer()`, `insertLayer()`, `removeLayer()` for runtime layer management.
+  - `update(deltaTime)` advances auto-scroll offsets; `render(canvas, size)` paints all layers back-to-front.
+  - Per-layer camera-driven + auto-scroll + static offset compositing.
+  - Tiling logic handles images smaller than the viewport with seamless horizontal/vertical wrapping.
+- **ParallaxSystem** — Engine subsystem managing all registered backgrounds.
+  - `addBackground()` / `removeBackground()` / `clear()` lifecycle methods.
+  - `update(deltaTime, cameraPosition)` feeds camera position into every background each frame.
+  - `render(canvas, size)` called via `RenderingEngine.onRenderBackground` in screen space (before camera transform).
+
+### Added - Virtual Joystick Widget
+
+Reusable Flutter widget for touch-based directional input on mobile platforms.
+
+- **VirtualJoystick** — `StatefulWidget` that handles pointer events and emits normalised direction vectors.
+  - `JoystickVariant.fixed` — always-visible joystick anchored at a set position.
+  - `JoystickVariant.floating` — appears at the touch-down point and follows the finger.
+  - `JoystickAxis` constraint: `both`, `horizontal`, or `vertical` axis locking.
+  - Configurable `radius`, `showWhenInactive`, `inactiveOpacity`, and `anchorAlignment`.
+  - `onDirectionChanged` callback delivers a normalised `Offset` each frame for ECS integration.
+  - Rendered via `CustomPaint` with base ring and thumb knob visuals.
+- **JoystickInputComponent** — ECS component storing joystick state on an entity.
+  - `direction`, `basePosition`, `thumbPosition` for runtime access.
+  - `layout` (fixed / floating) and `axis` constraint properties.
+  - `hasInput`, `reset()`, `setDirectionFromDelta()` helpers.
+  - Automatically processed by `InputSystem._updateJoystickComponents()` alongside keyboard input.
+
+---
+
 ## [1.3.0] - 2026-03-15
 
 ### Added - Tiled Map ECS Integration
@@ -350,6 +394,7 @@ Audio playback is now fully ECS-driven alongside the existing `AudioEngine` API.
 
 ## Version History
 
+- **1.4.0** - Parallax Background System, Virtual Joystick Widget, and showcase app improvements
 - **1.3.0** - Tiled Map ECS integration (TiledMapFactory, TileMapRenderSystem, TiledCollisionSystem) and Audio ECS integration (AudioSourceComponent, AudioSystem)
 - **1.2.1** - GameWidget ECS rendering integration and example cleanup
 - **1.2.0** - Ray Casting, Ray Tracing, and Ray Renderable systems
