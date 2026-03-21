@@ -39,6 +39,11 @@ class RenderingEngine {
   /// Whether the engine is initialized
   bool _initialized = false;
 
+  /// Optional callback invoked in screen space after the background clear but
+  /// before the camera transform. Used by [ParallaxSystem] to paint parallax
+  /// backgrounds that scroll at their own rates.
+  void Function(Canvas canvas, Size size)? onRenderBackground;
+
   /// Optional callback invoked inside the camera-transformed context after all
   /// subsystem layers have been rendered. Use this to inject ECS world
   /// rendering so both pipelines share a single camera transform.
@@ -175,6 +180,9 @@ class RenderingEngine {
 
     // Sort renderables
     _sortRenderables();
+
+    // Render parallax backgrounds in screen space (before camera transform).
+    onRenderBackground?.call(canvas, size);
 
     // Save canvas state
     canvas.save();

@@ -15,6 +15,9 @@ abstract final class SystemPriorities {
   /// Tile-map layers — painted first (background).
   static const int tileMap = 110;
 
+  /// Parallax backgrounds — rendered just after tile maps, before input.
+  static const int parallax = 105;
+
   /// Input processing — must run before any simulation systems.
   static const int input = 100;
 
