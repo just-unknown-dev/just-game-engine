@@ -5,7 +5,7 @@ import 'dart:ui';
 import 'package:just_signals/just_signals.dart';
 
 import '../ecs/ecs.dart';
-import '../ecs/components.dart';
+import '../ecs/components/components.dart';
 
 /// A signal that wraps a component's property for reactive updates.
 ///

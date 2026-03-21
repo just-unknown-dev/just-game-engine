@@ -10,15 +10,17 @@ import 'game_loop.dart';
 import 'time_manager.dart';
 import 'system_manager.dart';
 import 'lifecycle.dart';
-import '../rendering/rendering_engine.dart';
-import '../physics/physics_engine.dart';
-import '../input/input_management.dart';
-import '../audio/audio_engine.dart';
-import '../editor/scene_editor.dart';
-import '../animation/animation_system.dart';
-import '../assets/asset_management.dart';
-import '../networking/networking.dart';
-import '../cache/cache_manager.dart';
+import '../subsystems/rendering/rendering_engine.dart';
+import '../subsystems/physics/physics_engine.dart';
+import '../subsystems/input/input_management.dart';
+import '../subsystems/audio/audio_engine.dart';
+import '../subsystems/editor/scene_editor.dart';
+import '../subsystems/animation/animation_system.dart';
+import '../subsystems/assets/asset_management.dart';
+import '../subsystems/networking/networking_manager.dart';
+import '../subsystems/camera/camera_system.dart';
+import '../subsystems/parallax/parallax_background.dart';
+import '../memory/cache_manager.dart';
 import '../ecs/ecs.dart';
 
 /// Main game engine class that orchestrates all subsystems
@@ -58,6 +60,9 @@ class Engine implements ILifecycle {
   /// Game loop controller
   late final GameLoop _gameLoop;
 
+  /// Public access to the game loop (e.g. for reading [GameLoop.currentFPS]).
+  GameLoop get gameLoop => _gameLoop;
+
   /// Time management
   late final TimeManager _timeManager;
 
@@ -86,6 +91,8 @@ class Engine implements ILifecycle {
   late final AssetManager assets;
   late final CacheManager cache;
   late final NetworkManager network;
+  late final CameraSystem cameraSystem;
+  late final ParallaxSystem parallax;
   late final World world; // ECS World
 
   /// Initialize the game engine and all subsystems
@@ -106,11 +113,7 @@ class Engine implements ILifecycle {
       // Initialize core systems
       _timeManager = TimeManager();
       _systemManager = SystemManager();
-      _gameLoop = GameLoop(
-        onUpdate: _update,
-        onRender: _render,
-        timeManager: _timeManager,
-      );
+      _gameLoop = GameLoop(onUpdate: _update, timeManager: _timeManager);
 
       // Initialize subsystems
       await _initializeSubsystems();
@@ -142,15 +145,21 @@ class Engine implements ILifecycle {
     cache = CacheManager();
     assets = AssetManager();
     network = NetworkManager();
+    cameraSystem = CameraSystem();
+    parallax = ParallaxSystem();
     world = World(); // ECS World
 
     // Initialize each subsystem
     await cache.initialize(); // Initialize cache manager first
     assets.initialize(); // Then initialize asset manager
+    cameraSystem.initialize(); // Initialize camera before rendering
+    parallax.initialize();
+    rendering.camera = cameraSystem.mainCamera;
+    rendering.onRenderBackground = parallax.render;
     rendering.initialize();
     physics.initialize();
     input.initialize();
-    audio.initialize();
+    await audio.initialize();
     sceneEditor.initialize();
     animation.initialize();
     network.initialize();
@@ -170,6 +179,8 @@ class Engine implements ILifecycle {
     _systemManager.registerSystem('cache', cache);
     _systemManager.registerSystem('assets', assets);
     _systemManager.registerSystem('network', network);
+    _systemManager.registerSystem('camera', cameraSystem);
+    _systemManager.registerSystem('parallax', parallax);
     _systemManager.registerSystem('ecs', world);
   }
 
@@ -231,6 +242,8 @@ class Engine implements ILifecycle {
 
     // Update subsystems in order
     input.update();
+    cameraSystem.update(deltaTime);
+    parallax.update(deltaTime, cameraSystem.mainCamera.position);
     physics.update(deltaTime);
     animation.update(deltaTime);
     audio.update();
@@ -238,18 +251,6 @@ class Engine implements ILifecycle {
 
     // Update active scene if available
     // TODO: Implement scene update when scene system is ready
-  }
-
-  /// Render the current frame
-  ///
-  /// Note: Rendering is handled by GameWidget through Flutter's CustomPainter.
-  /// This method is called by the game loop but does nothing since Flutter
-  /// manages the render cycle through the widget tree.
-  void _render() {
-    if (_state != EngineState.running) return;
-
-    // Rendering is handled by GameWidget's CustomPainter
-    // which calls rendering.render(canvas, size) directly
   }
 
   /// Dispose of all engine resources and shutdown
@@ -269,11 +270,13 @@ class Engine implements ILifecycle {
     // Dispose subsystems in reverse order
     network.dispose();
     animation.dispose();
+    parallax.dispose();
     sceneEditor.dispose();
     audio.dispose();
     input.dispose();
     physics.dispose();
     rendering.dispose();
+    cameraSystem.dispose();
     assets.dispose();
     cache.dispose();
     world.dispose(); // Dispose ECS

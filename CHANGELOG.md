@@ -2,6 +2,129 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [1.4.0] - 2026-03-21
+
+### Changed - Architecture & Performance
+
+- Major change in architecture and imporved performance
+
+### Added - Parallax Background System
+
+New first-class subsystem for multi-layer scrolling backgrounds, accessible via `Engine.parallax`.
+
+- **ParallaxLayer** — Individual layer with depth-based scrolling.
+  - `scrollFactorX` / `scrollFactorY` control camera-relative scroll speed (0.0 = fixed, 1.0 = camera speed).
+  - `velocityX` / `velocityY` for continuous auto-scroll independent of camera movement.
+  - `scale`, `repeat`, `offset`, `opacity`, and `tint` for full visual control.
+  - `ParallaxLayer.uniform()` convenience constructor for equal X/Y scroll factors.
+- **ParallaxBackground** — Ordered container of `ParallaxLayer` instances (index 0 = furthest back).
+  - `addLayer()`, `insertLayer()`, `removeLayer()` for runtime layer management.
+  - `update(deltaTime)` advances auto-scroll offsets; `render(canvas, size)` paints all layers back-to-front.
+  - Per-layer camera-driven + auto-scroll + static offset compositing.
+  - Tiling logic handles images smaller than the viewport with seamless horizontal/vertical wrapping.
+- **ParallaxSystem** — Engine subsystem managing all registered backgrounds.
+  - `addBackground()` / `removeBackground()` / `clear()` lifecycle methods.
+  - `update(deltaTime, cameraPosition)` feeds camera position into every background each frame.
+  - `render(canvas, size)` called via `RenderingEngine.onRenderBackground` in screen space (before camera transform).
+
+### Added - Virtual Joystick Widget
+
+Reusable Flutter widget for touch-based directional input on mobile platforms.
+
+- **VirtualJoystick** — `StatefulWidget` that handles pointer events and emits normalised direction vectors.
+  - `JoystickVariant.fixed` — always-visible joystick anchored at a set position.
+  - `JoystickVariant.floating` — appears at the touch-down point and follows the finger.
+  - `JoystickAxis` constraint: `both`, `horizontal`, or `vertical` axis locking.
+  - Configurable `radius`, `showWhenInactive`, `inactiveOpacity`, and `anchorAlignment`.
+  - `onDirectionChanged` callback delivers a normalised `Offset` each frame for ECS integration.
+  - Rendered via `CustomPaint` with base ring and thumb knob visuals.
+- **JoystickInputComponent** — ECS component storing joystick state on an entity.
+  - `direction`, `basePosition`, `thumbPosition` for runtime access.
+  - `layout` (fixed / floating) and `axis` constraint properties.
+  - `hasInput`, `reset()`, `setDirectionFromDelta()` helpers.
+  - Automatically processed by `InputSystem._updateJoystickComponents()` alongside keyboard input.
+
+---
+
+## [1.3.0] - 2026-03-15
+
+### Added - Tiled Map ECS Integration
+
+`just_tiled` is now a first-class runtime dependency of `just_game_engine`. The engine ships four new types that bridge parsed Tiled map data directly into the ECS world, covering rendering, collision, and object-to-entity spawning.
+
+- **TileMapLayerComponent** — ECS component that attaches a `TileLayer` and its pre-compiled `TileMapRenderer` to a single entity. One entity per tile layer keeps the world free of per-tile entity bloat.
+- **TiledObjectComponent** — ECS component for Tiled map objects. Exposes `properties`, `type`, and `name` directly on the entity for easy custom-logic dispatch.
+- **TiledMapFactory** — Static factory that translates an entire `TiledMap` into ECS entities in one call.
+  - Tile layers → one entity with `TileMapLayerComponent` + `TransformComponent` (respects layer offset).
+  - Object groups → one entity per visible `TiledObject` with `TransformComponent` + `TiledObjectComponent`.
+  - `GroupLayer` children are traversed recursively.
+  - `ComponentMapper` callback maps any Tiled class name + custom properties to additional engine components (e.g. `HealthComponent`, `EnemyAIComponent`).
+- **TileMapRenderSystem** — ECS `System` that GPU-batches all `TileMapLayerComponent` entities. Uses `Camera.getVisibleBounds()` for viewport frustum culling so only in-view tiles are processed. Runs at priority `100` so tile layers are painted before game entities.
+- **TiledCollisionSystem** — ECS `System` that converts TMX object-group collision shapes into static `PhysicsBody` instances and registers them with `PhysicsEngine`.
+  - Supports **rectangle**, **polygon**, and **ellipse** shapes (mapped to `RectangleShape`, `PolygonShape`, `CircleShape`).
+  - Per-object `restitution` and `friction` read from Tiled custom properties.
+  - Optional `SpatialHashGrid<PhysicsBody>` for O(1) proximity queries.
+  - `loadCollisions(TiledMap)` / `loadObjectGroupCollisions(ObjectGroup)` / `clearCollisions()` lifecycle methods.
+---
+
+## [1.2.1] - 2026-03-15
+
+### Changed
+- **GameWidget**: `_GamePainter.paint()` now also calls `engine.world.render(canvas, size)`, so ECS entities registered with `RenderSystem` are drawn automatically alongside the classic 
+rendering pipeline.
+
+### Added - Audio ECS Integration
+
+Audio playback is now fully ECS-driven alongside the existing `AudioEngine` API.
+
+- **AudioSourceComponent** — Persistent audio source on an entity. Properties: `clipPath`, `volume`, `pan`, `loop`, `playOnAdd`, `channel` (`AudioChannel`), `is3d`. When `is3d` is `true`, stereo pan is ignored and 3D position is derived from `TransformComponent`.
+- **AudioPlayComponent** — Fire-and-forget one-shot playback trigger. `AudioSystem` plays the sound and removes the component automatically.
+- **AudioListenerComponent** — Marks an entity (typically the camera or player) as the SoLoud 3D listener. `AudioSystem` forwards the entity's `TransformComponent` position to the native listener each frame.
+- **AudioSystem** — ECS `System` that drives all audio ECS components. Runs at priority `-10` (after transforms) to ensure 3D positions are up to date before the listener and source positions are sent to SoLoud.
+
+### Fixed
+- **Example**: Simplified `example/example.dart` to a minimal renderer setup for easier onboarding.
+
+---
+
+## [1.2.0] - 2026-03-12
+
+### Added - Ray Casting & Ray Tracing
+- **Ray** — 2-D ray descriptor with origin, normalised direction, and maximum travel distance.
+  - `Ray.fromPoints()` convenience constructor for aiming between two world positions.
+  - `at(t)` helper returns the world-space point at a given distance along the ray.
+- **RaycastColliderComponent** — ECS component that marks an entity as hittable by rays.
+  - Configurable `radius`, semantic `tag` for filtering, `isBlocker` flag, and `isReflective` / `reflectivity` properties for multi-bounce tracing.
+- **RaycastHit** — intersection result containing the hit entity, world-space point, distance, and outward surface normal.
+- **RaycastSystem** — query-only ECS system for ray-vs-collider tests.
+  - `castRay()` returns the closest hit; `castRayAll()` returns all hits sorted nearest-first.
+  - `hasLineOfSight()` performs a line-of-sight / LOS check between two points.
+- **RayTracer** — multi-bounce ray tracing against reflective surfaces.
+  - Configurable `maxBounces` and `minReflectivity` thresholds.
+  - `trace()` returns a `RayTrace` containing every `RayTraceSegment` (path segment + optional hit).
+
+### Added - Ray Renderable
+- **RayRenderable** — a `Renderable` that draws a glowing beam / laser / bullet trail in world space.
+  - Two-layer visual: a sharp core line and a wider blurred glow halo for a neon/laser effect.
+  - Automatic fade-out over a configurable `lifetime`; `isExpired` flag for easy cleanup.
+  - Customisable `color`, `width`, `glowWidthMultiplier`, and `glowBlurSigma`.
+
+---
+
+## [1.1.2] - 2026-03-08
+
+### Changed
+- **Audio Engine**: Replaced `audioplayers` with `flutter_soloud` (^3.5.0) as the audio backend.
+  - SoLoud is a low-latency, C++-based audio engine purpose-built for games.
+  - Removed the fixed-size `AudioPlayer` pool; SoLoud handles unlimited concurrent voices natively.
+  - `AudioClip` now holds an `AudioSource` + `SoundHandle` instead of an `AudioPlayer`.
+  - `AudioEngine.initialize()` is now `async` and calls `SoLoud.instance.init()`; the engine
+    properly `await`s it during startup so audio is guaranteed ready before any play calls.
+  - Added `isInitialized` guard in `initialize()` to be safe against duplicate init (e.g. hot restart).
+  - `playSfx()` and `playMusic()` return early with a debug message if called before initialization.
+  - Music fade-in/fade-out now delegates to `SoLoud.instance.fadeVolume()` instead of a manual step loop.
+  - `dispose()` calls `SoLoud.instance.deinit()` to fully shut down the engine.
+
 ## [1.1.1] - 2026-03-07
 
 - Homepage URL updated in `pubspec.yaml`.
@@ -208,11 +331,11 @@ All notable changes to the Just Game Engine will be documented in this file.
   - `AudioMixer` for volume and mute control
   - 5 audio channels: Master, Music, SFX, Voice, Ambient
   - Per-channel volume control with independent mute/unmute
-  - Sound effect pooling with 10 concurrent players
+  - Unlimited concurrent SFX via SoLoud's native voice management
   - Automatic cleanup of finished audio clips
   - Music fade in/out support (configurable duration)
   - Looping support for music and ambient sounds
-  - Built on `audioplayers` package (^6.1.0)
+  - Built on `audioplayers` package (^6.1.0) *(replaced by flutter_soloud in v1.1.2)*
   - Supports MP3, WAV, OGG, FLAC audio formats
   - State tracking (stopped, playing, paused)
   - Integration methods: `playSfx()`, `playMusic()`, `stopMusic()`, `setMasterVolume()`
@@ -251,7 +374,7 @@ All notable changes to the Just Game Engine will be documented in this file.
 - Minimum Flutter SDK: 3.11.0
 - Minimum Dart SDK: 3.0.0
 - External dependencies:
-  - `audioplayers: ^6.1.0` (for Audio Engine)
+  - `audioplayers: ^6.1.0` (for Audio Engine) *(replaced by flutter_soloud in v1.1.2)*
 - Singleton pattern for Engine
 - Observer pattern for lifecycle events
 - Component-based architecture
@@ -271,6 +394,10 @@ All notable changes to the Just Game Engine will be documented in this file.
 
 ## Version History
 
+- **1.4.0** - Parallax Background System, Virtual Joystick Widget, and showcase app improvements
+- **1.3.0** - Tiled Map ECS integration (TiledMapFactory, TileMapRenderSystem, TiledCollisionSystem) and Audio ECS integration (AudioSourceComponent, AudioSystem)
+- **1.2.1** - GameWidget ECS rendering integration and example cleanup
+- **1.2.0** - Ray Casting, Ray Tracing, and Ray Renderable systems
 - **1.1.0** - Complete Physics Engine overhaul (Rigid Body Dynamics, SAT Shapes, Spatial Grid, and Impulse Resolution)
 - **1.0.1** - Bug fix for audio asset path and license update to BSD-3-Clause
 - **1.0.0** - Full production release with all core features
