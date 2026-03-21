@@ -19,6 +19,7 @@ import '../subsystems/animation/animation_system.dart';
 import '../subsystems/assets/asset_management.dart';
 import '../subsystems/networking/networking_manager.dart';
 import '../subsystems/camera/camera_system.dart';
+import '../subsystems/parallax/parallax_background.dart';
 import '../memory/cache_manager.dart';
 import '../ecs/ecs.dart';
 
@@ -91,6 +92,7 @@ class Engine implements ILifecycle {
   late final CacheManager cache;
   late final NetworkManager network;
   late final CameraSystem cameraSystem;
+  late final ParallaxSystem parallax;
   late final World world; // ECS World
 
   /// Initialize the game engine and all subsystems
@@ -144,13 +146,16 @@ class Engine implements ILifecycle {
     assets = AssetManager();
     network = NetworkManager();
     cameraSystem = CameraSystem();
+    parallax = ParallaxSystem();
     world = World(); // ECS World
 
     // Initialize each subsystem
     await cache.initialize(); // Initialize cache manager first
     assets.initialize(); // Then initialize asset manager
     cameraSystem.initialize(); // Initialize camera before rendering
+    parallax.initialize();
     rendering.camera = cameraSystem.mainCamera;
+    rendering.onRenderBackground = parallax.render;
     rendering.initialize();
     physics.initialize();
     input.initialize();
@@ -175,6 +180,7 @@ class Engine implements ILifecycle {
     _systemManager.registerSystem('assets', assets);
     _systemManager.registerSystem('network', network);
     _systemManager.registerSystem('camera', cameraSystem);
+    _systemManager.registerSystem('parallax', parallax);
     _systemManager.registerSystem('ecs', world);
   }
 
@@ -237,6 +243,7 @@ class Engine implements ILifecycle {
     // Update subsystems in order
     input.update();
     cameraSystem.update(deltaTime);
+    parallax.update(deltaTime, cameraSystem.mainCamera.position);
     physics.update(deltaTime);
     animation.update(deltaTime);
     audio.update();
@@ -263,6 +270,7 @@ class Engine implements ILifecycle {
     // Dispose subsystems in reverse order
     network.dispose();
     animation.dispose();
+    parallax.dispose();
     sceneEditor.dispose();
     audio.dispose();
     input.dispose();
