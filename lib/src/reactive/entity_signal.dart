@@ -48,6 +48,12 @@ class EntitySignal {
   /// Signal for the entity's active state.
   Signal<bool> get isActive => _activeSignal;
 
+  /// Returns the signal for a component [type] if it already exists, or null.
+  ///
+  /// Unlike [component], this does **not** create the signal lazily.
+  Signal<Component?>? componentSignalByType(Type type) =>
+      _componentSignals[type];
+
   /// Gets or creates a signal for a specific component type.
   ///
   /// The signal's value will be null if the component doesn't exist.
