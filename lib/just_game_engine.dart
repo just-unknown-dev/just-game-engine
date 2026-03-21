@@ -29,6 +29,9 @@ export 'src/subsystems/camera/camera.dart';
 // Rendering - Graphics, sprites, particles, and game widget
 export 'src/subsystems/rendering/rendering.dart';
 
+// Parallax - Multi-layer scrolling backgrounds with depth illusion
+export 'src/subsystems/parallax/parallax.dart';
+
 // Physics - Movement, gravity, collision detection, and ray casting
 export 'src/subsystems/physics/physics.dart';
 
