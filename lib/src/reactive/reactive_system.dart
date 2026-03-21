@@ -1,8 +1,11 @@
 library;
 
+import 'dart:ui';
+
 import '../ecs/ecs.dart';
 
 import 'entity_signal.dart';
+import 'reactive_component.dart';
 import 'world_signal.dart';
 
 /// A system that only processes entities with dirty (changed) components.
@@ -72,14 +75,37 @@ abstract class ReactiveSystem extends System {
     }
   }
 
+  /// Disposers for entity watches, keyed by entity ID.
+  final Map<EntityId, List<VoidCallback>> _watchDisposers = {};
+
   void _watchComponentType(
     EntitySignal entitySignal,
     Type type,
     Entity entity,
   ) {
-    // Generic component watching - mark dirty when signal changes
-    // This is a simplified approach; in production you'd use code generation
-    // or a more sophisticated type-based approach
+    // 1. If the component uses the ReactiveComponent mixin, listen for
+    //    property changes and mark the entity dirty.
+    for (final component in entity.components) {
+      if (component.runtimeType == type && component is ReactiveComponent) {
+        void onChange() => markDirty(entity);
+        component.addChangeListener(onChange);
+        _watchDisposers
+            .putIfAbsent(entity.id, () => [])
+            .add(() => component.removeChangeListener(onChange));
+        break;
+      }
+    }
+
+    // 2. Watch the EntitySignal's component signal so that adding/removing
+    //    the component also marks the entity dirty.
+    final signal = entitySignal.componentSignalByType(type);
+    if (signal != null) {
+      void onSignalChange() => markDirty(entity);
+      signal.addListener(onSignalChange);
+      _watchDisposers
+          .putIfAbsent(entity.id, () => [])
+          .add(() => signal.removeListener(onSignalChange));
+    }
   }
 
   @override

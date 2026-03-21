@@ -5,7 +5,7 @@ import 'dart:ui';
 import 'package:just_signals/just_signals.dart';
 
 import '../ecs/ecs.dart';
-import '../ecs/components.dart';
+import '../ecs/components/components.dart';
 
 /// A mixin for components that want built-in change notification.
 ///

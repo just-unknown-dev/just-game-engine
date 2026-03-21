@@ -10,8 +10,7 @@ Add the engine to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  just_game_engine:
-    path: ../packages/just_game_engine  # Adjust path to your setup
+  just_game_engine: latest_version
 ```
 
 ### Step 2: Get Packages
@@ -350,8 +349,10 @@ world.addSystem(FlashingSystem());
 1. **Components are data only** - No methods except getters/setters
 2. **Systems contain logic** - All game behavior goes in systems
 3. **One system per behavior** - Keep systems focused and small
-4. **Use queries wisely** - Cache query results when possible
-5. **System order matters** - Add systems in logical order (input → logic → physics → rendering)
+4. **Use queries wisely** - Query results are cached with selective invalidation
+5. **System order matters** - Systems run by priority (higher = earlier): input (100) → physics (90) → movement (80) → rendering (40)
+6. **Use CommandBuffer** - Call `world.commands.destroy()` instead of direct mutations inside system updates
+7. **Use EventBus** - Subscribe to events with `world.events.on<CollisionEvent>()` for decoupled communication
 
 ### ECS vs Scene Graph
 
@@ -546,11 +547,12 @@ GameWidget(
 
 ## Performance Tips
 
-1. **Limit objects**: Keep renderables under 100 for best performance
+1. **Limit objects**: Keep renderables under 100 for best performance (or use SpriteBatch for many sprites)
 2. **Use layers**: Organize objects by layer for efficient rendering
-3. **Pool particles**: Reuse particle emitters instead of creating new ones
+3. **Pool particles**: Reuse particle emitters; the engine uses `ObjectPool` internally
 4. **Batch updates**: Update multiple objects together
 5. **Profile**: Use Flutter DevTools to find bottlenecks
+6. **Use Vec2**: For custom physics code, prefer mutable `Vec2` over `Offset` to avoid allocation pressure
 
 ## Common Mistakes
 
@@ -616,7 +618,6 @@ void dispose() {
 ```dart
 import 'package:flutter/material.dart';
 import 'package:just_game_engine/just_game_engine.dart';
-import 'package:just_game_engine/src/animation/animation_system.dart' as anim;
 import 'dart:math' as math;
 ```
 
@@ -660,4 +661,4 @@ class MyGame extends StatelessWidget {
 }
 ```
 
-Happy game development with Just Engine! 🎮
+Happy game development with Just Game Engine! 🎮
