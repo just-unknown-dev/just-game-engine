@@ -2,6 +2,15 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [1.4.1] - 2026-03-25
+
+### Changed - Documentation & Examples
+
+- **README**: Overhauled and streamlined — removed outdated sections and links to provide a cleaner, more up-to-date overview.
+- **Example**: Consolidated the example suite into a single `example.dart` file covering the core engine setup. Removed the separate `core_system_example.dart`, `ecs_example.dart`, and `input_test_example.dart` files to reduce onboarding friction.
+
+---
+
 ## [1.4.0] - 2026-03-21
 
 ### Changed - Architecture & Performance
@@ -394,6 +403,7 @@ Audio playback is now fully ECS-driven alongside the existing `AudioEngine` API.
 
 ## Version History
 
+- **1.4.1** - Documentation overhaul and example consolidation
 - **1.4.0** - Parallax Background System, Virtual Joystick Widget, and showcase app improvements
 - **1.3.0** - Tiled Map ECS integration (TiledMapFactory, TileMapRenderSystem, TiledCollisionSystem) and Audio ECS integration (AudioSourceComponent, AudioSystem)
 - **1.2.1** - GameWidget ECS rendering integration and example cleanup
