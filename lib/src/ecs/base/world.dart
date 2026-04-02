@@ -28,6 +28,11 @@ class World {
   /// Whether the world is initialized
   bool _initialized = false;
 
+  /// Last measured per-system update costs in milliseconds.
+  final Map<String, double> _lastSystemTimesMs = <String, double>{};
+  double _lastUpdateTimeMs = 0.0;
+  int _lastCommandFlushCount = 0;
+
   /// Deferred command buffer for safe structural mutations during iteration.
   late final CommandBuffer commands = CommandBuffer(this);
 
@@ -296,16 +301,36 @@ class World {
 
   /// Update all active systems
   void update(double deltaTime) {
+    final totalStopwatch = Stopwatch()..start();
+    final systemStopwatch = Stopwatch();
+    var flushCount = 0;
+
+    _lastSystemTimesMs.clear();
+
     for (final system in _systems) {
       if (system.isActive) {
-        system.update(deltaTime);
+        systemStopwatch
+          ..reset()
+          ..start();
+        try {
+          system.update(deltaTime);
+        } finally {
+          systemStopwatch.stop();
+          _lastSystemTimesMs[system.runtimeType.toString()] =
+              systemStopwatch.elapsedMicroseconds / 1000.0;
+        }
       }
       // Flush deferred commands between system ticks so later systems
       // see up-to-date entity state.
       if (commands.isNotEmpty) {
         commands.flush();
+        flushCount++;
       }
     }
+
+    totalStopwatch.stop();
+    _lastUpdateTimeMs = totalStopwatch.elapsedMicroseconds / 1000.0;
+    _lastCommandFlushCount = flushCount;
   }
 
   /// Render all active systems
@@ -408,5 +433,8 @@ class World {
     'systems': _systems.length,
     'activeSystems': _systems.where((s) => s.isActive).length,
     'archetypes': _archetypes.length,
+    'lastUpdateMs': _lastUpdateTimeMs,
+    'lastCommandFlushes': _lastCommandFlushCount,
+    'systemTimesMs': Map<String, double>.unmodifiable(_lastSystemTimesMs),
   };
 }

@@ -1,4 +1,10 @@
+import 'package:meta/meta.dart';
+
 /// Main networking class
+///
+/// **This subsystem is a stub.**  All methods are no-ops. It is provided for
+/// API exploration only and must not be used in production code.
+@experimental
 class NetworkManager {
   /// Initialize the networking system
   void initialize() {
@@ -27,6 +33,9 @@ class NetworkManager {
 }
 
 /// Handles server-side networking
+///
+/// **Stub — not implemented.**
+@experimental
 class NetworkServer {
   /// Start the server
   Future<void> start(int port) async {
@@ -50,6 +59,9 @@ class NetworkServer {
 }
 
 /// Handles client-side networking
+///
+/// **Stub — not implemented.**
+@experimental
 class NetworkClient {
   /// Connect to a server
   Future<void> connect(String host, int port) async {
@@ -73,6 +85,9 @@ class NetworkClient {
 }
 
 /// Manages network synchronization
+///
+/// **Stub — not implemented.**
+@experimental
 class NetworkSync {
   /// Sync game state
   void syncState() {
@@ -86,6 +101,9 @@ class NetworkSync {
 }
 
 /// Handles network protocols
+///
+/// **Stub — not implemented.**
+@experimental
 class NetworkProtocol {
   /// Serialize data for network transmission
   dynamic serialize(dynamic data) {
@@ -101,6 +119,9 @@ class NetworkProtocol {
 }
 
 /// Manages player sessions
+///
+/// **Stub — not implemented.**
+@experimental
 class SessionManager {
   /// Create a new session
   void createSession(String sessionId) {

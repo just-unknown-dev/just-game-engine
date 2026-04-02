@@ -2,3 +2,16 @@ include: package:flutter_lints/flutter.yaml
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
+
+analyzer:
+  errors:
+    # Treat use of @experimental members as warnings so callers are clearly
+    # notified that an API is a stub (networking, saveScene, etc.).
+    invalid_use_of_visible_for_testing_member: warning
+
+linter:
+  rules:
+    # Prevents importing 'lib/' internals via a relative path from outside the
+    # package (e.g. '../lib/src/...'). Callers must use the barrel import
+    # 'package:just_game_engine/just_game_engine.dart'.
+    avoid_relative_lib_imports: true
