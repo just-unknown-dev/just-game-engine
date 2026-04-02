@@ -2,6 +2,11 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [1.4.1] - 2026-04-02
+
+- Engine performance improved
+- Engine stats updated
+
 ## [1.4.1] - 2026-03-25
 
 ### Changed - Documentation & Examples
@@ -403,6 +408,7 @@ Audio playback is now fully ECS-driven alongside the existing `AudioEngine` API.
 
 ## Version History
 
+- **1.4.2** - Performance improvements
 - **1.4.1** - Documentation overhaul and example consolidation
 - **1.4.0** - Parallax Background System, Virtual Joystick Widget, and showcase app improvements
 - **1.3.0** - Tiled Map ECS integration (TiledMapFactory, TileMapRenderSystem, TiledCollisionSystem) and Audio ECS integration (AudioSourceComponent, AudioSystem)
