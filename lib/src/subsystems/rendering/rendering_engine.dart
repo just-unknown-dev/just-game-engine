@@ -8,6 +8,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'impl/renderable.dart';
 import 'impl/sprite_batch.dart';
+import 'impl/post_process_pass.dart';
 import '../camera/camera_system.dart';
 import '../../interfaces/rendering_interfaces.dart';
 import '../../math/quadtree.dart';
@@ -15,6 +16,7 @@ import '../../math/quadtree.dart';
 export 'impl/renderable.dart';
 export 'impl/game_widget.dart';
 export 'impl/sprite_batch.dart';
+export 'impl/post_process_pass.dart';
 
 /// Main rendering engine class responsible for graphics rendering
 ///
@@ -87,6 +89,50 @@ class RenderingEngine {
   bool _lastUsedSpatialIndex = false;
   int _spatialRebuildCount = 0;
   bool _spatialReusedLastFrame = false;
+
+  // ── Post-process pass pipeline ─────────────────────────────────────────
+
+  /// Registered fullscreen post-process passes.
+  ///
+  /// Managed via [addPostProcessPass] / [removePostProcessPass].
+  /// [PostProcessSystem] populates this list each frame from ECS entities.
+  final List<PostProcessPass> _postProcessPasses = [];
+
+  /// Cached sorted pass list rebuilt when the pass set changes.
+  final List<PostProcessPass> _sortedPasses = [];
+  bool _passListDirty = false;
+
+  /// Elapsed engine time in seconds, written each frame by [PostProcessSystem]
+  /// (or set manually when using the pass pipeline without ECS).
+  ///
+  /// Forwarded to every [PostProcessPass.setUniforms] callback.
+  double elapsedSeconds = 0.0;
+
+  /// Cached fullscreen rect reused every render to avoid per-frame allocation.
+  Rect _fullscreenRect = Rect.zero;
+
+  /// Cached [Paint] for post-process `saveLayer` calls.
+  final Paint _postProcessPaint = Paint();
+
+  /// Register a [PostProcessPass] with the render pipeline.
+  ///
+  /// The pass will be included in the scene-wrapping shader chain starting
+  /// from the next rendered frame. Duplicate insertions are silently ignored.
+  void addPostProcessPass(PostProcessPass pass) {
+    if (!_postProcessPasses.contains(pass)) {
+      _postProcessPasses.add(pass);
+      _passListDirty = true;
+    }
+  }
+
+  /// Remove a [PostProcessPass] from the render pipeline.
+  ///
+  /// Has no effect if the pass is not currently registered.
+  void removePostProcessPass(PostProcessPass pass) {
+    if (_postProcessPasses.remove(pass)) {
+      _passListDirty = true;
+    }
+  }
 
   // ── Cached Paint objects (avoid per-frame allocation) ──────────────────
   final Paint _backgroundPaint = Paint();
@@ -201,6 +247,9 @@ class RenderingEngine {
     _spatialIndexBounds = null;
     _spatialIndexDirty = true;
     _layersDirty = true;
+    _postProcessPasses.clear();
+    _sortedPasses.clear();
+    _passListDirty = false;
   }
 
   void _refreshRenderableTracking() {
@@ -306,6 +355,37 @@ class RenderingEngine {
 
     // Render parallax backgrounds in screen space (before camera transform).
     onRenderBackground?.call(canvas, size);
+
+    // ── Post-process: push offscreen layers (outermost first) ─────────────
+    // Each active pass wraps the scene+overlay in a saveLayer so Flutter's
+    // compositor applies the FragmentShader when restoring the layer.
+    int activePasses = 0;
+    if (_postProcessPasses.isNotEmpty) {
+      if (_passListDirty) {
+        _sortedPasses
+          ..clear()
+          ..addAll(_postProcessPasses)
+          ..sort((a, b) => a.passOrder.compareTo(b.passOrder));
+        _passListDirty = false;
+      }
+      _fullscreenRect = Rect.fromLTWH(0, 0, size.width, size.height);
+      // Push from outermost (highest passOrder) to innermost (lowest)
+      // so the LIFO restore order applies shaders innermost-first.
+      for (int i = _sortedPasses.length - 1; i >= 0; i--) {
+        final pass = _sortedPasses[i];
+        if (!pass.enabled) continue;
+        pass.setUniforms?.call(
+          pass.shader,
+          size.width,
+          size.height,
+          elapsedSeconds,
+        );
+        _postProcessPaint.imageFilter =
+            ui.ImageFilter.shader(pass.shader);
+        canvas.saveLayer(_fullscreenRect, _postProcessPaint);
+        activePasses++;
+      }
+    }
 
     // Save canvas state
     canvas.save();
@@ -424,6 +504,11 @@ class RenderingEngine {
     // so each pipeline applies its own camera transform independently.
     onRenderOverlay?.call(canvas, size);
 
+    // ── Post-process: pop offscreen layers (innermost first via LIFO) ─────
+    for (int i = 0; i < activePasses; i++) {
+      canvas.restore();
+    }
+
     // Render debug info
     if (debugMode) {
       _renderDebugInfo(canvas, size);
@@ -495,5 +580,6 @@ class RenderingEngine {
     'usedSpatialIndex': _lastUsedSpatialIndex,
     'spatialRebuilds': _spatialRebuildCount,
     'spatialReusedLastFrame': _spatialReusedLastFrame,
+    'postProcessPasses': _postProcessPasses.where((p) => p.enabled).length,
   };
 }

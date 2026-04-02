@@ -1,6 +1,7 @@
 library;
 
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -43,6 +44,10 @@ class RenderSystem extends System {
   /// Cached [SpriteBatchRenderer] instances keyed by atlas image identity.
   /// Re-created only when the atlas image changes (e.g. hot-reload).
   final Map<int, SpriteBatchRenderer> _spriteBatches = {};
+
+  /// Cached [Paint] for per-entity [ShaderComponent] saveLayer calls.
+  /// Reused each frame to avoid allocation.
+  final Paint _entityShaderPaint = Paint();
 
   /// Create a render system.
   RenderSystem({this.camera, SpriteBatchFactory? spriteBatchFactory})
@@ -87,10 +92,18 @@ class RenderSystem extends System {
 
       if (!renderComp.renderable.visible) continue;
 
+      // ── Per-entity shader detection ────────────────────────────────────
+      final shaderComp = entity.getComponent<ShaderComponent>();
+      final hasEntityShader =
+          shaderComp != null && !shaderComp.isPostProcess && shaderComp.enabled;
+
       // Try to batch renderables that implement BatchableSprite.
+      // Entities with a per-entity shader cannot be batched — they require an
+      // isolated offscreen layer to composite the shader correctly.
       final renderable = renderComp.renderable;
       if (renderable is BatchableSprite &&
-          (renderable as BatchableSprite).batchImage != null) {
+          (renderable as BatchableSprite).batchImage != null &&
+          !hasEntityShader) {
         final batchable = renderable as BatchableSprite;
         final image = batchable.batchImage!;
         final key = identityHashCode(image);
@@ -120,8 +133,32 @@ class RenderSystem extends System {
           color: tintColor,
         );
       } else {
-        // Non-sprite or image-less: render individually.
+        // Non-sprite, image-less sprite, or entity with a per-entity shader:
+        // render individually, optionally wrapped in a shader saveLayer.
+        if (hasEntityShader) {
+          final bounds = renderable.getBounds();
+          // Fall back to a generous world-space rect if bounds are unknown.
+          final effectRect =
+              bounds ??
+              Rect.fromCenter(
+                center: renderable.position,
+                width: size.width,
+                height: size.height,
+              );
+          shaderComp!.setUniforms?.call(
+            shaderComp.shader,
+            effectRect.width,
+            effectRect.height,
+            0.0, // per-entity mode: no time source in RenderSystem
+          );
+          _entityShaderPaint.imageFilter =
+              ui.ImageFilter.shader(shaderComp.shader);
+          canvas.saveLayer(effectRect, _entityShaderPaint);
+        }
+
         renderable.render(canvas, size);
+
+        if (hasEntityShader) canvas.restore();
       }
     }
 

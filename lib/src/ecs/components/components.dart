@@ -11,6 +11,7 @@ export 'core/velocity_component.dart';
 export 'rendering/renderable_component.dart';
 export 'rendering/sprite_component.dart';
 export 'rendering/parallax_component.dart';
+export 'rendering/shader_component.dart';
 
 // Physics components
 export 'physics/physics_body_component.dart';
