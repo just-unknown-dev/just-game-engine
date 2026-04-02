@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:meta/meta.dart';
 import '../rendering/impl/renderable.dart';
 
 /// Main scene editor class
@@ -29,7 +30,11 @@ class SceneEditor {
     }
   }
 
-  /// Save the current scene
+  /// Save the current scene to [path].
+  ///
+  /// **Not yet implemented** — this method is a stub.
+  /// Scene serialisation will be added in a future release.
+  @experimental
   void saveScene(String path) {
     // TODO: Implement scene serialization
   }

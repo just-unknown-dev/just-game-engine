@@ -1,9 +1,11 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_game_engine/src/subsystems/animation/animation_system.dart'
     as anim;
-import 'dart:math' as math;
 
 /// Performance benchmarks for the Just Game Engine
 ///
@@ -672,6 +674,143 @@ void main() {
           true,
         ); // 100 should be < 15x slower than 10
       }
+    });
+  });
+
+  // ── Stats-driven frame budget benchmarks ──────────────────────────────────
+  // These tests exercise the live diagnostics APIs and assert that real update
+  // cycles remain within the 60 Hz budget under representative loads.  They
+  // serve as a CI gate: if a regression bloats a hot path enough to blow the
+  // budget, the test fails with a concrete timing figure.
+  group('Frame budget benchmarks (stats API)', () {
+    test('scheduler completes a full update cycle within 16.67ms', () async {
+      final engine = Engine();
+      await engine.initialize();
+
+      // Warm up to stabilise timings (JIT, first-frame overhead).
+      for (int i = 0; i < 5; i++) {
+        engine.physics.update(0.016);
+        engine.world.update(0.016);
+      }
+
+      // Drive one full update cycle through the authoritative scheduler.
+      engine.systemManager.runUpdateCycle(1 / 60);
+
+      final stats = engine.performanceStats;
+      final lastUpdateMs = stats['lastUpdateMs'] as double;
+      final isOverBudget = stats['isOverBudget'] as bool;
+
+      debugPrint(
+        'Scheduler update cycle: ${lastUpdateMs.toStringAsFixed(2)} ms  '
+        '(budget remaining: ${(stats['budgetRemainingMs'] as double).toStringAsFixed(2)} ms)',
+      );
+
+      expect(
+        isOverBudget,
+        isFalse,
+        reason:
+            'Engine update cycle took ${lastUpdateMs.toStringAsFixed(2)} ms — '
+            'exceeded the 16.67 ms / 60 Hz frame budget.',
+      );
+    });
+
+    test('scheduler records timings for all registered tasks', () async {
+      final engine = Engine();
+      await engine.initialize();
+
+      // Drive one update cycle directly through the scheduler so taskTimesMs
+      // is populated without depending on the GameLoop clock accumulator.
+      engine.systemManager.runUpdateCycle(1 / 60);
+
+      final scheduler =
+          engine.performanceStats['scheduler'] as Map<String, dynamic>;
+      final taskTimes = scheduler['taskTimesMs'] as Map<String, double>;
+
+      // All seven tasks registered in Engine._registerSystems must be present.
+      const expectedTasks = [
+        'input',
+        'camera',
+        'parallax',
+        'physics',
+        'animation',
+        'audio',
+        'ecs',
+      ];
+      expect(taskTimes.keys, containsAll(expectedTasks));
+      expect(
+        scheduler['updateTaskCount'],
+        greaterThanOrEqualTo(expectedTasks.length),
+      );
+    });
+
+    test(
+      'physics stats stay coherent after 60 steps with moving bodies',
+      () async {
+        final engine = Engine();
+        await engine.initialize();
+
+        for (int i = 0; i < 20; i++) {
+          engine.physics.addBody(
+            PhysicsBody(
+              position: Vector2(i * 40.0, 0),
+              velocity: Vector2(10, 5),
+              shape: CircleShape(12),
+              mass: 1.0,
+            ),
+          );
+        }
+
+        for (int i = 0; i < 60; i++) {
+          engine.physics.update(0.016);
+        }
+
+        final ps = engine.physics.stats;
+        expect(ps['bodyCount'], 20);
+        expect(ps['lastStepMs'], isA<double>());
+        // Incremental broadphase: dirty count must not exceed total body count.
+        expect(
+          ps['broadphaseDirtyBodies'] as int,
+          lessThanOrEqualTo(ps['bodyCount'] as int),
+        );
+      },
+    );
+
+    test('rendering stats confirm spatial index reuse on static scene', () async {
+      // Drive RenderingEngine directly (same pattern used in performance_instrumentation_test).
+      final rendering = RenderingEngine()
+        ..camera = Camera(viewportSize: const Size(800, 600));
+      rendering.initialize();
+
+      // Add 250 renderables to activate the quadtree path (threshold = 200).
+      for (int i = 0; i < 250; i++) {
+        rendering.addRenderable(
+          CircleRenderable(
+            radius: 8,
+            fillColor: Colors.green,
+            position: Offset((i % 25) * 30.0, (i ~/ 25) * 30.0),
+          ),
+        );
+      }
+
+      // First pass seeds the spatial index.
+      final rec1 = ui.PictureRecorder();
+      rendering.render(Canvas(rec1), const Size(800, 600));
+      rec1.endRecording();
+
+      // Second pass on the same static scene should reuse the index.
+      final rec2 = ui.PictureRecorder();
+      rendering.render(Canvas(rec2), const Size(800, 600));
+      rec2.endRecording();
+
+      final rs = rendering.stats;
+      expect(rs['usedSpatialIndex'], isTrue);
+      expect(
+        rs['spatialReusedLastFrame'],
+        isTrue,
+        reason:
+            'Quadtree should be reused when renderables and camera are '
+            'unchanged between frames.',
+      );
     });
   });
 }

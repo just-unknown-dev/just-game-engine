@@ -57,6 +57,9 @@ class Engine implements ILifecycle {
   /// System manager for coordinating subsystems
   late final SystemManager _systemManager;
 
+  /// Public access to the system manager (e.g. for reading [SystemManager.schedulerStats]).
+  SystemManager get systemManager => _systemManager;
+
   /// Game loop controller
   late final GameLoop _gameLoop;
 
