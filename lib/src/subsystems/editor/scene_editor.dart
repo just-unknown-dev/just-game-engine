@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:meta/meta.dart';
 
 import '../rendering/impl/renderable.dart';
 import '_io_native.dart' if (dart.library.html) '_io_stub.dart';

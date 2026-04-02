@@ -168,7 +168,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  just_game_engine: ^1.4.0
+  just_game_engine: ^1.4.2
 ```
 
 Then run:
