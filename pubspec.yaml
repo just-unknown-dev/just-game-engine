@@ -1,6 +1,6 @@
 name: just_game_engine
 description: "A feature-rich 2D game engine for Flutter with ECS, physics, audio, tilemaps, particles, animation, and input systems for building cross-platform games."
-version: 1.4.1
+version: 1.4.2
 homepage: https://engine.justunknown.com/
 repository: https://github.com/just-unknown-dev/just-game-engine
 issue_tracker: https://github.com/just-unknown-dev/just-game-engine/issues
