@@ -212,51 +212,81 @@ class _GameWidgetState extends State<GameWidget>
                     child: RepaintBoundary(
                       child: ValueListenableBuilder<int>(
                         valueListenable: _fpsNotifier,
-                        builder: (_, _, _) => Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.7),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Renderables: ${widget.engine.rendering.renderableCount}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontFamily: 'monospace',
+                        builder: (_, _, _) {
+                          final engineStats = widget.engine.performanceStats;
+                          final renderStats = widget.engine.rendering.stats;
+                          final physicsStats = widget.engine.physics.stats;
+
+                          return Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Renderables: ${widget.engine.rendering.renderableCount}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontFamily: 'monospace',
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                'Layers: ${widget.engine.rendering.layerCount}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontFamily: 'monospace',
+                                Text(
+                                  'Layers: ${widget.engine.rendering.layerCount}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontFamily: 'monospace',
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                'Camera: (${widget.engine.rendering.camera.position.dx.toStringAsFixed(0)}, '
-                                '${widget.engine.rendering.camera.position.dy.toStringAsFixed(0)})',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontFamily: 'monospace',
+                                Text(
+                                  'Camera: (${widget.engine.rendering.camera.position.dx.toStringAsFixed(0)}, '
+                                  '${widget.engine.rendering.camera.position.dy.toStringAsFixed(0)})',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontFamily: 'monospace',
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                'Zoom: ${widget.engine.rendering.camera.zoom.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontFamily: 'monospace',
+                                Text(
+                                  'Zoom: ${widget.engine.rendering.camera.zoom.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontFamily: 'monospace',
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
+                                Text(
+                                  'Update: ${((engineStats['lastUpdateMs'] as num?) ?? 0).toStringAsFixed(2)} ms',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                                Text(
+                                  'Render: ${((renderStats['lastRenderMs'] as num?) ?? 0).toStringAsFixed(2)} ms | Draws: ${renderStats['drawCalls']}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                                Text(
+                                  'Physics: ${((physicsStats['lastStepMs'] as num?) ?? 0).toStringAsFixed(2)} ms | Awake: ${physicsStats['awakeBodies']} | Pairs: ${physicsStats['potentialPairs']}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),

@@ -66,6 +66,24 @@ class Engine implements ILifecycle {
   /// Time management
   late final TimeManager _timeManager;
 
+  /// Last measured subsystem update costs in milliseconds.
+  final Map<String, double> _lastUpdateBreakdownMs = <String, double>{};
+
+  double _lastUpdateTotalMs = 0.0;
+  double _lastDeltaTime = 0.0;
+  int _frameNumber = 0;
+
+  /// Latest per-frame performance snapshot.
+  Map<String, dynamic> get performanceStats => {
+    'frame': _frameNumber,
+    'deltaTime': _lastDeltaTime,
+    'lastUpdateMs': _lastUpdateTotalMs,
+    'budgetRemainingMs': 16.67 - _lastUpdateTotalMs,
+    'isOverBudget': _lastUpdateTotalMs > 16.67,
+    'systemTimesMs': Map<String, double>.unmodifiable(_lastUpdateBreakdownMs),
+    'scheduler': _systemManager.schedulerStats,
+  };
+
   /// Current engine state
   EngineState _state = EngineState.uninitialized;
 
@@ -113,6 +131,7 @@ class Engine implements ILifecycle {
       // Initialize core systems
       _timeManager = TimeManager();
       _systemManager = SystemManager();
+      await _systemManager.initialize();
       _gameLoop = GameLoop(onUpdate: _update, timeManager: _timeManager);
 
       // Initialize subsystems
@@ -182,6 +201,30 @@ class Engine implements ILifecycle {
     _systemManager.registerSystem('camera', cameraSystem);
     _systemManager.registerSystem('parallax', parallax);
     _systemManager.registerSystem('ecs', world);
+
+    _systemManager.registerUpdateTask('input', (_) => input.update());
+    _systemManager.registerUpdateTask(
+      'camera',
+      (deltaTime) => cameraSystem.update(deltaTime),
+    );
+    _systemManager.registerUpdateTask(
+      'parallax',
+      (deltaTime) =>
+          parallax.update(deltaTime, cameraSystem.mainCamera.position),
+    );
+    _systemManager.registerUpdateTask(
+      'physics',
+      (deltaTime) => physics.update(deltaTime),
+    );
+    _systemManager.registerUpdateTask(
+      'animation',
+      (deltaTime) => animation.update(deltaTime),
+    );
+    _systemManager.registerUpdateTask('audio', (_) => audio.update());
+    _systemManager.registerUpdateTask(
+      'ecs',
+      (deltaTime) => world.update(deltaTime),
+    );
   }
 
   /// Start the game engine and begin the game loop
@@ -240,14 +283,14 @@ class Engine implements ILifecycle {
   void _update(double deltaTime) {
     if (_state != EngineState.running) return;
 
-    // Update subsystems in order
-    input.update();
-    cameraSystem.update(deltaTime);
-    parallax.update(deltaTime, cameraSystem.mainCamera.position);
-    physics.update(deltaTime);
-    animation.update(deltaTime);
-    audio.update();
-    world.update(deltaTime); // Update ECS
+    _frameNumber++;
+    _lastDeltaTime = deltaTime;
+
+    _systemManager.runUpdateCycle(deltaTime);
+    _lastUpdateBreakdownMs
+      ..clear()
+      ..addAll(_systemManager.lastTaskTimesMs);
+    _lastUpdateTotalMs = _systemManager.lastFrameMs;
 
     // Update active scene if available
     // TODO: Implement scene update when scene system is ready

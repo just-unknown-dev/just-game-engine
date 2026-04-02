@@ -8,6 +8,9 @@ import 'package:flutter/foundation.dart';
 
 import 'lifecycle.dart';
 
+/// Callback used by the frame scheduler for update tasks.
+typedef UpdateTask = void Function(double deltaTime);
+
 /// System manager for coordinating engine subsystems
 ///
 /// This class acts as a registry for all engine subsystems, allowing
@@ -29,11 +32,32 @@ class SystemManager implements ILifecycle {
   /// Whether the system manager is initialized
   bool _isInitialized = false;
 
+  /// Ordered update tasks owned by the scheduler.
+  final Map<String, UpdateTask> _updateTasks = {};
+  final List<String> _updateOrder = <String>[];
+  final Map<String, double> _lastTaskTimesMs = <String, double>{};
+  double _lastFrameMs = 0.0;
+
   /// Check if initialized
   bool get isInitialized => _isInitialized;
 
   /// Get the number of registered systems
   int get systemCount => _systems.length;
+
+  /// Latest scheduler timing snapshot.
+  Map<String, dynamic> get schedulerStats => {
+    'systemCount': _systems.length,
+    'updateTaskCount': _updateOrder.length,
+    'lastFrameMs': _lastFrameMs,
+    'taskTimesMs': Map<String, double>.unmodifiable(_lastTaskTimesMs),
+  };
+
+  /// Latest task timings in milliseconds.
+  Map<String, double> get lastTaskTimesMs =>
+      Map<String, double>.unmodifiable(_lastTaskTimesMs);
+
+  /// Total scheduler frame time in milliseconds.
+  double get lastFrameMs => _lastFrameMs;
 
   /// Initialize the system manager
   @override
@@ -101,6 +125,48 @@ class SystemManager implements ILifecycle {
     return _systemsByType.containsKey(T);
   }
 
+  /// Register an ordered frame update task.
+  void registerUpdateTask(String name, UpdateTask task) {
+    if (_updateTasks.containsKey(name)) {
+      throw StateError('Update task with name "$name" is already registered');
+    }
+
+    _updateTasks[name] = task;
+    _updateOrder.add(name);
+  }
+
+  /// Remove an update task from the scheduler.
+  bool unregisterUpdateTask(String name) {
+    final removed = _updateTasks.remove(name);
+    _updateOrder.remove(name);
+    return removed != null;
+  }
+
+  /// Execute one scheduled update cycle in registration order.
+  void runUpdateCycle(double deltaTime) {
+    final frameStopwatch = Stopwatch()..start();
+    final taskStopwatch = Stopwatch();
+    _lastTaskTimesMs.clear();
+
+    for (final name in _updateOrder) {
+      final task = _updateTasks[name];
+      if (task == null) continue;
+
+      taskStopwatch
+        ..reset()
+        ..start();
+      try {
+        task(deltaTime);
+      } finally {
+        taskStopwatch.stop();
+        _lastTaskTimesMs[name] = taskStopwatch.elapsedMicroseconds / 1000.0;
+      }
+    }
+
+    frameStopwatch.stop();
+    _lastFrameMs = frameStopwatch.elapsedMicroseconds / 1000.0;
+  }
+
   /// Get all registered system names
   List<String> getSystemNames() {
     return _systems.keys.toList();
@@ -115,22 +181,18 @@ class SystemManager implements ILifecycle {
   void clear() {
     _systems.clear();
     _systemsByType.clear();
+    _updateTasks.clear();
+    _updateOrder.clear();
+    _lastTaskTimesMs.clear();
+    _lastFrameMs = 0.0;
   }
 
-  /// Dispose all systems and cleanup
+  /// Dispose the registry/scheduler state.
+  ///
+  /// Concrete subsystem lifecycle is owned by the `Engine`, which prevents
+  /// accidental double-disposal when the engine shuts down.
   @override
   void dispose() {
-    // Dispose systems that implement ILifecycle
-    for (final system in _systems.values) {
-      if (system is ILifecycle) {
-        try {
-          system.dispose();
-        } catch (e) {
-          debugPrint('Error disposing system: $e');
-        }
-      }
-    }
-
     clear();
     _isInitialized = false;
     debugPrint('System manager disposed');
@@ -140,8 +202,12 @@ class SystemManager implements ILifecycle {
   void printSystemInfo() {
     debugPrint('=== Registered Systems ===');
     debugPrint('Total systems: ${_systems.length}');
+    debugPrint('Scheduled update tasks: ${_updateOrder.length}');
     for (final entry in _systems.entries) {
       debugPrint('  - ${entry.key}: ${entry.value.runtimeType}');
+    }
+    if (_updateOrder.isNotEmpty) {
+      debugPrint('Update order: ${_updateOrder.join(' -> ')}');
     }
     debugPrint('========================');
   }

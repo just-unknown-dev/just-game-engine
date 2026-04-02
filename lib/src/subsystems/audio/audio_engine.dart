@@ -24,35 +24,56 @@ class AudioClip {
 
   AudioClip({required this.id, required this.path, required this.channel});
 
-  final SoLoud _engine = SoLoud.instance;
+  SoLoud? _engine;
+
+  SoLoud? _resolveEngine() {
+    try {
+      return _engine ??= SoLoud.instance;
+    } catch (e) {
+      debugPrint('AudioClip: SoLoud unavailable: $e');
+      return null;
+    }
+  }
 
   /// Play the audio clip
   Future<void> play() async {
-    _source ??= await _engine.loadAsset(path);
-    _handle = await _engine.play(_source!, volume: volume, looping: loop);
+    final engine = _resolveEngine();
+    if (engine == null) return;
+
+    _source ??= await engine.loadAsset(path);
+    _handle = await engine.play(_source!, volume: volume, looping: loop);
     state = AudioState.playing;
   }
 
   /// Pause the audio clip
   Future<void> pause() async {
-    if (_handle != null && _engine.getIsValidVoiceHandle(_handle!)) {
-      _engine.setPause(_handle!, true);
+    final engine = _resolveEngine();
+    if (engine != null &&
+        _handle != null &&
+        engine.getIsValidVoiceHandle(_handle!)) {
+      engine.setPause(_handle!, true);
       state = AudioState.paused;
     }
   }
 
   /// Resume the audio clip
   Future<void> resume() async {
-    if (_handle != null && _engine.getIsValidVoiceHandle(_handle!)) {
-      _engine.setPause(_handle!, false);
+    final engine = _resolveEngine();
+    if (engine != null &&
+        _handle != null &&
+        engine.getIsValidVoiceHandle(_handle!)) {
+      engine.setPause(_handle!, false);
       state = AudioState.playing;
     }
   }
 
   /// Stop the audio clip
   Future<void> stop() async {
-    if (_handle != null && _engine.getIsValidVoiceHandle(_handle!)) {
-      await _engine.stop(_handle!);
+    final engine = _resolveEngine();
+    if (engine != null &&
+        _handle != null &&
+        engine.getIsValidVoiceHandle(_handle!)) {
+      await engine.stop(_handle!);
     }
     _handle = null;
     state = AudioState.stopped;
@@ -60,32 +81,45 @@ class AudioClip {
 
   /// Set volume (0.0 to 1.0)
   Future<void> setVolume(double vol) async {
+    final engine = _resolveEngine();
     volume = vol.clamp(0.0, 1.0);
-    if (_handle != null && _engine.getIsValidVoiceHandle(_handle!)) {
-      _engine.setVolume(_handle!, volume);
+    if (engine != null &&
+        _handle != null &&
+        engine.getIsValidVoiceHandle(_handle!)) {
+      engine.setVolume(_handle!, volume);
     }
   }
 
   /// Set looping
   Future<void> setLoop(bool shouldLoop) async {
+    final engine = _resolveEngine();
     loop = shouldLoop;
-    if (_handle != null && _engine.getIsValidVoiceHandle(_handle!)) {
-      _engine.setLooping(_handle!, shouldLoop);
+    if (engine != null &&
+        _handle != null &&
+        engine.getIsValidVoiceHandle(_handle!)) {
+      engine.setLooping(_handle!, shouldLoop);
     }
   }
 
   /// Returns true when the underlying voice is still active.
-  bool get isPlaying =>
-      _handle != null && _engine.getIsValidVoiceHandle(_handle!);
+  bool get isPlaying {
+    final engine = _resolveEngine();
+    return engine != null &&
+        _handle != null &&
+        engine.getIsValidVoiceHandle(_handle!);
+  }
 
   /// Dispose the audio clip
   Future<void> dispose() async {
-    if (_handle != null && _engine.getIsValidVoiceHandle(_handle!)) {
-      await _engine.stop(_handle!);
+    final engine = _resolveEngine();
+    if (engine != null &&
+        _handle != null &&
+        engine.getIsValidVoiceHandle(_handle!)) {
+      await engine.stop(_handle!);
     }
     _handle = null;
-    if (_source != null) {
-      await _engine.disposeSource(_source!);
+    if (engine != null && _source != null) {
+      await engine.disposeSource(_source!);
       _source = null;
     }
   }
@@ -123,7 +157,19 @@ class AudioEngine {
   /// Raw user-requested music volume (before channel/master scaling).
   double _rawMusicVolume = 1.0;
 
-  final SoLoud _native = SoLoud.instance;
+  SoLoud? _native;
+  bool _nativeUnavailable = false;
+
+  SoLoud? _resolveNative() {
+    if (_nativeUnavailable) return null;
+    try {
+      return _native ??= SoLoud.instance;
+    } catch (e) {
+      _nativeUnavailable = true;
+      debugPrint('AudioEngine: SoLoud bindings unavailable: $e');
+      return null;
+    }
+  }
 
   /// Initialize the audio engine
   Future<void> initialize() async {
@@ -133,9 +179,15 @@ class AudioEngine {
   /// Lazily initializes SoLoud. Safe to call multiple times.
   Future<bool> _ensureInitialized() async {
     if (_initialized) return true;
+
+    final native = _resolveNative();
+    if (native == null) {
+      return false;
+    }
+
     try {
       await loadSoLoudWeb();
-      await _native.init();
+      await native.init();
       _initialized = true;
       debugPrint('AudioEngine: SoLoud initialized successfully');
       return true;
@@ -156,13 +208,16 @@ class AudioEngine {
       return null;
     }
     try {
+      final native = _resolveNative();
+      if (native == null) return null;
+
       final assetPath = path.startsWith('assets/') ? path : 'assets/$path';
 
-      _sfxSources[assetPath] ??= await _native.loadAsset(assetPath);
+      _sfxSources[assetPath] ??= await native.loadAsset(assetPath);
       final source = _sfxSources[assetPath]!;
 
       final effectiveVolume = volume * _getEffectiveVolume(AudioChannel.sfx);
-      final handle = await _native.play(
+      final handle = await native.play(
         source,
         volume: effectiveVolume,
         looping: loop,
@@ -226,8 +281,9 @@ class AudioEngine {
       }
 
       // Protect music from being auto-killed when max voices reached.
-      if (clip._handle != null) {
-        _native.setProtectVoice(clip._handle!, true);
+      final native = _resolveNative();
+      if (native != null && clip._handle != null) {
+        native.setProtectVoice(clip._handle!, true);
       }
 
       _currentMusic = clip;
@@ -341,8 +397,11 @@ class AudioEngine {
     double targetVolume,
     Duration duration,
   ) async {
-    if (clip._handle != null && _native.getIsValidVoiceHandle(clip._handle!)) {
-      _native.fadeVolume(clip._handle!, targetVolume, duration);
+    final native = _resolveNative();
+    if (native != null &&
+        clip._handle != null &&
+        native.getIsValidVoiceHandle(clip._handle!)) {
+      native.fadeVolume(clip._handle!, targetVolume, duration);
       await Future.delayed(duration);
       clip.volume = targetVolume;
     }
@@ -372,9 +431,10 @@ class AudioEngine {
 
     _sfxSources.clear();
 
-    if (_initialized) {
+    final native = _native;
+    if (_initialized && native != null) {
       try {
-        _native.deinit();
+        native.deinit();
       } catch (_) {
         // Native bindings may not be available (e.g. web).
       }
