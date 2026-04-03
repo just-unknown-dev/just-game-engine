@@ -8,7 +8,7 @@ library;
 import '../../../ecs/ecs.dart';
 import '../../../ecs/components/components.dart';
 import '../../../subsystems/rendering/rendering_engine.dart';
-import '../../../subsystems/rendering/impl/post_process_pass.dart';
+import '../../../subsystems/post_processing/post_process_pass.dart';
 import '../system_priorities.dart';
 
 /// Manages fullscreen post-process shader passes on behalf of the ECS world.
@@ -136,8 +136,9 @@ class PostProcessSystem extends System {
     }
 
     // ── Remove passes for entities that are no longer active ─────────────
-    final staleIds =
-        _registeredPasses.keys.where((id) => !activeIds.contains(id)).toList();
+    final staleIds = _registeredPasses.keys
+        .where((id) => !activeIds.contains(id))
+        .toList();
 
     for (final id in staleIds) {
       _renderingEngine.removePostProcessPass(_registeredPasses[id]!);

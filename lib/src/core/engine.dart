@@ -223,6 +223,10 @@ class Engine implements ILifecycle {
       'animation',
       (deltaTime) => animation.update(deltaTime),
     );
+    _systemManager.registerUpdateTask(
+      'particles',
+      (deltaTime) => rendering.updateManagedEmitters(deltaTime),
+    );
     _systemManager.registerUpdateTask('audio', (_) => audio.update());
     _systemManager.registerUpdateTask(
       'ecs',
