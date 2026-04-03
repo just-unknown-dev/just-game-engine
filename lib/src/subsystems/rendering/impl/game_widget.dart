@@ -116,7 +116,7 @@ class _GameWidgetState extends State<GameWidget>
   void _updateFPS() {
     final now = DateTime.now();
     if (now.difference(_lastFpsUpdate).inMilliseconds >= 1000) {
-      _fpsNotifier.value = Engine.instance.gameLoop.currentFPS;
+      _fpsNotifier.value = widget.engine.gameLoop.currentFPS;
       _lastFpsUpdate = now;
     }
   }

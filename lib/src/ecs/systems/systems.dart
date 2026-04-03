@@ -11,6 +11,7 @@ export 'core/movement_system.dart';
 
 // Rendering systems
 export 'rendering/render_system.dart';
+export 'rendering/post_process_system.dart';
 
 // Physics systems
 export 'physics/physics_system.dart';

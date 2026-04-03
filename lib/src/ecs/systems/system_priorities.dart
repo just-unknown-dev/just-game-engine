@@ -39,6 +39,14 @@ abstract final class SystemPriorities {
   /// Rendering ECS entities.
   static const int render = 40;
 
+  /// Fullscreen post-process shader passes — runs after [render] to apply
+  /// screen-space effects (bloom, chromatic aberration, vignette, …).
+  /// Lower priority value = later execution in the ECS update loop means
+  /// [PostProcessSystem.update] runs after [RenderSystem.render], which is
+  /// the correct order: passes are synced with [RenderingEngine] after the
+  /// scene is queued for rendering.
+  static const int postProcess = 35;
+
   /// Boundary enforcement (wrap / clamp / bounce / destroy).
   static const int boundary = 30;
 

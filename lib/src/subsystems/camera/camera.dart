@@ -2,3 +2,4 @@
 library;
 
 export 'camera_system.dart';
+export 'camera_controls.dart';
