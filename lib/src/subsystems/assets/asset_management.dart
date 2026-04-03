@@ -57,7 +57,18 @@ class AssetManager {
     _loaders[AssetType.text] = TextAssetLoader();
     _loaders[AssetType.json] = JsonAssetLoader();
     _loaders[AssetType.binary] = BinaryAssetLoader();
+    // AtlasAssetLoader is registered on-demand by SpriteAtlas.fromAsset.
   }
+
+  /// Register (or replace) an [AssetLoader] for [type].
+  ///
+  /// Called automatically by [SpriteAtlas.fromAsset] for [AssetType.atlas];
+  /// you can also call this to register custom loaders for new asset types.
+  void registerLoader(AssetType type, AssetLoader loader) =>
+      _loaders[type] = loader;
+
+  /// Returns `true` if a loader is registered for [type].
+  bool hasLoader(AssetType type) => _loaders.containsKey(type);
 
   // ── Convenience loaders ────────────────────────────────────────────────
 

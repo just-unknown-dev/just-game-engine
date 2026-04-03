@@ -67,5 +67,9 @@ export 'src/math/math.dart';
 // Memory Management - Object pooling and caching infrastructure
 export 'src/memory/memory.dart';
 
+// Sprite Atlas - Sprite-sheet parsing, named regions, and atlas animations
+// Supports TexturePacker (JSON Array / Hash / multi-page) and Aseprite formats
+export 'src/subsystems/sprite_atlas/sprite_atlas.dart';
+
 // Reactive ECS - Signal-driven wrappers for ECS types
 export 'src/reactive/reactive.dart';
