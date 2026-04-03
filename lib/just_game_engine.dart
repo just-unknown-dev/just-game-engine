@@ -83,3 +83,12 @@ export 'src/subsystems/effects/effects.dart';
 
 // Reactive ECS - Signal-driven wrappers for ECS types
 export 'src/reactive/reactive.dart';
+
+// Localization - Engine-wide i18n: string tables, plurals, locale switching.
+// Central service shared by all subsystems including Narrative/Dialogue.
+export 'src/subsystems/localization/localization.dart';
+
+// Narrative/Dialogue - Yarn Spinner parser, runner, localization, ECS & UI
+// Supports linear, branching, hub-and-spoke, and cutscene dialogue patterns.
+// File format: Yarn Spinner 2.x (.yarn); conditions/commands via Dart callbacks.
+export 'src/subsystems/narrative/narrative.dart';
