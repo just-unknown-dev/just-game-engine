@@ -50,6 +50,9 @@ export 'effects/effect_component.dart';
 // Particle components
 export 'rendering/particle_emitter_component.dart';
 
+// Narrative / Dialogue components
+export '../../subsystems/narrative/ecs/dialogue_component.dart';
+
 // UI Components - ECS data components for UI elements
 export 'ui/ui_component.dart';
 export 'ui/text_component.dart';

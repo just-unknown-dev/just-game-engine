@@ -74,4 +74,9 @@ abstract final class SystemPriorities {
 
   /// Audio — runs late so world transforms are up to date.
   static const int audio = -10;
+
+  /// Narrative / Dialogue — updates NPC interactability and auto-advance
+  /// timers.  Runs just after [gameplay] so quest/inventory state is settled
+  /// before proximity is checked.
+  static const int dialogue = gameplay - 1;
 }
