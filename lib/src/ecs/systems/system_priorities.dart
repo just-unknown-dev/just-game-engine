@@ -39,6 +39,11 @@ abstract final class SystemPriorities {
   /// Rendering ECS entities.
   static const int render = 40;
 
+  /// Camera follow — repositions the camera based on [CameraFollowComponent]
+  /// entities. Runs after [render] so the camera position update does not
+  /// lag the current frame's rendering by one frame.
+  static const int camera = 45;
+
   /// Fullscreen post-process shader passes — runs after [render] to apply
   /// screen-space effects (bloom, chromatic aberration, vignette, …).
   /// Lower priority value = later execution in the ECS update loop means

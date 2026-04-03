@@ -380,12 +380,17 @@ class RenderingEngine {
           size.height,
           elapsedSeconds,
         );
-        _postProcessPaint.imageFilter =
-            ui.ImageFilter.shader(pass.shader);
+        _postProcessPaint.imageFilter = ui.ImageFilter.shader(pass.shader);
         canvas.saveLayer(_fullscreenRect, _postProcessPaint);
         activePasses++;
       }
     }
+
+    // ── Camera effect pre-render (inside post-process context) ───────────
+    // Called AFTER post-process layers are pushed so the motion-blur
+    // saveLayer is innermost — wrapping both subsystem renderables and ECS
+    // entities, while post-process shaders see the already-blurred output.
+    camera.effectManager.preRender(canvas, size);
 
     // Save canvas state
     canvas.save();
@@ -500,14 +505,22 @@ class RenderingEngine {
     // Restore canvas state (end of subsystem camera context)
     canvas.restore();
 
-    // Invoke overlay callback (ECS world systems) after restoring the canvas
-    // so each pipeline applies its own camera transform independently.
+    // Invoke overlay callback (ECS world systems) — inside the motion-blur
+    // layer so ECS entities are blurred along with subsystem renderables.
     onRenderOverlay?.call(canvas, size);
+
+    // ── Camera effect post-render (pops motion-blur saveLayer) ───────────
+    // Called BEFORE the post-process pop so the blurred world is what the
+    // post-process shaders receive as input.
+    camera.effectManager.postRender(canvas, size);
 
     // ── Post-process: pop offscreen layers (innermost first via LIFO) ─────
     for (int i = 0; i < activePasses; i++) {
       canvas.restore();
     }
+
+    // ── Camera effect screen-space overlays (fade, letterbox) ────────────
+    camera.effectManager.render(canvas, size);
 
     // Render debug info
     if (debugMode) {
