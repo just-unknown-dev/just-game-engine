@@ -26,8 +26,14 @@ export 'src/interfaces/interfaces.dart';
 // Camera - Viewport control and camera transformations
 export 'src/subsystems/camera/camera.dart';
 
-// Rendering - Graphics, sprites, particles, and game widget
+// Rendering - Graphics, sprites, and game widget
 export 'src/subsystems/rendering/rendering.dart';
+
+// Post-Processing - Fullscreen shader effects
+export 'src/subsystems/post_processing/post_processing.dart';
+
+// Particles - Advanced particle effects system
+export 'src/subsystems/particles/particles.dart';
 
 // Parallax - Multi-layer scrolling backgrounds with depth illusion
 export 'src/subsystems/parallax/parallax.dart';

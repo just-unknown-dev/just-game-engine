@@ -43,6 +43,13 @@ abstract final class SystemPriorities {
   /// Parent–child hierarchy propagation.
   static const int hierarchy = 50;
 
+  /// Particle emitter update — advances [ParticleEmitter.update] for all
+  /// [ParticleEmitterComponent] entities.
+  ///
+  /// Runs after [hierarchy] (50) so parent-propagated positions are settled,
+  /// and before [render] (40) so particles are current when drawn.
+  static const int particles = 48;
+
   /// Rendering ECS entities.
   static const int render = 40;
 

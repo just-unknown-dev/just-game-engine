@@ -8,7 +8,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'impl/renderable.dart';
 import 'impl/sprite_batch.dart';
-import 'impl/post_process_pass.dart';
+import '../post_processing/post_process_pass.dart';
+import '../particles/particles.dart';
 import '../camera/camera_system.dart';
 import '../../interfaces/rendering_interfaces.dart';
 import '../../math/quadtree.dart';
@@ -16,7 +17,6 @@ import '../../math/quadtree.dart';
 export 'impl/renderable.dart';
 export 'impl/game_widget.dart';
 export 'impl/sprite_batch.dart';
-export 'impl/post_process_pass.dart';
 
 /// Main rendering engine class responsible for graphics rendering
 ///
@@ -28,6 +28,12 @@ class RenderingEngine {
 
   /// Set for O(1) membership checks in addRenderable
   final Set<Renderable> _renderableSet = {};
+
+  /// Standalone managed particle emitters updated automatically each frame.
+  ///
+  /// Use [addManagedEmitter] / [removeManagedEmitter] instead of accessing
+  /// this list directly.
+  final List<ParticleEmitter> _managedEmitters = [];
 
   /// List of rendering layers
   final Map<int, List<Renderable>> _layers = {};
@@ -172,6 +178,49 @@ class RenderingEngine {
 
     _initialized = true;
     debugPrint('Rendering Engine initialized');
+  }
+
+  // ── Managed particle emitters ──────────────────────────────────────────────
+
+  /// Register a [ParticleEmitter] so it is updated and rendered automatically
+  /// each frame without requiring an ECS entity.
+  ///
+  /// Useful for fire-and-forget effects (e.g. impact bursts) that don't need
+  /// game-object identity.  The emitter is also added as a [Renderable] so it
+  /// participates in layer-based rendering normally.
+  ///
+  /// Completed emitters (no more emissions + no live particles) are removed
+  /// automatically during [updateManagedEmitters].
+  void addManagedEmitter(ParticleEmitter emitter) {
+    if (!_managedEmitters.contains(emitter)) {
+      _managedEmitters.add(emitter);
+      addRenderable(emitter);
+    }
+  }
+
+  /// Unregister a [ParticleEmitter] that was previously added via
+  /// [addManagedEmitter], stopping its automatic update and removing it from
+  /// rendering.
+  void removeManagedEmitter(ParticleEmitter emitter) {
+    if (_managedEmitters.remove(emitter)) {
+      removeRenderable(emitter);
+    }
+  }
+
+  /// Advance all managed particle emitters by [deltaTime] seconds.
+  ///
+  /// Called automatically by the engine's update loop.  Completed emitters
+  /// are removed from the list and unregistered from rendering.
+  void updateManagedEmitters(double deltaTime) {
+    // Iterate backwards so index removal is safe
+    for (int i = _managedEmitters.length - 1; i >= 0; i--) {
+      final emitter = _managedEmitters[i];
+      emitter.update(deltaTime);
+      if (emitter.isComplete) {
+        _managedEmitters.removeAt(i);
+        removeRenderable(emitter);
+      }
+    }
   }
 
   /// Add a renderable object to the scene
