@@ -44,6 +44,9 @@ export 'tiled/tiled_components.dart';
 // Camera components
 export 'camera/camera_follow_component.dart';
 
+// Deterministic Effects components
+export 'effects/effect_component.dart';
+
 // UI Components - ECS data components for UI elements
 export 'ui/ui_component.dart';
 export 'ui/text_component.dart';

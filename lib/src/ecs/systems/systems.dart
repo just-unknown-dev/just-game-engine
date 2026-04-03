@@ -43,3 +43,6 @@ export 'tiled/tiled_collision_system.dart';
 
 // Camera systems
 export 'camera/camera_follow_system.dart';
+
+// Deterministic Effects system
+export 'effects/effect_system_ecs.dart';

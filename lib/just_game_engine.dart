@@ -71,5 +71,9 @@ export 'src/memory/memory.dart';
 // Supports TexturePacker (JSON Array / Hash / multi-page) and Aseprite formats
 export 'src/subsystems/sprite_atlas/sprite_atlas.dart';
 
+// Deterministic Effects - Tick-based Move, Scale, Rotate, Fade, Shake, Path,
+// Sequence, Parallel, Delay, Repeat; serializable for multiplayer.
+export 'src/subsystems/effects/effects.dart';
+
 // Reactive ECS - Signal-driven wrappers for ECS types
 export 'src/reactive/reactive.dart';
