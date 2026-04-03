@@ -41,6 +41,9 @@ export 'others/lifetime_component.dart';
 // Tiled Map Editor components
 export 'tiled/tiled_components.dart';
 
+// Camera components
+export 'camera/camera_follow_component.dart';
+
 // UI Components - ECS data components for UI elements
 export 'ui/ui_component.dart';
 export 'ui/text_component.dart';

@@ -19,6 +19,9 @@ import 'package:flutter/material.dart';
 
 import 'camera_system.dart';
 
+export 'camera_behaviors.dart';
+export 'camera_effects.dart';
+
 /// A widget that wraps [child] with scroll-wheel and on-screen +/− zoom
 /// controls that operate a [Camera] without rebuilding the child.
 ///
@@ -36,6 +39,8 @@ class GameCameraControls extends StatefulWidget {
     this.zoomStep = 0.1,
     this.scrollZoomFactor = 0.1,
     this.showZoomLevel = false,
+    this.enablePan = true,
+    this.enablePinch = true,
   });
 
   /// The [Camera] whose [Camera.zoom] is controlled.
@@ -53,6 +58,12 @@ class GameCameraControls extends StatefulWidget {
   /// When `true`, displays the current zoom level between the +/− buttons.
   final bool showZoomLevel;
 
+  /// Enable mouse-drag to pan the camera (desktop).
+  final bool enablePan;
+
+  /// Enable two-finger pinch to zoom (touch).
+  final bool enablePinch;
+
   @override
   State<GameCameraControls> createState() => _GameCameraControlsState();
 }
@@ -68,6 +79,16 @@ class _GameCameraControlsState extends State<GameCameraControls> {
   /// conflicts when multiple [GameCameraControls] widgets exist in the tree.
   final Object _heroIn = Object();
   final Object _heroOut = Object();
+
+  // ── Pan state ──────────────────────────────────────────────────────────
+  bool _isDragging = false;
+  Offset _dragLastPos = Offset.zero;
+
+  // ── Pinch state ────────────────────────────────────────────────────────
+  final Map<int, Offset> _activePointers = {};
+  double _pinchInitialDist = 0.0;
+  double _pinchInitialZoom = 1.0;
+  bool _wasPinching = false;
 
   @override
   void initState() {
@@ -100,10 +121,67 @@ class _GameCameraControlsState extends State<GameCameraControls> {
     );
   }
 
+  void _onPointerDown(PointerDownEvent event) {
+    _activePointers[event.pointer] = event.position;
+
+    if (_activePointers.length >= 2 && widget.enablePinch) {
+      // Second finger down — start pinch
+      final ptrs = _activePointers.values.toList();
+      _pinchInitialDist = (ptrs[0] - ptrs[1]).distance;
+      _pinchInitialZoom = widget.camera.zoom;
+      _wasPinching = true;
+      _isDragging = false;
+    } else if (_activePointers.length == 1 &&
+        widget.enablePan &&
+        event.kind == PointerDeviceKind.mouse) {
+      _isDragging = true;
+      _dragLastPos = event.position;
+    }
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    _activePointers[event.pointer] = event.position;
+
+    if (_wasPinching && _activePointers.length >= 2 && widget.enablePinch) {
+      // Active pinch — compute new zoom from finger distance ratio
+      final ptrs = _activePointers.values.toList();
+      final newDist = (ptrs[0] - ptrs[1]).distance;
+      if (_pinchInitialDist > 0) {
+        _applyZoom(_pinchInitialZoom * (newDist / _pinchInitialDist));
+      }
+      return;
+    }
+
+    if (_isDragging && widget.enablePan) {
+      final delta = event.position - _dragLastPos;
+      // Convert screen-space delta to world-space (divide by zoom)
+      widget.camera.moveBy(
+        Offset(-delta.dx / widget.camera.zoom, -delta.dy / widget.camera.zoom),
+      );
+      _dragLastPos = event.position;
+    }
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    _activePointers.remove(event.pointer);
+    _isDragging = false;
+    if (_activePointers.length < 2) _wasPinching = false;
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    _activePointers.remove(event.pointer);
+    _isDragging = false;
+    if (_activePointers.length < 2) _wasPinching = false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Listener(
       onPointerSignal: _handlePointerSignal,
+      onPointerDown: _onPointerDown,
+      onPointerMove: _onPointerMove,
+      onPointerUp: _onPointerUp,
+      onPointerCancel: _onPointerCancel,
       child: Stack(
         children: [
           // ── Game content ──────────────────────────────────────────────

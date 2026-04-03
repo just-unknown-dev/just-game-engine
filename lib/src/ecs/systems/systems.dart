@@ -40,3 +40,6 @@ export 'others/boundary_system.dart';
 // Tiled Map Editor
 export 'tiled/tiled_render_system.dart';
 export 'tiled/tiled_collision_system.dart';
+
+// Camera systems
+export 'camera/camera_follow_system.dart';
