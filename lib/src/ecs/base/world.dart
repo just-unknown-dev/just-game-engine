@@ -294,6 +294,24 @@ class World {
     system.dispose();
   }
 
+  /// Remove **all** systems from the world.
+  ///
+  /// Each system's [System.onRemovedFromWorld] and [System.dispose] are
+  /// called in reverse-priority order so that higher-priority systems
+  /// (e.g. [PostProcessSystem]) clean up their external state (shader
+  /// passes, etc.) before lower-priority ones release entity references.
+  ///
+  /// Call this before rebuilding a scene to prevent stale systems from a
+  /// previous screen visit accumulating in the shared [Engine] singleton.
+  void clearSystems() {
+    // Iterate a copy so removal mutations on _systems are safe.
+    for (final system in List.of(_systems)) {
+      system.onRemovedFromWorld();
+      system.dispose();
+    }
+    _systems.clear();
+  }
+
   /// Get a system by type
   T? getSystem<T extends System>() {
     return _systems.whereType<T>().firstOrNull;
