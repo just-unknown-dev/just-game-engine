@@ -30,6 +30,13 @@ abstract final class SystemPriorities {
   /// Animation state advance.
   static const int animation = 70;
 
+  /// Deterministic property effects (Move, Scale, Shake, …).
+  ///
+  /// Runs after animation so sprite-driven positions are settled before
+  /// effects apply their deltas, and before gameplay so logic sees the
+  /// final positions for this frame.
+  static const int effects = 65;
+
   /// Gameplay logic (health, lifetime, scoring, …).
   static const int gameplay = 60;
 
