@@ -150,37 +150,33 @@ void main() {
     });
   });
 
-  // Engine integration tests require native audio plugin (flutter_soloud)
+  // Engine integration tests require native audio plugin (just_audio)
   // which is unavailable in the unit-test environment. These tests pass when
   // run on a device/emulator or when the audio subsystem is mocked.
-  group(
-    'Engine integration',
-    skip: 'Requires flutter_soloud native plugin',
-    () {
-      setUp(() => Engine.resetInstance());
+  group('Engine integration', skip: 'Requires just_audio native plugin', () {
+    setUp(() => Engine.resetInstance());
 
-      test('Engine exposes parallax subsystem after init', () async {
-        final engine = Engine();
-        await engine.initialize();
-        expect(engine.parallax, isNotNull);
-        expect(engine.parallax.isInitialized, true);
-      });
+    test('Engine exposes parallax subsystem after init', () async {
+      final engine = Engine();
+      await engine.initialize();
+      expect(engine.parallax, isNotNull);
+      expect(engine.parallax.isInitialized, true);
+    });
 
-      test('ParallaxSystem can be retrieved via getSystem', () async {
-        final engine = Engine();
-        await engine.initialize();
-        final system = engine.getSystem<ParallaxSystem>();
-        expect(system, same(engine.parallax));
-      });
+    test('ParallaxSystem can be retrieved via getSystem', () async {
+      final engine = Engine();
+      await engine.initialize();
+      final system = engine.getSystem<ParallaxSystem>();
+      expect(system, same(engine.parallax));
+    });
 
-      test('addBackground through engine parallax subsystem', () async {
-        final engine = Engine();
-        await engine.initialize();
+    test('addBackground through engine parallax subsystem', () async {
+      final engine = Engine();
+      await engine.initialize();
 
-        final bg = ParallaxBackground();
-        engine.parallax.addBackground(bg);
-        expect(engine.parallax.backgroundCount, 1);
-      });
-    },
-  );
+      final bg = ParallaxBackground();
+      engine.parallax.addBackground(bg);
+      expect(engine.parallax.backgroundCount, 1);
+    });
+  });
 }
