@@ -39,12 +39,29 @@ class PhysicsEngine {
   // ── Scratch vectors for the update loop (avoids per-frame allocation) ──
   final Vector2 _accel = Vector2.zero();
 
+  int _lastPotentialPairCount = 0;
+  int _lastResolvedCollisionCount = 0;
+  int _lastAwakeBodyCount = 0;
+  int _lastBroadphaseDirtyBodyCount = 0;
+  int _lastTrackedCellCount = 0;
+  double _lastStepMs = 0.0;
+
+  // Persistent Stopwatch instance — reused every frame to avoid heap allocation.
+  final Stopwatch _stepStopwatch = Stopwatch();
+
   /// Update physics simulation
   void update(double deltaTime) {
+    _stepStopwatch
+      ..reset()
+      ..start();
+    var awakeBodyCount = 0;
+    _lastResolvedCollisionCount = 0;
+
     // Update all bodies
     for (final body in _bodies) {
       if (body.isActive) {
         if (body.isAwake) {
+          awakeBodyCount++;
           // Calculate total acceleration for this frame (in-place)
           _accel.setFrom(body.acceleration);
           if (body.useGravity) {
@@ -91,6 +108,10 @@ class PhysicsEngine {
 
     // Simple collision detection
     _detectCollisions();
+
+    _stepStopwatch.stop();
+    _lastAwakeBodyCount = awakeBodyCount;
+    _lastStepMs = _stepStopwatch.elapsedMicroseconds / 1000.0;
   }
 
   /// Add a physics body
@@ -103,6 +124,7 @@ class PhysicsEngine {
   /// Remove a physics body
   void removeBody(PhysicsBody body) {
     _bodies.remove(body);
+    _grid.removeBody(body);
   }
 
   /// Broad-phase grid
@@ -110,12 +132,12 @@ class PhysicsEngine {
 
   /// Detect collisions
   void _detectCollisions() {
-    _grid.clear();
-    for (final body in _bodies) {
-      _grid.insert(body);
-    }
+    _grid.syncBodies(_bodies);
+    _lastBroadphaseDirtyBodyCount = _grid.dirtyBodyCount;
+    _lastTrackedCellCount = _grid.trackedCellCount;
 
     final potentialPairs = _grid.getPotentialCollisions();
+    _lastPotentialPairCount = potentialPairs.length;
 
     for (final pair in potentialPairs) {
       final bodyA = pair.a;
@@ -130,6 +152,7 @@ class PhysicsEngine {
       );
 
       if (manifold.isColliding) {
+        _lastResolvedCollisionCount++;
         _resolveCollision(bodyA, bodyB, manifold);
       }
     }
@@ -282,11 +305,23 @@ class PhysicsEngine {
   /// Clean up physics resources
   void dispose() {
     _bodies.clear();
+    _grid.clear();
     debugPrint('Physics Engine disposed');
   }
 
   /// Get all bodies
   List<PhysicsBody> get bodies => List.unmodifiable(_bodies);
+
+  /// Lightweight physics diagnostics from the last simulation step.
+  Map<String, dynamic> get stats => {
+    'bodyCount': _bodies.length,
+    'awakeBodies': _lastAwakeBodyCount,
+    'potentialPairs': _lastPotentialPairCount,
+    'resolvedCollisions': _lastResolvedCollisionCount,
+    'broadphaseDirtyBodies': _lastBroadphaseDirtyBodyCount,
+    'trackedCells': _lastTrackedCellCount,
+    'lastStepMs': _lastStepMs,
+  };
 
   /// ── Physics Caching (Phase 6) ────────────────────────────────────────────
 

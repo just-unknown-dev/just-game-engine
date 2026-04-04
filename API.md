@@ -19,6 +19,10 @@ Comprehensive API documentation for all major classes and methods in the Just Ga
 13. [Math Module](#math-module)
 14. [Memory Management](#memory-management)
 15. [System Priorities](#system-priorities)
+16. [Post-Processing](#post-processing)
+17. [Deterministic Effects](#deterministic-effects)
+18. [Localization](#localization)
+19. [Narrative / Dialogue](#narrative--dialogue)
 
 ---
 
@@ -49,6 +53,7 @@ CacheManager cache             // LRU binary cache (via just_storage / just_data
 CameraSystem cameraSystem      // Camera management subsystem
 World world                    // ECS World
 GameLoop gameLoop              // Game loop reference
+SystemManager systemManager    // Frame scheduler and subsystem registry
 ```
 
 #### Methods
@@ -82,6 +87,7 @@ engine.cache;           // CacheManager
 engine.cameraSystem;    // CameraSystem
 engine.world;           // ECS World
 engine.gameLoop;        // GameLoop
+engine.systemManager;   // SystemManager
 
 // Lifecycle control
 engine.pause();
@@ -132,6 +138,55 @@ double fps                     // Current FPS
 ```dart
 void update(double dt)         // Update time tracking
 void reset()                   // Reset time counters
+```
+
+---
+
+### SystemManager
+
+Frame scheduler and subsystem registry. Accessible via `engine.systemManager`.
+
+#### Properties
+
+```dart
+bool isInitialized             // Whether initialized
+int systemCount                // Number of registered subsystems
+double lastFrameMs             // Total scheduler frame time in milliseconds
+Map<String, dynamic> schedulerStats  // Per-frame timing snapshot (rebuilt once per cycle)
+UnmodifiableMapView<String, double> lastTaskTimesMs  // Per-task timings in milliseconds
+```
+
+#### Methods
+
+```dart
+// Subsystem registry
+void registerSystem<T>(String name, T system)  // Register by name + type
+bool unregisterSystem(String name)             // Remove by name
+T? getSystem<T>()                             // Lookup by type
+dynamic getSystemByName(String name)           // Lookup by name
+bool hasSystem(String name)                    // Name presence check
+bool hasSystemOfType<T>()                      // Type presence check
+
+// Frame scheduler
+void registerUpdateTask(String name, UpdateTask task)  // Add ordered update task
+bool unregisterUpdateTask(String name)                 // Remove update task
+void runUpdateCycle(double deltaTime)                  // Execute all tasks in order
+```
+
+#### Example
+
+```dart
+final sm = engine.systemManager;
+
+// Inspect per-task frame budget
+final stats = sm.schedulerStats;
+print('Frame: ${stats['lastFrameMs'].toStringAsFixed(2)} ms');
+sm.lastTaskTimesMs.forEach((name, ms) {
+  print('  $name: ${ms.toStringAsFixed(2)} ms');
+});
+
+// Register a custom update task
+sm.registerUpdateTask('ai_update', (dt) => aiManager.update(dt));
 ```
 
 ---
@@ -1629,6 +1684,57 @@ CircularProgressComponent({
 })
 ```
 
+**ShaderComponent**
+```dart
+ShaderComponent({
+  required ui.FragmentProgram program,
+  bool isPostProcess = false,
+  int passOrder = 0,
+  bool enabled = true,
+  void Function(ui.FragmentShader, double w, double h, double t)? setUniforms,
+})
+```
+Attaches a GLSL `FragmentShader` to an entity. Per-entity mode wraps the entity's renderable in `canvas.saveLayer`; post-process mode registers a fullscreen `PostProcessPass` with the `RenderingEngine`. See [Post-Processing](#post-processing).
+
+**EffectComponent**
+```dart
+EffectComponent()
+
+// Properties
+EffectPlayer player            // Active per-entity effect queue
+```
+Tick-driven effect queue. Created automatically by `EffectSystemECS.scheduleEffect`. See [Deterministic Effects](#deterministic-effects).
+
+**ParallaxComponent**
+```dart
+ParallaxComponent({
+  required ParallaxBackground background,
+})
+```
+Attaches a `ParallaxBackground` (multi-layer scrolling backdrop) to an entity.
+
+**ParticleEmitterComponent**
+```dart
+ParticleEmitterComponent({
+  required ParticleEmitter emitter,
+  bool syncPositionFromTransform = true,
+  bool removeEntityWhenComplete = false,
+})
+```
+ECS wrapper for `ParticleEmitter`. `syncPositionFromTransform` copies the entity's `TransformComponent.position` to the emitter each frame. `removeEntityWhenComplete` auto-destroys the entity via `CommandBuffer` when all particles expire.
+
+**CameraFollowComponent**
+```dart
+CameraFollowComponent({
+  bool enabled = true,
+  double lookaheadDistance = 80.0,
+  double deadZoneWidth = 0.0,
+  double deadZoneHeight = 0.0,
+  int priority = 0,
+})
+```
+Marks an entity as a camera follow target for `CameraFollowSystem`. Multiple entities with the same lowest priority value trigger multi-target zoom-to-fit mode. Requires `VelocityComponent` for lookahead to be applied.
+
 ### System
 
 Base class for systems that process entities with specific components.
@@ -1715,6 +1821,27 @@ Base class for systems that process entities with specific components.
 **TiledCollisionSystem**
 - Requires: `TransformComponent`, `PhysicsBodyComponent`
 - Collision detection against Tiled map obstacles
+
+**EffectSystemECS** (priority 65)
+- Requires: `EffectComponent`
+- Drives all tick-based `DeterministicEffect`s each fixed-timestep update; implements `EffectRuntime`
+- API: `scheduleEffect`, `cancelEffects`, `snapshot`, `restoreSnapshot`, `currentTick`
+- See [Deterministic Effects](#deterministic-effects) for full API.
+
+**ParticleSystemECS** (priority 48)
+- Requires: `ParticleEmitterComponent`
+- Syncs emitter position from `TransformComponent` (when `syncPositionFromTransform = true`), advances `ParticleEmitter.update`, auto-destroys completed one-shot emitters
+
+**CameraFollowSystem** (priority 45)
+- Requires: `TransformComponent`, `CameraFollowComponent`
+- Single-target: spring + lookahead follow via `CameraSystem`; multi-target: auto-zoom to keep all targets in view
+- Constructor: `CameraFollowSystem({required CameraSystem cameraSystem})`
+
+**PostProcessSystem** (priority 35)
+- Requires: `ShaderComponent` (with `isPostProcess = true`)
+- Syncs post-process shader entities to `RenderingEngine.addPostProcessPass` / `removePostProcessPass` each frame
+- Constructor: `PostProcessSystem(RenderingEngine, {double Function()? getTime})`
+- See [Post-Processing](#post-processing) for full API.
 
 #### Custom System Example
 
@@ -2746,6 +2873,7 @@ LRU binary cache backed by `just_storage` / `just_database`. Accessible via `eng
 
 ```dart
 int maxBinaryEntries           // Maximum cached entries before eviction
+bool isUsingMemoryFallback     // True when storage plugin unavailable (in-memory mode)
 ```
 
 #### Methods
@@ -2776,6 +2904,402 @@ if (data != null) {
 
 ---
 
+## Post-Processing
+
+Full-screen shader passes applied over the composed scene each frame. Passes are chained in ascending `passOrder` — lowest is innermost (applied closest to the raw scene), highest is outermost (composited last, visible to the viewer).
+
+Shaders must be declared in `pubspec.yaml` under `flutter: shaders:` and loaded with `ui.FragmentProgram.fromAsset`.
+
+### PostProcessPass
+
+Data object describing one fullscreen shader pass. Register instances with `RenderingEngine.addPostProcessPass`.
+
+#### Properties
+
+```dart
+ui.FragmentShader shader       // Compiled shader instance
+int passOrder                  // Layering order (lower = innermost)
+bool enabled                   // Toggle without removing from engine
+void Function(ui.FragmentShader, double w, double h, double t)? setUniforms  // Per-frame uniform callback
+```
+
+#### Constructor
+
+```dart
+PostProcessPass({
+  required ui.FragmentShader shader,
+  int passOrder = 0,
+  bool enabled = true,
+  void Function(ui.FragmentShader, double w, double h, double t)? setUniforms,
+})
+```
+
+---
+
+### ShaderComponent
+
+Attaches a GLSL `FragmentShader` to an ECS entity in one of two modes:
+
+- **Per-entity** (`isPostProcess: false`, default) — wraps the entity's renderable in `canvas.saveLayer` with the shader as an `ImageFilter`.
+- **Post-process** (`isPostProcess: true`) — registers a `PostProcessPass` with the `RenderingEngine` covering the full viewport.
+
+#### Constructor
+
+```dart
+ShaderComponent({
+  required ui.FragmentProgram program,
+  bool isPostProcess = false,
+  int passOrder = 0,
+  bool enabled = true,
+  void Function(ui.FragmentShader, double w, double h, double t)? setUniforms,
+})
+```
+
+#### Properties
+
+```dart
+ui.FragmentProgram program     // Source program (owns shader lifetime)
+bool isPostProcess             // Post-process vs per-entity mode
+int passOrder                  // Chaining order (post-process only)
+bool enabled                   // Activate / deactivate
+```
+
+#### Example
+
+```dart
+// Fullscreen vignette
+final program = await ui.FragmentProgram.fromAsset('shaders/vignette.frag');
+world.addComponent(vfxEntity, ShaderComponent(
+  program: program,
+  isPostProcess: true,
+  passOrder: 2,
+  setUniforms: (s, w, h, t) {
+    s.setFloat(0, w);   // uResolution.x
+    s.setFloat(1, h);   // uResolution.y
+    s.setFloat(2, t);   // uTime
+  },
+));
+
+// Per-entity chromatic aberration
+world.addComponent(boss, ShaderComponent(program: chromaProgram));
+```
+
+---
+
+### PostProcessSystem
+
+ECS system that mirrors active `ShaderComponent(isPostProcess: true)` entities to the `RenderingEngine` pass list each frame.
+
+**Priority**: 35 (runs after `RenderSystem` at 40)
+
+#### Constructor
+
+```dart
+PostProcessSystem(
+  RenderingEngine renderingEngine, {
+  double Function()? getTime,  // Optional elapsed-time provider for uTime uniforms
+})
+```
+
+#### Example
+
+```dart
+world.addSystem(PostProcessSystem(
+  engine.rendering,
+  getTime: () => engine.time.totalTime,
+));
+```
+
+---
+
+## Deterministic Effects
+
+Tick-based property effects designed for multiplayer prediction and rollback. All effects are additive deltas computed from integer ticks, making them deterministic across platforms and frame rates regardless of wall-clock timing.
+
+At 60 UPS, 60 ticks = 1 second. A reconnecting client can fast-forward any effect by passing a large `currElapsed` in a single `applyTick` call.
+
+### DeterministicEffect (Base Class)
+
+Abstract base for all tick-driven effects.
+
+```dart
+// Common constructor parameters
+DeterministicEffect({
+  required int durationTicks,   // 1 tick = 1 fixed-timestep update
+  bool loop = false,
+  VoidCallback? onComplete,
+  VoidCallback? onLoopComplete,
+})
+```
+
+#### Built-in Effect Types
+
+| Effect | Description |
+|---|---|
+| `MoveEffect` | Translate `TransformComponent.position` by `to` (relative or absolute) |
+| `ScaleEffect` | Animate `TransformComponent.scale` to `to` |
+| `RotateEffect` | Rotate `TransformComponent.rotation` by `by` radians |
+| `FadeEffect` | Animate `RenderableComponent.renderable.opacity` to `to` |
+| `ColorTintEffect` | Blend `SpriteComponent` tint toward `to` |
+| `ShakeEffect` | Oscillate position with decaying `amplitude` |
+| `PathEffect` | Follow a `List<Offset>` spline |
+| `SequenceEffect` | Run child effects one after another |
+| `ParallelEffect` | Run child effects simultaneously |
+| `RepeatEffect` | Wrap another effect and replay `count` times |
+| `DelayEffect` | Insert a tick-counted gap in a sequence |
+
+All built-in effects accept an optional `easing` parameter (`EasingType` enum; 16 types including `linear`, `easeInOut`, `easeInElastic`, `easeOutBounce`).
+
+---
+
+### EffectComponent
+
+Attaches an `EffectPlayer` queue to an entity. Created automatically by `EffectSystemECS.scheduleEffect`.
+
+```dart
+EffectComponent()
+
+// Properties
+EffectPlayer player            // Per-entity effect queue; do not replace
+```
+
+---
+
+### EffectSystemECS
+
+ECS system **and** `EffectRuntime` implementation. Drives all `EffectComponent` entities every tick.
+
+**Priority**: 65 (between `AnimationSystemECS` 70 and `HealthSystem` 60)
+
+```dart
+EffectSystemECS()
+
+// EffectRuntime API
+int get currentTick
+void scheduleEffect({
+  required Entity entity,
+  required DeterministicEffect effect,
+  int? startTick,              // Defaults to currentTick + 1
+})
+void cancelEffects(Entity entity)
+void cancelEffect(Entity entity, EffectHandle handle)
+EffectSnapshot snapshot()
+void restoreSnapshot(EffectSnapshot snap)
+```
+
+#### Example
+
+```dart
+final fx = EffectSystemECS();
+world.addSystem(fx);
+
+fx.scheduleEffect(
+  entity: enemy,
+  effect: SequenceEffect([
+    ShakeEffect(amplitude: 6, durationTicks: 15),
+    FadeEffect(to: 0.0, durationTicks: 30),
+  ]),
+);
+
+// Multiplayer: schedule at a specific server tick
+fx.scheduleEffect(
+  entity: player,
+  effect: MoveEffect(to: Offset(400, 0), durationTicks: 60),
+  startTick: serverTick,
+);
+```
+
+---
+
+### EffectSnapshot
+
+Serializable point-in-time snapshot of all active effects across all entities. Used for network late-join, reconnect, and prediction rollback.
+
+```dart
+EffectSnapshot({
+  required int tick,
+  required Map<EntityId, List<Map<String, dynamic>>> entityEffects,
+})
+
+// Serialization
+Map<String, dynamic> toJson()
+factory EffectSnapshot.fromJson(Map<String, dynamic> json)
+```
+
+```dart
+// Binary codec (compact wire format)
+Uint8List EffectBinaryCodec.encode(EffectSnapshot snap)
+EffectSnapshot EffectBinaryCodec.decode(Uint8List bytes)
+```
+
+---
+
+## Localization
+
+Engine-wide string localization with namespace support, ICU-lite plurals/selects, fallback chains, and reactive locale switching.
+
+### LocalizationManager
+
+```dart
+LocalizationManager({Locale? fallbackLocale})
+```
+
+#### Properties
+
+```dart
+Locale currentLocale           // Active locale
+Locale fallbackLocale          // Fallback when key is missing in active chain
+Signal<Locale> localeChanged   // Reactive — emits on every setLocale() call
+static LocalizationManager? instance  // Optional global singleton
+```
+
+#### Methods
+
+```dart
+// Loading — one file per locale/namespace combination
+Future<LocaleStringTable> load(
+  Locale locale,
+  String assetPath,
+  {String ns = 'default', AssetBundle? bundle},
+)
+
+// Lookup — all optional params are named
+String t(
+  String key, {
+  Map<String, dynamic>? args,  // {var} substitution
+  Locale? locale,              // Override active locale for this call
+  String? ns,                  // Namespace override
+})
+
+void setLocale(Locale locale)
+```
+
+#### Example
+
+```dart
+final l10n = LocalizationManager();
+
+await l10n.load(const Locale('en'), 'assets/l10n/ui_en.json', ns: 'ui');
+await l10n.load(const Locale('fr'), 'assets/l10n/ui_fr.json', ns: 'ui');
+l10n.setLocale(const Locale('fr'));
+
+print(l10n.t('ui.start_game'));
+print(l10n.t('ui.item_count', args: {'count': 3}));
+
+// Global singleton access
+LocalizationManager.instance = l10n;
+final text = LocalizationManager.instance!.t('ui.back');
+```
+
+**JSON file format** — flat or nested, auto-flattened with `.` notation:
+```json
+{
+  "ui": { "start_game": "Start Game", "back": "Back" },
+  "game.hp.label": "HP",
+  "item.count": "{count, plural, =0{No items} =1{One item} other{{count} items}}"
+}
+```
+
+**Fallback chain** — for locale `fr_CA`: `fr_CA` → `fr` → `fallbackLocale` (`en`) → key itself.
+
+---
+
+### Localization Flutter Widgets
+
+| Widget | Purpose |
+|---|---|
+| `LocalizationScope` | Provides `LocalizationManager` to the widget subtree |
+| `LocalizationBuilder` | Rebuilds its child whenever the active locale changes |
+| `LocalizedText` | `Text` widget that looks up a key and auto-rebuilds on locale change |
+| `LocaleSelector` | Drop-down that calls `setLocale` on selection |
+| `L10nContext` | Extension on `BuildContext` — `context.l10n.t(key)` |
+
+---
+
+## Narrative / Dialogue
+
+Yarn Spinner 2.x compatible narrative system with Dart runtime, ECS integration, and reactive signals.
+
+### DialogueManager
+
+Central facade for loading dialogue graphs, running dialogue sessions, managing conditions/commands, and routing reactive signals.
+
+```dart
+DialogueManager({
+  DialogueLocalizer? localizer,
+  DialogueVariableStore? globalVariables,
+})
+```
+
+#### Properties
+
+```dart
+DialogueVariableStore globalVariables  // Shared across all runners
+DialogueLocalizer localizer            // Per-locale string tables
+DialogueConditionRegistry conditions   // Named Dart condition predicates
+DialogueCommandRegistry commands       // <<commandName args>> handlers
+Signal<String?> activeGraphId          // Currently active graph id
+Signal<bool> isAnyDialogueActive       // True while any runner is active
+```
+
+#### Methods
+
+```dart
+Future<void> loadGraph(String assetPath)  // Parse and register a .yarn asset
+DialogueRunner createRunner(String graphId)
+void clearRunners()
+```
+
+#### Example
+
+```dart
+final narrative = DialogueManager();
+
+await narrative.localizer.loadLocale(const Locale('en'));
+await narrative.loadGraph('assets/dialogue/innkeeper.yarn');
+
+// Register custom logic
+narrative.conditions.register('playerHasKey', (vars) => player.hasKey);
+narrative.commands.register('play_sound', (ctx) async {
+  await audio.playSfx(ctx.args[0]);
+});
+
+// Run dialogue
+final runner = narrative.createRunner('innkeeper');
+runner.signals.currentLine.addListener(() {
+  print(runner.signals.currentLine.value?.text);
+});
+await runner.start('Start');
+```
+
+---
+
+### Narrative ECS
+
+| Class | Role |
+|---|---|
+| `DialogueComponent` | Marks an entity as a dialogue source; holds `graphId`, `entryNode` |
+| `TriggerComponent` | Proximity / interaction trigger for starting dialogue |
+| `DialogueSystem` | ECS system; checks proximity/interaction and starts runners |
+
+```dart
+// Priority: SystemPriorities.dialogue = 59 (gameplay - 1)
+world.addSystem(DialogueSystem(narrative: narrativeManager));
+world.addComponent(npc, DialogueComponent(graphId: 'innkeeper', entryNode: 'Start'));
+world.addComponent(npc, TriggerComponent(radius: 80.0));
+```
+
+---
+
+### Narrative UI Widgets
+
+| Widget | Purpose |
+|---|---|
+| `DialogueBoxWidget` | Displays current line with speaker name and optional typing animation |
+| `DialogueChoicesWidget` | Renders choice list and fires selection back to the runner |
+
+---
+
 ## System Priorities
 
 Built-in systems run in descending priority order. Higher priority = runs first.
@@ -2783,14 +3307,20 @@ Built-in systems run in descending priority order. Higher priority = runs first.
 | Priority | System | Responsibility |
 |---|---|---|
 | 110 | `TileMapRenderSystem` | Render tile layers (background) |
+| 105 | `ParallaxSystem` | Render parallax background layers |
 | 100 | `InputSystem` | Bridge InputManager → ECS components |
 | 90 | `PhysicsSystem` | Gravity, drag, collision, impulse |
 | 89 | `PhysicsBridgeSystem` | Sync standalone PhysicsBody → ECS |
 | 80 | `MovementSystem` | Apply velocity to position |
 | 70 | `AnimationSystemECS` | Advance animation timers |
+| 65 | `EffectSystemECS` | Deterministic tick-driven property effects |
 | 60 | `HealthSystem` | Regen, death events |
+| 59 | `DialogueSystem` | Narrative proximity / interaction triggers |
 | 50 | `HierarchySystem` | Parent-child transform propagation |
+| 48 | `ParticleSystemECS` | Update particle emitters |
+| 45 | `CameraFollowSystem` | Drive camera from `CameraFollowComponent` |
 | 40 | `RenderSystem` | Sync transforms, draw entities + UI |
+| 35 | `PostProcessSystem` | Sync fullscreen post-process shader passes |
 | 30 | `BoundarySystem` | Enforce world boundaries |
 | 10 | `DebugSystem` | Diagnostics overlay (internal) |
 | -10 | `AudioSystem` | ECS-driven audio playback |

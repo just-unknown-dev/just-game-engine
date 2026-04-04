@@ -26,8 +26,14 @@ export 'src/interfaces/interfaces.dart';
 // Camera - Viewport control and camera transformations
 export 'src/subsystems/camera/camera.dart';
 
-// Rendering - Graphics, sprites, particles, and game widget
+// Rendering - Graphics, sprites, and game widget
 export 'src/subsystems/rendering/rendering.dart';
+
+// Post-Processing - Fullscreen shader effects
+export 'src/subsystems/post_processing/post_processing.dart';
+
+// Particles - Advanced particle effects system
+export 'src/subsystems/particles/particles.dart';
 
 // Parallax - Multi-layer scrolling backgrounds with depth illusion
 export 'src/subsystems/parallax/parallax.dart';
@@ -67,5 +73,22 @@ export 'src/math/math.dart';
 // Memory Management - Object pooling and caching infrastructure
 export 'src/memory/memory.dart';
 
+// Sprite Atlas - Sprite-sheet parsing, named regions, and atlas animations
+// Supports TexturePacker (JSON Array / Hash / multi-page) and Aseprite formats
+export 'src/subsystems/sprite_atlas/sprite_atlas.dart';
+
+// Deterministic Effects - Tick-based Move, Scale, Rotate, Fade, Shake, Path,
+// Sequence, Parallel, Delay, Repeat; serializable for multiplayer.
+export 'src/subsystems/effects/effects.dart';
+
 // Reactive ECS - Signal-driven wrappers for ECS types
 export 'src/reactive/reactive.dart';
+
+// Localization - Engine-wide i18n: string tables, plurals, locale switching.
+// Central service shared by all subsystems including Narrative/Dialogue.
+export 'src/subsystems/localization/localization.dart';
+
+// Narrative/Dialogue - Yarn Spinner parser, runner, localization, ECS & UI
+// Supports linear, branching, hub-and-spoke, and cutscene dialogue patterns.
+// File format: Yarn Spinner 2.x (.yarn); conditions/commands via Dart callbacks.
+export 'src/subsystems/narrative/narrative.dart';

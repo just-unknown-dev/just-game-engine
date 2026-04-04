@@ -11,6 +11,7 @@ export 'core/movement_system.dart';
 
 // Rendering systems
 export 'rendering/render_system.dart';
+export 'rendering/post_process_system.dart';
 
 // Physics systems
 export 'physics/physics_system.dart';
@@ -39,3 +40,15 @@ export 'others/boundary_system.dart';
 // Tiled Map Editor
 export 'tiled/tiled_render_system.dart';
 export 'tiled/tiled_collision_system.dart';
+
+// Camera systems
+export 'camera/camera_follow_system.dart';
+
+// Deterministic Effects system
+export 'effects/effect_system_ecs.dart';
+
+// Particle system
+export 'rendering/particle_system_ecs.dart';
+
+// Narrative / Dialogue system
+export '../../subsystems/narrative/ecs/dialogue_system.dart';

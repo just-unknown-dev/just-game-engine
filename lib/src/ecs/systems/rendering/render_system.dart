@@ -1,6 +1,7 @@
 library;
 
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -44,6 +45,10 @@ class RenderSystem extends System {
   /// Re-created only when the atlas image changes (e.g. hot-reload).
   final Map<int, SpriteBatchRenderer> _spriteBatches = {};
 
+  /// Cached [Paint] for per-entity [ShaderComponent] saveLayer calls.
+  /// Reused each frame to avoid allocation.
+  final Paint _entityShaderPaint = Paint();
+
   /// Create a render system.
   RenderSystem({this.camera, SpriteBatchFactory? spriteBatchFactory})
     : _spriteBatchFactory =
@@ -56,6 +61,14 @@ class RenderSystem extends System {
   /// (e.g. [RenderingEngine.onRenderOverlay]). When true, [render] skips
   /// its own save/transform/restore.
   bool cameraAppliedExternally = false;
+
+  /// Sub-frame interpolation factor in [0.0, 1.0].
+  ///
+  /// Set each tick by [GameWidget] from [GameLoop.interpolation] so that
+  /// physics-driven entities are smoothly lerped between their previous and
+  /// current positions, eliminating stutter on high-refresh-rate displays.
+  /// Defaults to 1.0 (no interpolation — render at current position).
+  double interpolation = 1.0;
 
   @override
   void render(Canvas canvas, Size size) {
@@ -80,17 +93,41 @@ class RenderSystem extends System {
 
       // Sync transform if enabled
       if (renderComp.syncTransform) {
-        renderComp.renderable.position = transform.position;
-        renderComp.renderable.rotation = transform.rotation;
+        if (interpolation < 1.0) {
+          // Lerp between previous and current physics position for smooth
+          // rendering between fixed-timestep updates.
+          renderComp.renderable.position = Offset(
+            transform.prevPosition.dx +
+                (transform.position.dx - transform.prevPosition.dx) *
+                    interpolation,
+            transform.prevPosition.dy +
+                (transform.position.dy - transform.prevPosition.dy) *
+                    interpolation,
+          );
+          renderComp.renderable.rotation =
+              transform.prevRotation +
+              (transform.rotation - transform.prevRotation) * interpolation;
+        } else {
+          renderComp.renderable.position = transform.position;
+          renderComp.renderable.rotation = transform.rotation;
+        }
         renderComp.renderable.scale = transform.scale;
       }
 
       if (!renderComp.renderable.visible) continue;
 
+      // ── Per-entity shader detection ────────────────────────────────────
+      final shaderComp = entity.getComponent<ShaderComponent>();
+      final hasEntityShader =
+          shaderComp != null && !shaderComp.isPostProcess && shaderComp.enabled;
+
       // Try to batch renderables that implement BatchableSprite.
+      // Entities with a per-entity shader cannot be batched — they require an
+      // isolated offscreen layer to composite the shader correctly.
       final renderable = renderComp.renderable;
       if (renderable is BatchableSprite &&
-          (renderable as BatchableSprite).batchImage != null) {
+          (renderable as BatchableSprite).batchImage != null &&
+          !hasEntityShader) {
         final batchable = renderable as BatchableSprite;
         final image = batchable.batchImage!;
         final key = identityHashCode(image);
@@ -120,8 +157,33 @@ class RenderSystem extends System {
           color: tintColor,
         );
       } else {
-        // Non-sprite or image-less: render individually.
+        // Non-sprite, image-less sprite, or entity with a per-entity shader:
+        // render individually, optionally wrapped in a shader saveLayer.
+        if (hasEntityShader) {
+          final bounds = renderable.getBounds();
+          // Fall back to a generous world-space rect if bounds are unknown.
+          final effectRect =
+              bounds ??
+              Rect.fromCenter(
+                center: renderable.position,
+                width: size.width,
+                height: size.height,
+              );
+          shaderComp.setUniforms?.call(
+            shaderComp.shader,
+            effectRect.width,
+            effectRect.height,
+            0.0, // per-entity mode: no time source in RenderSystem
+          );
+          _entityShaderPaint.imageFilter = ui.ImageFilter.shader(
+            shaderComp.shader,
+          );
+          canvas.saveLayer(effectRect, _entityShaderPaint);
+        }
+
         renderable.render(canvas, size);
+
+        if (hasEntityShader) canvas.restore();
       }
     }
 

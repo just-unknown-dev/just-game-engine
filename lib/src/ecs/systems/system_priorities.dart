@@ -30,14 +30,41 @@ abstract final class SystemPriorities {
   /// Animation state advance.
   static const int animation = 70;
 
+  /// Deterministic property effects (Move, Scale, Shake, …).
+  ///
+  /// Runs after animation so sprite-driven positions are settled before
+  /// effects apply their deltas, and before gameplay so logic sees the
+  /// final positions for this frame.
+  static const int effects = 65;
+
   /// Gameplay logic (health, lifetime, scoring, …).
   static const int gameplay = 60;
 
   /// Parent–child hierarchy propagation.
   static const int hierarchy = 50;
 
+  /// Particle emitter update — advances [ParticleEmitter.update] for all
+  /// [ParticleEmitterComponent] entities.
+  ///
+  /// Runs after [hierarchy] (50) so parent-propagated positions are settled,
+  /// and before [render] (40) so particles are current when drawn.
+  static const int particles = 48;
+
   /// Rendering ECS entities.
   static const int render = 40;
+
+  /// Camera follow — repositions the camera based on [CameraFollowComponent]
+  /// entities. Runs after [render] so the camera position update does not
+  /// lag the current frame's rendering by one frame.
+  static const int camera = 45;
+
+  /// Fullscreen post-process shader passes — runs after [render] to apply
+  /// screen-space effects (bloom, chromatic aberration, vignette, …).
+  /// Lower priority value = later execution in the ECS update loop means
+  /// [PostProcessSystem.update] runs after [RenderSystem.render], which is
+  /// the correct order: passes are synced with [RenderingEngine] after the
+  /// scene is queued for rendering.
+  static const int postProcess = 35;
 
   /// Boundary enforcement (wrap / clamp / bounce / destroy).
   static const int boundary = 30;
@@ -47,4 +74,9 @@ abstract final class SystemPriorities {
 
   /// Audio — runs late so world transforms are up to date.
   static const int audio = -10;
+
+  /// Narrative / Dialogue — updates NPC interactability and auto-advance
+  /// timers.  Runs just after [gameplay] so quest/inventory state is settled
+  /// before proximity is checked.
+  static const int dialogue = gameplay - 1;
 }

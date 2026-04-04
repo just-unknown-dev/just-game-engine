@@ -1,9 +1,11 @@
+import 'dart:io';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_game_engine/src/subsystems/animation/animation_system.dart'
     as anim;
-import 'dart:math' as math;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -559,6 +561,44 @@ void main() {
 
       final found = scene.findNode('TargetNode');
       expect(found, same(node));
+    });
+
+    test('saveScene/loadSceneFromFile round-trips the full node hierarchy', () {
+      final editor = SceneEditor();
+      editor.initialize();
+
+      final scene = editor.createScene('SaveTest');
+      final nodeA = SceneNode('NodeA')
+        ..localPosition = const Offset(10, 20)
+        ..localRotation = 0.5
+        ..localScale = 2.0;
+      final nodeB = SceneNode('NodeB')..localPosition = const Offset(3, 4);
+      nodeA.addChild(nodeB);
+      scene.addNode(nodeA);
+
+      // Use a temp file in the system temp directory.
+      final path = '${Directory.systemTemp.path}/just_engine_scene_test.json';
+
+      editor.saveScene(path);
+      expect(File(path).existsSync(), isTrue);
+
+      // Load into a fresh editor instance.
+      final editor2 = SceneEditor();
+      editor2.initialize();
+      final loaded = editor2.loadSceneFromFile(path);
+
+      expect(loaded.name, 'SaveTest');
+      final loadedA = loaded.findNode('NodeA')!;
+      expect(loadedA.localPosition, const Offset(10, 20));
+      expect(loadedA.localRotation, closeTo(0.5, 1e-9));
+      expect(loadedA.localScale, closeTo(2.0, 1e-9));
+
+      final loadedB = loaded.findNode('NodeB')!;
+      expect(loadedB.parent, same(loadedA));
+      expect(loadedB.localPosition, const Offset(3, 4));
+
+      // Clean up.
+      File(path).deleteSync();
     });
   });
 

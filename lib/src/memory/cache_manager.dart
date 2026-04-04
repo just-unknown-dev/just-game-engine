@@ -39,6 +39,10 @@ class CacheManager {
   JustStandardStorage? _keyValueCache;
   JustDatabase? _databaseCache;
   bool _initialized = false;
+  bool _memoryFallback = false;
+
+  final Map<String, String> _memoryStringCache = <String, String>{};
+  final Map<String, Uint8List> _memoryBinaryCache = <String, Uint8List>{};
 
   /// Maximum number of entries in the binary cache before LRU eviction.
   /// `null` means unbounded (default for backward compatibility).
@@ -52,13 +56,16 @@ class CacheManager {
   /// Check if cache manager is initialized
   bool get isInitialized => _initialized;
 
+  /// Whether the cache is running in headless/test memory-only mode.
+  bool get isUsingMemoryFallback => _memoryFallback;
+
   /// Initialize the caching system
   Future<void> initialize() async {
     if (_initialized) return;
 
-    try {
-      debugPrint('Initializing CacheManager...');
+    debugPrint('Initializing CacheManager...');
 
+    try {
       // Initialize fast key-value storage
       _keyValueCache = await JustStorage.standard();
 
@@ -72,10 +79,15 @@ class CacheManager {
       // Create necessary tables if they don't exist
       await _initDatabaseSchema();
 
+      _memoryFallback = false;
       _initialized = true;
       debugPrint('CacheManager initialized successfully.');
     } catch (e) {
-      debugPrint('Error initializing CacheManager: $e');
+      _keyValueCache = null;
+      _databaseCache = null;
+      _memoryFallback = true;
+      _initialized = true;
+      debugPrint('CacheManager fallback to in-memory storage: $e');
     }
   }
 
@@ -96,22 +108,34 @@ class CacheManager {
 
   /// Store a string value
   Future<void> setString(String key, String value) async {
-    if (!_initialized || _keyValueCache == null) return;
+    if (!_initialized) return;
+
+    if (_memoryFallback || _keyValueCache == null) {
+      _memoryStringCache[key] = value;
+      return;
+    }
+
     try {
       await _keyValueCache!.write(key, value);
     } catch (e) {
       debugPrint('Error setting string in cache: $e');
+      _memoryStringCache[key] = value;
     }
   }
 
   /// Retrieve a string value
   Future<String?> getString(String key) async {
-    if (!_initialized || _keyValueCache == null) return null;
+    if (!_initialized) return null;
+
+    if (_memoryFallback || _keyValueCache == null) {
+      return _memoryStringCache[key];
+    }
+
     try {
       return await _keyValueCache!.read(key);
     } catch (e) {
       debugPrint('Error getting string from cache: $e');
-      return null;
+      return _memoryStringCache[key];
     }
   }
 
@@ -140,9 +164,15 @@ class CacheManager {
 
   /// Store binary data
   Future<void> setBinary(String key, Uint8List data) async {
-    if (!_initialized || _databaseCache == null) return;
+    if (!_initialized) return;
+
+    final validKey = _validateKey(key);
+    if (_memoryFallback || _databaseCache == null) {
+      _memoryBinaryCache[validKey] = Uint8List.fromList(data);
+      return;
+    }
+
     try {
-      final validKey = _validateKey(key);
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final encodedStr = base64Encode(data);
       final safeKey = _sqlEscape(validKey);
@@ -162,14 +192,20 @@ class CacheManager {
       }
     } catch (e) {
       debugPrint('Error setting binary data in database cache: $e');
+      _memoryBinaryCache[validKey] = Uint8List.fromList(data);
     }
   }
 
   /// Retrieve binary data
   Future<Uint8List?> getBinary(String key) async {
-    if (!_initialized || _databaseCache == null) return null;
+    if (!_initialized) return null;
+
+    final validKey = _validateKey(key);
+    if (_memoryFallback || _databaseCache == null) {
+      return _memoryBinaryCache[validKey];
+    }
+
     try {
-      final validKey = _validateKey(key);
       final safeKey = _sqlEscape(validKey);
       final result = await _databaseCache!.query(
         "SELECT data FROM binary_cache WHERE key = '$safeKey'",
@@ -183,13 +219,16 @@ class CacheManager {
     } catch (e) {
       debugPrint('Error getting binary data from database cache: $e');
     }
-    return null;
+    return _memoryBinaryCache[validKey];
   }
 
   /// Clear a specific cache entry (from both storages for simplicity)
   Future<void> remove(String key) async {
     if (!_initialized) return;
     try {
+      _memoryStringCache.remove(key);
+      _memoryBinaryCache.remove(key);
+
       if (_keyValueCache != null) {
         await _keyValueCache!.delete(key);
       }
@@ -209,6 +248,9 @@ class CacheManager {
   Future<void> clearAll() async {
     if (!_initialized) return;
     try {
+      _memoryStringCache.clear();
+      _memoryBinaryCache.clear();
+
       if (_keyValueCache != null) {
         await _keyValueCache!.clear();
       }
@@ -224,16 +266,25 @@ class CacheManager {
   /// Dispose of the cache manager and close resources
   void dispose() {
     if (!_initialized) return;
+    _memoryStringCache.clear();
+    _memoryBinaryCache.clear();
+
     // _keyValueCache does not have a formal dispose
     if (_databaseCache != null) {
       _databaseCache!.close();
     }
+    _databaseCache = null;
+    _keyValueCache = null;
+    _memoryFallback = false;
     _initialized = false;
   }
 
   /// Return the number of entries in the binary cache.
   Future<int> getBinaryCacheSize() async {
-    if (!_initialized || _databaseCache == null) return 0;
+    if (!_initialized) return 0;
+    if (_memoryFallback || _databaseCache == null) {
+      return _memoryBinaryCache.length;
+    }
     try {
       final result = await _databaseCache!.query(
         'SELECT COUNT(*) as cnt FROM binary_cache',
@@ -244,7 +295,7 @@ class CacheManager {
     } catch (e) {
       debugPrint('Error getting binary cache size: $e');
     }
-    return 0;
+    return _memoryBinaryCache.length;
   }
 
   /// Remove the oldest binary cache entries to stay within [maxBinaryEntries].
