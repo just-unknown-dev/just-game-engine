@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
@@ -12,7 +11,7 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════════
 
   group('ParticleForce', () {
-    Particle _makeParticle({
+    Particle makeParticle({
       Offset velocity = Offset.zero,
       Offset position = Offset.zero,
     }) {
@@ -28,7 +27,7 @@ void main() {
     }
 
     test('GravityForce accelerates velocity downward', () {
-      final p = _makeParticle();
+      final p = makeParticle();
       const force = GravityForce(Offset(0, 100));
       force.apply(p, 0.016);
       expect(p.velocity.dy, closeTo(1.6, 0.001));
@@ -36,7 +35,7 @@ void main() {
     });
 
     test('DragForce reduces velocity magnitude', () {
-      final p = _makeParticle(velocity: const Offset(100, 0));
+      final p = makeParticle(velocity: const Offset(100, 0));
       const force = DragForce(coefficient: 0.1);
       force.apply(p, 1.0);
       // v *= 1 - 0.1*1.0 = 0.9
@@ -44,7 +43,7 @@ void main() {
     });
 
     test('DragForce clamps at zero (no reversal)', () {
-      final p = _makeParticle(velocity: const Offset(10, 0));
+      final p = makeParticle(velocity: const Offset(10, 0));
       // Coefficient so large it would invert if unclamped
       const force = DragForce(coefficient: 200.0);
       force.apply(p, 1.0);
@@ -60,7 +59,7 @@ void main() {
         restitution: 0.8,
       );
       // Particle just below floor moving downward
-      final p = _makeParticle(
+      final p = makeParticle(
         position: const Offset(0, 305),
         velocity: const Offset(0, 50),
       );
@@ -71,7 +70,7 @@ void main() {
     });
 
     test('BoundaryForce.kill sets particle dead', () {
-      final p = _makeParticle(position: const Offset(600, 0));
+      final p = makeParticle(position: const Offset(600, 0));
       final force = BoundaryForce(
         bounds: const Rect.fromLTRB(-500, -500, 500, 500),
         behavior: ParticleBoundaryBehavior.kill,
@@ -86,7 +85,7 @@ void main() {
         strength: 1000,
         radius: 200,
       );
-      final p = _makeParticle(position: const Offset(0, 0));
+      final p = makeParticle(position: const Offset(0, 0));
       final vxBefore = p.velocity.dx;
       force.apply(p, 0.1);
       // Should pull rightward (toward center at x=100)
@@ -99,7 +98,7 @@ void main() {
         strength: 1000,
         radius: 50, // particle is far outside
       );
-      final p = _makeParticle(position: const Offset(0, 0));
+      final p = makeParticle(position: const Offset(0, 0));
       force.apply(p, 0.1);
       expect(p.velocity.dx, closeTo(0.0, 0.001));
     });
@@ -111,7 +110,7 @@ void main() {
         radius: 200,
       );
       // Particle directly to the right of center
-      final p = _makeParticle(position: const Offset(50, 0));
+      final p = makeParticle(position: const Offset(50, 0));
       force.apply(p, 0.1);
       // Tangent at (50,0) for counterclockwise vortex should be (0,1) direction
       // → velocity.dy should increase
@@ -122,7 +121,7 @@ void main() {
 
     test('NoiseForce produces non-zero, bounded velocity delta', () {
       final force = NoiseForce(strength: 100, scale: 0.01, speed: 1.0);
-      final p = _makeParticle(position: const Offset(200, 300));
+      final p = makeParticle(position: const Offset(200, 300));
       // Apply several frames
       for (int i = 0; i < 10; i++) {
         force.apply(p, 0.016);

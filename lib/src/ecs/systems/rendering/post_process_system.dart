@@ -102,7 +102,7 @@ class PostProcessSystem extends System {
     // Advance the rendering engine's time cursor so shaders receive a
     // meaningful elapsed-time value.
     if (_getTime != null) {
-      _renderingEngine.elapsedSeconds = _getTime!();
+      _renderingEngine.elapsedSeconds = _getTime();
     }
 
     // ── Collect currently active post-process entity IDs ─────────────────

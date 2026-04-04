@@ -169,7 +169,7 @@ class RenderSystem extends System {
                 width: size.width,
                 height: size.height,
               );
-          shaderComp!.setUniforms?.call(
+          shaderComp.setUniforms?.call(
             shaderComp.shader,
             effectRect.width,
             effectRect.height,

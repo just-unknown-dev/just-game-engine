@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../ecs.dart';
 import '../../components/components.dart';
-import '../../components/camera/camera_follow_component.dart';
 import '../system_priorities.dart';
 import '../../../subsystems/camera/camera_system.dart';
 import '../../../subsystems/camera/camera_behaviors.dart';
