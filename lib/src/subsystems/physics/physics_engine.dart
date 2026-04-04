@@ -46,9 +46,14 @@ class PhysicsEngine {
   int _lastTrackedCellCount = 0;
   double _lastStepMs = 0.0;
 
+  // Persistent Stopwatch instance — reused every frame to avoid heap allocation.
+  final Stopwatch _stepStopwatch = Stopwatch();
+
   /// Update physics simulation
   void update(double deltaTime) {
-    final stepStopwatch = Stopwatch()..start();
+    _stepStopwatch
+      ..reset()
+      ..start();
     var awakeBodyCount = 0;
     _lastResolvedCollisionCount = 0;
 
@@ -104,9 +109,9 @@ class PhysicsEngine {
     // Simple collision detection
     _detectCollisions();
 
-    stepStopwatch.stop();
+    _stepStopwatch.stop();
     _lastAwakeBodyCount = awakeBodyCount;
-    _lastStepMs = stepStopwatch.elapsedMicroseconds / 1000.0;
+    _lastStepMs = _stepStopwatch.elapsedMicroseconds / 1000.0;
   }
 
   /// Add a physics body

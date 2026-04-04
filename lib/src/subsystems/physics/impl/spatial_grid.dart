@@ -30,13 +30,19 @@ class SpatialGrid {
   final Map<PhysicsBody, _CellRange> _trackedBodies = {};
   final Set<PhysicsBody> _seenBodies = <PhysicsBody>{};
 
+  // Persistent scratch buffers — cleared and reused each frame to avoid
+  // heap allocation in hot paths.
+  final List<PhysicsBody> _removedScratch = [];
+  final List<BodyPair> _pairBuffer = [];
+  final Set<int> _pairKeySet = {};
+
   int _lastDirtyBodyCount = 0;
 
   SpatialGrid(this.cellSize);
 
   int _hash(int x, int y) {
-    // A simple hash function for 2D grids (using prime numbers)
-    return (x * 73856093) ^ ((y * 19349663) >> 1);
+    // Two independent primes — no bit-shift so y's entropy is fully preserved.
+    return (x * 73856093) ^ (y * 83492791);
   }
 
   /// Clear all cells, returning their lists to the pool for reuse.
@@ -95,14 +101,14 @@ class SpatialGrid {
       dirtyBodies++;
     }
 
-    final removedBodies = <PhysicsBody>[];
+    _removedScratch.clear();
     for (final body in _trackedBodies.keys) {
       if (!_seenBodies.contains(body)) {
-        removedBodies.add(body);
+        _removedScratch.add(body);
       }
     }
 
-    for (final body in removedBodies) {
+    for (final body in _removedScratch) {
       final previousRange = _trackedBodies.remove(body);
       if (previousRange != null) {
         _removeFromRange(body, previousRange);
@@ -158,18 +164,34 @@ class SpatialGrid {
   }
 
   /// Get potentially colliding pairs.
-  Set<BodyPair> getPotentialCollisions() {
-    final pairs = <BodyPair>{};
+  ///
+  /// Returns a pre-allocated internal buffer; do not hold a reference beyond
+  /// the current physics tick.
+  List<BodyPair> getPotentialCollisions() {
+    _pairBuffer.clear();
+    _pairKeySet.clear();
     for (final bin in cells.values) {
       if (bin.length > 1) {
         for (int i = 0; i < bin.length; i++) {
           for (int j = i + 1; j < bin.length; j++) {
-            pairs.add(BodyPair(bin[i], bin[j]));
+            final a = bin[i];
+            final b = bin[j];
+            // Deterministic pair key: use min/max identity hash codes so
+            // (a,b) and (b,a) map to the same integer, avoiding duplicates
+            // without allocating a BodyPair for the Set check.
+            final idA = identityHashCode(a);
+            final idB = identityHashCode(b);
+            final minId = idA < idB ? idA : idB;
+            final maxId = idA < idB ? idB : idA;
+            final key = minId * 0x100003 ^ maxId;
+            if (_pairKeySet.add(key)) {
+              _pairBuffer.add(BodyPair(a, b));
+            }
           }
         }
       }
     }
-    return pairs;
+    return _pairBuffer;
   }
 
   int get dirtyBodyCount => _lastDirtyBodyCount;

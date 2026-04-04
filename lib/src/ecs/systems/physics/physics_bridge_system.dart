@@ -30,6 +30,10 @@ class PhysicsBridgeSystem extends System {
       final ref = entity.getComponent<PhysicsBodyRefComponent>()!;
       final body = ref.body;
 
+      // Capture previous positions for sub-frame render interpolation.
+      transform.prevPosition = transform.position;
+      transform.prevRotation = transform.rotation;
+
       // Write subsystem body position → ECS transform
       transform.setPositionXY(body.position.x, body.position.y);
       transform.rotation = body.angle;

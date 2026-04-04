@@ -11,8 +11,11 @@ class Archetype {
   /// The canonical set of component types in this archetype.
   final Set<Type> types;
 
-  /// Deterministic string key derived from [types] (used as map key).
-  final String signature;
+  /// Deterministic integer key derived from [types] (used as map key).
+  ///
+  /// Computed as a sorted polynomial hash of the component type hash codes,
+  /// eliminating String allocation on every structural mutation.
+  final int signature;
 
   // Dense component arrays – one list per component type.
   final Map<Type, List<Component>> _columns;
@@ -103,9 +106,16 @@ class Archetype {
     return result;
   }
 
-  /// Canonical signature for a set of types (sorted by name).
-  static String _computeSignature(Set<Type> types) {
-    final sorted = types.map((t) => t.toString()).toList()..sort();
-    return sorted.join(',');
+  /// Canonical integer signature for a set of types.
+  ///
+  /// Sorts the component type [hashCode]s and folds them using a polynomial
+  /// accumulator. Order-independent and avoids all String allocation.
+  static int _computeSignature(Set<Type> types) {
+    final hashes = types.map((t) => t.hashCode).toList()..sort();
+    var h = 0;
+    for (final v in hashes) {
+      h = h * 1000000007 + v;
+    }
+    return h;
   }
 }

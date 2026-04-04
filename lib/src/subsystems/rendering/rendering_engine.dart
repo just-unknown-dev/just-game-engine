@@ -4,6 +4,7 @@
 /// This module manages the rendering pipeline for the game engine using Flutter Canvas.
 library;
 
+import 'dart:collection';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'impl/renderable.dart';
@@ -35,8 +36,12 @@ class RenderingEngine {
   /// this list directly.
   final List<ParticleEmitter> _managedEmitters = [];
 
-  /// List of rendering layers
-  final Map<int, List<Renderable>> _layers = {};
+  /// Rendering layers — LinkedHashSet per layer for O(1) add/remove.
+  final Map<int, LinkedHashSet<Renderable>> _layers = {};
+
+  /// Sorted-by-zOrder snapshot of each layer, rebuilt when [_layersDirty].
+  /// The render loop iterates this instead of [_layers] to maintain zOrder.
+  final Map<int, List<Renderable>> _sortedLayerLists = {};
 
   /// Main camera
   late Camera camera;
@@ -96,13 +101,20 @@ class RenderingEngine {
   int _spatialRebuildCount = 0;
   bool _spatialReusedLastFrame = false;
 
+  // Persistent Stopwatch instance — reused every frame to avoid heap allocation.
+  final Stopwatch _renderStopwatch = Stopwatch();
+
   // ── Post-process pass pipeline ─────────────────────────────────────────
 
-  /// Registered fullscreen post-process passes.
+  /// Registered fullscreen post-process passes (ordered for sort).
   ///
   /// Managed via [addPostProcessPass] / [removePostProcessPass].
   /// [PostProcessSystem] populates this list each frame from ECS entities.
   final List<PostProcessPass> _postProcessPasses = [];
+
+  /// O(1) membership set that mirrors [_postProcessPasses].
+  /// Prevents duplicate insertions without O(n) list scan.
+  final Set<PostProcessPass> _postProcessPassSet = {};
 
   /// Cached sorted pass list rebuilt when the pass set changes.
   final List<PostProcessPass> _sortedPasses = [];
@@ -125,7 +137,7 @@ class RenderingEngine {
   /// The pass will be included in the scene-wrapping shader chain starting
   /// from the next rendered frame. Duplicate insertions are silently ignored.
   void addPostProcessPass(PostProcessPass pass) {
-    if (!_postProcessPasses.contains(pass)) {
+    if (_postProcessPassSet.add(pass)) {
       _postProcessPasses.add(pass);
       _passListDirty = true;
     }
@@ -135,7 +147,8 @@ class RenderingEngine {
   ///
   /// Has no effect if the pass is not currently registered.
   void removePostProcessPass(PostProcessPass pass) {
-    if (_postProcessPasses.remove(pass)) {
+    if (_postProcessPassSet.remove(pass)) {
+      _postProcessPasses.remove(pass);
       _passListDirty = true;
     }
   }
@@ -249,8 +262,9 @@ class RenderingEngine {
 
   /// Add a renderable to its layer
   void _addToLayer(Renderable renderable) {
-    _layers.putIfAbsent(renderable.layer, () => []);
-    _layers[renderable.layer]!.add(renderable);
+    _layers
+        .putIfAbsent(renderable.layer, () => LinkedHashSet<Renderable>())
+        .add(renderable);
     _layersDirty = true;
   }
 
@@ -287,6 +301,7 @@ class RenderingEngine {
     _renderables.clear();
     _renderableSet.clear();
     _layers.clear();
+    _sortedLayerLists.clear();
     _boundsCache.clear();
     _trackedLayers.clear();
     _trackedZOrders.clear();
@@ -297,6 +312,7 @@ class RenderingEngine {
     _spatialIndexDirty = true;
     _layersDirty = true;
     _postProcessPasses.clear();
+    _postProcessPassSet.clear();
     _sortedPasses.clear();
     _passListDirty = false;
   }
@@ -309,11 +325,10 @@ class RenderingEngine {
         _layersDirty = true;
         _spatialIndexDirty = true;
       } else if (previousLayer != renderable.layer) {
-        _layers[previousLayer]?.remove(renderable);
-        final nextLayer = _layers.putIfAbsent(renderable.layer, () => []);
-        if (!nextLayer.contains(renderable)) {
-          nextLayer.add(renderable);
-        }
+        _layers[previousLayer]?.remove(renderable); // O(1) — LinkedHashSet
+        _layers
+            .putIfAbsent(renderable.layer, () => LinkedHashSet<Renderable>())
+            .add(renderable); // O(1) — Set.add is idempotent
         _trackedLayers[renderable] = renderable.layer;
         _layersDirty = true;
       }
@@ -326,11 +341,16 @@ class RenderingEngine {
     }
   }
 
-  /// Sort renderables by layer and z-order
+  /// Rebuild the sorted-by-zOrder render lists from the layer sets.
   void _sortRenderables() {
-    for (final layer in _layers.values) {
-      layer.sort((a, b) => a.zOrder.compareTo(b.zOrder));
+    for (final entry in _layers.entries) {
+      (_sortedLayerLists[entry.key] ??= [])
+        ..clear()
+        ..addAll(entry.value)
+        ..sort((a, b) => a.zOrder.compareTo(b.zOrder));
     }
+    // Prune entries for layers that have been removed.
+    _sortedLayerLists.removeWhere((k, _) => !_layers.containsKey(k));
   }
 
   void _refreshSpatialIndex(Rect visibleRect) {
@@ -381,7 +401,9 @@ class RenderingEngine {
   void render(Canvas canvas, Size size) {
     if (!_initialized) return;
 
-    final frameStopwatch = Stopwatch()..start();
+    _renderStopwatch
+      ..reset()
+      ..start();
     var drawCalls = 1; // background clear
     var renderedCount = 0;
     var culledCount = 0;
@@ -479,7 +501,7 @@ class RenderingEngine {
     final activeBatchSet = <SpriteBatchRenderer>{};
 
     for (final layerIndex in _sortedLayerKeys) {
-      final layer = _layers[layerIndex];
+      final layer = _sortedLayerLists[layerIndex];
       if (layer == null) continue;
       activeBatches.clear();
       activeBatchSet.clear();
@@ -576,8 +598,8 @@ class RenderingEngine {
       _renderDebugInfo(canvas, size);
     }
 
-    frameStopwatch.stop();
-    _lastRenderTimeMs = frameStopwatch.elapsedMicroseconds / 1000.0;
+    _renderStopwatch.stop();
+    _lastRenderTimeMs = _renderStopwatch.elapsedMicroseconds / 1000.0;
     _lastDrawCallCount = drawCalls;
     _lastRenderedCount = renderedCount;
     _lastCulledCount = culledCount;

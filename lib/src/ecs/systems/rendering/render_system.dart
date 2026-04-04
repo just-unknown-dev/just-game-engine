@@ -62,6 +62,14 @@ class RenderSystem extends System {
   /// its own save/transform/restore.
   bool cameraAppliedExternally = false;
 
+  /// Sub-frame interpolation factor in [0.0, 1.0].
+  ///
+  /// Set each tick by [GameWidget] from [GameLoop.interpolation] so that
+  /// physics-driven entities are smoothly lerped between their previous and
+  /// current positions, eliminating stutter on high-refresh-rate displays.
+  /// Defaults to 1.0 (no interpolation — render at current position).
+  double interpolation = 1.0;
+
   @override
   void render(Canvas canvas, Size size) {
     if (camera != null && !cameraAppliedExternally) {
@@ -85,8 +93,24 @@ class RenderSystem extends System {
 
       // Sync transform if enabled
       if (renderComp.syncTransform) {
-        renderComp.renderable.position = transform.position;
-        renderComp.renderable.rotation = transform.rotation;
+        if (interpolation < 1.0) {
+          // Lerp between previous and current physics position for smooth
+          // rendering between fixed-timestep updates.
+          renderComp.renderable.position = Offset(
+            transform.prevPosition.dx +
+                (transform.position.dx - transform.prevPosition.dx) *
+                    interpolation,
+            transform.prevPosition.dy +
+                (transform.position.dy - transform.prevPosition.dy) *
+                    interpolation,
+          );
+          renderComp.renderable.rotation =
+              transform.prevRotation +
+              (transform.rotation - transform.prevRotation) * interpolation;
+        } else {
+          renderComp.renderable.position = transform.position;
+          renderComp.renderable.rotation = transform.rotation;
+        }
         renderComp.renderable.scale = transform.scale;
       }
 
@@ -151,8 +175,9 @@ class RenderSystem extends System {
             effectRect.height,
             0.0, // per-entity mode: no time source in RenderSystem
           );
-          _entityShaderPaint.imageFilter =
-              ui.ImageFilter.shader(shaderComp.shader);
+          _entityShaderPaint.imageFilter = ui.ImageFilter.shader(
+            shaderComp.shader,
+          );
           canvas.saveLayer(effectRect, _entityShaderPaint);
         }
 
