@@ -13,7 +13,7 @@ import 'lifecycle.dart';
 import '../subsystems/rendering/rendering_engine.dart';
 import '../subsystems/physics/physics_engine.dart';
 import '../subsystems/input/input_management.dart';
-import '../subsystems/audio/audio_engine.dart';
+import '../subsystems/audio/audio.dart';
 import '../subsystems/editor/scene_editor.dart';
 import '../subsystems/animation/animation_system.dart';
 import '../subsystems/assets/asset_management.dart';
@@ -107,6 +107,8 @@ class Engine implements ILifecycle {
   late final PhysicsEngine physics;
   late final InputManager input;
   late final AudioEngine audio;
+  late final MusicManager music;
+  late final SoundEffectManager sfx;
   late final SceneEditor sceneEditor;
   late final AnimationSystem animation;
   late final AssetManager assets;
@@ -182,6 +184,8 @@ class Engine implements ILifecycle {
     physics.initialize();
     input.initialize();
     await audio.initialize();
+    music = MusicManager(audio);
+    sfx = SoundEffectManager(audio);
     sceneEditor.initialize();
     animation.initialize();
     network.initialize();
