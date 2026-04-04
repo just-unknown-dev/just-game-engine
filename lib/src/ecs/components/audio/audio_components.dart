@@ -19,6 +19,9 @@ class AudioSourceComponent extends Component {
     this.playOnAdd = true,
     this.channel = AudioChannel.sfx,
     this.is3d = false,
+    this.pitch = 1.0,
+    this.speed = 1.0,
+    this.effects = const [],
   });
 
   /// Asset path to the audio clip.
@@ -43,6 +46,15 @@ class AudioSourceComponent extends Component {
   /// [TransformComponent].
   bool is3d;
 
+  /// Pitch multiplier: 1.0 = original, 2.0 = one octave up.
+  double pitch;
+
+  /// Playback speed multiplier (1.0 = normal).
+  double speed;
+
+  /// DSP effects applied to this voice when playback starts.
+  List<AudioEffect> effects;
+
   /// Internal source handle managed by [AudioSystem].
   Object? loadedSource;
 
@@ -59,15 +71,72 @@ class AudioPlayComponent extends Component {
     required this.clipPath,
     this.volume = 1.0,
     this.pan = 0.0,
+    this.pitch = 1.0,
+    this.speed = 1.0,
     this.channel = AudioChannel.sfx,
     this.is3d = false,
+    this.effects = const [],
   });
 
   final String clipPath;
   double volume;
   double pan;
+  double pitch;
+  double speed;
   AudioChannel channel;
   bool is3d;
+  List<AudioEffect> effects;
+}
+
+/// Trigger component: add this to an entity to pause its active
+/// [AudioSourceComponent] playback. Removed by [AudioSystem] after processing.
+class AudioPauseComponent extends Component {}
+
+/// Trigger component: add this to an entity to resume its paused
+/// [AudioSourceComponent] playback. Removed by [AudioSystem] after processing.
+class AudioResumeComponent extends Component {}
+
+/// Trigger component: add this to an entity to stop its active
+/// [AudioSourceComponent] playback. Removed by [AudioSystem] after processing.
+class AudioStopComponent extends Component {}
+
+/// Component that streams a large audio file without buffering it entirely.
+///
+/// Use for music tracks or long ambient loops. The [AudioSystem] opens an
+/// [AudioStream] backed by the native streaming path and manages its lifecycle.
+class AudioStreamComponent extends Component {
+  AudioStreamComponent({
+    required this.path,
+    this.volume = 1.0,
+    this.loop = true,
+    this.playOnAdd = true,
+    this.channel = AudioChannel.music,
+    this.fadeInDuration,
+  });
+
+  /// Asset path to the audio file.
+  final String path;
+
+  /// Volume [0.0 – 1.0].
+  double volume;
+
+  /// Whether to loop the stream indefinitely.
+  bool loop;
+
+  /// If true, streaming starts as soon as the system processes this entity.
+  bool playOnAdd;
+
+  /// Which audio channel this stream belongs to.
+  AudioChannel channel;
+
+  /// Optional fade-in duration applied when streaming starts.
+  Duration? fadeInDuration;
+
+  /// Internal [AudioStream] instance managed by [AudioSystem].
+  AudioStream? stream;
+
+  /// Whether the stream is currently open and playing.
+  bool get isPlaying => stream?.isPlaying ?? false;
 }
 
 /// Marks an entity as the audio listener (typically the camera or player).

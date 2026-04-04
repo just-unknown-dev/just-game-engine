@@ -13,7 +13,7 @@ import 'lifecycle.dart';
 import '../subsystems/rendering/rendering_engine.dart';
 import '../subsystems/physics/physics_engine.dart';
 import '../subsystems/input/input_management.dart';
-import '../subsystems/audio/audio_engine.dart';
+import '../subsystems/audio/audio.dart';
 import '../subsystems/editor/scene_editor.dart';
 import '../subsystems/animation/animation_system.dart';
 import '../subsystems/assets/asset_management.dart';
@@ -57,6 +57,9 @@ class Engine implements ILifecycle {
   /// System manager for coordinating subsystems
   late final SystemManager _systemManager;
 
+  /// Public access to the system manager (e.g. for reading [SystemManager.schedulerStats]).
+  SystemManager get systemManager => _systemManager;
+
   /// Game loop controller
   late final GameLoop _gameLoop;
 
@@ -65,6 +68,24 @@ class Engine implements ILifecycle {
 
   /// Time management
   late final TimeManager _timeManager;
+
+  /// Last measured subsystem update costs in milliseconds.
+  final Map<String, double> _lastUpdateBreakdownMs = <String, double>{};
+
+  double _lastUpdateTotalMs = 0.0;
+  double _lastDeltaTime = 0.0;
+  int _frameNumber = 0;
+
+  /// Latest per-frame performance snapshot.
+  Map<String, dynamic> get performanceStats => {
+    'frame': _frameNumber,
+    'deltaTime': _lastDeltaTime,
+    'lastUpdateMs': _lastUpdateTotalMs,
+    'budgetRemainingMs': 16.67 - _lastUpdateTotalMs,
+    'isOverBudget': _lastUpdateTotalMs > 16.67,
+    'systemTimesMs': Map<String, double>.unmodifiable(_lastUpdateBreakdownMs),
+    'scheduler': _systemManager.schedulerStats,
+  };
 
   /// Current engine state
   EngineState _state = EngineState.uninitialized;
@@ -86,6 +107,8 @@ class Engine implements ILifecycle {
   late final PhysicsEngine physics;
   late final InputManager input;
   late final AudioEngine audio;
+  late final MusicManager music;
+  late final SoundEffectManager sfx;
   late final SceneEditor sceneEditor;
   late final AnimationSystem animation;
   late final AssetManager assets;
@@ -113,6 +136,7 @@ class Engine implements ILifecycle {
       // Initialize core systems
       _timeManager = TimeManager();
       _systemManager = SystemManager();
+      await _systemManager.initialize();
       _gameLoop = GameLoop(onUpdate: _update, timeManager: _timeManager);
 
       // Initialize subsystems
@@ -159,7 +183,15 @@ class Engine implements ILifecycle {
     rendering.initialize();
     physics.initialize();
     input.initialize();
-    await audio.initialize();
+    // Audio is optional — catch plugin-unavailable errors so headless /
+    // test environments can still initialize the rest of the engine.
+    try {
+      await audio.initialize();
+    } catch (e) {
+      debugPrint('AudioEngine: initialization skipped (${e.runtimeType})');
+    }
+    music = MusicManager(audio);
+    sfx = SoundEffectManager(audio);
     sceneEditor.initialize();
     animation.initialize();
     network.initialize();
@@ -182,6 +214,34 @@ class Engine implements ILifecycle {
     _systemManager.registerSystem('camera', cameraSystem);
     _systemManager.registerSystem('parallax', parallax);
     _systemManager.registerSystem('ecs', world);
+
+    _systemManager.registerUpdateTask('input', (_) => input.update());
+    _systemManager.registerUpdateTask(
+      'camera',
+      (deltaTime) => cameraSystem.update(deltaTime),
+    );
+    _systemManager.registerUpdateTask(
+      'parallax',
+      (deltaTime) =>
+          parallax.update(deltaTime, cameraSystem.mainCamera.position),
+    );
+    _systemManager.registerUpdateTask(
+      'physics',
+      (deltaTime) => physics.update(deltaTime),
+    );
+    _systemManager.registerUpdateTask(
+      'animation',
+      (deltaTime) => animation.update(deltaTime),
+    );
+    _systemManager.registerUpdateTask(
+      'particles',
+      (deltaTime) => rendering.updateManagedEmitters(deltaTime),
+    );
+    _systemManager.registerUpdateTask('audio', (_) => audio.update());
+    _systemManager.registerUpdateTask(
+      'ecs',
+      (deltaTime) => world.update(deltaTime),
+    );
   }
 
   /// Start the game engine and begin the game loop
@@ -240,14 +300,14 @@ class Engine implements ILifecycle {
   void _update(double deltaTime) {
     if (_state != EngineState.running) return;
 
-    // Update subsystems in order
-    input.update();
-    cameraSystem.update(deltaTime);
-    parallax.update(deltaTime, cameraSystem.mainCamera.position);
-    physics.update(deltaTime);
-    animation.update(deltaTime);
-    audio.update();
-    world.update(deltaTime); // Update ECS
+    _frameNumber++;
+    _lastDeltaTime = deltaTime;
+
+    _systemManager.runUpdateCycle(deltaTime);
+    _lastUpdateBreakdownMs
+      ..clear()
+      ..addAll(_systemManager.lastTaskTimesMs);
+    _lastUpdateTotalMs = _systemManager.lastFrameMs;
 
     // Update active scene if available
     // TODO: Implement scene update when scene system is ready

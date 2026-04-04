@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+
 import '../rendering/impl/renderable.dart';
+import '_io_native.dart' if (dart.library.html) '_io_stub.dart';
 
 /// Main scene editor class
 class SceneEditor {
@@ -29,9 +33,39 @@ class SceneEditor {
     }
   }
 
-  /// Save the current scene
+  /// Save the active scene as JSON to [path].
+  ///
+  /// All scene-graph transforms and node hierarchy are persisted.
+  /// Attached [Renderable] instances (which are runtime objects) are not
+  /// serialised; recreate them after loading with [loadSceneFromFile].
+  ///
+  /// Throws [StateError] if there is no active scene.
+  /// Throws [UnsupportedError] on web (file I/O unavailable).
   void saveScene(String path) {
-    // TODO: Implement scene serialization
+    if (activeScene == null) {
+      throw StateError('SceneEditor.saveScene: no active scene to save.');
+    }
+    final json = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(activeScene!.toJson());
+    writeFile(path, json);
+    debugPrint('Scene "${activeScene!.name}" saved to $path');
+  }
+
+  /// Load a scene that was previously saved with [saveScene].
+  ///
+  /// The loaded scene is registered under its original name and becomes the
+  /// [activeScene].  Returns the loaded [Scene].
+  ///
+  /// Throws [UnsupportedError] on web (file I/O unavailable).
+  Scene loadSceneFromFile(String path) {
+    final raw = readFile(path);
+    final json = jsonDecode(raw) as Map<String, dynamic>;
+    final scene = Scene.fromJson(json);
+    _scenes[scene.name] = scene;
+    activeScene = scene;
+    debugPrint('Scene "${scene.name}" loaded from $path');
+    return scene;
   }
 
   /// Update the active scene
@@ -65,6 +99,30 @@ class Scene {
 
   /// Create a scene
   Scene({required this.name});
+
+  /// Serialise this scene to a JSON-compatible map.
+  Map<String, dynamic> toJson() => {'name': name, 'root': root.toJson()};
+
+  /// Restore a [Scene] from a map produced by [toJson].
+  factory Scene.fromJson(Map<String, dynamic> json) {
+    final scene = Scene(name: json['name'] as String);
+    final rootJson = json['root'] as Map<String, dynamic>;
+    // Restore root properties.
+    final pos = rootJson['localPosition'] as Map<String, dynamic>;
+    scene.root
+      ..localPosition = Offset(
+        (pos['dx'] as num).toDouble(),
+        (pos['dy'] as num).toDouble(),
+      )
+      ..localRotation = (rootJson['localRotation'] as num).toDouble()
+      ..localScale = (rootJson['localScale'] as num).toDouble()
+      ..isActive = rootJson['isActive'] as bool;
+    // Restore children.
+    for (final child in rootJson['children'] as List<dynamic>) {
+      scene.root.addChild(SceneNode.fromJson(child as Map<String, dynamic>));
+    }
+    return scene;
+  }
 
   /// Add a node to the root
   void addNode(SceneNode node) {
@@ -137,6 +195,37 @@ class SceneNode {
 
   /// Create a scene node
   SceneNode(this.name);
+
+  /// Serialise this node and its entire subtree to a JSON-compatible map.
+  ///
+  /// Attached [Renderable] instances are not included; restore them after
+  /// calling [SceneNode.fromJson] when loading a scene.
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'localPosition': {'dx': localPosition.dx, 'dy': localPosition.dy},
+    'localRotation': localRotation,
+    'localScale': localScale,
+    'isActive': isActive,
+    'children': _children.map((c) => c.toJson()).toList(),
+  };
+
+  /// Restore a [SceneNode] subtree from a map produced by [toJson].
+  factory SceneNode.fromJson(Map<String, dynamic> json) {
+    final node = SceneNode(json['name'] as String);
+    final pos = json['localPosition'] as Map<String, dynamic>;
+    node
+      ..localPosition = Offset(
+        (pos['dx'] as num).toDouble(),
+        (pos['dy'] as num).toDouble(),
+      )
+      ..localRotation = (json['localRotation'] as num).toDouble()
+      ..localScale = (json['localScale'] as num).toDouble()
+      ..isActive = json['isActive'] as bool;
+    for (final child in json['children'] as List<dynamic>) {
+      node.addChild(SceneNode.fromJson(child as Map<String, dynamic>));
+    }
+    return node;
+  }
 
   /// Get children
   List<SceneNode> get children => List.unmodifiable(_children);

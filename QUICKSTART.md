@@ -353,6 +353,7 @@ world.addSystem(FlashingSystem());
 5. **System order matters** - Systems run by priority (higher = earlier): input (100) → physics (90) → movement (80) → rendering (40)
 6. **Use CommandBuffer** - Call `world.commands.destroy()` instead of direct mutations inside system updates
 7. **Use EventBus** - Subscribe to events with `world.events.on<CollisionEvent>()` for decoupled communication
+8. **System order matters** — systems execute by descending priority: `TileMap` (110) → `Parallax` (105) → `Input` (100) → `Physics` (90) → `Movement` (80) → `Animation` (70) → `Effects` (65) → `Gameplay` (60) → `Hierarchy` (50) → `Particles` (48) → `Camera` (45) → `Render` (40) → `PostProcess` (35) → `Boundary` (30) → `Audio` (−10)
 
 ### ECS vs Scene Graph
 
@@ -462,6 +463,57 @@ final fade = OpacityTween(
 fade.play();
 ```
 
+### Pattern 5: ECS Particle Burst
+
+Use `ParticleEmitterComponent` and `ParticleSystemECS` for fire-and-forget effects. The entity is automatically destroyed when all particles expire.
+
+```dart
+void spawnExplosion(Engine engine, Offset position) {
+  final world = engine.world;
+
+  // Register  once — safe to call multiple times
+  if (!world.hasSystems([ParticleSystemECS, RenderSystem])) {
+    world.addSystem(ParticleSystemECS());
+    world.addSystem(RenderSystem());
+  }
+
+  final burst = world.createEntity(name: 'Explosion');
+  burst.addComponent(TransformComponent(position: position));
+  burst.addComponent(ParticleEmitterComponent(
+    emitter: ParticleEffects.explosion(position: position),
+    syncPositionFromTransform: false,
+    removeEntityWhenComplete: true,  // Auto-destroy when done
+  ));
+}
+```
+
+### Pattern 6: ECS Camera Follow
+
+Add `CameraFollowComponent` to any entity and `CameraFollowSystem` will drive the camera toward it with spring + lookahead.
+
+```dart
+void setupCameraFollow(Engine engine) {
+  final world = engine.world;
+
+  world.addSystem(MovementSystem());
+  world.addSystem(RenderSystem());
+  world.addSystem(CameraFollowSystem(cameraSystem: engine.cameraSystem));
+
+  final player = world.createEntity(name: 'Player');
+  player.addComponent(TransformComponent(position: Offset.zero));
+  player.addComponent(VelocityComponent(velocity: const Offset(80, 0)));
+  player.addComponent(RenderableComponent(
+    renderable: CircleRenderable(radius: 20, fillColor: Colors.blue),
+  ));
+  player.addComponent(CameraFollowComponent(
+    lookaheadDistance: 100,   // Look ahead in the movement direction
+    deadZoneWidth: 40,         // Camera doesn't move until player drifts this far
+  ));
+}
+```
+
+When multiple entities carry a `CameraFollowComponent` with the same lowest `priority`, the system switches to multi-target mode and auto-zooms to keep all targets in view.
+
 ## Camera Controls
 
 ```dart
@@ -477,6 +529,119 @@ void zoomIn() {
 void resetCamera() {
   engine.rendering.camera.reset();
 }
+```
+
+## Localization
+
+Load JSON string tables and look up keys from anywhere in game code.
+
+```dart
+Future<void> setupLocalization() async {
+  final l10n = LocalizationManager();
+
+  // Load per-locale JSON files (flat or nested, auto-flattened)
+  await l10n.load(const Locale('en'), 'assets/l10n/ui_en.json', ns: 'ui');
+  await l10n.load(const Locale('fr'), 'assets/l10n/ui_fr.json', ns: 'ui');
+
+  // Set a global singleton for convenience
+  LocalizationManager.instance = l10n;
+  l10n.setLocale(const Locale('fr'));
+}
+
+// Anywhere in game code:
+final text = LocalizationManager.instance!.t('ui.start_game');
+final plural = LocalizationManager.instance!.t('ui.item_count', args: {'count': 3});
+```
+
+**JSON format** (`assets/l10n/ui_en.json`):
+```json
+{
+  "ui": {
+    "start_game": "Start Game",
+    "item_count": "{count, plural, =0{No items} =1{One item} other{{count} items}}"
+  }
+}
+```
+
+Use `LocalizedText('ui.start_game')` in widgets — it rebuilds automatically when `l10n.setLocale()` is called:
+
+```dart
+LocalizationScope(
+  manager: LocalizationManager.instance!,
+  child: LocalizedText('ui.start_game', style: TextStyle(fontSize: 24)),
+)
+```
+
+## Post-Processing with Shaders
+
+Apply fullscreen GLSL effects (bloom, vignette, chromatic aberration) by attaching a `ShaderComponent` to an entity and registering the `PostProcessSystem`.
+
+**Step 1** — Declare the shader in `pubspec.yaml`:
+```yaml
+flutter:
+  shaders:
+    - shaders/vignette.frag
+```
+
+**Step 2** — Load and attach:
+```dart
+Future<void> setupPostProcess(Engine engine) async {
+  final world = engine.world;
+
+  world.addSystem(PostProcessSystem(
+    engine.rendering,
+    getTime: () => engine.time.totalTime,
+  ));
+
+  final program = await ui.FragmentProgram.fromAsset('shaders/vignette.frag');
+  final vfxEntity = world.createEntity(name: 'vfx_vignette');
+  vfxEntity.addComponent(ShaderComponent(
+    program: program,
+    isPostProcess: true,
+    passOrder: 0,
+    setUniforms: (s, w, h, t) {
+      s.setFloat(0, w);   // uResolution.x
+      s.setFloat(1, h);   // uResolution.y
+      s.setFloat(2, t);   // uTime
+    },
+  ));
+}
+```
+
+Chain multiple passes by giving each `ShaderComponent` a different `passOrder` — lower values are applied innermost (closest to the raw scene).
+
+## Deterministic Effects (Multiplayer-safe)
+
+Tick-based property effects guarantee the same result across platforms and reconnecting clients.
+
+```dart
+void setupEffects(Engine engine) {
+  final world = engine.world;
+  final fx = EffectSystemECS();
+  world.addSystem(fx);
+
+  // Hit flash: shake then fade out
+  fx.scheduleEffect(
+    entity: enemy,
+    effect: SequenceEffect([
+      ShakeEffect(amplitude: 8, durationTicks: 12),
+      FadeEffect(to: 0.0, durationTicks: 30),
+    ]),
+  );
+
+  // Move to position over 1 second (at 60 UPS = 60 ticks)
+  fx.scheduleEffect(
+    entity: coin,
+    effect: MoveEffect(to: playerPos, durationTicks: 60),
+  );
+}
+```
+
+Take a rollback snapshot and restore it later (useful for client-side prediction):
+```dart
+final snap = fx.snapshot();
+// ... simulate ahead ...
+fx.restoreSnapshot(snap);
 ```
 
 ## Game Loop Integration
@@ -547,12 +712,13 @@ GameWidget(
 
 ## Performance Tips
 
-1. **Limit objects**: Keep renderables under 100 for best performance (or use SpriteBatch for many sprites)
+1. **Use SpriteBatch**: Group sprites sharing an atlas — the engine batches them into a single `Canvas.drawAtlas()` call. The `Quadtree` spatial index activates automatically when renderable count exceeds 200.
 2. **Use layers**: Organize objects by layer for efficient rendering
-3. **Pool particles**: Reuse particle emitters; the engine uses `ObjectPool` internally
+3. **Use `ParticleEmitterComponent`**: ECS-managed emitters clean themselves up (`removeEntityWhenComplete: true`) and use `ObjectPool` internally
 4. **Batch updates**: Update multiple objects together
 5. **Profile**: Use Flutter DevTools to find bottlenecks
-6. **Use Vec2**: For custom physics code, prefer mutable `Vec2` over `Offset` to avoid allocation pressure
+6. **Use Vec2**: For custom physics code, prefer mutable `Vec2` over `Offset` to avoid allocation pressure on hot paths
+7. **Use `CommandBuffer`** inside systems: call `world.commands.destroy(entity)` rather than mutating the entity list directly — avoids concurrent-modification errors at zero extra cost
 
 ## Common Mistakes
 

@@ -351,7 +351,36 @@ class CustomRenderable extends Renderable {
   @override
   void render(Canvas canvas, Size canvasSize) {
     applyTransform(canvas);
+
+    final needsLayer = opacity < 1.0 || tint != null;
+    if (needsLayer) {
+      if (tint != null) {
+        // Modulate blends both colour and alpha: multiply each channel of the
+        // offscreen buffer by the tint colour (pre-multiplied with opacity).
+        canvas.saveLayer(
+          null,
+          Paint()
+            ..colorFilter = ColorFilter.mode(
+              tint!.withValues(alpha: tint!.a * opacity),
+              BlendMode.modulate,
+            ),
+        );
+      } else {
+        // Opacity only — use a white modulate so only alpha is affected.
+        canvas.saveLayer(
+          null,
+          Paint()
+            ..colorFilter = ColorFilter.mode(
+              Color.fromRGBO(255, 255, 255, opacity),
+              BlendMode.modulate,
+            ),
+        );
+      }
+    }
+
     onRender(canvas, canvasSize);
+
+    if (needsLayer) canvas.restore();
     restoreTransform(canvas);
   }
 

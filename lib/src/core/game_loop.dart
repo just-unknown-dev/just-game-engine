@@ -49,14 +49,17 @@ class GameLoop {
   /// Time accumulator for fixed timestep
   double _accumulator = 0.0;
 
-  /// Last frame timestamp
-  DateTime _lastFrameTime = DateTime.now();
+  /// Monotonic clock for frame timing.
+  final Stopwatch _clock = Stopwatch();
+
+  /// Last frame timestamp in microseconds from [_clock].
+  int _lastFrameMicros = 0;
 
   /// Frame counter for FPS calculation
   int _frameCount = 0;
 
-  /// Timer for FPS calculation
-  DateTime _fpsTimer = DateTime.now();
+  /// Accumulated frame time for FPS calculation.
+  int _fpsElapsedMicros = 0;
 
   /// Current frames per second
   int _currentFPS = 0;
@@ -97,9 +100,14 @@ class GameLoop {
 
     _isRunning = true;
     _isPaused = false;
-    _lastFrameTime = DateTime.now();
-    _fpsTimer = DateTime.now();
+    _accumulator = 0.0;
     _frameCount = 0;
+    _fpsElapsedMicros = 0;
+    _currentFPS = 0;
+    _clock
+      ..reset()
+      ..start();
+    _lastFrameMicros = 0;
 
     debugPrint('Game loop started (Target UPS: $targetUPS)');
   }
@@ -121,7 +129,7 @@ class GameLoop {
     }
 
     _isPaused = false;
-    _lastFrameTime = DateTime.now();
+    _lastFrameMicros = _clock.elapsedMicroseconds;
     // Reset accumulator to prevent a burst of fixed-timestep updates after
     // a long pause.
     _accumulator = 0.0;
@@ -136,6 +144,7 @@ class GameLoop {
 
     _isRunning = false;
     _isPaused = false;
+    _clock.stop();
 
     debugPrint('Game loop stopped');
   }
@@ -147,15 +156,18 @@ class GameLoop {
   void tick() {
     if (!_isRunning) return;
 
-    final now = DateTime.now();
-    final frameTime = now.difference(_lastFrameTime).inMicroseconds / 1000000.0;
-    _lastFrameTime = now;
+    final nowMicros = _clock.elapsedMicroseconds;
+    final frameMicros = _lastFrameMicros == 0
+        ? 0
+        : nowMicros - _lastFrameMicros;
+    _lastFrameMicros = nowMicros;
+    final frameTime = frameMicros / 1000000.0;
 
     // Update time manager
     timeManager.update(frameTime);
 
     // Calculate FPS
-    _calculateFPS(now);
+    _calculateFPS(frameMicros);
 
     // Don't update game logic if paused
     if (!_isPaused) {
@@ -163,8 +175,8 @@ class GameLoop {
       _accumulator += frameTime;
 
       // Clamp accumulator to prevent spiral of death
-      if (_accumulator > _fixedDeltaTime * 5) {
-        _accumulator = _fixedDeltaTime * 5;
+      if (_accumulator > _fixedDeltaTime * 3) {
+        _accumulator = _fixedDeltaTime * 3;
       }
 
       // Update at fixed timestep
@@ -180,14 +192,14 @@ class GameLoop {
   }
 
   /// Calculate frames per second
-  void _calculateFPS(DateTime now) {
+  void _calculateFPS(int frameMicros) {
     _frameCount++;
+    _fpsElapsedMicros += frameMicros;
 
-    final elapsed = now.difference(_fpsTimer).inMilliseconds;
-    if (elapsed >= 1000) {
-      _currentFPS = (_frameCount * 1000 / elapsed).round();
+    if (_fpsElapsedMicros >= 1000000) {
+      _currentFPS = (_frameCount * 1000000 / _fpsElapsedMicros).round();
       _frameCount = 0;
-      _fpsTimer = now;
+      _fpsElapsedMicros = 0;
     }
   }
 

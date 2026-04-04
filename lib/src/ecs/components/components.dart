@@ -11,6 +11,7 @@ export 'core/velocity_component.dart';
 export 'rendering/renderable_component.dart';
 export 'rendering/sprite_component.dart';
 export 'rendering/parallax_component.dart';
+export 'rendering/shader_component.dart';
 
 // Physics components
 export 'physics/physics_body_component.dart';
@@ -39,6 +40,18 @@ export 'others/lifetime_component.dart';
 
 // Tiled Map Editor components
 export 'tiled/tiled_components.dart';
+
+// Camera components
+export 'camera/camera_follow_component.dart';
+
+// Deterministic Effects components
+export 'effects/effect_component.dart';
+
+// Particle components
+export 'rendering/particle_emitter_component.dart';
+
+// Narrative / Dialogue components
+export '../../subsystems/narrative/ecs/dialogue_component.dart';
 
 // UI Components - ECS data components for UI elements
 export 'ui/ui_component.dart';

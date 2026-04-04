@@ -14,6 +14,16 @@ abstract class Asset {
   /// Get load status
   bool get isLoaded => _isLoaded;
 
+  /// Mark the asset as successfully loaded.
+  ///
+  /// Call this at the end of [load] in subclasses that live outside the
+  /// `asset_management.dart` library (and therefore cannot access the private
+  /// field [_isLoaded] directly).
+  void markAsLoaded() => _isLoaded = true;
+
+  /// Mark the asset as unloaded.  Call this from [unload] in such subclasses.
+  void markAsUnloaded() => _isLoaded = false;
+
   /// Constructor
   Asset(this.path, this.type);
 
@@ -28,7 +38,7 @@ abstract class Asset {
 }
 
 /// Asset types supported by the engine
-enum AssetType { image, audio, text, json, binary, font, shader, model }
+enum AssetType { image, audio, text, json, binary, font, shader, model, atlas }
 
 /// Asset loading exception
 class AssetLoadException implements Exception {

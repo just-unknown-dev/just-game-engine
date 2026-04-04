@@ -33,7 +33,10 @@ class EntitySignal {
   final Entity _entity;
   final String _debugLabel;
 
-  final Map<Type, Signal<Component?>> _componentSignals = {};
+  // Stores Signal<T?> for each component type T, keyed by Type.
+  // Declared as Map<Type, dynamic> so that Signal<T?> values (which are
+  // invariant in T) can coexist in the same map without invalid variance casts.
+  final Map<Type, dynamic> _componentSignals = {};
   final Signal<bool> _activeSignal = Signal(
     true,
     debugLabel: 'Entity.isActive',
@@ -51,21 +54,27 @@ class EntitySignal {
   /// Returns the signal for a component [type] if it already exists, or null.
   ///
   /// Unlike [component], this does **not** create the signal lazily.
-  Signal<Component?>? componentSignalByType(Type type) =>
-      _componentSignals[type];
+  /// Exposes the raw signal as [Signal<Component?>] for callers that only
+  /// need change notification (e.g. [ReactiveSystem] watch hooks).
+  Signal<Component?>? componentSignalByType(Type type) {
+    final s = _componentSignals[type];
+    if (s == null) return null;
+    return s as Signal<Component?>;
+  }
 
-  /// Gets or creates a signal for a specific component type.
+  /// Gets or creates a [Signal<T?>] for the given component type.
   ///
-  /// The signal's value will be null if the component doesn't exist.
+  /// The signal holds `null` when the component is not present on the entity.
   Signal<T?> component<T extends Component>() {
-    return _componentSignals.putIfAbsent(
-          T,
-          () => Signal<Component?>(
-            _entity.getComponent<T>(),
-            debugLabel: '$_debugLabel.$T',
-          ),
-        )
-        as Signal<T?>;
+    if (_componentSignals.containsKey(T)) {
+      return _componentSignals[T] as Signal<T?>;
+    }
+    final signal = Signal<T?>(
+      _entity.getComponent<T>(),
+      debugLabel: '$_debugLabel.$T',
+    );
+    _componentSignals[T] = signal;
+    return signal;
   }
 
   /// Checks if the entity has a component (reactive).
@@ -100,7 +109,9 @@ class EntitySignal {
 
     for (final entry in _componentSignals.entries) {
       final type = entry.key;
-      final signal = entry.value;
+      // entry.value is Signal<T?> stored via dynamic — use dynamic dispatch
+      // so the assignment is checked against the actual (correct) runtime type.
+      final dynamic signal = entry.value;
 
       // Use reflection-free approach - check if component exists
       Component? current;
@@ -116,7 +127,7 @@ class EntitySignal {
 
   /// Notifies that a component was added.
   void notifyComponentAdded<T extends Component>(T component) {
-    final signal = _componentSignals[T];
+    final dynamic signal = _componentSignals[T];
     if (signal != null) {
       signal.value = component;
     }
@@ -124,14 +135,14 @@ class EntitySignal {
 
   /// Notifies that a component was removed.
   void notifyComponentRemoved<T extends Component>() {
-    final signal = _componentSignals[T];
+    final dynamic signal = _componentSignals[T];
     if (signal != null) {
       signal.value = null;
     }
   }
 
   void dispose() {
-    for (final signal in _componentSignals.values) {
+    for (final dynamic signal in _componentSignals.values) {
       signal.dispose();
     }
     _componentSignals.clear();

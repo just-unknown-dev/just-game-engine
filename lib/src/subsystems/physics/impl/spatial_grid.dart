@@ -26,11 +26,23 @@ class SpatialGrid {
   /// Pool of previously allocated cell lists, reused on next rebuild.
   final List<List<PhysicsBody>> _listPool = [];
 
+  /// Tracks the last occupied cell range for each body.
+  final Map<PhysicsBody, _CellRange> _trackedBodies = {};
+  final Set<PhysicsBody> _seenBodies = <PhysicsBody>{};
+
+  // Persistent scratch buffers — cleared and reused each frame to avoid
+  // heap allocation in hot paths.
+  final List<PhysicsBody> _removedScratch = [];
+  final List<BodyPair> _pairBuffer = [];
+  final Set<int> _pairKeySet = {};
+
+  int _lastDirtyBodyCount = 0;
+
   SpatialGrid(this.cellSize);
 
   int _hash(int x, int y) {
-    // A simple hash function for 2D grids (using prime numbers)
-    return (x * 73856093) ^ ((y * 19349663) >> 1);
+    // Two independent primes — no bit-shift so y's entropy is fully preserved.
+    return (x * 73856093) ^ (y * 83492791);
   }
 
   /// Clear all cells, returning their lists to the pool for reuse.
@@ -40,6 +52,9 @@ class SpatialGrid {
       _listPool.add(list);
     }
     cells.clear();
+    _trackedBodies.clear();
+    _seenBodies.clear();
+    _lastDirtyBodyCount = 0;
   }
 
   /// Obtain a list from the pool or allocate a new one.
@@ -48,34 +63,166 @@ class SpatialGrid {
   }
 
   void insert(PhysicsBody body) {
-    if (!body.isActive || !body.checkCollision) return;
+    final range = _computeRange(body);
+    if (range == null) return;
+
+    _insertIntoRange(body, range);
+    _trackedBodies[body] = range;
+  }
+
+  void syncBodies(Iterable<PhysicsBody> bodies) {
+    _seenBodies.clear();
+    var dirtyBodies = 0;
+
+    for (final body in bodies) {
+      _seenBodies.add(body);
+
+      final nextRange = _computeRange(body);
+      final previousRange = _trackedBodies[body];
+
+      if (nextRange == null) {
+        if (previousRange != null) {
+          _removeFromRange(body, previousRange);
+          _trackedBodies.remove(body);
+          dirtyBodies++;
+        }
+        continue;
+      }
+
+      if (previousRange == nextRange) {
+        continue;
+      }
+
+      if (previousRange != null) {
+        _removeFromRange(body, previousRange);
+      }
+      _insertIntoRange(body, nextRange);
+      _trackedBodies[body] = nextRange;
+      dirtyBodies++;
+    }
+
+    _removedScratch.clear();
+    for (final body in _trackedBodies.keys) {
+      if (!_seenBodies.contains(body)) {
+        _removedScratch.add(body);
+      }
+    }
+
+    for (final body in _removedScratch) {
+      final previousRange = _trackedBodies.remove(body);
+      if (previousRange != null) {
+        _removeFromRange(body, previousRange);
+        dirtyBodies++;
+      }
+    }
+
+    _lastDirtyBodyCount = dirtyBodies;
+  }
+
+  void removeBody(PhysicsBody body) {
+    final previousRange = _trackedBodies.remove(body);
+    if (previousRange != null) {
+      _removeFromRange(body, previousRange);
+    }
+  }
+
+  _CellRange? _computeRange(PhysicsBody body) {
+    if (!body.isActive || !body.checkCollision) return null;
 
     final bounds = body.shape.getBounds(body.position.toOffset());
-    final minX = (bounds.left / cellSize).floor();
-    final minY = (bounds.top / cellSize).floor();
-    final maxX = (bounds.right / cellSize).floor();
-    final maxY = (bounds.bottom / cellSize).floor();
+    return _CellRange(
+      minX: (bounds.left / cellSize).floor(),
+      minY: (bounds.top / cellSize).floor(),
+      maxX: (bounds.right / cellSize).floor(),
+      maxY: (bounds.bottom / cellSize).floor(),
+    );
+  }
 
-    for (int x = minX; x <= maxX; x++) {
-      for (int y = minY; y <= maxY; y++) {
+  void _insertIntoRange(PhysicsBody body, _CellRange range) {
+    for (int x = range.minX; x <= range.maxX; x++) {
+      for (int y = range.minY; y <= range.maxY; y++) {
         final hash = _hash(x, y);
         (cells[hash] ?? (cells[hash] = _acquireList())).add(body);
       }
     }
   }
 
+  void _removeFromRange(PhysicsBody body, _CellRange range) {
+    for (int x = range.minX; x <= range.maxX; x++) {
+      for (int y = range.minY; y <= range.maxY; y++) {
+        final hash = _hash(x, y);
+        final bucket = cells[hash];
+        if (bucket == null) continue;
+
+        bucket.remove(body);
+        if (bucket.isEmpty) {
+          cells.remove(hash);
+          _listPool.add(bucket);
+        }
+      }
+    }
+  }
+
   /// Get potentially colliding pairs.
-  Set<BodyPair> getPotentialCollisions() {
-    final pairs = <BodyPair>{};
+  ///
+  /// Returns a pre-allocated internal buffer; do not hold a reference beyond
+  /// the current physics tick.
+  List<BodyPair> getPotentialCollisions() {
+    _pairBuffer.clear();
+    _pairKeySet.clear();
     for (final bin in cells.values) {
       if (bin.length > 1) {
         for (int i = 0; i < bin.length; i++) {
           for (int j = i + 1; j < bin.length; j++) {
-            pairs.add(BodyPair(bin[i], bin[j]));
+            final a = bin[i];
+            final b = bin[j];
+            // Deterministic pair key: use min/max identity hash codes so
+            // (a,b) and (b,a) map to the same integer, avoiding duplicates
+            // without allocating a BodyPair for the Set check.
+            final idA = identityHashCode(a);
+            final idB = identityHashCode(b);
+            final minId = idA < idB ? idA : idB;
+            final maxId = idA < idB ? idB : idA;
+            final key = minId * 0x100003 ^ maxId;
+            if (_pairKeySet.add(key)) {
+              _pairBuffer.add(BodyPair(a, b));
+            }
           }
         }
       }
     }
-    return pairs;
+    return _pairBuffer;
   }
+
+  int get dirtyBodyCount => _lastDirtyBodyCount;
+
+  int get trackedCellCount => cells.length;
+
+  int get trackedBodyCount => _trackedBodies.length;
+}
+
+class _CellRange {
+  final int minX;
+  final int minY;
+  final int maxX;
+  final int maxY;
+
+  const _CellRange({
+    required this.minX,
+    required this.minY,
+    required this.maxX,
+    required this.maxY,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    return other is _CellRange &&
+        other.minX == minX &&
+        other.minY == minY &&
+        other.maxX == maxX &&
+        other.maxY == maxY;
+  }
+
+  @override
+  int get hashCode => Object.hash(minX, minY, maxX, maxY);
 }

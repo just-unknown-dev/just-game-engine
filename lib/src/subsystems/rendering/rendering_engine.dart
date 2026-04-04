@@ -4,10 +4,13 @@
 /// This module manages the rendering pipeline for the game engine using Flutter Canvas.
 library;
 
+import 'dart:collection';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'impl/renderable.dart';
 import 'impl/sprite_batch.dart';
+import '../post_processing/post_process_pass.dart';
+import '../particles/particles.dart';
 import '../camera/camera_system.dart';
 import '../../interfaces/rendering_interfaces.dart';
 import '../../math/quadtree.dart';
@@ -27,8 +30,18 @@ class RenderingEngine {
   /// Set for O(1) membership checks in addRenderable
   final Set<Renderable> _renderableSet = {};
 
-  /// List of rendering layers
-  final Map<int, List<Renderable>> _layers = {};
+  /// Standalone managed particle emitters updated automatically each frame.
+  ///
+  /// Use [addManagedEmitter] / [removeManagedEmitter] instead of accessing
+  /// this list directly.
+  final List<ParticleEmitter> _managedEmitters = [];
+
+  /// Rendering layers — LinkedHashSet per layer for O(1) add/remove.
+  final Map<int, LinkedHashSet<Renderable>> _layers = {};
+
+  /// Sorted-by-zOrder snapshot of each layer, rebuilt when [_layersDirty].
+  /// The render loop iterates this instead of [_layers] to maintain zOrder.
+  final Map<int, List<Renderable>> _sortedLayerLists = {};
 
   /// Main camera
   late Camera camera;
@@ -72,6 +85,73 @@ class RenderingEngine {
   static const int _spatialThreshold = 200;
   Quadtree<Renderable>? _quadtree;
   final List<Renderable> _quadtreeResults = [];
+  final Set<Renderable> _spatialVisibleSet = <Renderable>{};
+  final Map<Renderable, Rect?> _boundsCache = <Renderable, Rect?>{};
+  final Map<Renderable, int> _trackedLayers = <Renderable, int>{};
+  final Map<Renderable, int> _trackedZOrders = <Renderable, int>{};
+  Rect? _spatialIndexBounds;
+  bool _spatialIndexDirty = true;
+
+  double _lastRenderTimeMs = 0.0;
+  int _lastDrawCallCount = 0;
+  int _lastRenderedCount = 0;
+  int _lastCulledCount = 0;
+  int _lastBatchedSpriteCount = 0;
+  bool _lastUsedSpatialIndex = false;
+  int _spatialRebuildCount = 0;
+  bool _spatialReusedLastFrame = false;
+
+  // Persistent Stopwatch instance — reused every frame to avoid heap allocation.
+  final Stopwatch _renderStopwatch = Stopwatch();
+
+  // ── Post-process pass pipeline ─────────────────────────────────────────
+
+  /// Registered fullscreen post-process passes (ordered for sort).
+  ///
+  /// Managed via [addPostProcessPass] / [removePostProcessPass].
+  /// [PostProcessSystem] populates this list each frame from ECS entities.
+  final List<PostProcessPass> _postProcessPasses = [];
+
+  /// O(1) membership set that mirrors [_postProcessPasses].
+  /// Prevents duplicate insertions without O(n) list scan.
+  final Set<PostProcessPass> _postProcessPassSet = {};
+
+  /// Cached sorted pass list rebuilt when the pass set changes.
+  final List<PostProcessPass> _sortedPasses = [];
+  bool _passListDirty = false;
+
+  /// Elapsed engine time in seconds, written each frame by [PostProcessSystem]
+  /// (or set manually when using the pass pipeline without ECS).
+  ///
+  /// Forwarded to every [PostProcessPass.setUniforms] callback.
+  double elapsedSeconds = 0.0;
+
+  /// Cached fullscreen rect reused every render to avoid per-frame allocation.
+  Rect _fullscreenRect = Rect.zero;
+
+  /// Cached [Paint] for post-process `saveLayer` calls.
+  final Paint _postProcessPaint = Paint();
+
+  /// Register a [PostProcessPass] with the render pipeline.
+  ///
+  /// The pass will be included in the scene-wrapping shader chain starting
+  /// from the next rendered frame. Duplicate insertions are silently ignored.
+  void addPostProcessPass(PostProcessPass pass) {
+    if (_postProcessPassSet.add(pass)) {
+      _postProcessPasses.add(pass);
+      _passListDirty = true;
+    }
+  }
+
+  /// Remove a [PostProcessPass] from the render pipeline.
+  ///
+  /// Has no effect if the pass is not currently registered.
+  void removePostProcessPass(PostProcessPass pass) {
+    if (_postProcessPassSet.remove(pass)) {
+      _postProcessPasses.remove(pass);
+      _passListDirty = true;
+    }
+  }
 
   // ── Cached Paint objects (avoid per-frame allocation) ──────────────────
   final Paint _backgroundPaint = Paint();
@@ -113,13 +193,58 @@ class RenderingEngine {
     debugPrint('Rendering Engine initialized');
   }
 
+  // ── Managed particle emitters ──────────────────────────────────────────────
+
+  /// Register a [ParticleEmitter] so it is updated and rendered automatically
+  /// each frame without requiring an ECS entity.
+  ///
+  /// Useful for fire-and-forget effects (e.g. impact bursts) that don't need
+  /// game-object identity.  The emitter is also added as a [Renderable] so it
+  /// participates in layer-based rendering normally.
+  ///
+  /// Completed emitters (no more emissions + no live particles) are removed
+  /// automatically during [updateManagedEmitters].
+  void addManagedEmitter(ParticleEmitter emitter) {
+    if (!_managedEmitters.contains(emitter)) {
+      _managedEmitters.add(emitter);
+      addRenderable(emitter);
+    }
+  }
+
+  /// Unregister a [ParticleEmitter] that was previously added via
+  /// [addManagedEmitter], stopping its automatic update and removing it from
+  /// rendering.
+  void removeManagedEmitter(ParticleEmitter emitter) {
+    if (_managedEmitters.remove(emitter)) {
+      removeRenderable(emitter);
+    }
+  }
+
+  /// Advance all managed particle emitters by [deltaTime] seconds.
+  ///
+  /// Called automatically by the engine's update loop.  Completed emitters
+  /// are removed from the list and unregistered from rendering.
+  void updateManagedEmitters(double deltaTime) {
+    // Iterate backwards so index removal is safe
+    for (int i = _managedEmitters.length - 1; i >= 0; i--) {
+      final emitter = _managedEmitters[i];
+      emitter.update(deltaTime);
+      if (emitter.isComplete) {
+        _managedEmitters.removeAt(i);
+        removeRenderable(emitter);
+      }
+    }
+  }
+
   /// Add a renderable object to the scene
   ///
   /// [renderable] - The object to render
   void addRenderable(Renderable renderable) {
     if (_renderableSet.add(renderable)) {
       _renderables.add(renderable);
+      _trackRenderable(renderable);
       _addToLayer(renderable);
+      _spatialIndexDirty = true;
     }
   }
 
@@ -129,14 +254,17 @@ class RenderingEngine {
   void removeRenderable(Renderable renderable) {
     if (_renderableSet.remove(renderable)) {
       _renderables.remove(renderable);
+      _untrackRenderable(renderable);
       _removeFromLayer(renderable);
+      _spatialIndexDirty = true;
     }
   }
 
   /// Add a renderable to its layer
   void _addToLayer(Renderable renderable) {
-    _layers.putIfAbsent(renderable.layer, () => []);
-    _layers[renderable.layer]!.add(renderable);
+    _layers
+        .putIfAbsent(renderable.layer, () => LinkedHashSet<Renderable>())
+        .add(renderable);
     _layersDirty = true;
   }
 
@@ -146,19 +274,124 @@ class RenderingEngine {
     _layersDirty = true;
   }
 
+  void _trackRenderable(Renderable renderable) {
+    _trackedLayers[renderable] = renderable.layer;
+    _trackedZOrders[renderable] = renderable.zOrder;
+    _boundsCache[renderable] = renderable.getBounds();
+  }
+
+  void _untrackRenderable(Renderable renderable) {
+    _trackedLayers.remove(renderable);
+    _trackedZOrders.remove(renderable);
+    _boundsCache.remove(renderable);
+  }
+
+  /// Mark layer sorting as dirty after direct renderable mutation.
+  void markLayerOrderDirty() {
+    _layersDirty = true;
+  }
+
+  /// Mark the spatial index as dirty after direct transform mutation.
+  void markSpatialIndexDirty() {
+    _spatialIndexDirty = true;
+  }
+
   /// Clear all renderables
   void clear() {
     _renderables.clear();
     _renderableSet.clear();
     _layers.clear();
+    _sortedLayerLists.clear();
+    _boundsCache.clear();
+    _trackedLayers.clear();
+    _trackedZOrders.clear();
+    _quadtree = null;
+    _quadtreeResults.clear();
+    _spatialVisibleSet.clear();
+    _spatialIndexBounds = null;
+    _spatialIndexDirty = true;
     _layersDirty = true;
+    _postProcessPasses.clear();
+    _postProcessPassSet.clear();
+    _sortedPasses.clear();
+    _passListDirty = false;
   }
 
-  /// Sort renderables by layer and z-order
-  void _sortRenderables() {
-    for (final layer in _layers.values) {
-      layer.sort((a, b) => a.zOrder.compareTo(b.zOrder));
+  void _refreshRenderableTracking() {
+    for (final renderable in _renderables) {
+      final previousLayer = _trackedLayers[renderable];
+      if (previousLayer == null) {
+        _trackRenderable(renderable);
+        _layersDirty = true;
+        _spatialIndexDirty = true;
+      } else if (previousLayer != renderable.layer) {
+        _layers[previousLayer]?.remove(renderable); // O(1) — LinkedHashSet
+        _layers
+            .putIfAbsent(renderable.layer, () => LinkedHashSet<Renderable>())
+            .add(renderable); // O(1) — Set.add is idempotent
+        _trackedLayers[renderable] = renderable.layer;
+        _layersDirty = true;
+      }
+
+      final previousZ = _trackedZOrders[renderable];
+      if (previousZ != renderable.zOrder) {
+        _trackedZOrders[renderable] = renderable.zOrder;
+        _layersDirty = true;
+      }
     }
+  }
+
+  /// Rebuild the sorted-by-zOrder render lists from the layer sets.
+  void _sortRenderables() {
+    for (final entry in _layers.entries) {
+      (_sortedLayerLists[entry.key] ??= [])
+        ..clear()
+        ..addAll(entry.value)
+        ..sort((a, b) => a.zOrder.compareTo(b.zOrder));
+    }
+    // Prune entries for layers that have been removed.
+    _sortedLayerLists.removeWhere((k, _) => !_layers.containsKey(k));
+  }
+
+  void _refreshSpatialIndex(Rect visibleRect) {
+    var sceneBounds = Rect.fromLTRB(
+      visibleRect.left - visibleRect.width,
+      visibleRect.top - visibleRect.height,
+      visibleRect.right + visibleRect.width,
+      visibleRect.bottom + visibleRect.height,
+    );
+    var boundsChanged = _spatialIndexDirty || _quadtree == null;
+
+    for (final renderable in _renderables) {
+      final currentBounds = renderable.getBounds();
+      if (_boundsCache[renderable] != currentBounds) {
+        _boundsCache[renderable] = currentBounds;
+        boundsChanged = true;
+      }
+      if (currentBounds != null) {
+        sceneBounds = sceneBounds.expandToInclude(currentBounds);
+      }
+    }
+
+    final treeCoversVisibleRect =
+        _spatialIndexBounds != null &&
+        _spatialIndexBounds!.contains(visibleRect.topLeft) &&
+        _spatialIndexBounds!.contains(visibleRect.bottomRight);
+
+    final needsRebuild = boundsChanged || !treeCoversVisibleRect;
+    if (!needsRebuild) {
+      _spatialReusedLastFrame = true;
+      return;
+    }
+
+    _quadtree = Quadtree<Renderable>(bounds: sceneBounds);
+    for (final entry in _boundsCache.entries) {
+      _quadtree!.insert(entry.key, entry.value);
+    }
+    _spatialIndexBounds = sceneBounds;
+    _spatialIndexDirty = false;
+    _spatialReusedLastFrame = false;
+    _spatialRebuildCount++;
   }
 
   /// Render a frame
@@ -167,6 +400,14 @@ class RenderingEngine {
   /// [size] - Size of the rendering area
   void render(Canvas canvas, Size size) {
     if (!_initialized) return;
+
+    _renderStopwatch
+      ..reset()
+      ..start();
+    var drawCalls = 1; // background clear
+    var renderedCount = 0;
+    var culledCount = 0;
+    var batchedSpriteCount = 0;
 
     // Update camera viewport
     camera.viewportSize = size;
@@ -178,11 +419,49 @@ class RenderingEngine {
       _backgroundPaint,
     );
 
-    // Sort renderables
-    _sortRenderables();
+    _refreshRenderableTracking();
+    if (_layersDirty) {
+      _sortRenderables();
+    }
 
     // Render parallax backgrounds in screen space (before camera transform).
     onRenderBackground?.call(canvas, size);
+
+    // ── Post-process: push offscreen layers (outermost first) ─────────────
+    // Each active pass wraps the scene+overlay in a saveLayer so Flutter's
+    // compositor applies the FragmentShader when restoring the layer.
+    int activePasses = 0;
+    if (_postProcessPasses.isNotEmpty) {
+      if (_passListDirty) {
+        _sortedPasses
+          ..clear()
+          ..addAll(_postProcessPasses)
+          ..sort((a, b) => a.passOrder.compareTo(b.passOrder));
+        _passListDirty = false;
+      }
+      _fullscreenRect = Rect.fromLTWH(0, 0, size.width, size.height);
+      // Push from outermost (highest passOrder) to innermost (lowest)
+      // so the LIFO restore order applies shaders innermost-first.
+      for (int i = _sortedPasses.length - 1; i >= 0; i--) {
+        final pass = _sortedPasses[i];
+        if (!pass.enabled) continue;
+        pass.setUniforms?.call(
+          pass.shader,
+          size.width,
+          size.height,
+          elapsedSeconds,
+        );
+        _postProcessPaint.imageFilter = ui.ImageFilter.shader(pass.shader);
+        canvas.saveLayer(_fullscreenRect, _postProcessPaint);
+        activePasses++;
+      }
+    }
+
+    // ── Camera effect pre-render (inside post-process context) ───────────
+    // Called AFTER post-process layers are pushed so the motion-blur
+    // saveLayer is innermost — wrapping both subsystem renderables and ECS
+    // entities, while post-process shaders see the already-blurred output.
+    camera.effectManager.preRender(canvas, size);
 
     // Save canvas state
     canvas.save();
@@ -194,23 +473,19 @@ class RenderingEngine {
     final visibleRect = camera.getVisibleBounds();
     final useTree = useSpatialIndex && _renderables.length > _spatialThreshold;
 
+    _lastUsedSpatialIndex = useTree;
+
     Set<Renderable>? spatialVisible;
     if (useTree) {
-      // Rebuild quadtree from scratch (renderables move every frame).
-      _quadtree = Quadtree<Renderable>(
-        bounds: Rect.fromLTRB(
-          visibleRect.left - visibleRect.width,
-          visibleRect.top - visibleRect.height,
-          visibleRect.right + visibleRect.width,
-          visibleRect.bottom + visibleRect.height,
-        ),
-      );
-      for (final r in _renderables) {
-        _quadtree!.insert(r, r.getBounds());
-      }
+      _refreshSpatialIndex(visibleRect);
       _quadtreeResults.clear();
-      _quadtree!.queryRect(visibleRect, _quadtreeResults);
-      spatialVisible = _quadtreeResults.toSet();
+      _quadtree?.queryRect(visibleRect, _quadtreeResults);
+      _spatialVisibleSet
+        ..clear()
+        ..addAll(_quadtreeResults);
+      spatialVisible = _spatialVisibleSet;
+    } else {
+      _spatialReusedLastFrame = false;
     }
 
     // Render by layer (sorted, cached key list)
@@ -223,19 +498,28 @@ class RenderingEngine {
     }
     // Track which batches were used per layer for flushing
     final activeBatches = <SpriteBatchRenderer>[];
+    final activeBatchSet = <SpriteBatchRenderer>{};
 
     for (final layerIndex in _sortedLayerKeys) {
-      final layer = _layers[layerIndex];
+      final layer = _sortedLayerLists[layerIndex];
       if (layer == null) continue;
       activeBatches.clear();
+      activeBatchSet.clear();
 
       for (final renderable in layer) {
-        if (!renderable.visible) continue;
+        if (!renderable.visible) {
+          culledCount++;
+          continue;
+        }
 
         // Spatial culling: use quadtree result when available, else AABB test.
         if (spatialVisible != null) {
-          if (!spatialVisible.contains(renderable)) continue;
+          if (!spatialVisible.contains(renderable)) {
+            culledCount++;
+            continue;
+          }
         } else if (!camera.isRectVisible(renderable.getBounds())) {
+          culledCount++;
           continue;
         }
 
@@ -246,7 +530,9 @@ class RenderingEngine {
           if (atlas != null) {
             final key = identityHashCode(atlas);
             final batch = _batchCache[key] ??= spriteBatchFactory(atlas);
-            if (!activeBatches.contains(batch)) activeBatches.add(batch);
+            if (activeBatchSet.add(batch)) {
+              activeBatches.add(batch);
+            }
 
             final src =
                 batchable.batchSourceRect ??
@@ -266,6 +552,8 @@ class RenderingEngine {
               ),
             );
 
+            renderedCount++;
+            batchedSpriteCount++;
             if (debugMode) _renderDebug(canvas, renderable);
             continue;
           }
@@ -273,6 +561,8 @@ class RenderingEngine {
 
         // Fallback: individual draw call
         renderable.render(canvas, size);
+        drawCalls++;
+        renderedCount++;
         if (debugMode) _renderDebug(canvas, renderable);
       }
 
@@ -280,19 +570,40 @@ class RenderingEngine {
       for (final batch in activeBatches) {
         batch.flush(canvas);
       }
+      drawCalls += activeBatches.length;
     }
 
     // Restore canvas state (end of subsystem camera context)
     canvas.restore();
 
-    // Invoke overlay callback (ECS world systems) after restoring the canvas
-    // so each pipeline applies its own camera transform independently.
+    // Invoke overlay callback (ECS world systems) — inside the motion-blur
+    // layer so ECS entities are blurred along with subsystem renderables.
     onRenderOverlay?.call(canvas, size);
+
+    // ── Camera effect post-render (pops motion-blur saveLayer) ───────────
+    // Called BEFORE the post-process pop so the blurred world is what the
+    // post-process shaders receive as input.
+    camera.effectManager.postRender(canvas, size);
+
+    // ── Post-process: pop offscreen layers (innermost first via LIFO) ─────
+    for (int i = 0; i < activePasses; i++) {
+      canvas.restore();
+    }
+
+    // ── Camera effect screen-space overlays (fade, letterbox) ────────────
+    camera.effectManager.render(canvas, size);
 
     // Render debug info
     if (debugMode) {
       _renderDebugInfo(canvas, size);
     }
+
+    _renderStopwatch.stop();
+    _lastRenderTimeMs = _renderStopwatch.elapsedMicroseconds / 1000.0;
+    _lastDrawCallCount = drawCalls;
+    _lastRenderedCount = renderedCount;
+    _lastCulledCount = culledCount;
+    _lastBatchedSpriteCount = batchedSpriteCount;
   }
 
   /// Render debug information for a renderable
@@ -314,7 +625,10 @@ class RenderingEngine {
             'Renderables: ${_renderables.length}\n'
             'Camera: (${camera.position.dx.toStringAsFixed(1)}, '
             '${camera.position.dy.toStringAsFixed(1)})\n'
-            'Zoom: ${camera.zoom.toStringAsFixed(2)}',
+            'Zoom: ${camera.zoom.toStringAsFixed(2)}\n'
+            'Render: ${_lastRenderTimeMs.toStringAsFixed(2)} ms\n'
+            'Draws: $_lastDrawCallCount | Culled: $_lastCulledCount\n'
+            'Spatial Index: ${_lastUsedSpatialIndex ? 'on' : 'off'}',
         style: const TextStyle(
           color: Colors.white,
           fontSize: 12,
@@ -337,4 +651,19 @@ class RenderingEngine {
 
   /// Get the number of layers
   int get layerCount => _layers.length;
+
+  /// Lightweight rendering diagnostics from the last frame.
+  Map<String, dynamic> get stats => {
+    'renderables': _renderables.length,
+    'layers': _layers.length,
+    'lastRenderMs': _lastRenderTimeMs,
+    'drawCalls': _lastDrawCallCount,
+    'renderedObjects': _lastRenderedCount,
+    'culledObjects': _lastCulledCount,
+    'batchedSprites': _lastBatchedSpriteCount,
+    'usedSpatialIndex': _lastUsedSpatialIndex,
+    'spatialRebuilds': _spatialRebuildCount,
+    'spatialReusedLastFrame': _spatialReusedLastFrame,
+    'postProcessPasses': _postProcessPasses.where((p) => p.enabled).length,
+  };
 }

@@ -28,6 +28,15 @@ class World {
   /// Whether the world is initialized
   bool _initialized = false;
 
+  /// Last measured per-system update costs in milliseconds.
+  final Map<String, double> _lastSystemTimesMs = <String, double>{};
+  double _lastUpdateTimeMs = 0.0;
+  int _lastCommandFlushCount = 0;
+
+  // Persistent Stopwatch instances — reused every frame to avoid heap allocation.
+  final Stopwatch _totalStopwatch = Stopwatch();
+  final Stopwatch _systemStopwatch = Stopwatch();
+
   /// Deferred command buffer for safe structural mutations during iteration.
   late final CommandBuffer commands = CommandBuffer(this);
 
@@ -35,7 +44,7 @@ class World {
   final EventBus events = EventBus();
 
   // ── Archetype storage ───────────────────────────────────────────────────
-  final Map<String, Archetype> _archetypes = {};
+  final Map<int, Archetype> _archetypes = {};
 
   Archetype _getOrCreateArchetype(Set<Type> types) {
     final sig = Archetype._computeSignature(types);
@@ -73,12 +82,27 @@ class World {
     _queryCacheTypes.clear();
   }
 
-  /// Fast integer key for a query. Uses XOR of type hashes (order-independent)
-  /// combined with the count to reduce collisions between subsets.
+  /// Fast integer key for a query using Zobrist hashing.
+  ///
+  /// Each [Type] is lazily assigned a random 62-bit value on first encounter;
+  /// the key is the XOR of all participating types. This is order-independent
+  /// and statistically collision-free for the small set of component types
+  /// present in any real game, unlike plain hash-code XOR.
+  ///
+  /// Fixed-seed [Random] makes keys deterministic within a process run.
+  static final Map<Type, int> _zobristKeys = {};
+  static final Random _zodRng = Random(0x4a6f79ce);
+
+  static int _zobristKeyFor(Type t) => _zobristKeys.putIfAbsent(t, () {
+    final lo = _zodRng.nextInt(0x7fffffff);
+    final hi = _zodRng.nextInt(0x7fffffff);
+    return (hi << 31) | lo;
+  });
+
   static int _queryCacheKey(List<Type> componentTypes) {
-    int h = componentTypes.length;
+    var h = 0;
     for (final t in componentTypes) {
-      h ^= t.hashCode * 0x9e3779b9;
+      h ^= _zobristKeyFor(t);
     }
     return h;
   }
@@ -289,6 +313,24 @@ class World {
     system.dispose();
   }
 
+  /// Remove **all** systems from the world.
+  ///
+  /// Each system's [System.onRemovedFromWorld] and [System.dispose] are
+  /// called in reverse-priority order so that higher-priority systems
+  /// (e.g. [PostProcessSystem]) clean up their external state (shader
+  /// passes, etc.) before lower-priority ones release entity references.
+  ///
+  /// Call this before rebuilding a scene to prevent stale systems from a
+  /// previous screen visit accumulating in the shared [Engine] singleton.
+  void clearSystems() {
+    // Iterate a copy so removal mutations on _systems are safe.
+    for (final system in List.of(_systems)) {
+      system.onRemovedFromWorld();
+      system.dispose();
+    }
+    _systems.clear();
+  }
+
   /// Get a system by type
   T? getSystem<T extends System>() {
     return _systems.whereType<T>().firstOrNull;
@@ -296,16 +338,37 @@ class World {
 
   /// Update all active systems
   void update(double deltaTime) {
+    _totalStopwatch
+      ..reset()
+      ..start();
+    var flushCount = 0;
+
+    _lastSystemTimesMs.clear();
+
     for (final system in _systems) {
       if (system.isActive) {
-        system.update(deltaTime);
+        _systemStopwatch
+          ..reset()
+          ..start();
+        try {
+          system.update(deltaTime);
+        } finally {
+          _systemStopwatch.stop();
+          _lastSystemTimesMs[system.runtimeType.toString()] =
+              _systemStopwatch.elapsedMicroseconds / 1000.0;
+        }
       }
       // Flush deferred commands between system ticks so later systems
       // see up-to-date entity state.
       if (commands.isNotEmpty) {
         commands.flush();
+        flushCount++;
       }
     }
+
+    _totalStopwatch.stop();
+    _lastUpdateTimeMs = _totalStopwatch.elapsedMicroseconds / 1000.0;
+    _lastCommandFlushCount = flushCount;
   }
 
   /// Render all active systems
@@ -408,5 +471,8 @@ class World {
     'systems': _systems.length,
     'activeSystems': _systems.where((s) => s.isActive).length,
     'archetypes': _archetypes.length,
+    'lastUpdateMs': _lastUpdateTimeMs,
+    'lastCommandFlushes': _lastCommandFlushCount,
+    'systemTimesMs': Map<String, double>.unmodifiable(_lastSystemTimesMs),
   };
 }

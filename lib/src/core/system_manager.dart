@@ -4,9 +4,14 @@
 /// Provides system registration, retrieval, and lifecycle management.
 library;
 
+import 'dart:collection';
+
 import 'package:flutter/foundation.dart';
 
 import 'lifecycle.dart';
+
+/// Callback used by the frame scheduler for update tasks.
+typedef UpdateTask = void Function(double deltaTime);
 
 /// System manager for coordinating engine subsystems
 ///
@@ -29,11 +34,43 @@ class SystemManager implements ILifecycle {
   /// Whether the system manager is initialized
   bool _isInitialized = false;
 
+  /// Ordered update tasks owned by the scheduler.
+  final Map<String, UpdateTask> _updateTasks = {};
+  final List<String> _updateOrder = <String>[];
+  final Map<String, double> _lastTaskTimesMs = <String, double>{};
+  double _lastFrameMs = 0.0;
+
+  // Persistent Stopwatch instances — reused every frame to avoid heap allocation.
+  final Stopwatch _frameStopwatch = Stopwatch();
+  final Stopwatch _taskStopwatch = Stopwatch();
+
+  // Persistent unmodifiable view of _lastTaskTimesMs — avoids per-call copy.
+  late final UnmodifiableMapView<String, double> _unmodifiableTaskTimesView =
+      UnmodifiableMapView(_lastTaskTimesMs);
+
+  // Cached stats map — rebuilt once per frame at end of runUpdateCycle.
+  Map<String, dynamic> _cachedSchedulerStats = const {};
+
   /// Check if initialized
   bool get isInitialized => _isInitialized;
 
   /// Get the number of registered systems
   int get systemCount => _systems.length;
+
+  /// Latest scheduler timing snapshot.
+  ///
+  /// Rebuilt once per [runUpdateCycle]; subsequent reads in the same frame
+  /// return the same cached map without any allocation.
+  Map<String, dynamic> get schedulerStats => _cachedSchedulerStats;
+
+  /// Latest task timings in milliseconds.
+  ///
+  /// Backed by a persistent [UnmodifiableMapView] — no copy on each access.
+  UnmodifiableMapView<String, double> get lastTaskTimesMs =>
+      _unmodifiableTaskTimesView;
+
+  /// Total scheduler frame time in milliseconds.
+  double get lastFrameMs => _lastFrameMs;
 
   /// Initialize the system manager
   @override
@@ -101,6 +138,57 @@ class SystemManager implements ILifecycle {
     return _systemsByType.containsKey(T);
   }
 
+  /// Register an ordered frame update task.
+  void registerUpdateTask(String name, UpdateTask task) {
+    if (_updateTasks.containsKey(name)) {
+      throw StateError('Update task with name "$name" is already registered');
+    }
+
+    _updateTasks[name] = task;
+    _updateOrder.add(name);
+  }
+
+  /// Remove an update task from the scheduler.
+  bool unregisterUpdateTask(String name) {
+    final removed = _updateTasks.remove(name);
+    _updateOrder.remove(name);
+    return removed != null;
+  }
+
+  /// Execute one scheduled update cycle in registration order.
+  void runUpdateCycle(double deltaTime) {
+    _frameStopwatch
+      ..reset()
+      ..start();
+    _lastTaskTimesMs.clear();
+
+    for (final name in _updateOrder) {
+      final task = _updateTasks[name];
+      if (task == null) continue;
+
+      _taskStopwatch
+        ..reset()
+        ..start();
+      try {
+        task(deltaTime);
+      } finally {
+        _taskStopwatch.stop();
+        _lastTaskTimesMs[name] = _taskStopwatch.elapsedMicroseconds / 1000.0;
+      }
+    }
+
+    _frameStopwatch.stop();
+    _lastFrameMs = _frameStopwatch.elapsedMicroseconds / 1000.0;
+
+    // Rebuild cached stats map once per frame so the getter is allocation-free.
+    _cachedSchedulerStats = {
+      'systemCount': _systems.length,
+      'updateTaskCount': _updateOrder.length,
+      'lastFrameMs': _lastFrameMs,
+      'taskTimesMs': _unmodifiableTaskTimesView,
+    };
+  }
+
   /// Get all registered system names
   List<String> getSystemNames() {
     return _systems.keys.toList();
@@ -115,22 +203,18 @@ class SystemManager implements ILifecycle {
   void clear() {
     _systems.clear();
     _systemsByType.clear();
+    _updateTasks.clear();
+    _updateOrder.clear();
+    _lastTaskTimesMs.clear();
+    _lastFrameMs = 0.0;
   }
 
-  /// Dispose all systems and cleanup
+  /// Dispose the registry/scheduler state.
+  ///
+  /// Concrete subsystem lifecycle is owned by the `Engine`, which prevents
+  /// accidental double-disposal when the engine shuts down.
   @override
   void dispose() {
-    // Dispose systems that implement ILifecycle
-    for (final system in _systems.values) {
-      if (system is ILifecycle) {
-        try {
-          system.dispose();
-        } catch (e) {
-          debugPrint('Error disposing system: $e');
-        }
-      }
-    }
-
     clear();
     _isInitialized = false;
     debugPrint('System manager disposed');
@@ -140,8 +224,12 @@ class SystemManager implements ILifecycle {
   void printSystemInfo() {
     debugPrint('=== Registered Systems ===');
     debugPrint('Total systems: ${_systems.length}');
+    debugPrint('Scheduled update tasks: ${_updateOrder.length}');
     for (final entry in _systems.entries) {
       debugPrint('  - ${entry.key}: ${entry.value.runtimeType}');
+    }
+    if (_updateOrder.isNotEmpty) {
+      debugPrint('Update order: ${_updateOrder.join(' -> ')}');
     }
     debugPrint('========================');
   }
