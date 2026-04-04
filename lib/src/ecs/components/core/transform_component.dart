@@ -15,12 +15,21 @@ class TransformComponent extends Component {
   /// Entity scale
   double scale;
 
+  /// Position captured at the start of the previous physics step.
+  /// Used by [RenderSystem] to lerp towards [position] when rendering between
+  /// physics ticks (sub-frame render interpolation).
+  Offset prevPosition;
+
+  /// Rotation captured at the start of the previous physics step.
+  double prevRotation;
+
   /// Create a transform component
   TransformComponent({
     this.position = Offset.zero,
     this.rotation = 0.0,
     this.scale = 1.0,
-  });
+  }) : prevPosition = Offset.zero,
+       prevRotation = 0.0;
 
   /// Move by offset
   void translate(Offset offset) {

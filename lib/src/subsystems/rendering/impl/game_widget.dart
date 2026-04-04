@@ -6,6 +6,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import '../../../core/engine.dart';
+import '../../../ecs/systems/rendering/render_system.dart';
 
 /// Main game widget that renders the game
 ///
@@ -108,6 +109,10 @@ class _GameWidgetState extends State<GameWidget>
     if (!mounted) return;
     // Drive the game loop from the vsync Ticker — single unified loop.
     widget.engine.gameLoop.tick();
+    // Push the sub-frame interpolation factor to the ECS RenderSystem so
+    // physics-driven entities lerp smoothly between fixed-timestep positions.
+    widget.engine.world.getSystem<RenderSystem>()?.interpolation =
+        widget.engine.gameLoop.interpolation;
     // Signal the CustomPainter to repaint — no widget rebuild needed.
     _repaintNotifier.notify();
     _updateFPS();
@@ -134,10 +139,6 @@ class _GameWidgetState extends State<GameWidget>
         canRequestFocus: true,
         skipTraversal: false,
         onKeyEvent: (node, event) {
-          // Handle key events
-          debugPrint(
-            'onKeyEvent called: ${event.runtimeType} - ${event.logicalKey.keyLabel}',
-          );
           widget.engine.input.handleKeyEvent(event);
           return KeyEventResult.handled;
         },

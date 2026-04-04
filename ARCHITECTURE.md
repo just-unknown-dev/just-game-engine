@@ -1,7 +1,7 @@
 # Just Game Engine - Architectural and Design Blueprints
 
-> **Version:** 1.4.0  
-> **Date:** March 20, 2026  
+> **Version:** 1.5.0  
+> **Date:** April 4, 2026  
 > **Scope:** `packages/just_game_engine` — a 2D Flutter game engine
 
 ---
@@ -34,10 +34,10 @@
 | Field | Value |
 |---|---|
 | **Package name** | `just_game_engine` |
-| **Version** | `1.4.0` |
+| **Version** | `1.5.0` |
 | **Dart SDK** | `^3.11.0` |
 | **Flutter** | `>=1.17.0` |
-| **Runtime dependencies** | `flutter_soloud: ^3.5.1`, `just_storage: ^1.1.2`, `just_database: ^1.3.0`, `just_signals: ^1.0.1`, `just_tiled: ^0.2.0`, `web: ^1.1.1` |
+| **Runtime dependencies** | `just_audio_engine: ^1.0.0`, `just_storage: ^1.1.2`, `just_database: ^1.3.0`, `just_signals: ^1.0.1`, `just_tiled: ^0.2.0`, `meta: ^1.9.0`, `web: ^1.1.1` |
 | **Dev dependencies** | `flutter_test`, `flutter_lints: ^6.0.0` |
 | **Companion packages** | `just_tiled: ^0.2.0` (Tiled map support), `just_zstd: ^1.0.0` (Zstandard decompressor) |
 | **Repository** | https://github.com/just-unknown-dev/just-game-engine |
@@ -55,18 +55,25 @@ packages/just_game_engine/
 │       ├── memory/                    ← ObjectPool (GC-friendly recycling), CacheManager (LRU binary cache)
 │       ├── ecs/                       ← World, Entity, Component, System, built-ins
 │       │   ├── base/                  ← Archetype, CommandBuffer, EventBus, EntityPrefab
-│       │   ├── components/            ← 24+ typed components by domain
-│       │   ├── systems/               ← 14+ typed systems with priority framework
+│       │   ├── components/            ← 26+ typed components by domain
+│       │   ├── systems/               ← 17+ typed systems with priority framework
 │       │   └── entities/              ← Tiled map factory, entity creation helpers
 │       ├── reactive/                  ← ComponentSignal, EntitySignal, WorldSignal, ReactiveSystem, ReactiveComponent
 │       └── subsystems/
-│           ├── rendering/             ← RenderingEngine, Renderables (incl. RayRenderable), Sprite, SpriteBatch, GameWidget, Particles
+│           ├── rendering/             ← RenderingEngine, Renderables (incl. RayRenderable), Sprite, SpriteBatch, GameWidget
+│           ├── post_processing/       ← PostProcessPass, PostProcessSystem
+│           ├── particles/             ← ParticleEmitter, Particle, ParticleEffects, ParticleSystemECS
+│           ├── parallax/              ← ParallaxBackground, ParallaxLayer
+│           ├── sprite_atlas/          ← SpriteAtlas, AtlasParser, AtlasAnimationClip, AtlasSpriteAnimation
 │           ├── camera/                ← CameraSystem, Camera
 │           ├── physics/               ← PhysicsEngine (Vec2-based), PhysicsBody, ray_casting (Ray, RaycastSystem, RayTracer)
 │           ├── input/                 ← InputManager, Keyboard/Mouse/Touch/Controller, VirtualJoystick
-│           ├── audio/                 ← AudioEngine, AudioClip, WebAudio
+│           ├── audio/                 ← AudioEngine, AudioClip (via just_audio_engine)
 │           ├── animation/             ← AnimationSystem, Tweens, Easings
 │           ├── assets/                ← AssetManager, Asset types
+│           ├── effects/               ← DeterministicEffect, 11 effect types, EffectSystemECS, serialization
+│           ├── localization/          ← LocalizationManager, LocaleStringTable, StringInterpolator, Flutter widgets
+│           ├── narrative/             ← DialogueManager, YarnParser, DialogueRunner, ECS, UI widgets
 │           ├── editor/                ← SceneEditor, Scene, SceneNode
 │           └── networking/            ← NetworkManager (stub)
 ├── example/
@@ -139,7 +146,7 @@ Engine
  ├─► CacheManager      LRU binary cache via just_storage / just_database
  ├─► PhysicsEngine     Vec2-based; standalone; mirrored by PhysicsSystem in World; ray-casting queries via RaycastSystem / RayTracer
  ├─► InputManager      aggregates Keyboard/Mouse/Touch/Controller/VirtualJoystick
- ├─► AudioEngine       uses  flutter_soloud (SoLoud C++ engine via FFI)
+ ├─► AudioEngine       uses  just_audio_engine
  ├─► AnimationSystem   uses  Renderable (to mutate properties)
  ├─► AssetManager      uses  Flutter rootBundle / dart:ui codec
  ├─► SceneEditor       uses  SceneNode → Renderable → RenderingEngine

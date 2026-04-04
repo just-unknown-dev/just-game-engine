@@ -17,7 +17,7 @@ A comprehensive 2D game engine built for Flutter, providing everything you need 
 
 ## Features
 
-Just Game Engine is a complete game development framework with 14 major subsystems:
+Just Game Engine is a complete game development framework with 20+ major subsystems:
 
 ### 🎮 Core Engine
 - **Game Loop**: Fixed timestep (60 UPS) with variable rendering for consistent gameplay
@@ -93,8 +93,8 @@ Just Game Engine is a complete game development framework with 14 major subsyste
 ### 🧩 Entity-Component System (ECS)
 - **Data-Oriented Architecture**: Composition over inheritance for flexible entity design
 - **Entity Management**: Create and destroy entities with generational IDs for use-after-destroy safety
-- **Component System**: 24+ built-in components (Transform, Velocity, Physics, Health, RaycastCollider, UI, Audio, Tiled, etc.)
-- **System Processing**: 14+ built-in systems with standardized priorities for movement, rendering, physics, input, audio, ray casting, and more
+- **Component System**: 26+ built-in components (Transform, Velocity, Physics, Health, RaycastCollider, UI, Audio, Tiled, Effect, Shader, Parallax, Particle, etc.)
+- **System Processing**: 17+ built-in systems with standardized priorities for movement, rendering, physics, input, audio, ray casting, effects, post-processing, and more
 - **Query System**: Find entities by component types with selective cache invalidation and integer-based hashing
 - **World Management**: Centralized entity and system coordination with `LinkedHashSet` for $O(1)$ entity removal
 - **Command Buffer**: Deferred entity mutations via `world.commands` — safe to call from within system updates
@@ -102,6 +102,8 @@ Just Game Engine is a complete game development framework with 14 major subsyste
 - **Entity Prefabs**: Reusable entity blueprints via `EntityPrefab` — batch-spawn with `world.instantiate()`
 - **Hierarchy Support**: Parent-child entity relationships
 - **Reactive ECS** (`src/reactive/`): Signal-driven wrappers powered by `just_signals` — `ComponentSignal`, `EntitySignal`, `WorldSignal`, `ReactiveSystem`, and `ReactiveComponent` enable surgical UI updates without polling
+- **Built-in Components (26+)**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `SpriteComponent`, `PhysicsBodyComponent`, `PhysicsBodyRefComponent`, `RaycastColliderComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `JoystickInputComponent`, `AnimationStateComponent`, `AudioSourceComponent`, `AudioPlayComponent`, `TileMapLayerComponent`, `TiledObjectComponent`, `UIComponent`, `TextComponent`, `ButtonComponent`, `LinearProgressComponent`, `CircularProgressComponent`, `EffectComponent`, `ShaderComponent`, `ParallaxComponent`, `ParticleEmitterComponent`, `CameraFollowComponent`
+- **Built-in Systems (17+)**: `InputSystem` (100), `PhysicsSystem` (90), `PhysicsBridgeSystem` (89), `MovementSystem` (80), `AnimationSystemECS` (70), `EffectSystemECS` (65), `GameplaySystem` (60), `HierarchySystem` (50), `RenderSystem` (40), `PostProcessSystem` (35), `BoundarySystem` (30), `ParticleSystemECS`, `CameraFollowSystem`, `LifetimeSystem`, `HealthSystem`, `AudioSystem`, `RaycastSystem`, `TileMapRenderSystem`, `TiledCollisionSystem`
 
 ### � Input Management
 - **Keyboard Input**: Key press, hold, and release detection with axis support
@@ -120,7 +122,7 @@ Just Game Engine is a complete game development framework with 14 major subsyste
   - **Sound Effects**: Unlimited concurrent SFX via SoLoud's native voice management with automatic cleanup
   - **Music**: Background music with fade in/out effects and seamless looping
   - **Audio Mixer**: Per-channel volume control, mute/unmute, and master volume
-  - **Integration**: Built on `flutter_soloud` (SoLoud C++ engine) for low-latency, game-grade audio
+  - **Integration**: Built on `just_audio_engine` for low-latency, game-grade audio
 
 - **Asset Management**: Efficient loading and caching of game resources
   - **Image Assets**: Load PNG/JPG images with memory tracking
@@ -132,6 +134,50 @@ Just Game Engine is a complete game development framework with 14 major subsyste
   - **Asset Bundles**: Group multiple assets for batch loading/unloading
 
 - **Networking**: Multiplayer and server communication (Not Implemented Yet)
+
+### 🎬 Post-Processing
+- **Full-Screen Shader Passes**: `PostProcessPass` wraps the rendered scene in an offscreen layer and composites it through a custom `FragmentShader`
+- **Pass Ordering**: Multiple passes chained by `passOrder` — lower order is innermost (closest to scene), higher is outermost
+- **Per-Entity Shaders**: `ShaderComponent(isPostProcess: false)` wraps individual entities in a `canvas.saveLayer` with a custom shader
+- **ECS Integration**: `PostProcessSystem` (priority 35) bridges `ShaderComponent` entities to `RenderingEngine.addPostProcessPass` / `removePostProcessPass` each frame
+- **Time Uniform**: `RenderingEngine.elapsedSeconds` supplies a time value for animated shader effects via `setUniforms` callback
+
+### 🌅 Parallax Backgrounds
+- **Multi-Layer Scrolling**: `ParallaxBackground` composites any number of `ParallaxLayer` instances using configurable `scrollFactorX` / `scrollFactorY` per layer
+- **Auto-Scroll**: Layers scroll continuously via `velocityX` / `velocityY` independent of camera movement (great for drifting clouds or rivers)
+- **Tiling**: Each layer can repeat seamlessly to fill the viewport (`repeat: true`)
+- **Visual Controls**: Per-layer `scale`, `opacity`, `tint`, and `offset`
+- **ECS Integration**: `ParallaxComponent` attaches a `ParallaxBackground` to any entity; `RenderSystem` renders it automatically
+
+### 🗂 Sprite Atlas
+- **Multi-Format Parsing**: `AtlasParser` auto-detects TexturePacker JSON Array, JSON Hash, multi-page, and Aseprite export formats — no manual selection needed
+- **Named Regions**: Look up any frame by name via `atlas.createSprite('hero_idle_0')` for one-liner sprite creation
+- **Animation Clips**: Define and register named `AtlasAnimationClip` objects; drive a `Sprite` through variable-duration frames via `AtlasSpriteAnimation`
+- **Draw-Call Reduction**: All sprites from the same atlas share a single GPU texture — combine with `SpriteBatch` for maximum throughput
+- **Quick Start**: `SpriteAtlas.fromAsset('assets/heroes.json')` loads and caches the atlas through `AssetManager`
+
+### ✨ Deterministic Effects
+- **Multiplayer-Ready**: 11 tick-based effects (`MoveEffect`, `ScaleEffect`, `RotateEffect`, `FadeEffect`, `ColorTintEffect`, `SequenceEffect`, `ParallelEffect`, `DelayEffect`, `RepeatEffect`, `ShakeEffect`, `PathEffect`) reproduce identically from integer ticks alone
+- **Pure-Delta Contract**: `applyTick(ctx, prevElapsed, currElapsed)` is additive — two effects on the same entity stack correctly; fast-forward via `applyTick(ctx, 0, N)` for late-join reconnect
+- **Serialization**: `EffectSerializer` (JSON factory registry) and `EffectBinaryCodec` (little-endian v1 wire format) enable snapshot send over the network
+- **ECS Integration**: `EffectSystemECS` (priority 65) manages per-entity `EffectPlayer` queues; schedule effects via `effectSystem.scheduleEffect(entity: e, effect: ...)`)
+- **Rollback Support**: `EffectSnapshot` captures mid-flight effect state; `PredictionEffectRuntime` documents the rollback API contract
+
+### 🌍 Localization
+- **Engine-Wide i18n**: `LocalizationManager` serves string lookups to all subsystems including Narrative/Dialogue
+- **Namespaces**: Organize strings by domain (`ns: 'ui'`, `ns: 'game'`) — load separate JSON files per namespace and locale
+- **Fallback Chain**: For locale `fr_CA`, lookups cascade `fr_CA → fr → en` (configurable `fallbackLocale`) before returning the raw key
+- **ICU-lite Templating**: `StringInterpolator` resolves `{var}` substitutions, `{count, plural, =0{…} =1{…} other{…}}` plurals, and `{gender, select, …}` selects
+- **Signal-Driven**: `LocalizationManager.localeSignal` (a `Signal<Locale>`) lets widgets rebuild only when the locale changes
+- **Flutter Widgets**: `LocalizationScope`, `LocalizationBuilder`, `LocalizedText`, `LocaleSelector`, and `L10nContext` extension for `BuildContext`
+
+### 💬 Narrative / Dialogue
+- **Yarn Spinner 2.x**: Full parser and runtime for `.yarn` script files — linear dialogue, branching choices, hub-and-spoke, and cutscene patterns
+- **Condition & Command Registries**: Register Dart callbacks for `<<if>>` conditions and `<<command>>` blocks at runtime
+- **Expression Evaluator**: Handles variables, comparisons, and arithmetic in Yarn if-conditions
+- **Localization Bridge**: `DialogueLocalizer` delegates all storage and signal handling to `LocalizationManager` under namespace `'dialogue'`
+- **ECS Integration**: `DialogueComponent` + `TriggerComponent` + `DialogueSystem` let entities own and trigger scripted dialogue
+- **UI Widgets**: `DialogueBoxWidget` and `DialogueChoicesWidget` for ready-made in-game dialogue UI; fully composable
 
 ### 🧮 Math Module
 - **Vec2**: Mutable 2D vector type for zero-allocation hot-path physics — in-place `add()`, `sub()`, `addScaled()`, `scale()`, `setZero()`, and `Offset` interop
@@ -168,7 +214,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  just_game_engine: ^1.4.2
+  just_game_engine: ^1.5.0
 ```
 
 Then run:
@@ -182,31 +228,47 @@ flutter pub get
 ```
 Just Game Engine
 ├── Core Engine
-│   ├── Engine (Main orchestrator)
+│   ├── Engine (Main orchestrator + performanceStats)
 │   ├── GameLoop (Fixed timestep loop)
 │   ├── TimeManager (Delta time tracking)
-│   └── SystemManager (Subsystem coordination)
+│   └── SystemManager (Subsystem coordination + frame scheduler)
 ├── Math Module
 │   ├── Vec2 (Mutable 2D vector for hot-path code)
-│   └── Quadtree (Spatial indexing for culling)
+│   └── Quadtree (Spatial indexing for culling; cached bounds)
 ├── Memory Management
 │   ├── ObjectPool (GC-friendly object recycling)
-│   └── CacheManager (LRU binary caching via just_storage/just_database)
+│   └── CacheManager (LRU binary caching via just_storage/just_database; memory fallback)
 ├── Rendering Engine
-│   ├── RenderingEngine (Canvas rendering)
+│   ├── RenderingEngine (Canvas rendering + post-process pass stack)
 │   ├── Camera / CameraSystem (View transformation)
 │   ├── Renderable (Base class)
 │   ├── SpriteBatch (Canvas.drawAtlas batching)
-│   └── GameWidget (Flutter integration)
+│   └── GameWidget (Flutter integration + debug HUD)
+├── Post-Processing
+│   ├── PostProcessPass (Full-screen FragmentShader pass)
+│   └── PostProcessSystem (ECS bridge; priority 35)
 ├── Sprite System
 │   ├── Sprite (Image rendering)
-│   ├── SpriteSheet (Texture atlas)
+│   ├── SpriteSheet (Texture atlas frames)
 │   └── NineSliceSprite (Scalable UI)
+├── Sprite Atlas
+│   ├── SpriteAtlas (Named-region lookup + animation clips)
+│   ├── AtlasParser (Auto-detect TexturePacker / Aseprite formats)
+│   └── AtlasSpriteAnimation (Variable-duration frame animation)
+├── Parallax Backgrounds
+│   ├── ParallaxBackground (Multi-layer compositor)
+│   └── ParallaxLayer (Per-layer scroll factor + auto-scroll velocity)
 ├── Animation System
 │   ├── Animation (Base class)
 │   ├── SpriteAnimation (Frame-based)
 │   ├── TweenAnimation (Property lerp)
 │   └── Easings (Curve functions)
+├── Deterministic Effects
+│   ├── DeterministicEffect (Abstract tick-based base)
+│   ├── Effect types (Move, Scale, Rotate, Fade, ColorTint, Sequence, Parallel, Delay, Repeat, Shake, Path)
+│   ├── EffectSystemECS (priority 65)
+│   ├── EffectSerializer + EffectBinaryCodec (network wire format)
+│   └── EffectSnapshot + PredictionEffectRuntime (rollback support)
 ├── Particle Effects
 │   ├── ParticleEmitter (Emission control)
 │   ├── Particle (Individual particle)
@@ -237,29 +299,34 @@ Just Game Engine
 │   ├── Component (Data storage + lifecycle callbacks)
 │   ├── System (Priority-ordered processing logic)
 │   ├── EntityPrefab (Reusable entity blueprints)
-│   ├── Built-in Components (24+):
+│   ├── Built-in Components (26+):
 │   │   ├── TransformComponent, VelocityComponent
 │   │   ├── RenderableComponent, SpriteComponent
+│   │   ├── ShaderComponent, ParallaxComponent, ParticleEmitterComponent
 │   │   ├── PhysicsBodyComponent, PhysicsBodyRefComponent
 │   │   ├── HealthComponent, LifetimeComponent, TagComponent
 │   │   ├── ParentComponent, ChildrenComponent
-│   │   ├── InputComponent, JoystickInputComponent
+│   │   ├── InputComponent, JoystickInputComponent, CameraFollowComponent
 │   │   ├── AnimationStateComponent, RaycastColliderComponent
 │   │   ├── AudioSourceComponent, AudioPlayComponent
 │   │   ├── TileMapLayerComponent, TiledObjectComponent
+│   │   ├── EffectComponent
 │   │   └── UIComponent, TextComponent, ButtonComponent,
 │   │     LinearProgressComponent, CircularProgressComponent
-│   └── Built-in Systems (14+):
+│   └── Built-in Systems (17+):
 │       ├── InputSystem (priority 100)
 │       ├── PhysicsSystem (priority 90)
-│       ├── PhysicsBridgeSystem
+│       ├── PhysicsBridgeSystem (priority 89)
 │       ├── MovementSystem (priority 80)
 │       ├── AnimationSystemECS (priority 70)
+│       ├── EffectSystemECS (priority 65)
 │       ├── HealthSystem (priority 60)
 │       ├── HierarchySystem (priority 50)
-│       ├── RenderSystem (priority 40) + UI rendering
+│       ├── RenderSystem (priority 40)
+│       ├── PostProcessSystem (priority 35)
 │       ├── BoundarySystem (priority 30)
-│       ├── AudioSystem, RaycastSystem
+│       ├── ParticleSystemECS, CameraFollowSystem
+│       ├── AudioSystem, RaycastSystem, LifetimeSystem
 │       └── TileMapRenderSystem, TiledCollisionSystem
 ├── Reactive ECS
 │   ├── ComponentSignal (Typed property signal)
@@ -288,6 +355,18 @@ Just Game Engine
 │   ├── SoundEffectManager (SFX)
 │   ├── MusicManager (Background music)
 │   └── AudioMixer (Volume control)
+├── Localization
+│   ├── LocalizationManager (Namespace + fallback chain + plurals)
+│   ├── LocaleStringTable (Per-locale flat string map)
+│   ├── StringInterpolator ({var}, plural, select templates)
+│   └── Flutter Widgets (LocalizationScope, LocalizedText, LocaleSelector)
+├── Narrative / Dialogue
+│   ├── DialogueManager (Yarn Spinner facade)
+│   ├── YarnTokenizer + YarnParser (Yarn Spinner 2.x)
+│   ├── DialogueRunner (Condition + command registries)
+│   ├── DialogueLocalizer (delegates to LocalizationManager)
+│   ├── ECS (DialogueComponent, TriggerComponent, DialogueSystem)
+│   └── UI (DialogueBoxWidget, DialogueChoicesWidget)
 └── Additional Systems
     └── Networking (Not Implemented)
 ```
@@ -373,8 +452,8 @@ Just Game Engine
 - `Entity` - Component container with unique ID
 - `Component` - Base class for data components
 - `System` - Base class for processing systems
-- **Built-in Components (24+)**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `SpriteComponent`, `PhysicsBodyComponent`, `PhysicsBodyRefComponent`, `RaycastColliderComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `JoystickInputComponent`, `AnimationStateComponent`, `AudioSourceComponent`, `AudioPlayComponent`, `TileMapLayerComponent`, `TiledObjectComponent`, `UIComponent`, `TextComponent`, `ButtonComponent`, `LinearProgressComponent`, `CircularProgressComponent`
-- **Built-in Systems (14+)**: `MovementSystem`, `RenderSystem`, `PhysicsSystem`, `PhysicsBridgeSystem`, `InputSystem`, `RaycastSystem`, `LifetimeSystem`, `HierarchySystem`, `HealthSystem`, `AnimationSystemECS`, `BoundarySystem`, `AudioSystem`, `TileMapRenderSystem`, `TiledCollisionSystem`
+- **Built-in Components (26+)**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `SpriteComponent`, `ShaderComponent`, `ParallaxComponent`, `ParticleEmitterComponent`, `PhysicsBodyComponent`, `PhysicsBodyRefComponent`, `RaycastColliderComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `JoystickInputComponent`, `CameraFollowComponent`, `AnimationStateComponent`, `AudioSourceComponent`, `AudioPlayComponent`, `TileMapLayerComponent`, `TiledObjectComponent`, `EffectComponent`, `UIComponent`, `TextComponent`, `ButtonComponent`, `LinearProgressComponent`, `CircularProgressComponent`
+- **Built-in Systems (17+)**: `InputSystem`, `PhysicsSystem`, `PhysicsBridgeSystem`, `MovementSystem`, `AnimationSystemECS`, `EffectSystemECS`, `HealthSystem`, `HierarchySystem`, `RenderSystem`, `PostProcessSystem`, `BoundarySystem`, `ParticleSystemECS`, `CameraFollowSystem`, `RaycastSystem`, `LifetimeSystem`, `AudioSystem`, `TileMapRenderSystem`, `TiledCollisionSystem`
 
 ### Input Classes
 
@@ -407,6 +486,56 @@ Just Game Engine
 - `AudioMixer` - Volume and mute control interface
 - `AudioChannel` - Audio channel enum (master, music, sfx, voice, ambient)
 - `AudioState` - Playback state enum (stopped, playing, paused)
+
+### Post-Processing Classes
+
+- `PostProcessPass` - Full-screen `FragmentShader` pass with `passOrder` and `setUniforms` callback
+- `ShaderComponent` - ECS component for per-entity or post-process shaders
+- `PostProcessSystem` - ECS system bridging `ShaderComponent` entities to `RenderingEngine` (priority 35)
+
+### Parallax Classes
+
+- `ParallaxBackground` - Multi-layer parallax compositor
+- `ParallaxLayer` - Single layer with `scrollFactorX/Y`, `velocityX/Y`, `repeat`, `opacity`, `tint`
+- `ParallaxComponent` - ECS component attaching a `ParallaxBackground` to an entity
+
+### Sprite Atlas Classes
+
+- `SpriteAtlas` - Named-region lookup, clip registration, and sprite/animation creation
+- `AtlasParser` - Auto-detecting parser for TexturePacker JSON Array, JSON Hash, multi-page, and Aseprite formats
+- `AtlasAnimationClip` - Named clip with a list of `AtlasFrame` entries (region name + duration)
+- `AtlasSpriteAnimation` - Frame-by-frame animation that drives a `Sprite` through an `AtlasAnimationClip`
+
+### Deterministic Effects Classes
+
+- `DeterministicEffect` - Abstract base; all effects implement `applyTick(ctx, prevElapsed, currElapsed)`
+- Effect types: `MoveEffect`, `ScaleEffect`, `RotateEffect`, `FadeEffect`, `ColorTintEffect`, `SequenceEffect`, `ParallelEffect`, `DelayEffect`, `RepeatEffect`, `ShakeEffect`, `PathEffect`
+- `EffectComponent` - ECS component storing an entity's `EffectPlayer` queue
+- `EffectSystemECS` - Advances all in-flight effects each tick (priority 65)
+- `EffectSerializer` - JSON factory registry for serializing/deserializing effects
+- `EffectBinaryCodec` - Little-endian v1 binary wire format
+- `EffectSnapshot` - Mid-flight state capture for lock-step or rollback
+
+### Localization Classes
+
+- `LocalizationManager` - Central i18n service with namespace support, fallback chain, and `localeSignal`
+- `LocaleStringTable` - Immutable per-locale flat string map with nested JSON flattening
+- `StringInterpolator` - ICU-lite template engine: `{var}`, `{plural}`, `{select}`
+- `LocalizationScope` - `InheritedWidget` exposing `LocalizationManager` to the widget tree
+- `LocalizationBuilder` - Rebuilds on locale change; exposes `t()` helper
+- `LocalizedText` - Drop-in `Text` replacement that resolves keys via `LocalizationManager`
+- `LocaleSelector` - Ready-made locale-switching UI widget
+
+### Narrative / Dialogue Classes
+
+- `DialogueManager` - High-level facade for loading and running `.yarn` scripts
+- `YarnTokenizer` / `YarnParser` - Full Yarn Spinner 2.x parser
+- `DialogueRunner` - Executes a parsed dialogue graph; exposes condition and command registries
+- `DialogueGraph` / `DialogueNode` - Parsed script data model
+- `DialogueLocalizer` - Bridges dialogue string keys to `LocalizationManager`
+- `DialogueComponent` / `TriggerComponent` - ECS components for in-world dialogue ownership
+- `DialogueSystem` - ECS system processing trigger conditions each frame
+- `DialogueBoxWidget` / `DialogueChoicesWidget` - Ready-made Flutter UI widgets for in-game dialogue
 
 
 ## Contributing

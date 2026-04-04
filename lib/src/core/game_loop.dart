@@ -175,8 +175,8 @@ class GameLoop {
       _accumulator += frameTime;
 
       // Clamp accumulator to prevent spiral of death
-      if (_accumulator > _fixedDeltaTime * 5) {
-        _accumulator = _fixedDeltaTime * 5;
+      if (_accumulator > _fixedDeltaTime * 3) {
+        _accumulator = _fixedDeltaTime * 3;
       }
 
       // Update at fixed timestep

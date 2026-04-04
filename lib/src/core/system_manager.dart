@@ -4,6 +4,8 @@
 /// Provides system registration, retrieval, and lifecycle management.
 library;
 
+import 'dart:collection';
+
 import 'package:flutter/foundation.dart';
 
 import 'lifecycle.dart';
@@ -38,6 +40,17 @@ class SystemManager implements ILifecycle {
   final Map<String, double> _lastTaskTimesMs = <String, double>{};
   double _lastFrameMs = 0.0;
 
+  // Persistent Stopwatch instances — reused every frame to avoid heap allocation.
+  final Stopwatch _frameStopwatch = Stopwatch();
+  final Stopwatch _taskStopwatch = Stopwatch();
+
+  // Persistent unmodifiable view of _lastTaskTimesMs — avoids per-call copy.
+  late final UnmodifiableMapView<String, double> _unmodifiableTaskTimesView =
+      UnmodifiableMapView(_lastTaskTimesMs);
+
+  // Cached stats map — rebuilt once per frame at end of runUpdateCycle.
+  Map<String, dynamic> _cachedSchedulerStats = const {};
+
   /// Check if initialized
   bool get isInitialized => _isInitialized;
 
@@ -45,16 +58,16 @@ class SystemManager implements ILifecycle {
   int get systemCount => _systems.length;
 
   /// Latest scheduler timing snapshot.
-  Map<String, dynamic> get schedulerStats => {
-    'systemCount': _systems.length,
-    'updateTaskCount': _updateOrder.length,
-    'lastFrameMs': _lastFrameMs,
-    'taskTimesMs': Map<String, double>.unmodifiable(_lastTaskTimesMs),
-  };
+  ///
+  /// Rebuilt once per [runUpdateCycle]; subsequent reads in the same frame
+  /// return the same cached map without any allocation.
+  Map<String, dynamic> get schedulerStats => _cachedSchedulerStats;
 
   /// Latest task timings in milliseconds.
-  Map<String, double> get lastTaskTimesMs =>
-      Map<String, double>.unmodifiable(_lastTaskTimesMs);
+  ///
+  /// Backed by a persistent [UnmodifiableMapView] — no copy on each access.
+  UnmodifiableMapView<String, double> get lastTaskTimesMs =>
+      _unmodifiableTaskTimesView;
 
   /// Total scheduler frame time in milliseconds.
   double get lastFrameMs => _lastFrameMs;
@@ -144,27 +157,36 @@ class SystemManager implements ILifecycle {
 
   /// Execute one scheduled update cycle in registration order.
   void runUpdateCycle(double deltaTime) {
-    final frameStopwatch = Stopwatch()..start();
-    final taskStopwatch = Stopwatch();
+    _frameStopwatch
+      ..reset()
+      ..start();
     _lastTaskTimesMs.clear();
 
     for (final name in _updateOrder) {
       final task = _updateTasks[name];
       if (task == null) continue;
 
-      taskStopwatch
+      _taskStopwatch
         ..reset()
         ..start();
       try {
         task(deltaTime);
       } finally {
-        taskStopwatch.stop();
-        _lastTaskTimesMs[name] = taskStopwatch.elapsedMicroseconds / 1000.0;
+        _taskStopwatch.stop();
+        _lastTaskTimesMs[name] = _taskStopwatch.elapsedMicroseconds / 1000.0;
       }
     }
 
-    frameStopwatch.stop();
-    _lastFrameMs = frameStopwatch.elapsedMicroseconds / 1000.0;
+    _frameStopwatch.stop();
+    _lastFrameMs = _frameStopwatch.elapsedMicroseconds / 1000.0;
+
+    // Rebuild cached stats map once per frame so the getter is allocation-free.
+    _cachedSchedulerStats = {
+      'systemCount': _systems.length,
+      'updateTaskCount': _updateOrder.length,
+      'lastFrameMs': _lastFrameMs,
+      'taskTimesMs': _unmodifiableTaskTimesView,
+    };
   }
 
   /// Get all registered system names

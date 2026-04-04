@@ -183,7 +183,13 @@ class Engine implements ILifecycle {
     rendering.initialize();
     physics.initialize();
     input.initialize();
-    await audio.initialize();
+    // Audio is optional — catch plugin-unavailable errors so headless /
+    // test environments can still initialize the rest of the engine.
+    try {
+      await audio.initialize();
+    } catch (e) {
+      debugPrint('AudioEngine: initialization skipped (${e.runtimeType})');
+    }
     music = MusicManager(audio);
     sfx = SoundEffectManager(audio);
     sceneEditor.initialize();

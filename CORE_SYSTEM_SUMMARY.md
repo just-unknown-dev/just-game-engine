@@ -52,6 +52,9 @@ lib/src/core/
 - ✅ System existence checking
 - ✅ Automatic lifecycle management
 - ✅ System enumeration and debugging
+- ✅ Frame scheduler via `registerUpdateTask` / `runUpdateCycle` — per-task timing captured each frame
+- ✅ `schedulerStats` exposes `lastFrameMs`, `taskTimesMs`, `systemCount`, `updateTaskCount`
+- ✅ `Engine.systemManager` getter exposed publicly for external tooling and benchmarks
 
 ### 5. **Lifecycle Interfaces** (`lifecycle.dart`)
 - ✅ `ILifecycle` - Basic initialization and disposal
@@ -72,9 +75,13 @@ lib/src/core/
 
 ### Performance Optimizations
 - Fixed timestep prevents physics instability
-- Frame time clamping prevents spiral of death
-- Efficient update batching
-- Minimal allocation during game loop
+- Accumulator spiral-of-death capped at `3×fixedDt` (was 5×)
+- Frame time clamping prevents burst catch-up on resume
+- Efficient update batching via SystemManager frame scheduler
+- Minimal allocation during game loop (pre-allocated collision buffers, reused Stopwatch fields)
+- Sub-frame render interpolation via `GameLoop.interpolation` → `RenderSystem`
+- Incremental `SpatialGrid` body tracking — avoids full clear/reinsert each frame
+- Quadtree caching in `RenderingEngine` — rebuilds only when scene bounds change
 
 ### Code Quality
 - ✅ Comprehensive documentation (200+ lines)
@@ -115,18 +122,24 @@ lib/src/core/
 ## 🔧 Integration with Existing Systems
 
 The core system properly integrates with all subsystems:
-- ✅ Rendering Engine
-- ✅ Physics Engine
-- ✅ Input Management
-- ✅ Audio Engine
+- ✅ Rendering Engine (post-process pass stack, Quadtree culling, SpriteBatch)
+- ✅ Physics Engine (Vec2-based, incremental SpatialGrid, ray casting)
+- ✅ Input Management (keyboard, mouse, touch, controller, virtual joystick)
+- ✅ Audio Engine (via `just_audio_engine`; graceful degradation in headless/test env)
 - ✅ Scene Editor
-- ✅ Animation System
-- ✅ Asset Management
-- ✅ Cache Manager
+- ✅ Animation System (subsystem + `AnimationSystemECS`)
+- ✅ Asset Management (LRU binary caching)
+- ✅ Cache Manager (memory fallback when plugin unavailable)
 - ✅ Camera System
-- ✅ ECS World (with CommandBuffer, EventBus, EntityPrefab)
+- ✅ ECS World (CommandBuffer, EventBus, EntityPrefab, generational IDs, Zobrist query keys)
 - ✅ Math Module (Vec2, Quadtree)
 - ✅ Memory Management (ObjectPool, CacheManager)
+- ✅ Post-Processing (full-screen FragmentShader passes + per-entity `ShaderComponent`)
+- ✅ Parallax Backgrounds (multi-layer scrolling, auto-scroll, `ParallaxComponent`)
+- ✅ Sprite Atlas (TexturePacker / Aseprite auto-detection, named clips)
+- ✅ Deterministic Effects (11 tick-based effects, serialization, rollback support)
+- ✅ Localization (namespace + fallback chain + ICU-lite plurals, `LocalizationManager`)
+- ✅ Narrative / Dialogue (Yarn Spinner 2.x parser + runner, ECS bridge, UI widgets)
 - ✅ Networking (stub)
 
 All subsystems are:
@@ -137,10 +150,12 @@ All subsystems are:
 
 ## 📊 Code Metrics
 
-- **Total Lines**: ~10,000+ lines across all subsystems
-- **Files Created**: 7 core files + 80+ subsystem/ECS files
-- **Classes**: 5 core classes + 24+ components + 14+ systems
+- **Total Lines**: ~20,000+ lines across all subsystems
+- **Files Created**: 7 core files + 130+ subsystem/ECS files
+- **Classes**: 5 core classes + 26+ components + 17+ systems
 - **Interfaces**: 5 interfaces + 1 mixin
+- **Tests**: 127+ passing, 3 skipped
+- **CI**: GitHub Actions (`flutter analyze --fatal-infos` + `flutter test`)
 - **Documentation**: 500+ lines
 - **Examples**: 250+ lines
 - **Zero Errors**: ✅ All code compiles cleanly
@@ -181,23 +196,31 @@ void main() async {
 }
 ```
 
-## ✨ What’s Shipped (v1.4.0)
+## ✨ What's Shipped (v1.5.0)
 
 All core systems and subsystems are implemented:
 1. ✅ Core engine, game loop, and time management
-2. ✅ Rendering engine with SpriteBatch and Quadtree culling
-3. ✅ Physics engine with Vec2 hot-path, collision events, and spatial grid
+2. ✅ Rendering engine with SpriteBatch, Quadtree culling, and instrumented performance stats
+3. ✅ Physics engine with Vec2 hot-path, collision events, incremental SpatialGrid, and ray casting
 4. ✅ Entity-Component System with CommandBuffer, EventBus, EntityPrefab, and generational IDs
 5. ✅ Reactive ECS layer with signal-driven change tracking
 6. ✅ Scene graph and level editor
 7. ✅ Asset management with LRU binary caching
-8. ✅ Animation system (subsystem + ECS)
-9. ✅ Audio engine (subsystem + ECS AudioSystem)
-10. ✅ Input system with virtual joystick and ECS InputSystem bridge
+8. ✅ Animation system (subsystem + ECS `AnimationSystemECS`)
+9. ✅ Audio engine via `just_audio_engine` with graceful headless degradation
+10. ✅ Input system with virtual joystick and ECS `InputSystem` bridge
 11. ✅ Math module (Vec2, Quadtree)
-12. ✅ Memory management (ObjectPool, CacheManager)
-13. ✅ 24+ built-in ECS components and 14+ built-in systems
+12. ✅ Memory management (ObjectPool, CacheManager with memory fallback)
+13. ✅ 26+ built-in ECS components and 17+ built-in systems
 14. ✅ Tiled map ECS integration (TileMapRenderSystem, TiledCollisionSystem)
+15. ✅ Post-processing (full-screen shader passes + per-entity `ShaderComponent`)
+16. ✅ Parallax backgrounds (`ParallaxBackground`, `ParallaxLayer`, `ParallaxComponent`)
+17. ✅ Sprite Atlas (TexturePacker / Aseprite auto-detection, named clips, `AtlasSpriteAnimation`)
+18. ✅ Deterministic Effects system (11 tick-based effects, wire serialization, rollback stubs)
+19. ✅ Localization subsystem (`LocalizationManager`, ICU-lite plurals, Flutter widgets)
+20. ✅ Narrative / Dialogue system (Yarn Spinner 2.x, ECS bridge, ready-made UI widgets)
+21. ✅ SystemManager promoted to frame scheduler with per-task timing diagnostics
+22. ✅ GitHub Actions CI + phase-benchmarks in `performance_test.dart`
 
 ## 🎓 Key Takeaways
 

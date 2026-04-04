@@ -196,7 +196,7 @@ class _GameCameraControlsState extends State<GameCameraControls> {
             bottom: 16,
             child: ValueListenableBuilder<double>(
               valueListenable: _zoomNotifier,
-              builder: (_, zoom, __) => _ZoomButtons(
+              builder: (_, zoom, _) => _ZoomButtons(
                 zoom: zoom,
                 minZoom: widget.camera.minZoom,
                 maxZoom: widget.camera.maxZoom,
