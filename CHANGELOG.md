@@ -2,7 +2,31 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
-## [1.4.1] - 2026-04-02
+## [1.5.0] - 2026-04-04
+
+### Added
+
+- **Post-Processing** — `PostProcessPass` (full-screen `FragmentShader`, ordered chaining), `ShaderComponent` (per-entity or post-process mode), `PostProcessSystem` (priority 35).
+- **Sprite Atlas** — `SpriteAtlas`, `AtlasParser` (auto-detects TexturePacker JSON Array/Hash/multi-page and Aseprite), `AtlasAnimationClip`, `AtlasSpriteAnimation`.
+- **Deterministic Effects** — 11 tick-based effects (`MoveEffect`, `ScaleEffect`, `RotateEffect`, `FadeEffect`, `ColorTintEffect`, `SequenceEffect`, `ParallelEffect`, `DelayEffect`, `RepeatEffect`, `ShakeEffect`, `PathEffect`), `EffectSystemECS` (priority 65), JSON + binary serialization, `EffectSnapshot` for rollback.
+- **Localization** — `LocalizationManager` with namespace support, fallback chain (`fr_CA → fr → en`), `Signal<Locale>`, ICU-lite `{plural}`/`{select}` via `StringInterpolator`, and Flutter widgets (`LocalizationScope`, `LocalizedText`, `LocaleSelector`).
+- **Narrative / Dialogue** — Full Yarn Spinner 2.x parser and runtime (`DialogueManager`, `YarnParser`, `DialogueRunner`), `DialogueLocalizer`, ECS components (`DialogueComponent`, `TriggerComponent`, `DialogueSystem`), and UI widgets (`DialogueBoxWidget`, `DialogueChoicesWidget`).
+- **New ECS components**: `ShaderComponent`, `EffectComponent`, `ParallaxComponent`, `ParticleEmitterComponent`, `CameraFollowComponent`.
+- **New ECS systems**: `PostProcessSystem`, `EffectSystemECS`, `ParticleSystemECS`, `CameraFollowSystem`.
+
+### Changed
+
+- **Audio** — Replaced `flutter_soloud` with `just_audio_engine` (`^1.0.0`); graceful degradation in headless/test environments; no user-facing API changes.
+- **SystemManager** — Promoted to authoritative frame scheduler (`registerUpdateTask`, `runUpdateCycle`, `schedulerStats`); `Engine.systemManager` getter exposed publicly.
+- **Performance** — Hot-path allocation audit: persistent `Stopwatch` fields, pre-allocated collision pair buffer, sub-frame render interpolation, `LinkedHashSet` render layers, archetype integer signatures, Zobrist query-cache keys, accumulator cap `5× → 3×`, `SpatialGrid` hash entropy fix.
+- **Observability** — Per-subsystem timing stats in `GameWidget` debug HUD; Quadtree caching in `RenderingEngine`; incremental `SpatialGrid` body tracking.
+- **Cache** — `CacheManager` falls back to in-memory stores on plugin failure (`isUsingMemoryFallback`).
+- **CI** — GitHub Actions (`flutter analyze --fatal-infos` + `flutter test`); `@experimental` on all networking stubs; `analysis_options.yaml` hardened; `meta: ^1.9.0` dependency added.
+
+---
+
+
+## [1.4.2] - 2026-04-02
 
 - Engine performance improved
 - Engine stats updated
@@ -408,6 +432,7 @@ Audio playback is now fully ECS-driven alongside the existing `AudioEngine` API.
 
 ## Version History
 
+- **1.5.0** - Post-Processing shaders, Sprite Atlas, Deterministic Effects, Localization, Narrative/Dialogue, audio backend swap (`just_audio_engine`), SystemManager frame scheduler, hot-path allocation audit, runtime observability, CI/CD
 - **1.4.2** - Performance improvements
 - **1.4.1** - Documentation overhaul and example consolidation
 - **1.4.0** - Parallax Background System, Virtual Joystick Widget, and showcase app improvements
