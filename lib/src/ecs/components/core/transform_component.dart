@@ -28,8 +28,8 @@ class TransformComponent extends Component {
     this.position = Offset.zero,
     this.rotation = 0.0,
     this.scale = 1.0,
-  }) : prevPosition = Offset.zero,
-       prevRotation = 0.0;
+  }) : prevPosition = position,
+       prevRotation = rotation;
 
   /// Move by offset
   void translate(Offset offset) {
