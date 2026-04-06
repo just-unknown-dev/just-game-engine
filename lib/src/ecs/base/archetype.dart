@@ -11,11 +11,10 @@ class Archetype {
   /// The canonical set of component types in this archetype.
   final Set<Type> types;
 
-  /// Deterministic integer key derived from [types] (used as map key).
+  /// Deterministic string key derived from [types] (used as map key).
   ///
-  /// Computed as a sorted polynomial hash of the component type hash codes,
-  /// eliminating String allocation on every structural mutation.
-  final int signature;
+  /// Computed from sorted type names, which is collision-free.
+  final String signature;
 
   // Dense component arrays – one list per component type.
   final Map<Type, List<Component>> _columns;
@@ -60,7 +59,19 @@ class Archetype {
   List<EntityId> get entityIds => _entityIds;
 
   /// Add an entity with its [components] and return the assigned row index.
+  ///
+  /// Validates that every type in this archetype is present in [components]
+  /// before mutating state, ensuring atomicity on mismatch.
   int addEntity(EntityId id, Map<Type, Component> components) {
+    // Pre-validate before any mutation so state stays consistent on mismatch.
+    for (final type in types) {
+      if (!components.containsKey(type)) {
+        throw ArgumentError(
+          'Archetype mismatch: component map is missing type $type. '
+          'Expected types: $types, got: ${components.keys.toSet()}',
+        );
+      }
+    }
     final row = _entityIds.length;
     _entityIds.add(id);
     _rowIndex[id] = row;
@@ -106,16 +117,14 @@ class Archetype {
     return result;
   }
 
-  /// Canonical integer signature for a set of types.
+  /// Canonical string key for a set of types.
   ///
-  /// Sorts the component type [hashCode]s and folds them using a polynomial
-  /// accumulator. Order-independent and avoids all String allocation.
-  static int _computeSignature(Set<Type> types) {
-    final hashes = types.map((t) => t.hashCode).toList()..sort();
-    var h = 0;
-    for (final v in hashes) {
-      h = h * 1000000007 + v;
-    }
-    return h;
+  /// Sorts the type names alphabetically and joins them. This is
+  /// order-independent and collision-free (two different type sets always
+  /// produce different keys, unlike integer hash approaches that can collide
+  /// in Dart web due to JS float-precision loss).
+  static String _computeSignature(Set<Type> types) {
+    final names = types.map((t) => t.toString()).toList()..sort();
+    return names.join('\x00');
   }
 }

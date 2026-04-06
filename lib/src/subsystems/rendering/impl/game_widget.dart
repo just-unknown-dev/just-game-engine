@@ -321,9 +321,15 @@ class _GamePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Clip to the widget's own pixel bounds so that world-space geometry
+    // (e.g. large background rectangles) cannot bleed onto sibling Flutter
+    // widgets (headers, panels, overlays) that share the screen canvas.
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
     // Single render call — ECS systems are invoked via onRenderOverlay
     // inside the camera-transformed context.
     engine.rendering.render(canvas, size);
+    canvas.restore();
   }
 
   @override
