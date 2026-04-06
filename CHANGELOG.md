@@ -2,6 +2,14 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [1.5.1] - 2026-04-06
+
+### Fixed
+
+- Update Archetype signature to use string keys and improve entity validation in addEntity method
+
+---
+
 ## [1.5.0] - 2026-04-04
 
 ### Added
@@ -432,6 +440,7 @@ Audio playback is now fully ECS-driven alongside the existing `AudioEngine` API.
 
 ## Version History
 
+- **1.5.1** - Bug fixes: Update Archetype signature to use string keys and improve entity validation in addEntity method
 - **1.5.0** - Post-Processing shaders, Sprite Atlas, Deterministic Effects, Localization, Narrative/Dialogue, audio backend swap (`just_audio_engine`), SystemManager frame scheduler, hot-path allocation audit, runtime observability, CI/CD
 - **1.4.2** - Performance improvements
 - **1.4.1** - Documentation overhaul and example consolidation
