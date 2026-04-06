@@ -93,9 +93,14 @@ class RenderSystem extends System {
 
       // Sync transform if enabled
       if (renderComp.syncTransform) {
-        if (interpolation < 1.0) {
-          // Lerp between previous and current physics position for smooth
-          // rendering between fixed-timestep updates.
+        // Sub-frame interpolation only applies to physics-driven entities.
+        // PhysicsBridgeSystem captures prevPosition/prevRotation before each
+        // physics step; non-physics entities (orbit, velocity, etc.) never
+        // update prevPosition, so interpolating them renders them frozen at
+        // their spawn position when interpolation ≈ 0 (the typical case at
+        // matching UPS/FPS). Use position directly for non-physics entities.
+        final hasPhysics = entity.hasComponent<PhysicsBodyRefComponent>();
+        if (hasPhysics && interpolation < 1.0) {
           renderComp.renderable.position = Offset(
             transform.prevPosition.dx +
                 (transform.position.dx - transform.prevPosition.dx) *

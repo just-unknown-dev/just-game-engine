@@ -44,7 +44,7 @@ class World {
   final EventBus events = EventBus();
 
   // ── Archetype storage ───────────────────────────────────────────────────
-  final Map<int, Archetype> _archetypes = {};
+  final Map<String, Archetype> _archetypes = {};
 
   Archetype _getOrCreateArchetype(Set<Type> types) {
     final sig = Archetype._computeSignature(types);
