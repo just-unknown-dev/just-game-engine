@@ -202,6 +202,69 @@ void setupECS(Engine engine) {
 2. `RenderSystem` draws entities with Transform + Renderable
 3. Your entity has all three components, so both systems process it
 
+### Shape Components
+
+Five self-rendering ECS components cover the most common geometric shapes. Because they all extend `RenderableComponent` directly you add them straight to the entity — no `RenderableComponent` wrapper needed.
+
+| Component | Key properties |
+|---|---|
+| `CircleComponent` | `radius`, `color`, `filled`, `strokeWidth` |
+| `RectangleComponent` | `width`, `height`, `color`, `filled`, `strokeWidth`, `cornerRadius` |
+| `PolygonComponent` | `vertices` (`List<Offset>`), `color`, `filled`, `strokeWidth` |
+| `LineComponent` | `start`, `end`, `color`, `strokeWidth`, `roundCaps` |
+| `CapsuleComponent` | `width`, `height`, `color`, `filled`, `strokeWidth` |
+
+```dart
+void setupShapes(Engine engine) {
+  final world = engine.world;
+  world.addSystem(RenderSystem());
+
+  // Circle
+  final circle = world.createEntity(name: 'Circle');
+  circle.addComponent(TransformComponent(position: const Offset(-150, 0)));
+  circle.addComponent(CircleComponent(radius: 40, color: Colors.blue));
+
+  // Rounded rectangle
+  final rect = world.createEntity(name: 'Rect');
+  rect.addComponent(TransformComponent(position: Offset.zero));
+  rect.addComponent(RectangleComponent(
+    width: 80,
+    height: 50,
+    color: Colors.green,
+    cornerRadius: 8,
+  ));
+
+  // Polygon (triangle)
+  final tri = world.createEntity(name: 'Triangle');
+  tri.addComponent(TransformComponent(position: const Offset(150, 0)));
+  tri.addComponent(PolygonComponent(
+    vertices: const [Offset(0, -40), Offset(35, 30), Offset(-35, 30)],
+    color: Colors.orange,
+  ));
+
+  // Line
+  final line = world.createEntity(name: 'Line');
+  line.addComponent(TransformComponent(position: const Offset(-80, 100)));
+  line.addComponent(LineComponent(
+    end: const Offset(80, 0),
+    color: Colors.yellow,
+    strokeWidth: 3,
+    roundCaps: true,
+  ));
+
+  // Capsule (orientation flips automatically based on aspect ratio)
+  final capsule = world.createEntity(name: 'Capsule');
+  capsule.addComponent(TransformComponent(position: const Offset(0, 180)));
+  capsule.addComponent(CapsuleComponent(
+    width: 40,
+    height: 90,
+    color: Colors.purple,
+  ));
+}
+```
+
+Set `filled: false` on any shape to draw an outline instead of a solid fill. Mutations to properties (`radius`, `vertices`, etc.) are reflected in the next frame immediately.
+
 ### Adding Physics with ECS
 
 ```dart
@@ -513,6 +576,26 @@ void setupCameraFollow(Engine engine) {
 ```
 
 When multiple entities carry a `CameraFollowComponent` with the same lowest `priority`, the system switches to multi-target mode and auto-zooms to keep all targets in view.
+
+### Pattern 7: ECS Shape Hitbox Debug Overlay
+
+Shape components double as lightweight visual hitbox overlays during development. Add them alongside physics bodies and toggle visibility via `filled`.
+
+```dart
+void addHitboxOverlay(World world, Entity entity, double radius) {
+  entity.addComponent(CircleComponent(
+    radius: radius,
+    color: Colors.red.withValues(alpha: 0.35),
+    filled: true,
+    strokeWidth: 1.5,
+  ));
+}
+
+// Remove later when shipping
+void removeHitboxOverlay(Entity entity) {
+  entity.removeComponent<RenderableComponent>();
+}
+```
 
 ## Camera Controls
 

@@ -93,7 +93,7 @@ Just Game Engine is a complete game development framework with 20+ major subsyst
 ### 🧩 Entity-Component System (ECS)
 - **Data-Oriented Architecture**: Composition over inheritance for flexible entity design
 - **Entity Management**: Create and destroy entities with generational IDs for use-after-destroy safety
-- **Component System**: 26+ built-in components (Transform, Velocity, Physics, Health, RaycastCollider, UI, Audio, Tiled, Effect, Shader, Parallax, Particle, etc.)
+- **Component System**: 34+ built-in components (Transform, Velocity, Physics, Health, RaycastCollider, Shape, UI, Audio, Tiled, Effect, Shader, Parallax, Particle, etc.)
 - **System Processing**: 17+ built-in systems with standardized priorities for movement, rendering, physics, input, audio, ray casting, effects, post-processing, and more
 - **Query System**: Find entities by component types with selective cache invalidation and integer-based hashing
 - **World Management**: Centralized entity and system coordination with `LinkedHashSet` for $O(1)$ entity removal
@@ -102,8 +102,22 @@ Just Game Engine is a complete game development framework with 20+ major subsyst
 - **Entity Prefabs**: Reusable entity blueprints via `EntityPrefab` — batch-spawn with `world.instantiate()`
 - **Hierarchy Support**: Parent-child entity relationships
 - **Reactive ECS** (`src/reactive/`): Signal-driven wrappers powered by `just_signals` — `ComponentSignal`, `EntitySignal`, `WorldSignal`, `ReactiveSystem`, and `ReactiveComponent` enable surgical UI updates without polling
-- **Built-in Components (26+)**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `SpriteComponent`, `PhysicsBodyComponent`, `PhysicsBodyRefComponent`, `RaycastColliderComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `JoystickInputComponent`, `AnimationStateComponent`, `AudioSourceComponent`, `AudioPlayComponent`, `TileMapLayerComponent`, `TiledObjectComponent`, `UIComponent`, `TextComponent`, `ButtonComponent`, `LinearProgressComponent`, `CircularProgressComponent`, `EffectComponent`, `ShaderComponent`, `ParallaxComponent`, `ParticleEmitterComponent`, `CameraFollowComponent`
+- **Built-in Components (34+)**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `SpriteComponent`, `PhysicsBodyComponent`, `PhysicsBodyRefComponent`, `RaycastColliderComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `JoystickInputComponent`, `AnimationStateComponent`, `AudioSourceComponent`, `AudioPlayComponent`, `TileMapLayerComponent`, `TiledObjectComponent`, `UIComponent`, `TextComponent`, `ButtonComponent`, `LinearProgressComponent`, `CircularProgressComponent`, `EffectComponent`, `ShaderComponent`, `ParallaxComponent`, `ParticleEmitterComponent`, `CameraFollowComponent`, `CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent`
 - **Built-in Systems (17+)**: `InputSystem` (100), `PhysicsSystem` (90), `PhysicsBridgeSystem` (89), `MovementSystem` (80), `AnimationSystemECS` (70), `EffectSystemECS` (65), `GameplaySystem` (60), `HierarchySystem` (50), `RenderSystem` (40), `PostProcessSystem` (35), `BoundarySystem` (30), `ParticleSystemECS`, `CameraFollowSystem`, `LifetimeSystem`, `HealthSystem`, `AudioSystem`, `RaycastSystem`, `TileMapRenderSystem`, `TiledCollisionSystem`
+
+### ðŸ”· Shape Components
+
+- **Self-Rendering ECS Components**: Five components that extend `RenderableComponent` and draw themselves every frame â€” no additional system beyond `RenderSystem` required
+
+- **`CircleComponent`**: Circle centered on the entity's transform. Properties: `radius`, `color`, `filled`, `strokeWidth`
+
+- **`RectangleComponent`**: Axis-aligned rectangle with optional rounded corners. Properties: `width`, `height`, `color`, `filled`, `strokeWidth`, `cornerRadius`. Convenience `size` getter
+
+- **`PolygonComponent`**: Convex or concave polygon defined by local-space `vertices` (`List<Offset>`). Properties: `vertices`, `color`, `filled`, `strokeWidth`
+
+- **`LineComponent`**: Straight line segment in local space. Properties: `start`, `end`, `color`, `strokeWidth`, `roundCaps`. Convenience `length` getter
+
+- **`CapsuleComponent`**: Rectangle with semicircular end caps (orientation auto-flips based on aspect ratio). Properties: `width`, `height`, `color`, `filled`, `strokeWidth`. Computed `capRadius` getter
 
 ### � Input Management
 - **Keyboard Input**: Key press, hold, and release detection with axis support
@@ -214,7 +228,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  just_game_engine: ^1.5.0
+  just_game_engine: ^1.5.2
 ```
 
 Then run:
@@ -299,7 +313,7 @@ Just Game Engine
 │   ├── Component (Data storage + lifecycle callbacks)
 │   ├── System (Priority-ordered processing logic)
 │   ├── EntityPrefab (Reusable entity blueprints)
-│   ├── Built-in Components (26+):
+│   ├── Built-in Components (34+):
 │   │   ├── TransformComponent, VelocityComponent
 │   │   ├── RenderableComponent, SpriteComponent
 │   │   ├── ShaderComponent, ParallaxComponent, ParticleEmitterComponent
@@ -311,6 +325,8 @@ Just Game Engine
 │   │   ├── AudioSourceComponent, AudioPlayComponent
 │   │   ├── TileMapLayerComponent, TiledObjectComponent
 │   │   ├── EffectComponent
+│   │   ├── CircleComponent, RectangleComponent, PolygonComponent
+│   │   ├── LineComponent, CapsuleComponent
 │   │   └── UIComponent, TextComponent, ButtonComponent,
 │   │     LinearProgressComponent, CircularProgressComponent
 │   └── Built-in Systems (17+):
@@ -452,8 +468,16 @@ Just Game Engine
 - `Entity` - Component container with unique ID
 - `Component` - Base class for data components
 - `System` - Base class for processing systems
-- **Built-in Components (26+)**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `SpriteComponent`, `ShaderComponent`, `ParallaxComponent`, `ParticleEmitterComponent`, `PhysicsBodyComponent`, `PhysicsBodyRefComponent`, `RaycastColliderComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `JoystickInputComponent`, `CameraFollowComponent`, `AnimationStateComponent`, `AudioSourceComponent`, `AudioPlayComponent`, `TileMapLayerComponent`, `TiledObjectComponent`, `EffectComponent`, `UIComponent`, `TextComponent`, `ButtonComponent`, `LinearProgressComponent`, `CircularProgressComponent`
+- **Built-in Components (34+)**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `SpriteComponent`, `ShaderComponent`, `ParallaxComponent`, `ParticleEmitterComponent`, `PhysicsBodyComponent`, `PhysicsBodyRefComponent`, `RaycastColliderComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `JoystickInputComponent`, `CameraFollowComponent`, `AnimationStateComponent`, `AudioSourceComponent`, `AudioPlayComponent`, `TileMapLayerComponent`, `TiledObjectComponent`, `EffectComponent`, `UIComponent`, `TextComponent`, `ButtonComponent`, `LinearProgressComponent`, `CircularProgressComponent`, `CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent`
 - **Built-in Systems (17+)**: `InputSystem`, `PhysicsSystem`, `PhysicsBridgeSystem`, `MovementSystem`, `AnimationSystemECS`, `EffectSystemECS`, `HealthSystem`, `HierarchySystem`, `RenderSystem`, `PostProcessSystem`, `BoundarySystem`, `ParticleSystemECS`, `CameraFollowSystem`, `RaycastSystem`, `LifetimeSystem`, `AudioSystem`, `TileMapRenderSystem`, `TiledCollisionSystem`
+
+### Shape Component Classes
+
+- `CircleComponent` — Circle centered on the entity's transform; extends `RenderableComponent`. Properties: `radius`, `color`, `filled`, `strokeWidth`
+- `RectangleComponent` — Axis-aligned rectangle with optional rounded corners; extends `RenderableComponent`. Properties: `width`, `height`, `color`, `filled`, `strokeWidth`, `cornerRadius`. `size` getter returns a `Size`
+- `PolygonComponent` — Convex or concave polygon from local-space `vertices`; extends `RenderableComponent`. Properties: `vertices`, `color`, `filled`, `strokeWidth`
+- `LineComponent` — Straight line segment in local space; extends `RenderableComponent`. Properties: `start`, `end`, `color`, `strokeWidth`, `roundCaps`. `length` getter for segment distance
+- `CapsuleComponent` — Rectangle with semicircular end caps (orientation flips by aspect ratio); extends `RenderableComponent`. Properties: `width`, `height`, `color`, `filled`, `strokeWidth`. `capRadius` getter (half the shorter side)
 
 ### Input Classes
 

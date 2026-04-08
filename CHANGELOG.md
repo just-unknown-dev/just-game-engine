@@ -2,6 +2,19 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [1.5.2] - 2026-04-08
+
+### Added
+
+- **Shape Components** — Five self-rendering ECS components that extend `RenderableComponent` and draw themselves each frame with no additional render system required.
+  - `CircleComponent` — Circle centered on the entity's `TransformComponent` position. Properties: `radius`, `color`, `filled`, `strokeWidth`.
+  - `RectangleComponent` — Axis-aligned rectangle with optional rounded corners. Properties: `width`, `height`, `color`, `filled`, `strokeWidth`, `cornerRadius`. Convenience `size` getter returns a `Size` object.
+  - `PolygonComponent` — Convex or concave polygon defined by a list of local-space `vertices`. Properties: `vertices`, `color`, `filled`, `strokeWidth`.
+  - `LineComponent` — Straight line segment in local space. Properties: `start`, `end`, `color`, `strokeWidth`, `roundCaps`. Convenience `length` getter for segment distance.
+  - `CapsuleComponent` — Rectangle with two semicircular end caps (horizontal or vertical depending on aspect ratio). Properties: `width`, `height`, `color`, `filled`, `strokeWidth`. Computed `capRadius` getter (half of the shorter side).
+
+---
+
 ## [1.5.1] - 2026-04-06
 
 ### Fixed
@@ -440,6 +453,7 @@ Audio playback is now fully ECS-driven alongside the existing `AudioEngine` API.
 
 ## Version History
 
+- **1.5.2** - Shape Components: `CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent` (all self-rendering, extend `RenderableComponent`)
 - **1.5.1** - Bug fixes: Update Archetype signature to use string keys and improve entity validation in addEntity method
 - **1.5.0** - Post-Processing shaders, Sprite Atlas, Deterministic Effects, Localization, Narrative/Dialogue, audio backend swap (`just_audio_engine`), SystemManager frame scheduler, hot-path allocation audit, runtime observability, CI/CD
 - **1.4.2** - Performance improvements
