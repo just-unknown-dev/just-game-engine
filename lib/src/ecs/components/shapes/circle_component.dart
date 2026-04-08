@@ -2,7 +2,6 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../../ecs.dart';
 import '../rendering/renderable_component.dart';
 import '../../../subsystems/rendering/rendering_engine.dart';
 
