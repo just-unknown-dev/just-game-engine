@@ -34,6 +34,9 @@ export 'animation/animation_state_component.dart';
 // Audio components
 export 'audio/audio_components.dart';
 
+// Shape components
+export 'shapes/shapes.dart';
+
 // Other components
 export 'others/tag_component.dart';
 export 'others/lifetime_component.dart';
