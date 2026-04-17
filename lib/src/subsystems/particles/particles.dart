@@ -31,6 +31,7 @@ library;
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:just_memory/just_memory.dart';
 import '../rendering/impl/renderable.dart';
 
 part 'particle_data.dart';

@@ -1,29 +1,10 @@
-/// Memory Management
+/// Memory management exports for the engine.
 ///
-/// Object Pool
+/// Generic pooling, arenas, scopes, profiling, and resource lifetimes are now
+/// provided by the shared just_memory package.
 ///
-/// A high-performance, generic object pool that minimises GC pressure by
-/// recycling instances instead of allocating new ones each frame.
-///
-/// Usage:
-/// ```dart
-/// class Bullet implements Recyclable {
-///   double x = 0, y = 0, speed = 0;
-///   @override
-///   void reset() { x = 0; y = 0; speed = 0; }
-/// }
-///
-/// final pool = ObjectPool(() => Bullet(), initialSize: 200);
-/// final b = pool.acquire();
-/// // ... use b ...
-/// pool.release(b);
-/// ```
-///
-/// Cache Management
-///
-/// Implements caching for game assets and data using just_storage and just_database.
-///
+/// Engine-specific caching remains exported here for convenience.
 library;
 
-export 'object_pool.dart';
 export 'cache_manager.dart';
+export 'package:just_memory/just_memory.dart';
