@@ -84,6 +84,9 @@ export 'src/subsystems/effects/effects.dart';
 // Reactive ECS - Signal-driven wrappers for ECS types
 export 'src/reactive/reactive.dart';
 
+// Debugger integration - embedded Just Debugger tools for live engine diagnostics
+export 'src/debugger/debugger.dart';
+
 // Localization - Engine-wide i18n: string tables, plurals, locale switching.
 // Central service shared by all subsystems including Narrative/Dialogue.
 export 'src/subsystems/localization/localization.dart';

@@ -5,7 +5,9 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:just_debugger/just_debugger.dart';
 import '../../../core/engine.dart';
+import '../../../debugger/engine_debugger.dart';
 import '../../../ecs/systems/rendering/render_system.dart';
 
 /// Main game widget that renders the game
@@ -19,8 +21,17 @@ class GameWidget extends StatefulWidget {
   /// Whether to show FPS counter
   final bool showFPS;
 
-  /// Whether to show debug info
+  /// Whether to show the main ECS debugger overlay.
   final bool showDebug;
+
+  /// Optional debugger controller used to expose the full Just Debugger suite.
+  final JustDebuggerController? debuggerController;
+
+  /// Whether the integrated debugger tools should be shown on top of the game.
+  final bool showDebuggerTools;
+
+  /// Whether the integrated debugger inspector panel should be visible.
+  final bool showDebuggerInspector;
 
   /// Create a game widget
   const GameWidget({
@@ -28,6 +39,9 @@ class GameWidget extends StatefulWidget {
     required this.engine,
     this.showFPS = true,
     this.showDebug = false,
+    this.debuggerController,
+    this.showDebuggerTools = false,
+    this.showDebuggerInspector = false,
   });
 
   @override
@@ -47,6 +61,22 @@ class _GameWidgetState extends State<GameWidget>
   DateTime _lastFpsUpdate = DateTime.now();
 
   final FocusNode _focusNode = FocusNode();
+  JustDebuggerController? _ownedDebuggerController;
+
+  bool get _shouldShowDebuggerOverlay =>
+      widget.showDebug || widget.showDebuggerTools;
+
+  JustDebuggerController? get _effectiveDebuggerController {
+    final external = widget.debuggerController;
+    if (external != null) {
+      return external;
+    }
+    if (!_shouldShowDebuggerOverlay) {
+      return null;
+    }
+    return _ownedDebuggerController ??= widget.engine
+        .createDebuggerController();
+  }
 
   @override
   void initState() {
@@ -60,6 +90,11 @@ class _GameWidgetState extends State<GameWidget>
 
     // Enable debug mode if requested
     widget.engine.rendering.debugMode = widget.showDebug;
+
+    final debuggerController = _effectiveDebuggerController;
+    if (debuggerController != null && !debuggerController.isBound) {
+      widget.engine.attachDebugger(debuggerController);
+    }
 
     // Request focus for keyboard input
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -81,6 +116,7 @@ class _GameWidgetState extends State<GameWidget>
     _focusNode.dispose();
     _repaintNotifier.dispose();
     _fpsNotifier.dispose();
+    _ownedDebuggerController?.dispose();
     super.dispose();
   }
 
@@ -128,7 +164,7 @@ class _GameWidgetState extends State<GameWidget>
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final content = GestureDetector(
       onTap: () {
         // Request focus when tapping on the game area
         _focusNode.requestFocus();
@@ -203,99 +239,33 @@ class _GameWidgetState extends State<GameWidget>
                       ),
                     ),
                   ),
-
-                // Debug info — isolated RepaintBoundary, driven by same
-                // FPS notifier cadence.
-                if (widget.showDebug)
-                  Positioned(
-                    top: 50,
-                    right: 10,
-                    child: RepaintBoundary(
-                      child: ValueListenableBuilder<int>(
-                        valueListenable: _fpsNotifier,
-                        builder: (_, _, _) {
-                          final engineStats = widget.engine.performanceStats;
-                          final renderStats = widget.engine.rendering.stats;
-                          final physicsStats = widget.engine.physics.stats;
-
-                          return Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.7),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Renderables: ${widget.engine.rendering.renderableCount}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                                Text(
-                                  'Layers: ${widget.engine.rendering.layerCount}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                                Text(
-                                  'Camera: (${widget.engine.rendering.camera.position.dx.toStringAsFixed(0)}, '
-                                  '${widget.engine.rendering.camera.position.dy.toStringAsFixed(0)})',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                                Text(
-                                  'Zoom: ${widget.engine.rendering.camera.zoom.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                                Text(
-                                  'Update: ${((engineStats['lastUpdateMs'] as num?) ?? 0).toStringAsFixed(2)} ms',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                                Text(
-                                  'Render: ${((renderStats['lastRenderMs'] as num?) ?? 0).toStringAsFixed(2)} ms | Draws: ${renderStats['drawCalls']}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                                Text(
-                                  'Physics: ${((physicsStats['lastStepMs'] as num?) ?? 0).toStringAsFixed(2)} ms | Awake: ${physicsStats['awakeBodies']} | Pairs: ${physicsStats['potentialPairs']}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
         ),
       ),
+    );
+
+    final debuggerController = _effectiveDebuggerController;
+    if (debuggerController == null) {
+      return content;
+    }
+
+    return JustDebuggerView(
+      controller: debuggerController,
+      showOverlay: _shouldShowDebuggerOverlay,
+      showInspectorPanel: widget.showDebuggerInspector,
+      overlayAlignment: Alignment.topRight,
+      overlayMargin: EdgeInsets.only(
+        top: widget.showFPS ? 54 : 12,
+        right: 12,
+        bottom: 12,
+        left: 12,
+      ),
+      inspectorWidth: 420,
+      inspectorHeight: 420,
+      inspectorChild: EngineDebuggerPanel(controller: debuggerController),
+      child: content,
     );
   }
 }
