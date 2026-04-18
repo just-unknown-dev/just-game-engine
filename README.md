@@ -228,7 +228,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  just_game_engine: ^1.5.2
+  just_game_engine: ^1.5.3
 ```
 
 Then run:
