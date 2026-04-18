@@ -70,8 +70,9 @@ export 'src/ecs/systems/systems.dart';
 // Math - Mutable vector types for hot-path code
 export 'src/math/math.dart';
 
-// Memory Management - Object pooling and caching infrastructure
-export 'src/memory/memory.dart';
+// Memory Management - shared just_memory utilities and engine cache infrastructure
+export 'src/memory/cache_manager.dart';
+export 'package:just_memory/just_memory.dart';
 
 // Sprite Atlas - Sprite-sheet parsing, named regions, and atlas animations
 // Supports TexturePacker (JSON Array / Hash / multi-page) and Aseprite formats
