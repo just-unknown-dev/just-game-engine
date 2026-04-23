@@ -22,6 +22,7 @@ import '../subsystems/camera/camera_system.dart';
 import '../subsystems/parallax/parallax_background.dart';
 import '../memory/cache_manager.dart';
 import '../ecs/ecs.dart';
+import '../subsystems/rendering/impl/game_terminal.dart';
 
 /// Main game engine class that orchestrates all subsystems
 ///
@@ -118,6 +119,12 @@ class Engine implements ILifecycle {
   late final ParallaxSystem parallax;
   late final World world; // ECS World
 
+  /// In-game developer terminal for cheat commands and debug tooling.
+  ///
+  /// Register commands via [GameTerminal.registerCommand] before calling
+  /// [GameWidget] so the commands are available when the terminal opens.
+  final GameTerminal terminal = GameTerminal();
+
   /// Initialize the game engine and all subsystems
   ///
   /// This must be called before starting the engine.
@@ -160,6 +167,10 @@ class Engine implements ILifecycle {
     debugPrint('Initializing subsystems...');
 
     // Create subsystem instances
+    // GameTerminal is eagerly constructed as a plain Dart object — no
+    // async initialization needed, it's ready immediately.
+    // (terminal is a final field initialised at declaration)
+
     rendering = RenderingEngine();
     physics = PhysicsEngine();
     input = InputManager();
