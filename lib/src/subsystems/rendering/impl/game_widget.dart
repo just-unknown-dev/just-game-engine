@@ -27,15 +27,6 @@ class GameWidget extends StatefulWidget {
   /// Whether to show the main ECS debugger overlay.
   final bool showDebug;
 
-  /// Optional debugger controller used to expose the full Just Debugger suite.
-  final JustDebuggerController? debuggerController;
-
-  /// Whether the integrated debugger tools should be shown on top of the game.
-  final bool showDebuggerTools;
-
-  /// Whether the integrated debugger inspector panel should be visible.
-  final bool showDebuggerInspector;
-
   /// Whether to show the in-game developer terminal.
   ///
   /// When `true`, pressing the backquote/tilde key (`` ` ``) toggles a text
@@ -51,9 +42,6 @@ class GameWidget extends StatefulWidget {
     required this.engine,
     this.showFPS = true,
     this.showDebug = false,
-    this.debuggerController,
-    this.showDebuggerTools = false,
-    this.showDebuggerInspector = false,
     this.showTerminal = false,
   });
 
@@ -76,17 +64,8 @@ class _GameWidgetState extends State<GameWidget>
   final FocusNode _focusNode = FocusNode();
   JustDebuggerController? _ownedDebuggerController;
 
-  bool get _shouldShowDebuggerOverlay =>
-      widget.showDebug || widget.showDebuggerTools;
-
   JustDebuggerController? get _effectiveDebuggerController {
-    final external = widget.debuggerController;
-    if (external != null) {
-      return external;
-    }
-    if (!_shouldShowDebuggerOverlay) {
-      return null;
-    }
+    if (!widget.showDebug) return null;
     return _ownedDebuggerController ??= widget.engine
         .createDebuggerController();
   }
@@ -312,8 +291,8 @@ class _GameWidgetState extends State<GameWidget>
 
     return JustDebuggerView(
       controller: debuggerController,
-      showOverlay: _shouldShowDebuggerOverlay,
-      showInspectorPanel: widget.showDebuggerInspector,
+      showOverlay: widget.showDebug,
+      showInspectorPanel: false,
       overlayAlignment: Alignment.topRight,
       overlayMargin: EdgeInsets.only(
         top: widget.showFPS ? 54 : 12,

@@ -23,21 +23,12 @@ void main() {
     await engine.initialize();
     engine.start();
 
-    final controller = engine.createDebuggerController();
-
     await tester.pumpWidget(
       MaterialApp(
         home: SizedBox(
           width: 800,
           height: 600,
-          child: GameWidget(
-            engine: engine,
-            showFPS: false,
-            showDebug: false,
-            debuggerController: controller,
-            showDebuggerTools: true,
-            showDebuggerInspector: true,
-          ),
+          child: GameWidget(engine: engine, showFPS: false, showDebug: true),
         ),
       ),
     );
@@ -46,7 +37,6 @@ void main() {
     expect(find.text('ECS Debugger'), findsOneWidget);
     expect(find.text('Performance'), findsWidgets);
 
-    controller.dispose();
     engine.stop();
   });
 
@@ -62,12 +52,7 @@ void main() {
         home: SizedBox(
           width: 800,
           height: 600,
-          child: GameWidget(
-            engine: engine,
-            showFPS: false,
-            showDebug: false,
-            showDebuggerTools: true,
-          ),
+          child: GameWidget(engine: engine, showFPS: false, showDebug: true),
         ),
       ),
     );
@@ -89,12 +74,7 @@ void main() {
         home: SizedBox(
           width: 800,
           height: 600,
-          child: GameWidget(
-            engine: engine,
-            showFPS: false,
-            showDebug: true,
-            showDebuggerTools: false,
-          ),
+          child: GameWidget(engine: engine, showFPS: false, showDebug: true),
         ),
       ),
     );
@@ -115,12 +95,7 @@ void main() {
         home: SizedBox(
           width: 800,
           height: 600,
-          child: GameWidget(
-            engine: engine,
-            showFPS: true,
-            showDebug: true,
-            showDebuggerTools: false,
-          ),
+          child: GameWidget(engine: engine, showFPS: true, showDebug: true),
         ),
       ),
     );
