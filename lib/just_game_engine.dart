@@ -20,6 +20,9 @@ library;
 // Core Engine - Main engine, game loop, and time management
 export 'src/core/core.dart';
 
+// Achievement System - Cross-platform achievement tracking with provider interface
+export 'src/subsystems/achievements/achievements.dart';
+
 // Shared Interfaces - Abstract contracts between ECS and subsystems
 export 'src/interfaces/interfaces.dart';
 
