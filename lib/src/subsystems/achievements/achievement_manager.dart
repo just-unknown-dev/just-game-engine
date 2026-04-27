@@ -1,10 +1,9 @@
 library;
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:just_storage/just_storage.dart';
+import 'package:just_database/just_database.dart';
 
 import '../../ecs/ecs.dart';
 import 'achievement.dart';
@@ -31,11 +30,11 @@ import 'achievement_provider.dart';
 /// engine.achievements.incrementProgress('total_coins', 5);
 /// ```
 class AchievementManager {
-  static const String _kStateKey = 'jge_achievement_state';
+  static const String _kTable = 'jge_achievements';
 
   final Map<String, Achievement> _achievements = {};
   AchievementProvider _provider = NoOpAchievementProvider();
-  JustStandardStorage? _storage;
+  JustDatabase? _db;
   World? _world;
 
   // ── Setup ─────────────────────────────────────────────────────────────────
@@ -51,7 +50,7 @@ class AchievementManager {
   /// initialization too — previously persisted state is applied immediately.
   void define(Achievement achievement) {
     _achievements[achievement.id] = achievement;
-    if (_storage != null) {
+    if (_db != null) {
       // Manager already initialized — restore any saved state right away.
       unawaited(_restoreOne(achievement));
     }
@@ -71,10 +70,16 @@ class AchievementManager {
 
   Future<void> initialize() async {
     try {
-      _storage = await JustStorage.standard();
+      _db = await DatabaseManager.open('jge_engine', persist: true);
+      await _db!.execute(
+        'CREATE TABLE IF NOT EXISTS $_kTable '
+        '(id TEXT PRIMARY KEY NOT NULL, '
+        'unlocked INTEGER NOT NULL DEFAULT 0, '
+        'progress REAL NOT NULL DEFAULT 0.0)',
+      );
       await _loadState();
     } catch (e) {
-      debugPrint('AchievementManager: storage unavailable ($e)');
+      debugPrint('AchievementManager: database unavailable ($e)');
     }
     try {
       await _provider.initialize();
@@ -162,29 +167,47 @@ class AchievementManager {
   // ── Persistence ───────────────────────────────────────────────────────────
 
   Future<void> _save() async {
-    final storage = _storage;
-    if (storage == null) return;
+    final db = _db;
+    if (db == null) return;
+    for (final a in _achievements.values) {
+      await _saveOne(a, db);
+    }
+  }
+
+  Future<void> _saveOne(Achievement a, JustDatabase db) async {
     try {
-      final state = {
-        for (final entry in _achievements.entries)
-          entry.key: entry.value.toStateJson(),
-      };
-      await storage.write(_kStateKey, jsonEncode(state));
+      final id = _esc(a.id);
+      final unlocked = a.isUnlocked ? 1 : 0;
+      final progress = a.progress;
+      final upd = await db.execute(
+        'UPDATE $_kTable SET unlocked = $unlocked, progress = $progress '
+        'WHERE id = $id',
+      );
+      if (upd.affectedRows == 0) {
+        await db.execute(
+          'INSERT INTO $_kTable (id, unlocked, progress) '
+          'VALUES ($id, $unlocked, $progress)',
+        );
+      }
     } catch (e) {
-      debugPrint('AchievementManager: save failed ($e)');
+      debugPrint('AchievementManager: save failed for ${a.id} ($e)');
     }
   }
 
   Future<void> _loadState() async {
-    final storage = _storage;
-    if (storage == null) return;
+    final db = _db;
+    if (db == null) return;
     try {
-      final raw = await storage.read(_kStateKey);
-      if (raw == null) return;
-      final map = jsonDecode(raw) as Map<String, dynamic>;
-      for (final entry in map.entries) {
-        _achievements[entry.key]
-            ?.applyState(entry.value as Map<String, dynamic>);
+      final result = await db.execute(
+        'SELECT id, unlocked, progress FROM $_kTable',
+      );
+      for (final row in result.rows) {
+        final id = row['id'] as String?;
+        if (id == null) continue;
+        _achievements[id]?.applyState({
+          'unlocked': ((row['unlocked'] as num?)?.toInt() ?? 0) != 0,
+          'progress': (row['progress'] as num?)?.toDouble() ?? 0.0,
+        });
       }
     } catch (e) {
       debugPrint('AchievementManager: load failed ($e)');
@@ -192,14 +215,22 @@ class AchievementManager {
   }
 
   Future<void> _restoreOne(Achievement achievement) async {
-    final storage = _storage;
-    if (storage == null) return;
+    final db = _db;
+    if (db == null) return;
     try {
-      final raw = await storage.read(_kStateKey);
-      if (raw == null) return;
-      final map = jsonDecode(raw) as Map<String, dynamic>;
-      final saved = map[achievement.id] as Map<String, dynamic>?;
-      if (saved != null) achievement.applyState(saved);
+      final id = _esc(achievement.id);
+      final result = await db.execute(
+        'SELECT unlocked, progress FROM $_kTable WHERE id = $id',
+      );
+      if (result.rows.isEmpty) return;
+      final row = result.rows.first;
+      achievement.applyState({
+        'unlocked': ((row['unlocked'] as num?)?.toInt() ?? 0) != 0,
+        'progress': (row['progress'] as num?)?.toDouble() ?? 0.0,
+      });
     } catch (_) {}
   }
+
+  /// Wraps [value] in single quotes, escaping any embedded quotes.
+  static String _esc(String value) => "'${value.replaceAll("'", "''")}'";
 }
