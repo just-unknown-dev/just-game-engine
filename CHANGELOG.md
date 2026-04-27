@@ -2,6 +2,18 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [1.5.3] - 2026-04-19
+
+### Added
+
+- **Debugger Tooling** — Added the new `just_debugger` integration to improve engine inspection, diagnostics, and runtime debugging workflows.
+
+### Changed
+
+- **Memory Management** — Moved shared memory-related code out of `just_game_engine` into the dedicated `just_memory` package for clearer package boundaries and better reuse across the ecosystem.
+
+---
+
 ## [1.5.2] - 2026-04-08
 
 ### Added
@@ -453,6 +465,7 @@ Audio playback is now fully ECS-driven alongside the existing `AudioEngine` API.
 
 ## Version History
 
+- **1.5.3** - Moved memory code to `just_memory` and added the new debugger tool
 - **1.5.2** - Shape Components: `CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent` (all self-rendering, extend `RenderableComponent`)
 - **1.5.1** - Bug fixes: Update Archetype signature to use string keys and improve entity validation in addEntity method
 - **1.5.0** - Post-Processing shaders, Sprite Atlas, Deterministic Effects, Localization, Narrative/Dialogue, audio backend swap (`just_audio_engine`), SystemManager frame scheduler, hot-path allocation audit, runtime observability, CI/CD

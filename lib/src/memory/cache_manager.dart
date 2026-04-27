@@ -1,7 +1,9 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
-import 'package:just_storage/just_storage.dart';
 import 'package:just_database/just_database.dart';
+import 'package:just_memory/just_memory.dart';
+import 'package:just_storage/just_storage.dart';
 
 /// Validate and sanitize a cache key.
 ///
@@ -41,17 +43,35 @@ class CacheManager {
   bool _initialized = false;
   bool _memoryFallback = false;
 
-  final Map<String, String> _memoryStringCache = <String, String>{};
-  final Map<String, Uint8List> _memoryBinaryCache = <String, Uint8List>{};
+  final BudgetedCache<String, String> _memoryStringCache;
+  final BudgetedCache<String, Uint8List> _memoryBinaryCache;
+  late final MemoryProfiler _profiler;
 
   /// Maximum number of entries in the binary cache before LRU eviction.
-  /// `null` means unbounded (default for backward compatibility).
+  /// `null` means effectively unbounded in in-memory fallback mode.
   final int? maxBinaryEntries;
+
+  /// Forces the cache to use only the shared in-memory fast path.
+  final bool forceMemoryFallback;
 
   /// Create a cache manager.
   ///
   /// [maxBinaryEntries] — optional upper bound on binary cache rows.
-  CacheManager({this.maxBinaryEntries});
+  /// [forceMemoryFallback] — bypasses platform storage and uses only the
+  /// shared in-memory cache layer.
+  CacheManager({this.maxBinaryEntries, this.forceMemoryFallback = false})
+    : _memoryStringCache = BudgetedCache<String, String>(
+        maxCost: 4096,
+        estimateCost: (key, value) => 1,
+      ),
+      _memoryBinaryCache = BudgetedCache<String, Uint8List>(
+        maxCost: maxBinaryEntries ?? (1 << 20),
+        estimateCost: (key, value) => 1,
+      ) {
+    _profiler = MemoryProfiler()
+      ..trackCache('cache.strings', _memoryStringCache)
+      ..trackCache('cache.binary', _memoryBinaryCache);
+  }
 
   /// Check if cache manager is initialized
   bool get isInitialized => _initialized;
@@ -64,6 +84,13 @@ class CacheManager {
     if (_initialized) return;
 
     debugPrint('Initializing CacheManager...');
+
+    if (forceMemoryFallback) {
+      _memoryFallback = true;
+      _initialized = true;
+      debugPrint('CacheManager using forced in-memory fallback.');
+      return;
+    }
 
     try {
       // Initialize fast key-value storage
@@ -278,6 +305,9 @@ class CacheManager {
     _memoryFallback = false;
     _initialized = false;
   }
+
+  /// Returns a lightweight profiling snapshot for runtime tuning.
+  MemoryProfileSnapshot captureProfile() => _profiler.capture();
 
   /// Return the number of entries in the binary cache.
   Future<int> getBinaryCacheSize() async {

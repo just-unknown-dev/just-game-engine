@@ -22,6 +22,10 @@ import '../subsystems/camera/camera_system.dart';
 import '../subsystems/parallax/parallax_background.dart';
 import '../memory/cache_manager.dart';
 import '../ecs/ecs.dart';
+import '../subsystems/achievements/achievement_manager.dart';
+import '../subsystems/currency/currency_manager.dart';
+import '../subsystems/inventory/inventory_manager.dart';
+import '../subsystems/rendering/impl/game_terminal.dart';
 
 /// Main game engine class that orchestrates all subsystems
 ///
@@ -118,6 +122,21 @@ class Engine implements ILifecycle {
   late final ParallaxSystem parallax;
   late final World world; // ECS World
 
+  /// Achievement tracking, persistence, and platform provider bridge.
+  late final AchievementManager achievements;
+
+  /// Generic currency wallet manager for game economies.
+  late final CurrencyManager currency;
+
+  /// Generic item inventory manager.
+  late final InventoryManager inventory;
+
+  /// In-game developer terminal for cheat commands and debug tooling.
+  ///
+  /// Register commands via [GameTerminal.registerCommand] before calling
+  /// [GameWidget] so the commands are available when the terminal opens.
+  final GameTerminal terminal = GameTerminal();
+
   /// Initialize the game engine and all subsystems
   ///
   /// This must be called before starting the engine.
@@ -160,6 +179,10 @@ class Engine implements ILifecycle {
     debugPrint('Initializing subsystems...');
 
     // Create subsystem instances
+    // GameTerminal is eagerly constructed as a plain Dart object — no
+    // async initialization needed, it's ready immediately.
+    // (terminal is a final field initialised at declaration)
+
     rendering = RenderingEngine();
     physics = PhysicsEngine();
     input = InputManager();
@@ -172,6 +195,9 @@ class Engine implements ILifecycle {
     cameraSystem = CameraSystem();
     parallax = ParallaxSystem();
     world = World(); // ECS World
+    achievements = AchievementManager();
+    currency = CurrencyManager();
+    inventory = InventoryManager();
 
     // Initialize each subsystem
     await cache.initialize(); // Initialize cache manager first
@@ -196,6 +222,12 @@ class Engine implements ILifecycle {
     animation.initialize();
     network.initialize();
     world.initialize(); // Initialize ECS
+    achievements.bindWorld(world);
+    await achievements.initialize();
+    currency.bindWorld(world);
+    await currency.initialize();
+    inventory.bindWorld(world);
+    await inventory.initialize();
 
     debugPrint('All subsystems initialized');
   }
@@ -328,6 +360,9 @@ class Engine implements ILifecycle {
     }
 
     // Dispose subsystems in reverse order
+    achievements.dispose();
+    currency.dispose();
+    inventory.dispose();
     network.dispose();
     animation.dispose();
     parallax.dispose();

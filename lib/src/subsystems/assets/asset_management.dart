@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:just_memory/just_memory.dart';
 import '../../core/engine.dart';
 
 part 'base/asset.dart';
@@ -18,7 +19,7 @@ part 'impl/asset_bundle.dart';
 ///
 /// Supports two usage patterns:
 /// 1. **Simple** — [load] / [unload] for direct management.
-/// 2. **Reference-counted** — [acquire] / [release] paired with [AssetScope]
+/// 2. **Reference-counted** — [acquire] / [release] paired with [MemoryScope]
 ///    for automatic scene-based lifecycle management.
 class AssetManager {
   /// Asset cache
@@ -160,6 +161,43 @@ class AssetManager {
   /// Typed convenience for [acquire].
   Future<AudioAsset> acquireAudio(String path) async =>
       await acquire(path, AssetType.audio) as AudioAsset;
+
+  /// Load or reuse an asset and automatically release it when [scope] is disposed.
+  Future<Asset> acquireScoped(
+    String path,
+    AssetType type,
+    MemoryScope scope,
+  ) async {
+    final asset = await acquire(path, type);
+    scope.own(() => release(path));
+    return asset;
+  }
+
+  /// Convenience for [acquireScoped].
+  Future<ImageAsset> acquireImageScoped(String path, MemoryScope scope) async =>
+      await acquireScoped(path, AssetType.image, scope) as ImageAsset;
+
+  /// Convenience for [acquireScoped].
+  Future<AudioAsset> acquireAudioScoped(String path, MemoryScope scope) async =>
+      await acquireScoped(path, AssetType.audio, scope) as AudioAsset;
+
+  /// Convenience for [acquireScoped].
+  Future<TextAsset> acquireTextScoped(String path, MemoryScope scope) async =>
+      await acquireScoped(path, AssetType.text, scope) as TextAsset;
+
+  /// Convenience for [acquireScoped].
+  Future<JsonAsset> acquireJsonScoped(String path, MemoryScope scope) async =>
+      await acquireScoped(path, AssetType.json, scope) as JsonAsset;
+
+  /// Convenience for [acquireScoped].
+  Future<BinaryAsset> acquireBinaryScoped(
+    String path,
+    MemoryScope scope,
+  ) async => await acquireScoped(path, AssetType.binary, scope) as BinaryAsset;
+
+  /// Creates a reusable memory scope for scene or subsystem lifetime tracking.
+  MemoryScope createScope({String? debugLabel}) =>
+      MemoryScope(debugLabel: debugLabel);
 
   /// Decrement the reference count for [path].
   ///

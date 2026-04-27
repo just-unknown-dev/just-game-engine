@@ -136,7 +136,7 @@ class ParticleEmitter extends Renderable {
   bool isEmitting = true;
 
   final List<Particle> _particles = [];
-  final List<Particle> _pool = [];
+  late final ObjectPool<Particle> _particlePool;
   double _emissionAccumulator = 0.0;
   double _totalTime = 0.0;
   final math.Random _random = math.Random();
@@ -193,6 +193,12 @@ class ParticleEmitter extends Renderable {
        _forces = _buildForces(gravity, forces) {
     // ignore: deprecated_member_use_from_same_package
     _renderer = renderer ?? shape.toRenderer();
+    _particlePool = ObjectPool<Particle>(
+      create: _createPooledParticle,
+      reset: _resetPooledParticle,
+      maxSize: maxParticles,
+      initialSize: math.min(maxParticles, 64),
+    );
   }
 
   /// Combines the legacy [gravity] param with the explicit [forces] list.
@@ -208,6 +214,24 @@ class ParticleEmitter extends Renderable {
 
   // ── Public accessors ──────────────────────────────────────────────────────
 
+  Particle _createPooledParticle() => Particle(
+    position: position,
+    velocity: Offset.zero,
+    lifetime: particleLifetime,
+    startSize: startSize,
+    endSize: endSize,
+    startColor: startColor,
+    endColor: endColor,
+  );
+
+  void _resetPooledParticle(Particle particle) {
+    particle.customData = null;
+    particle.age = particle.lifetime;
+    particle.velocity = Offset.zero;
+    particle.angularVelocity = 0.0;
+    particle.previousPosition = particle.position;
+  }
+
   /// The renderer used by this emitter.
   ParticleRenderer get renderer => _renderer;
 
@@ -216,6 +240,9 @@ class ParticleEmitter extends Renderable {
 
   /// Number of currently live particles.
   int get particleCount => _particles.length;
+
+  /// Number of recycled particles currently available for reuse.
+  int get pooledParticleCount => _particlePool.availableCount;
 
   /// Whether this emitter has finished emitting AND has no live particles.
   bool get isComplete => !isEmitting && _particles.isEmpty;
@@ -243,8 +270,9 @@ class ParticleEmitter extends Renderable {
       }
     }
 
-    // Update + cull particles
-    final toRemove = <int>[];
+    // Update + cull particles using in-place compaction to avoid per-frame
+    // allocations from temporary removal lists.
+    int writeIndex = 0;
     for (int i = 0; i < _particles.length; i++) {
       final p = _particles[i];
 
@@ -267,15 +295,12 @@ class ParticleEmitter extends Renderable {
 
         // Recycle
         _milestonesFired.remove(i);
-        _pool.add(p);
-        toRemove.add(i);
+        _particlePool.release(p);
+      } else {
+        _particles[writeIndex++] = p;
       }
     }
-
-    // Remove dead particles in O(n) without extra allocations
-    for (int i = toRemove.length - 1; i >= 0; i--) {
-      _particles.removeAt(toRemove[i]);
-    }
+    _particles.length = writeIndex;
 
     // Update sub-emitters; remove completed ones
     _activeSubEmitters.removeWhere((se) {
@@ -347,31 +372,17 @@ class ParticleEmitter extends Renderable {
       math.sin(angle) * particleSpeed,
     );
 
-    late Particle p;
-    if (_pool.isNotEmpty) {
-      p = _pool.removeLast();
-      p.reset(
-        position: position,
-        velocity: velocity,
-        lifetime: lifetime.clamp(0.001, double.infinity),
-        startSize: size.clamp(0.0, double.infinity),
-        endSize: endSize,
-        startColor: startColor,
-        endColor: endColor,
-        angularVelocity: av,
-      );
-    } else {
-      p = Particle(
-        position: position,
-        velocity: velocity,
-        lifetime: lifetime.clamp(0.001, double.infinity),
-        startSize: size.clamp(0.0, double.infinity),
-        endSize: endSize,
-        startColor: startColor,
-        endColor: endColor,
-        angularVelocity: av,
-      );
-    }
+    final p = _particlePool.acquire();
+    p.reset(
+      position: position,
+      velocity: velocity,
+      lifetime: lifetime.clamp(0.001, double.infinity),
+      startSize: size.clamp(0.0, double.infinity),
+      endSize: endSize,
+      startColor: startColor,
+      endColor: endColor,
+      angularVelocity: av,
+    );
 
     effect?.onSpawn(p, this);
     _particles.add(p);
@@ -441,8 +452,11 @@ class ParticleEmitter extends Renderable {
 
   /// Reset the emitter to its initial state, clearing all particles.
   void reset() {
+    for (final particle in _particles) {
+      _particlePool.release(particle);
+    }
     _particles.clear();
-    _pool.clear();
+    _particlePool.clear();
     _activeSubEmitters.clear();
     _subEmitterOrigins.clear();
     _milestonesFired.clear();

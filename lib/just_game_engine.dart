@@ -20,6 +20,13 @@ library;
 // Core Engine - Main engine, game loop, and time management
 export 'src/core/core.dart';
 
+// Achievement System - Cross-platform achievement tracking with provider interface
+export 'src/subsystems/achievements/achievements.dart';
+
+// Economy - Generic currency and inventory subsystems
+export 'src/subsystems/currency/currency.dart';
+export 'src/subsystems/inventory/inventory.dart';
+
 // Shared Interfaces - Abstract contracts between ECS and subsystems
 export 'src/interfaces/interfaces.dart';
 
@@ -70,8 +77,9 @@ export 'src/ecs/systems/systems.dart';
 // Math - Mutable vector types for hot-path code
 export 'src/math/math.dart';
 
-// Memory Management - Object pooling and caching infrastructure
-export 'src/memory/memory.dart';
+// Memory Management - shared just_memory utilities and engine cache infrastructure
+export 'src/memory/cache_manager.dart';
+export 'package:just_memory/just_memory.dart';
 
 // Sprite Atlas - Sprite-sheet parsing, named regions, and atlas animations
 // Supports TexturePacker (JSON Array / Hash / multi-page) and Aseprite formats
@@ -83,6 +91,9 @@ export 'src/subsystems/effects/effects.dart';
 
 // Reactive ECS - Signal-driven wrappers for ECS types
 export 'src/reactive/reactive.dart';
+
+// Debugger integration - embedded Just Debugger tools for live engine diagnostics
+export 'src/debugger/debugger.dart';
 
 // Localization - Engine-wide i18n: string tables, plurals, locale switching.
 // Central service shared by all subsystems including Narrative/Dialogue.

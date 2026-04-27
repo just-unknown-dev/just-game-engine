@@ -2,9 +2,9 @@ library;
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:just_memory/just_memory.dart';
 import '../rendering/impl/sprite.dart';
 import '../rendering/impl/renderable.dart';
-import '../../memory/object_pool.dart';
 
 part 'base/animation_base.dart';
 part 'impl/sprite_animation.dart';

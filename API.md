@@ -6,23 +6,24 @@ Comprehensive API documentation for all major classes and methods in the Just Ga
 
 1. [Core Engine](#core-engine)
 2. [Rendering Engine](#rendering-engine)
-3. [Sprite System](#sprite-system)
-4. [Animation System](#animation-system)
-5. [Particle Effects](#particle-effects)
-6. [Physics Engine](#physics-engine)
-7. [Ray Casting & Tracing](#ray-casting--tracing)
-8. [Scene Graph](#scene-graph)
-9. [Entity-Component System](#entity-component-system)
-10. [Asset Management](#asset-management)
-11. [Audio Engine](#audio-engine)
-12. [Tiled Map Support](#tiled-map-support)
-13. [Math Module](#math-module)
-14. [Memory Management](#memory-management)
-15. [System Priorities](#system-priorities)
-16. [Post-Processing](#post-processing)
-17. [Deterministic Effects](#deterministic-effects)
-18. [Localization](#localization)
-19. [Narrative / Dialogue](#narrative--dialogue)
+3. [GameTerminal](#gameterminal)
+4. [Sprite System](#sprite-system)
+5. [Animation System](#animation-system)
+6. [Particle Effects](#particle-effects)
+7. [Physics Engine](#physics-engine)
+8. [Ray Casting & Tracing](#ray-casting--tracing)
+9. [Scene Graph](#scene-graph)
+10. [Entity-Component System](#entity-component-system)
+11. [Asset Management](#asset-management)
+12. [Audio Engine](#audio-engine)
+13. [Tiled Map Support](#tiled-map-support)
+14. [Math Module](#math-module)
+15. [Memory Management](#memory-management)
+16. [System Priorities](#system-priorities)
+17. [Post-Processing](#post-processing)
+18. [Deterministic Effects](#deterministic-effects)
+19. [Localization](#localization)
+20. [Narrative / Dialogue](#narrative--dialogue)
 
 ---
 
@@ -336,17 +337,113 @@ RectangleRenderable({
 
 ### GameWidget
 
-Flutter widget that integrates the game engine.
+Flutter widget that integrates the game engine into a Flutter widget tree.
+
+#### Constructor
 
 ```dart
 GameWidget({
   required Engine engine,
-  bool showFPS = false,
+  bool showFPS = true,
   bool showDebug = false,
+  bool showTerminal = false,     // in-game developer terminal (toggle with `)
 })
 ```
 
 As of v1.2.1, `GameWidget` automatically calls `engine.world.render(canvas, size)` during each paint, so ECS entities registered with `RenderSystem` are drawn alongside the classic rendering pipeline without any extra wiring. In v1.4.0, the rendering pipeline additionally supports `SpriteBatch` (via `Canvas.drawAtlas`) and `Quadtree` viewport culling for large renderable counts.
+
+Set `showTerminal: true` (typically gated on `kDebugMode`) to enable the in-game developer terminal. See [GameTerminal](#gameterminal) for details.
+
+---
+
+### GameTerminal
+
+In-game developer text console for cheat commands and debug tooling.
+Accessible via `engine.terminal`.  Exposed as a Flutter overlay by
+`GameWidget` when `showTerminal` is `true`.
+
+#### Key interaction
+
+| Key | Action |
+|-----|--------|
+| `` ` `` (backquote / tilde) | Toggle terminal open / closed |
+| Any printable key | Append to input buffer |
+| `Backspace` | Delete last character |
+| `Enter` | Submit and execute command |
+
+#### Properties
+
+```dart
+bool isVisible                 // Whether the terminal overlay is currently open
+String inputBuffer             // Text currently typed at the prompt
+List<String> history           // Read-only scrollback (newest last, capped at 100 lines)
+```
+
+#### Methods
+
+```dart
+void registerCommand({
+  required String name,          // Single word, case-insensitive
+  required String description,   // Shown by the built-in 'help' command
+  required TerminalCommandHandler handler,
+})
+
+void toggle()                    // Open / close the overlay
+bool handleKeyDown(LogicalKeyboardKey key)   // Route a key-down event; returns true if consumed
+bool appendCharacter(String character)       // Append a resolved printable character
+```
+
+#### Built-in commands
+
+| Command | Description |
+|---------|-------------|
+| `help`  | Lists all registered commands with their descriptions |
+| `clear` | Clears the scrollback history |
+
+#### Command handler signature
+
+```dart
+typedef TerminalCommandHandler = String? Function(List<String> args);
+```
+
+Return a non-null `String` to print output to the terminal history.  
+Return `null` to produce no output line.  
+`args` contains every whitespace-separated token *after* the command name.
+
+#### Example
+
+```dart
+// Register a command during game bootstrap (before GameWidget is shown):
+engine.terminal.registerCommand(
+  name: 'collision',
+  description: 'Ring-wall collision. Usage: collision <on|off|toggle|status>',
+  handler: (args) {
+    final sub = args.isEmpty ? 'toggle' : args.first.toLowerCase();
+    switch (sub) {
+      case 'off':
+        disableCollisionSignal.value = true;
+        return 'Ring-wall collision DISABLED.';
+      case 'on':
+        disableCollisionSignal.value = false;
+        return 'Ring-wall collision ENABLED.';
+      case 'toggle':
+        disableCollisionSignal.value = !disableCollisionSignal.value;
+        return 'Ring-wall collision toggled.';
+      case 'status':
+        return 'Collision: ${disableCollisionSignal.value ? "disabled" : "enabled"}.';
+      default:
+        return "Unknown sub-command '$sub'.";
+    }
+  },
+);
+
+// Enable the terminal in GameWidget (debug-only):
+GameWidget(
+  engine: engine,
+  showFPS: kDebugMode,
+  showTerminal: kDebugMode,
+)
+```
 
 ---
 
