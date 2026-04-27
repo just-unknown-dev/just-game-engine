@@ -103,3 +103,8 @@ export 'src/subsystems/localization/localization.dart';
 // Supports linear, branching, hub-and-spoke, and cutscene dialogue patterns.
 // File format: Yarn Spinner 2.x (.yarn); conditions/commands via Dart callbacks.
 export 'src/subsystems/narrative/narrative.dart';
+
+// Firebase - Auth, Firestore, Analytics, and Remote Config via just_firebase.
+// Not auto-initialized; call engine.firebase.initialize(options: ...) at startup.
+export 'src/subsystems/firebase/firebase.dart';
+export 'package:just_firebase/just_firebase.dart';

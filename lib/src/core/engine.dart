@@ -24,6 +24,7 @@ import '../memory/cache_manager.dart';
 import '../ecs/ecs.dart';
 import '../subsystems/achievements/achievement_manager.dart';
 import '../subsystems/currency/currency_manager.dart';
+import '../subsystems/firebase/firebase_subsystem.dart';
 import '../subsystems/inventory/inventory_manager.dart';
 import '../subsystems/rendering/impl/game_terminal.dart';
 
@@ -131,6 +132,12 @@ class Engine implements ILifecycle {
   /// Generic item inventory manager.
   late final InventoryManager inventory;
 
+  /// Firebase services (Auth, Firestore, Analytics, Remote Config).
+  ///
+  /// Not auto-initialized — call [FirebaseSubsystem.initialize] at app startup
+  /// with your project's [FirebaseOptions].
+  late final FirebaseSubsystem firebase;
+
   /// In-game developer terminal for cheat commands and debug tooling.
   ///
   /// Register commands via [GameTerminal.registerCommand] before calling
@@ -198,6 +205,7 @@ class Engine implements ILifecycle {
     achievements = AchievementManager();
     currency = CurrencyManager();
     inventory = InventoryManager();
+    firebase = FirebaseSubsystem();
 
     // Initialize each subsystem
     await cache.initialize(); // Initialize cache manager first
@@ -360,6 +368,7 @@ class Engine implements ILifecycle {
     }
 
     // Dispose subsystems in reverse order
+    firebase.dispose();
     achievements.dispose();
     currency.dispose();
     inventory.dispose();
