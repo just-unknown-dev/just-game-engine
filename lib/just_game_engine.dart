@@ -108,3 +108,8 @@ export 'src/subsystems/narrative/narrative.dart';
 // Not auto-initialized; call engine.firebase.initialize(options: ...) at startup.
 export 'src/subsystems/firebase/firebase.dart';
 export 'package:just_firebase/just_firebase.dart';
+
+// Ads - Banner, Interstitial, Rewarded, App Open, and GDPR/UMP consent.
+// Not auto-initialized; register a JustAdsProvider (package:just_ads/just_ads.dart)
+// on mobile platforms then call engine.ads.initialize().
+export 'src/subsystems/ads/ads.dart';

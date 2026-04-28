@@ -25,6 +25,7 @@ import '../ecs/ecs.dart';
 import '../subsystems/achievements/achievement_manager.dart';
 import '../subsystems/currency/currency_manager.dart';
 import '../subsystems/firebase/firebase_subsystem.dart';
+import '../subsystems/ads/ads.dart';
 import '../subsystems/inventory/inventory_manager.dart';
 import '../subsystems/rendering/impl/game_terminal.dart';
 
@@ -138,6 +139,12 @@ class Engine implements ILifecycle {
   /// with your project's [FirebaseOptions].
   late final FirebaseSubsystem firebase;
 
+  /// Mobile ads — Banner, Interstitial, Rewarded, App Open, and GDPR/UMP consent.
+  ///
+  /// Not auto-initialized — register a provider and call [AdsManager.initialize]
+  /// at app startup (mobile only). Uses [NoOpAdsProvider] on all other platforms.
+  late final AdsManager ads;
+
   /// In-game developer terminal for cheat commands and debug tooling.
   ///
   /// Register commands via [GameTerminal.registerCommand] before calling
@@ -236,6 +243,8 @@ class Engine implements ILifecycle {
     await currency.initialize();
     inventory.bindWorld(world);
     await inventory.initialize();
+    ads = AdsManager();
+    ads.bindWorld(world);
 
     debugPrint('All subsystems initialized');
   }
@@ -368,6 +377,7 @@ class Engine implements ILifecycle {
     }
 
     // Dispose subsystems in reverse order
+    ads.dispose();
     firebase.dispose();
     achievements.dispose();
     currency.dispose();
