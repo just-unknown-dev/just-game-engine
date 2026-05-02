@@ -113,3 +113,7 @@ export 'package:just_firebase/just_firebase.dart';
 // Not auto-initialized; register a JustAdsProvider (package:just_ads/just_ads.dart)
 // on mobile platforms then call engine.ads.initialize().
 export 'src/subsystems/ads/ads.dart';
+
+// Subtitle - Timed subtitle cues, tracks, controller, and overlay widget.
+// Integrates with LocalizationManager for locale-aware subtitle text.
+export 'src/subsystems/subtitle/subtitle.dart';
