@@ -23,10 +23,12 @@ import '../subsystems/parallax/parallax_background.dart';
 import '../memory/cache_manager.dart';
 import '../ecs/ecs.dart';
 import '../subsystems/achievements/achievement_manager.dart';
+import '../subsystems/auth/auth_manager.dart';
 import '../subsystems/currency/currency_manager.dart';
 import '../subsystems/firebase/firebase_subsystem.dart';
 import '../subsystems/ads/ads.dart';
 import '../subsystems/inventory/inventory_manager.dart';
+import '../subsystems/leaderboard/leaderboard_manager.dart';
 import '../subsystems/rendering/impl/game_terminal.dart';
 
 /// Main game engine class that orchestrates all subsystems
@@ -127,6 +129,12 @@ class Engine implements ILifecycle {
   /// Achievement tracking, persistence, and platform provider bridge.
   late final AchievementManager achievements;
 
+  /// Platform authentication manager (Play Games, Game Center, Steam, Epic).
+  late final AuthManager auth;
+
+  /// Leaderboard submission and platform-provider bridge.
+  late final LeaderboardManager leaderboard;
+
   /// Generic currency wallet manager for game economies.
   late final CurrencyManager currency;
 
@@ -210,6 +218,8 @@ class Engine implements ILifecycle {
     parallax = ParallaxSystem();
     world = World(); // ECS World
     achievements = AchievementManager();
+    auth = AuthManager();
+    leaderboard = LeaderboardManager();
     currency = CurrencyManager();
     inventory = InventoryManager();
     firebase = FirebaseSubsystem();
@@ -239,6 +249,10 @@ class Engine implements ILifecycle {
     world.initialize(); // Initialize ECS
     achievements.bindWorld(world);
     await achievements.initialize();
+    auth.bindWorld(world);
+    await auth.initialize();
+    leaderboard.bindWorld(world);
+    await leaderboard.initialize();
     currency.bindWorld(world);
     await currency.initialize();
     inventory.bindWorld(world);
@@ -379,6 +393,8 @@ class Engine implements ILifecycle {
     // Dispose subsystems in reverse order
     ads.dispose();
     firebase.dispose();
+    leaderboard.dispose();
+    auth.dispose();
     achievements.dispose();
     currency.dispose();
     inventory.dispose();

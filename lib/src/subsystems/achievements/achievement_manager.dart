@@ -101,7 +101,7 @@ class AchievementManager {
 
     a.isUnlockedInternal = true;
     _notifyUnlocked(a);
-    unawaited(_save());
+    _persist(a);
   }
 
   /// Adds [amount] to a progress achievement's counter.
@@ -119,7 +119,7 @@ class AchievementManager {
       a.isUnlockedInternal = true;
       _notifyUnlocked(a);
     }
-    unawaited(_save());
+    _persist(a);
   }
 
   /// Sets the absolute progress value for a progress achievement.
@@ -136,7 +136,7 @@ class AchievementManager {
       a.isUnlockedInternal = true;
       _notifyUnlocked(a);
     }
-    unawaited(_save());
+    _persist(a);
   }
 
   // ── Query ─────────────────────────────────────────────────────────────────
@@ -166,12 +166,12 @@ class AchievementManager {
 
   // ── Persistence ───────────────────────────────────────────────────────────
 
-  Future<void> _save() async {
+  /// Persists a single achievement. Null-safe — no-op when the DB is
+  /// unavailable (e.g. initialization failed).
+  void _persist(Achievement a) {
     final db = _db;
     if (db == null) return;
-    for (final a in _achievements.values) {
-      await _saveOne(a, db);
-    }
+    unawaited(_saveOne(a, db));
   }
 
   Future<void> _saveOne(Achievement a, JustDatabase db) async {

@@ -23,6 +23,12 @@ export 'src/core/core.dart';
 // Achievement System - Cross-platform achievement tracking with provider interface
 export 'src/subsystems/achievements/achievements.dart';
 
+// Authentication - Platform sign-in (Play Games, Game Center, Steam, Epic)
+export 'src/subsystems/auth/auth.dart';
+
+// Leaderboards - Score submission and platform leaderboard UI
+export 'src/subsystems/leaderboard/leaderboard.dart';
+
 // Economy - Generic currency and inventory subsystems
 export 'src/subsystems/currency/currency.dart';
 export 'src/subsystems/inventory/inventory.dart';

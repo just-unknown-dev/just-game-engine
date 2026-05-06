@@ -24,16 +24,31 @@ class PlayGamesLeaderboardProvider implements LeaderboardProvider {
   Future<void> submitScore(LeaderboardDefinition leaderboard, int score) async {
     final androidId = leaderboard.androidLeaderboardId;
     if (androidId == null || androidId.isEmpty) return;
+
+    Future<void> doSubmit() => gs.Leaderboards.submitScore(
+      score: gs.Score(
+        androidLeaderboardID: androidId,
+        iOSLeaderboardID: '',
+        value: score,
+      ),
+    );
+
     try {
-      await gs.Leaderboards.submitScore(
-        score: gs.Score(
-          androidLeaderboardID: androidId,
-          iOSLeaderboardID: '',
-          value: score,
-        ),
-      );
+      await doSubmit();
     } catch (e) {
       if (_isDeferred(e)) return;
+      if (_requiresReconnect(e)) {
+        await _reconnect();
+        try {
+          await doSubmit();
+        } catch (retryErr) {
+          if (_isDeferred(retryErr)) return;
+          debugPrint(
+            'PlayGamesLeaderboardProvider: submitScore failed after reconnect ($retryErr)',
+          );
+        }
+        return;
+      }
       debugPrint('PlayGamesLeaderboardProvider: submitScore failed ($e)');
     }
   }
@@ -65,6 +80,9 @@ class PlayGamesLeaderboardProvider implements LeaderboardProvider {
           )
           .toList();
     } catch (e) {
+      if (_requiresReconnect(e)) {
+        await _reconnect();
+      }
       debugPrint('PlayGamesLeaderboardProvider: getTopScores failed ($e)');
       return [];
     }
@@ -80,6 +98,7 @@ class PlayGamesLeaderboardProvider implements LeaderboardProvider {
         iOSLeaderboardID: '',
       );
     } catch (e) {
+      if (_requiresReconnect(e)) await _reconnect();
       debugPrint('PlayGamesLeaderboardProvider: showLeaderboard failed ($e)');
     }
   }
@@ -87,12 +106,25 @@ class PlayGamesLeaderboardProvider implements LeaderboardProvider {
   @override
   Future<void> dispose() async {}
 
-  /// Returns true when Play Games deferred the operation due to a transient
-  /// network condition (error 26505: NETWORK_ERROR_OPERATION_DEFERRED).
-  ///
-  /// This is NOT a failure — the SDK accepted the request and queued it for
-  /// the next sync window. Treat it as a silent success.
+  // ── Error helpers ────────────────────────────────────────────────────────
+
+  /// 26505 — Play Games accepted the request and queued it for the next sync.
   static bool _isDeferred(Object e) =>
       e is PlatformException &&
       (e.message?.contains('NETWORK_ERROR_OPERATION_DEFERRED') ?? false);
+
+  /// 26502 — Session token expired; re-sign-in to restore the client state.
+  static bool _requiresReconnect(Object e) =>
+      e is PlatformException &&
+      (e.message?.contains('CLIENT_RECONNECT_REQUIRED') ?? false);
+
+  /// Re-establishes the Play Games session after a CLIENT_RECONNECT_REQUIRED.
+  static Future<void> _reconnect() async {
+    try {
+      await gs.GameAuth.signIn();
+      debugPrint('PlayGamesLeaderboardProvider: reconnected');
+    } catch (e) {
+      debugPrint('PlayGamesLeaderboardProvider: reconnect failed ($e)');
+    }
+  }
 }

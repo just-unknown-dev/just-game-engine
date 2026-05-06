@@ -27,8 +27,11 @@ class PlayGamesAuthProvider implements AuthProvider {
   Future<AuthUser?> signIn() async {
     try {
       await gs.GameAuth.signIn();
-      final signedIn = await gs.GameAuth.isSignedIn;
-      if (!signedIn) return null;
+
+      // Do NOT use gs.GameAuth.isSignedIn here — it subscribes to a broadcast
+      // stream and will hang if the sign-in event was already emitted before
+      // the subscription is set up (common for returning users already signed
+      // in). If signIn() completes without throwing, the session is active.
 
       String displayName = 'Player';
       String uid = 'play_games_player';
@@ -52,6 +55,7 @@ class PlayGamesAuthProvider implements AuthProvider {
         displayName: displayName,
         platform: AuthPlatform.playGames,
       );
+      debugPrint('PlayGamesAuthProvider: signed in as $displayName ($uid)');
       return _currentUser;
     } catch (e) {
       debugPrint('PlayGamesAuthProvider: signIn failed ($e)');
