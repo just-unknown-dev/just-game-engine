@@ -23,6 +23,16 @@ export 'src/core/core.dart';
 // Achievement System - Cross-platform achievement tracking with provider interface
 export 'src/subsystems/achievements/achievements.dart';
 
+// Auth - Platform authentication (Play Games, Game Center, Steam, Epic Games)
+export 'src/subsystems/auth/auth.dart';
+
+// Leaderboard - Platform leaderboard submission and display
+export 'src/subsystems/leaderboard/leaderboard.dart';
+
+// Economy - Generic currency and inventory subsystems
+export 'src/subsystems/currency/currency.dart';
+export 'src/subsystems/inventory/inventory.dart';
+
 // Shared Interfaces - Abstract contracts between ECS and subsystems
 export 'src/interfaces/interfaces.dart';
 

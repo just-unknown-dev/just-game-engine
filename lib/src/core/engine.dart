@@ -23,6 +23,12 @@ import '../subsystems/parallax/parallax_background.dart';
 import '../memory/cache_manager.dart';
 import '../ecs/ecs.dart';
 import '../subsystems/achievements/achievement_manager.dart';
+import '../subsystems/auth/auth_manager.dart';
+import '../subsystems/currency/currency_manager.dart';
+import '../subsystems/firebase/firebase_subsystem.dart';
+import '../subsystems/ads/ads.dart';
+import '../subsystems/inventory/inventory_manager.dart';
+import '../subsystems/leaderboard/leaderboard_manager.dart';
 import '../subsystems/rendering/impl/game_terminal.dart';
 
 /// Main game engine class that orchestrates all subsystems
@@ -123,6 +129,36 @@ class Engine implements ILifecycle {
   /// Achievement tracking, persistence, and platform provider bridge.
   late final AchievementManager achievements;
 
+  /// Platform authentication (Play Games, Game Center, Steam, Epic Games).
+  ///
+  /// Register a provider via [AuthManager.registerProvider] after initialization.
+  /// Defaults to [NoOpAuthProvider] when no provider is registered.
+  late final AuthManager auth;
+
+  /// Platform leaderboard submission and display (Play Games, Game Center, Steam, Epic Games).
+  ///
+  /// Define leaderboards via [LeaderboardManager.define] and register a provider
+  /// via [LeaderboardManager.registerProvider] after initialization.
+  late final LeaderboardManager leaderboard;
+
+  /// Generic currency wallet manager for game economies.
+  late final CurrencyManager currency;
+
+  /// Generic item inventory manager.
+  late final InventoryManager inventory;
+
+  /// Firebase services (Auth, Firestore, Analytics, Remote Config).
+  ///
+  /// Not auto-initialized — call [FirebaseSubsystem.initialize] at app startup
+  /// with your project's [FirebaseOptions].
+  late final FirebaseSubsystem firebase;
+
+  /// Mobile ads — Banner, Interstitial, Rewarded, App Open, and GDPR/UMP consent.
+  ///
+  /// Not auto-initialized — register a provider and call [AdsManager.initialize]
+  /// at app startup (mobile only). Uses [NoOpAdsProvider] on all other platforms.
+  late final AdsManager ads;
+
   /// In-game developer terminal for cheat commands and debug tooling.
   ///
   /// Register commands via [GameTerminal.registerCommand] before calling
@@ -214,6 +250,18 @@ class Engine implements ILifecycle {
     world.initialize(); // Initialize ECS
     achievements.bindWorld(world);
     await achievements.initialize();
+    currency.bindWorld(world);
+    await currency.initialize();
+    inventory.bindWorld(world);
+    await inventory.initialize();
+    auth = AuthManager();
+    auth.bindWorld(world);
+    await auth.initialize();
+    leaderboard = LeaderboardManager();
+    leaderboard.bindWorld(world);
+    await leaderboard.initialize();
+    ads = AdsManager();
+    ads.bindWorld(world);
 
     debugPrint('All subsystems initialized');
   }
@@ -346,6 +394,10 @@ class Engine implements ILifecycle {
     }
 
     // Dispose subsystems in reverse order
+    ads.dispose();
+    firebase.dispose();
+    leaderboard.dispose();
+    auth.dispose();
     achievements.dispose();
     network.dispose();
     animation.dispose();
