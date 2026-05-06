@@ -23,12 +23,10 @@ import '../subsystems/parallax/parallax_background.dart';
 import '../memory/cache_manager.dart';
 import '../ecs/ecs.dart';
 import '../subsystems/achievements/achievement_manager.dart';
-import '../subsystems/auth/auth_manager.dart';
 import '../subsystems/currency/currency_manager.dart';
 import '../subsystems/firebase/firebase_subsystem.dart';
 import '../subsystems/ads/ads.dart';
 import '../subsystems/inventory/inventory_manager.dart';
-import '../subsystems/leaderboard/leaderboard_manager.dart';
 import '../subsystems/rendering/impl/game_terminal.dart';
 
 /// Main game engine class that orchestrates all subsystems
@@ -129,18 +127,6 @@ class Engine implements ILifecycle {
   /// Achievement tracking, persistence, and platform provider bridge.
   late final AchievementManager achievements;
 
-  /// Platform authentication (Play Games, Game Center, Steam, Epic Games).
-  ///
-  /// Register a provider via [AuthManager.registerProvider] after initialization.
-  /// Defaults to [NoOpAuthProvider] when no provider is registered.
-  late final AuthManager auth;
-
-  /// Platform leaderboard submission and display (Play Games, Game Center, Steam, Epic Games).
-  ///
-  /// Define leaderboards via [LeaderboardManager.define] and register a provider
-  /// via [LeaderboardManager.registerProvider] after initialization.
-  late final LeaderboardManager leaderboard;
-
   /// Generic currency wallet manager for game economies.
   late final CurrencyManager currency;
 
@@ -224,6 +210,9 @@ class Engine implements ILifecycle {
     parallax = ParallaxSystem();
     world = World(); // ECS World
     achievements = AchievementManager();
+    currency = CurrencyManager();
+    inventory = InventoryManager();
+    firebase = FirebaseSubsystem();
 
     // Initialize each subsystem
     await cache.initialize(); // Initialize cache manager first
@@ -254,12 +243,6 @@ class Engine implements ILifecycle {
     await currency.initialize();
     inventory.bindWorld(world);
     await inventory.initialize();
-    auth = AuthManager();
-    auth.bindWorld(world);
-    await auth.initialize();
-    leaderboard = LeaderboardManager();
-    leaderboard.bindWorld(world);
-    await leaderboard.initialize();
     ads = AdsManager();
     ads.bindWorld(world);
 
@@ -396,9 +379,9 @@ class Engine implements ILifecycle {
     // Dispose subsystems in reverse order
     ads.dispose();
     firebase.dispose();
-    leaderboard.dispose();
-    auth.dispose();
     achievements.dispose();
+    currency.dispose();
+    inventory.dispose();
     network.dispose();
     animation.dispose();
     parallax.dispose();

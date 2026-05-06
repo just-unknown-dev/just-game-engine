@@ -23,12 +23,6 @@ export 'src/core/core.dart';
 // Achievement System - Cross-platform achievement tracking with provider interface
 export 'src/subsystems/achievements/achievements.dart';
 
-// Auth - Platform authentication (Play Games, Game Center, Steam, Epic Games)
-export 'src/subsystems/auth/auth.dart';
-
-// Leaderboard - Platform leaderboard submission and display
-export 'src/subsystems/leaderboard/leaderboard.dart';
-
 // Economy - Generic currency and inventory subsystems
 export 'src/subsystems/currency/currency.dart';
 export 'src/subsystems/inventory/inventory.dart';
@@ -109,3 +103,17 @@ export 'src/subsystems/localization/localization.dart';
 // Supports linear, branching, hub-and-spoke, and cutscene dialogue patterns.
 // File format: Yarn Spinner 2.x (.yarn); conditions/commands via Dart callbacks.
 export 'src/subsystems/narrative/narrative.dart';
+
+// Firebase - Auth, Firestore, Analytics, and Remote Config via just_firebase.
+// Not auto-initialized; call engine.firebase.initialize(options: ...) at startup.
+export 'src/subsystems/firebase/firebase.dart';
+export 'package:just_firebase/just_firebase.dart';
+
+// Ads - Banner, Interstitial, Rewarded, App Open, and GDPR/UMP consent.
+// Not auto-initialized; register a JustAdsProvider (package:just_ads/just_ads.dart)
+// on mobile platforms then call engine.ads.initialize().
+export 'src/subsystems/ads/ads.dart';
+
+// Subtitle - Timed subtitle cues, tracks, controller, and overlay widget.
+// Integrates with LocalizationManager for locale-aware subtitle text.
+export 'src/subsystems/subtitle/subtitle.dart';
