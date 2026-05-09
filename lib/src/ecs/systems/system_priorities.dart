@@ -40,6 +40,10 @@ abstract final class SystemPriorities {
   /// Gameplay logic (health, lifetime, scoring, …).
   static const int gameplay = 60;
 
+  /// Checkpoint / respawn — runs just after gameplay so the checkpoint can
+  /// react to player state (e.g. health reaching zero) within the same frame.
+  static const int checkpoint = 58;
+
   /// Parent–child hierarchy propagation.
   static const int hierarchy = 50;
 

@@ -1,0 +1,40 @@
+library;
+
+import 'package:flutter/painting.dart';
+
+import '../../ecs.dart';
+
+/// Marks an entity as a checkpoint / respawn point.
+///
+/// Attach this to a trigger-zone entity.  The [CheckpointSystem] scans all
+/// player entities (tagged with the [playerTag]) and activates the nearest
+/// checkpoint the player overlaps.
+///
+/// Usage:
+/// ```dart
+/// world.createEntity([
+///   TransformComponent(position: Offset(400, 300)),
+///   CheckpointComponent(respawnPosition: Offset(400, 260)),
+/// ]);
+/// ```
+class CheckpointComponent extends Component {
+  /// World-space position the player is moved to on respawn.
+  Offset respawnPosition;
+
+  /// Activation radius in world units.
+  final double radius;
+
+  /// Whether this checkpoint has already been activated.
+  bool isActivated;
+
+  /// Create a checkpoint component.
+  CheckpointComponent({
+    required this.respawnPosition,
+    this.radius = 48.0,
+    this.isActivated = false,
+  });
+
+  @override
+  String toString() =>
+      'Checkpoint(pos: $respawnPosition, activated: $isActivated)';
+}
