@@ -54,8 +54,9 @@ class HierarchySystem extends System {
           final parentTransform = parentEntity
               .getComponent<TransformComponent>();
           if (parentTransform != null) {
-            transform.position =
-                parentTransform.position + parentComp.localOffset;
+            // In-place copy + add: zero allocations on the hot update path.
+            transform.position.setFrom(parentTransform.position);
+            transform.position.add(parentComp.localOffset);
             transform.rotation =
                 parentTransform.rotation + parentComp.localRotation;
           }

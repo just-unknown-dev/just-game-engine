@@ -63,7 +63,7 @@ class RayRenderable extends Renderable {
     super.layer = 5,
     super.zOrder = 10,
   }) : _timeLeft = lifetime,
-       super(position: Offset.zero);
+       super(position: null);
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -95,7 +95,7 @@ class RayRenderable extends Renderable {
       _glowPaint
         ..color = color.withAlpha((coreAlpha * 0.35).round())
         ..strokeWidth =
-            (width * ((scale.dx + scale.dy) / 2) * glowWidthMultiplier)
+            (width * ((scale.x + scale.y) / 2) * glowWidthMultiplier)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, glowBlurSigma);
       canvas.drawLine(start, end, _glowPaint);
     }
@@ -103,7 +103,7 @@ class RayRenderable extends Renderable {
     // Core beam
     _corePaint
       ..color = color.withAlpha(coreAlpha)
-      ..strokeWidth = width * (scale.dx + scale.dy) / 2;
+      ..strokeWidth = width * (scale.x + scale.y) / 2;
     canvas.drawLine(start, end, _corePaint);
   }
 

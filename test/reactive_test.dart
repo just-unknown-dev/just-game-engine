@@ -58,7 +58,7 @@ void main() {
     setUp(() {
       world = World()..initialize();
       entity = world.createEntityWithComponents([
-        TransformComponent(position: const Offset(10, 20)),
+        TransformComponent(position: Vector3(10, 20, 0)),
       ]);
       transform = entity.getComponent<TransformComponent>()!;
     });
@@ -66,8 +66,8 @@ void main() {
     test('initial value reads from component', () {
       final sig = ComponentSignal<TransformComponent, double>(
         transform,
-        getter: (c) => c.position.dx,
-        setter: (c, v) => c.position = Offset(v, c.position.dy),
+        getter: (c) => c.position.x,
+        setter: (c, v) => c.position.x = v,
       );
       expect(sig.value, 10.0);
     });
@@ -75,30 +75,30 @@ void main() {
     test('setting value updates component', () {
       final sig = ComponentSignal<TransformComponent, double>(
         transform,
-        getter: (c) => c.position.dx,
-        setter: (c, v) => c.position = Offset(v, c.position.dy),
+        getter: (c) => c.position.x,
+        setter: (c, v) => c.position.x = v,
       );
       sig.value = 99.0;
-      expect(transform.position.dx, 99.0);
+      expect(transform.position.x, 99.0);
     });
 
     test('setting same value does not notify', () {
       final sig = ComponentSignal<TransformComponent, double>(
         transform,
-        getter: (c) => c.position.dx,
-        setter: (c, v) => c.position = Offset(v, c.position.dy),
+        getter: (c) => c.position.x,
+        setter: (c, v) => c.position.x = v,
       );
       int calls = 0;
       sig.addListener(() => calls++);
-      sig.value = transform.position.dx; // same
+      sig.value = transform.position.x; // same
       expect(calls, 0);
     });
 
     test('setting new value notifies listeners', () {
       final sig = ComponentSignal<TransformComponent, double>(
         transform,
-        getter: (c) => c.position.dx,
-        setter: (c, v) => c.position = Offset(v, c.position.dy),
+        getter: (c) => c.position.x,
+        setter: (c, v) => c.position.x = v,
       );
       int calls = 0;
       sig.addListener(() => calls++);
@@ -109,10 +109,10 @@ void main() {
     test('sync picks up external component change', () {
       final sig = ComponentSignal<TransformComponent, double>(
         transform,
-        getter: (c) => c.position.dx,
-        setter: (c, v) => c.position = Offset(v, c.position.dy),
+        getter: (c) => c.position.x,
+        setter: (c, v) => c.position.x = v,
       );
-      transform.position = const Offset(42, 0); // external change
+      transform.position = Vector3(42, 0, 0); // external change
       sig.sync();
       expect(sig.value, 42.0);
     });
@@ -126,27 +126,27 @@ void main() {
 
     setUp(() {
       transform = TransformComponent(
-        position: const Offset(0, 0),
+        position: Vector3(0, 0, 0),
         rotation: 0.0,
-        scale: const Offset(1.0, 1.0),
+        scale: Vector3(1.0, 1.0, 1),
       );
       signals = TransformSignals(transform);
     });
 
     test('x / y signals read component position', () {
-      transform.position = const Offset(3, 7);
+      transform.position = Vector3(3, 7, 0);
       expect(signals.x.value, 3.0);
       expect(signals.y.value, 7.0);
     });
 
     test('setting x updates component', () {
       signals.x.value = 55.0;
-      expect(transform.position.dx, 55.0);
+      expect(transform.position.x, 55.0);
     });
 
     test('setting y updates component', () {
       signals.y.value = 66.0;
-      expect(transform.position.dy, 66.0);
+      expect(transform.position.y, 66.0);
     });
 
     test('setPosition batches x and y into one notification each', () {
@@ -160,10 +160,10 @@ void main() {
     });
 
     test('translate moves by delta', () {
-      transform.position = const Offset(10, 10);
+      transform.position = Vector3(10, 10, 0);
       signals.translate(5, -3);
-      expect(transform.position.dx, closeTo(15.0, 1e-9));
-      expect(transform.position.dy, closeTo(7.0, 1e-9));
+      expect(transform.position.x, closeTo(15.0, 1e-9));
+      expect(transform.position.y, closeTo(7.0, 1e-9));
     });
 
     test('rotation signal reads and writes rotation', () {
@@ -174,10 +174,10 @@ void main() {
     });
 
     test('scale signal reads and writes scale', () {
-      transform.scale = const Offset(2.0, 2.0);
-      expect(signals.scale.value, const Offset(2.0, 2.0));
-      signals.scale.value = const Offset(0.5, 0.5);
-      expect(transform.scale, const Offset(0.5, 0.5));
+      transform.scale = Vector3(2.0, 2.0, 1);
+      expect(signals.scale.value, Vector3(2.0, 2.0, 1));
+      signals.scale.value = Vector3(0.5, 0.5, 1);
+      expect(transform.scale, Vector3(0.5, 0.5, 1));
     });
   });
 

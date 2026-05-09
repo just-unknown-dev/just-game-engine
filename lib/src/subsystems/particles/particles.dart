@@ -33,6 +33,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:just_memory/just_memory.dart';
 import '../rendering/impl/renderable.dart';
+import '../../math/vector3.dart';
 
 part 'particle_data.dart';
 part 'particle_renderer.dart';

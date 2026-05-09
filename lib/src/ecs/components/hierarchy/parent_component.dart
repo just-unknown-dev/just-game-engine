@@ -1,26 +1,25 @@
 library;
 
-import 'package:flutter/material.dart';
-
 import '../../ecs.dart';
+import '../../../math/vector3.dart';
 
 /// Parent-child component - Hierarchy relationships
 class ParentComponent extends Component {
   /// Parent entity ID (null if root)
   EntityId? parentId;
 
-  /// Local offset from parent
-  Offset localOffset;
+  /// Local offset from parent in 3-D space.
+  Vector3 localOffset;
 
-  /// Local rotation offset
+  /// Local rotation offset (Z-axis).
   double localRotation;
 
   /// Create a parent component
   ParentComponent({
     this.parentId,
-    this.localOffset = Offset.zero,
+    Vector3? localOffset,
     this.localRotation = 0.0,
-  });
+  }) : localOffset = localOffset ?? Vector3.zero();
 
   @override
   String toString() => 'Parent($parentId)';

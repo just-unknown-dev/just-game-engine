@@ -41,7 +41,7 @@ class TweenAnimation<T> extends Animation {
 }
 
 /// Position tween for moving objects
-class PositionTween extends TweenAnimation<Offset> {
+class PositionTween extends TweenAnimation<Vector3> {
   PositionTween({
     required super.start,
     required super.end,
@@ -51,8 +51,12 @@ class PositionTween extends TweenAnimation<Offset> {
     super.loop = false,
     super.onComplete,
   }) : super(
-         lerp: (a, b, t) => Offset.lerp(a, b, t)!,
-         onUpdate: (value) => target.position = value,
+         lerp: (a, b, t) => Vector3(
+           a.x + (b.x - a.x) * t,
+           a.y + (b.y - a.y) * t,
+           a.z + (b.z - a.z) * t,
+         ),
+         onUpdate: (value) => target.position.setFrom(value),
        );
 }
 
@@ -84,7 +88,7 @@ class ScaleTween extends TweenAnimation<double> {
     super.onComplete,
   }) : super(
          lerp: (a, b, t) => a + (b - a) * t,
-         onUpdate: (value) => target.scale = Offset(value, value),
+         onUpdate: (value) => target.scale.setValues(value, value, value),
        );
 }
 

@@ -46,7 +46,7 @@ void main() {
           CircleRenderable(
             radius: 4,
             fillColor: Colors.white,
-            position: Offset(i * 10.0, 0),
+            position: Vector3(i * 10.0, 0, 0),
           ),
         );
       }

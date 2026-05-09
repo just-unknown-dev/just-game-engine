@@ -43,7 +43,7 @@ void main() {
           CircleRenderable(
             radius: 10,
             fillColor: Colors.blue,
-            position: Offset(i * 10.0, i * 5.0),
+            position: Vector3(i * 10.0, i * 5.0, 0),
           ),
         );
       }
@@ -79,7 +79,7 @@ void main() {
           CircleRenderable(
             radius: 10,
             fillColor: Colors.blue,
-            position: Offset((i % 50) * 10.0, (i ~/ 50) * 10.0),
+            position: Vector3((i % 50) * 10.0, (i ~/ 50) * 10.0, 0),
           ),
         );
       }
@@ -102,7 +102,7 @@ void main() {
         (i) => CircleRenderable(
           radius: 10,
           fillColor: Colors.blue,
-          position: Offset(i * 10.0, 0),
+          position: Vector3(i * 10.0, 0, 0),
         ),
       );
 
@@ -273,7 +273,7 @@ void main() {
 
     test('Particle system performance with 500 particles', () async {
       final emitter = ParticleEmitter(
-        position: Offset.zero,
+        position: null,
         maxParticles: 500,
         emissionRate: 100, // 100 particles per second
         particleLifetime: 5.0,
@@ -347,10 +347,10 @@ void main() {
       // Create 1000 entities with various components
       for (int i = 0; i < 1000; i++) {
         final entity = engine.world.createEntity(name: 'Entity_$i');
-        entity.addComponent(TransformComponent(position: Offset(i * 1.0, 0)));
+        entity.addComponent(TransformComponent(position: Vector3(i * 1.0, 0, 0)));
 
         if (i % 2 == 0) {
-          entity.addComponent(VelocityComponent(velocity: const Offset(10, 0)));
+          entity.addComponent(VelocityComponent(velocity: Vector3(10, 0, 0)));
         }
 
         if (i % 3 == 0) {
@@ -385,8 +385,8 @@ void main() {
       // Create 500 entities with components
       for (int i = 0; i < 500; i++) {
         final entity = engine.world.createEntity();
-        entity.addComponent(TransformComponent(position: Offset(i * 1.0, 0)));
-        entity.addComponent(VelocityComponent(velocity: const Offset(10, 5)));
+        entity.addComponent(TransformComponent(position: Vector3(i * 1.0, 0, 0)));
+        entity.addComponent(VelocityComponent(velocity: Vector3(10, 5, 0)));
         entity.addComponent(
           RenderableComponent(
             renderable: CircleRenderable(radius: 5, fillColor: Colors.blue),
@@ -420,7 +420,7 @@ void main() {
             CircleRenderable(
               radius: 10,
               fillColor: Colors.blue,
-              position: Offset(i * 1.0, 0),
+              position: Vector3(i * 1.0, 0, 0),
             ),
           );
         }
@@ -441,7 +441,7 @@ void main() {
           CircleRenderable(
             radius: 10,
             fillColor: Colors.primaries[i % Colors.primaries.length],
-            position: Offset((i % 20) * 30.0, (i ~/ 20) * 30.0),
+            position: Vector3((i % 20) * 30.0, (i ~/ 20) * 30.0, 0),
           ),
         );
       }
@@ -477,13 +477,13 @@ void main() {
       // Add 100 ECS entities
       for (int i = 0; i < 100; i++) {
         final entity = engine.world.createEntity();
-        entity.addComponent(TransformComponent(position: Offset(i * 1.0, 0)));
-        entity.addComponent(VelocityComponent(velocity: const Offset(10, 0)));
+        entity.addComponent(TransformComponent(position: Vector3(i * 1.0, 0, 0)));
+        entity.addComponent(VelocityComponent(velocity: Vector3(10, 0, 0)));
       }
 
       // Add particle emitter
       final emitter = ParticleEmitter(
-        position: Offset.zero,
+        position: null,
         maxParticles: 200,
         emissionRate: 50,
         particleLifetime: 2.0,
@@ -596,7 +596,7 @@ void main() {
             CircleRenderable(
               radius: 10,
               fillColor: Colors.blue,
-              position: Offset(i * 1.0, 0),
+              position: Vector3(i * 1.0, 0, 0),
             ),
           );
         }
@@ -787,7 +787,7 @@ void main() {
           CircleRenderable(
             radius: 8,
             fillColor: Colors.green,
-            position: Offset((i % 25) * 30.0, (i ~/ 25) * 30.0),
+            position: Vector3((i % 25) * 30.0, (i ~/ 25) * 30.0, 0),
           ),
         );
       }

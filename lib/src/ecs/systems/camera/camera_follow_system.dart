@@ -61,14 +61,14 @@ class CameraFollowSystem extends System {
 
         final transform = transforms[i] as TransformComponent;
         final vel = velocities != null
-            ? (velocities[i] as VelocityComponent).velocity
+            ? (velocities[i] as VelocityComponent).velocity.toOffset()
             : Offset.zero;
 
         byPriority
             .putIfAbsent(follow.priority, () => [])
             .add(
               _FollowEntry(
-                position: transform.position,
+                position: transform.position.toOffset(),
                 velocity: vel,
                 lookaheadDistance: follow.lookaheadDistance,
                 deadZoneWidth: follow.deadZoneWidth,

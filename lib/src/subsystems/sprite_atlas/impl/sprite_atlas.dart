@@ -149,7 +149,7 @@ class SpriteAtlas {
   /// cannot happen when the atlas was obtained via [SpriteAtlas.fromAsset].
   Sprite createSprite(
     String regionName, {
-    Offset position = Offset.zero,
+    Vector3? position,
     double rotation = 0.0,
     double scale = 1.0,
     int layer = 0,
@@ -172,7 +172,7 @@ class SpriteAtlas {
       renderSize: region.sourceSize,
       position: position,
       rotation: rotation,
-      scale: Offset(scale, scale),
+      scale: Vector3(scale, scale, 1.0),
       layer: layer,
       zOrder: zOrder,
       flipX: flipX,

@@ -44,6 +44,7 @@ import '../../ecs/ecs.dart';
 import '../../ecs/components/core/transform_component.dart';
 import '../../ecs/components/rendering/renderable_component.dart';
 import '../../ecs/components/effects/effect_component.dart';
+import '../../math/vector3.dart';
 
 import 'base/effect_handle.dart';
 import 'base/effect_context.dart';

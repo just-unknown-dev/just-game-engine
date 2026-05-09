@@ -69,7 +69,7 @@ void main() {
       final circle = CircleRenderable(
         radius: 50,
         fillColor: Colors.red,
-        position: const Offset(0, 0),
+        position: Vector3(0, 0, 0),
       );
 
       engine.rendering.addRenderable(circle);
@@ -171,13 +171,13 @@ void main() {
       final target = CircleRenderable(
         radius: 10,
         fillColor: Colors.blue,
-        position: const Offset(0, 0),
+        position: Vector3(0, 0, 0),
       );
 
       final animation = anim.PositionTween(
         target: target,
-        start: const Offset(0, 0),
-        end: const Offset(100, 100),
+        start: Vector3(0, 0, 0),
+        end: Vector3(100, 100, 0),
         duration: 1.0,
       );
 
@@ -215,7 +215,7 @@ void main() {
       final target = CircleRenderable(
         radius: 10,
         fillColor: Colors.blue,
-        scale: const Offset(1.0, 1.0),
+        scale: Vector3(1.0, 1.0, 1),
       );
 
       final animation = anim.ScaleTween(
@@ -453,7 +453,7 @@ void main() {
   group('Particle System Tests', () {
     test('ParticleEmitter creation', () {
       final emitter = ParticleEmitter(
-        position: const Offset(0, 0),
+        position: Vector3(0, 0, 0),
         maxParticles: 100,
         emissionRate: 30,
         particleLifetime: 2.0,
@@ -466,7 +466,7 @@ void main() {
 
     test('Particle emission', () {
       final emitter = ParticleEmitter(
-        position: const Offset(0, 0),
+        position: Vector3(0, 0, 0),
         maxParticles: 100,
         emissionRate: 10,
         particleLifetime: 1.0,
@@ -480,7 +480,7 @@ void main() {
 
     test('Particle lifecycle', () {
       final emitter = ParticleEmitter(
-        position: const Offset(0, 0),
+        position: Vector3(0, 0, 0),
         maxParticles: 100,
         emissionRate: 10,
         particleLifetime: 0.5,
@@ -499,13 +499,13 @@ void main() {
     });
 
     test('Particle preset effects', () {
-      final explosion = ParticleEffects.explosion(position: Offset.zero);
+      final explosion = ParticleEffects.explosion(position: Vector3.zero());
       expect(explosion.emissionRate, greaterThan(0));
 
-      final fire = ParticleEffects.fire(position: Offset.zero);
+      final fire = ParticleEffects.fire(position: Vector3.zero());
       expect(fire.emissionRate, greaterThan(0));
 
-      final sparkle = ParticleEffects.sparkle(position: Offset.zero);
+      final sparkle = ParticleEffects.sparkle(position: Vector3.zero());
       expect(sparkle.emissionRate, greaterThan(0));
     });
   });
@@ -617,7 +617,7 @@ void main() {
       await engine.initialize();
 
       final entity = engine.world.createEntity();
-      final transform = TransformComponent(position: const Offset(0, 0));
+      final transform = TransformComponent(position: Vector3(0, 0, 0));
 
       entity.addComponent(transform);
       expect(entity.hasComponent<TransformComponent>(), true);
@@ -629,7 +629,7 @@ void main() {
       await engine.initialize();
 
       final entity = engine.world.createEntity();
-      final transform = TransformComponent(position: const Offset(0, 0));
+      final transform = TransformComponent(position: Vector3(0, 0, 0));
 
       entity.addComponent(transform);
       entity.removeComponent<TransformComponent>();
@@ -641,11 +641,11 @@ void main() {
       await engine.initialize();
 
       final entity1 = engine.world.createEntity();
-      entity1.addComponent(TransformComponent(position: const Offset(0, 0)));
-      entity1.addComponent(VelocityComponent(velocity: const Offset(10, 0)));
+      entity1.addComponent(TransformComponent(position: Vector3(0, 0, 0)));
+      entity1.addComponent(VelocityComponent(velocity: Vector3(10, 0, 0)));
 
       final entity2 = engine.world.createEntity();
-      entity2.addComponent(TransformComponent(position: const Offset(0, 0)));
+      entity2.addComponent(TransformComponent(position: Vector3(0, 0, 0)));
 
       final movingEntities = engine.world.query([
         TransformComponent,
@@ -774,9 +774,9 @@ void main() {
 
     test('Sprite properties', () {
       final sprite = Sprite(
-        position: const Offset(100, 50),
+        position: Vector3(100, 50, 0),
         rotation: math.pi / 4,
-        scale: const Offset(2.0, 2.0),
+        scale: Vector3(2.0, 2.0, 1),
         renderSize: const Size(64, 64),
         flipX: true,
         flipY: false,

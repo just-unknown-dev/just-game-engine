@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'renderable.dart';
 import '../../../core/engine.dart';
 import '../../../interfaces/rendering_interfaces.dart';
+import '../../../math/vector3.dart';
 
 /// A sprite that can be rendered
 ///
@@ -122,9 +123,9 @@ class Sprite extends Renderable implements BatchableSprite {
         );
 
     return Rect.fromCenter(
-      center: position,
-      width: size.width * scale.dx,
-      height: size.height * scale.dy,
+      center: position.toOffset(),
+      width: size.width * scale.x,
+      height: size.height * scale.y,
     );
   }
 
@@ -133,7 +134,7 @@ class Sprite extends Renderable implements BatchableSprite {
   /// Routes through [AssetManager] so the image is cached and deduplicated.
   static Future<Sprite> fromAsset(
     String assetPath, {
-    Offset position = Offset.zero,
+    Vector3? position,
     double rotation = 0.0,
     double scale = 1.0,
     int layer = 0,
@@ -144,7 +145,7 @@ class Sprite extends Renderable implements BatchableSprite {
       image: image,
       position: position,
       rotation: rotation,
-      scale: Offset(scale, scale),
+      scale: Vector3(scale, scale, 1.0),
       layer: layer,
       zOrder: zOrder,
     );
@@ -221,7 +222,7 @@ class SpriteSheet {
   /// Get a sprite at a specific index
   Sprite getSprite(
     int index, {
-    Offset position = Offset.zero,
+    Vector3? position,
     double rotation = 0.0,
     double scale = 1.0,
     int layer = 0,
@@ -235,7 +236,7 @@ class SpriteSheet {
       sourceRect: _spriteRects[index],
       position: position,
       rotation: rotation,
-      scale: Offset(scale, scale),
+      scale: Vector3(scale, scale, 1.0),
       layer: layer,
     );
   }
@@ -392,9 +393,9 @@ class NineSliceSprite extends Renderable {
   @override
   Rect? getBounds() {
     return Rect.fromCenter(
-      center: position,
-      width: size.width * scale.dx,
-      height: size.height * scale.dy,
+      center: position.toOffset(),
+      width: size.width * scale.x,
+      height: size.height * scale.y,
     );
   }
 }

@@ -31,7 +31,8 @@ class PhysicsBridgeSystem extends System {
       final body = ref.body;
 
       // Capture previous positions for sub-frame render interpolation.
-      transform.prevPosition = transform.position;
+      // Use setFrom (in-place copy) — never alias the same mutable Vector3.
+      transform.prevPosition.setFrom(transform.position);
       transform.prevRotation = transform.rotation;
 
       // Write subsystem body position → ECS transform

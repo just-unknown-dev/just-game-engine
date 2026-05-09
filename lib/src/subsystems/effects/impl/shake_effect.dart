@@ -35,14 +35,14 @@ class ShakeEffect extends DeterministicEffect {
   }) : assert(amplitude >= 0, 'amplitude must be ≥ 0');
 
   /// Compute the shake offset **at** a specific elapsed tick count.
-  Offset _offsetAt(int elapsed) {
-    if (durationTicks == 0) return Offset.zero;
+  Vector3 _offsetAt(int elapsed) {
+    if (durationTicks == 0) return Vector3.zero();
     final t = elapsed / durationTicks; // normalised 0..1
     final damping = 1.0 - t; // linear fade-out
     final angle = elapsed * frequency * 2 * math.pi / durationTicks;
     final dx = amplitude * damping * math.sin(angle);
     final dy = xOnly ? 0.0 : amplitude * damping * math.cos(angle);
-    return Offset(dx, dy);
+    return Vector3(dx, dy, 0);
   }
 
   @override
