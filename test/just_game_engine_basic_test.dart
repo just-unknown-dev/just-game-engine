@@ -353,14 +353,14 @@ void main() {
       final sprite = Sprite(
         position: const Offset(100, 50),
         rotation: 0.785398, // pi/4
-        scale: 2.0,
+        scale: const Offset(2.0, 2.0),
         renderSize: const Size(64, 64),
         flipX: true,
         flipY: false,
       );
 
       expect(sprite.position, const Offset(100, 50));
-      expect(sprite.scale, 2.0);
+      expect(sprite.scale, const Offset(2.0, 2.0));
       expect(sprite.renderSize, const Size(64, 64));
       expect(sprite.flipX, true);
       expect(sprite.flipY, false);

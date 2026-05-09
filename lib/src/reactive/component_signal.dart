@@ -90,7 +90,7 @@ class TransformSignals {
         setter: (c, v) => c.rotation = v,
         debugLabel: 'TransformSignals.rotation',
       ),
-      scale = ComponentSignal<TransformComponent, double>(
+      scale = ComponentSignal<TransformComponent, Offset>(
         component,
         getter: (c) => c.scale,
         setter: (c, v) => c.scale = v,
@@ -100,7 +100,7 @@ class TransformSignals {
   final ComponentSignal<TransformComponent, double> x;
   final ComponentSignal<TransformComponent, double> y;
   final ComponentSignal<TransformComponent, double> rotation;
-  final ComponentSignal<TransformComponent, double> scale;
+  final ComponentSignal<TransformComponent, Offset> scale;
 
   /// Sets position in a batch (single notification).
   void setPosition(double x, double y) {

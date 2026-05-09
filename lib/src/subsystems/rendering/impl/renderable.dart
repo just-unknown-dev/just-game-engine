@@ -15,8 +15,8 @@ abstract class Renderable {
   /// Rotation in radians
   double rotation;
 
-  /// Scale factor
-  double scale;
+  /// Scale factor (x, y)
+  Offset scale;
 
   /// Layer index for rendering order (lower layers render first)
   int layer;
@@ -37,7 +37,7 @@ abstract class Renderable {
   Renderable({
     this.position = Offset.zero,
     this.rotation = 0.0,
-    this.scale = 1.0,
+    this.scale = const Offset(1.0, 1.0),
     this.layer = 0,
     this.zOrder = 0,
     this.visible = true,
@@ -61,7 +61,7 @@ abstract class Renderable {
     canvas.save();
     canvas.translate(position.dx, position.dy);
     canvas.rotate(rotation);
-    canvas.scale(scale, scale);
+    canvas.scale(scale.dx, scale.dy);
   }
 
   /// Restore canvas state
@@ -132,13 +132,12 @@ class RectangleRenderable extends Renderable {
   Rect? getBounds() {
     return Rect.fromCenter(
       center: position,
-      width: size.width * scale,
-      height: size.height * scale,
+      width: size.width * scale.dx,
+      height: size.height * scale.dy,
     );
   }
 }
 
-/// A renderable circle shape
 class CircleRenderable extends Renderable {
   /// Radius of the circle
   double radius;
@@ -192,7 +191,7 @@ class CircleRenderable extends Renderable {
 
   @override
   Rect? getBounds() {
-    final scaledRadius = radius * scale;
+    final scaledRadius = radius * (scale.dx + scale.dy) / 2;
     return Rect.fromCircle(center: position, radius: scaledRadius);
   }
 }
@@ -321,8 +320,8 @@ class TextRenderable extends Renderable {
 
     return Rect.fromCenter(
       center: position,
-      width: _painter.width * scale,
-      height: _painter.height * scale,
+      width: _painter.width * scale.dx,
+      height: _painter.height * scale.dy,
     );
   }
 }

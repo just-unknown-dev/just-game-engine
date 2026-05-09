@@ -123,8 +123,8 @@ class Sprite extends Renderable implements BatchableSprite {
 
     return Rect.fromCenter(
       center: position,
-      width: size.width * scale,
-      height: size.height * scale,
+      width: size.width * scale.dx,
+      height: size.height * scale.dy,
     );
   }
 
@@ -144,7 +144,7 @@ class Sprite extends Renderable implements BatchableSprite {
       image: image,
       position: position,
       rotation: rotation,
-      scale: scale,
+      scale: Offset(scale, scale),
       layer: layer,
       zOrder: zOrder,
     );
@@ -235,7 +235,7 @@ class SpriteSheet {
       sourceRect: _spriteRects[index],
       position: position,
       rotation: rotation,
-      scale: scale,
+      scale: Offset(scale, scale),
       layer: layer,
     );
   }
@@ -393,8 +393,8 @@ class NineSliceSprite extends Renderable {
   Rect? getBounds() {
     return Rect.fromCenter(
       center: position,
-      width: size.width * scale,
-      height: size.height * scale,
+      width: size.width * scale.dx,
+      height: size.height * scale.dy,
     );
   }
 }

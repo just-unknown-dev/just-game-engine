@@ -38,7 +38,7 @@ class ScaleEffect extends DeterministicEffect {
     if (transform == null) return;
 
     if (prevElapsed == 0) {
-      _capturedFrom = from ?? transform.scale;
+      _capturedFrom = from ?? (transform.scale.dx + transform.scale.dy) / 2;
     }
     final effectiveFrom = _capturedFrom;
     if (effectiveFrom == null) return;
@@ -46,7 +46,8 @@ class ScaleEffect extends DeterministicEffect {
     final totalDelta = to - effectiveFrom;
     final prevEased = EffectEasings.resolve(easing, tAt(prevElapsed));
     final currEased = EffectEasings.resolve(easing, tAt(currElapsed));
-    transform.scale += totalDelta * (currEased - prevEased);
+    final delta = totalDelta * (currEased - prevEased);
+    transform.scale += Offset(delta, delta);
   }
 
   @override

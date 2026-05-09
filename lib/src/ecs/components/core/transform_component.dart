@@ -12,8 +12,8 @@ class TransformComponent extends Component {
   /// Entity rotation (radians)
   double rotation;
 
-  /// Entity scale
-  double scale;
+  /// Entity scale (x, y). Use [Offset(1, 1)] for no scaling.
+  Offset scale;
 
   /// Position captured at the start of the previous physics step.
   /// Used by [RenderSystem] to lerp towards [position] when rendering between
@@ -27,7 +27,7 @@ class TransformComponent extends Component {
   TransformComponent({
     this.position = Offset.zero,
     this.rotation = 0.0,
-    this.scale = 1.0,
+    this.scale = const Offset(1.0, 1.0),
   }) : prevPosition = position,
        prevRotation = rotation;
 

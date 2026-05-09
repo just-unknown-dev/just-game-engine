@@ -172,7 +172,7 @@ class SpriteAtlas {
       renderSize: region.sourceSize,
       position: position,
       rotation: rotation,
-      scale: scale,
+      scale: Offset(scale, scale),
       layer: layer,
       zOrder: zOrder,
       flipX: flipX,

@@ -84,7 +84,7 @@ class ScaleTween extends TweenAnimation<double> {
     super.onComplete,
   }) : super(
          lerp: (a, b, t) => a + (b - a) * t,
-         onUpdate: (value) => target.scale = value,
+         onUpdate: (value) => target.scale = Offset(value, value),
        );
 }
 

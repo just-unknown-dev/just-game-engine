@@ -128,7 +128,7 @@ void main() {
       transform = TransformComponent(
         position: const Offset(0, 0),
         rotation: 0.0,
-        scale: 1.0,
+        scale: const Offset(1.0, 1.0),
       );
       signals = TransformSignals(transform);
     });
@@ -174,10 +174,10 @@ void main() {
     });
 
     test('scale signal reads and writes scale', () {
-      transform.scale = 2.0;
-      expect(signals.scale.value, closeTo(2.0, 1e-9));
-      signals.scale.value = 0.5;
-      expect(transform.scale, closeTo(0.5, 1e-9));
+      transform.scale = const Offset(2.0, 2.0);
+      expect(signals.scale.value, const Offset(2.0, 2.0));
+      signals.scale.value = const Offset(0.5, 0.5);
+      expect(transform.scale, const Offset(0.5, 0.5));
     });
   });
 

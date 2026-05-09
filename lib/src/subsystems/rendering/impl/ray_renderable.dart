@@ -94,7 +94,8 @@ class RayRenderable extends Renderable {
     if (glowBlurSigma > 0) {
       _glowPaint
         ..color = color.withAlpha((coreAlpha * 0.35).round())
-        ..strokeWidth = (width * scale * glowWidthMultiplier)
+        ..strokeWidth =
+            (width * ((scale.dx + scale.dy) / 2) * glowWidthMultiplier)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, glowBlurSigma);
       canvas.drawLine(start, end, _glowPaint);
     }
@@ -102,7 +103,7 @@ class RayRenderable extends Renderable {
     // Core beam
     _corePaint
       ..color = color.withAlpha(coreAlpha)
-      ..strokeWidth = width * scale;
+      ..strokeWidth = width * (scale.dx + scale.dy) / 2;
     canvas.drawLine(start, end, _corePaint);
   }
 

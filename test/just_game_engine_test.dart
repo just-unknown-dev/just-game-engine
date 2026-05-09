@@ -215,7 +215,7 @@ void main() {
       final target = CircleRenderable(
         radius: 10,
         fillColor: Colors.blue,
-        scale: 1.0,
+        scale: const Offset(1.0, 1.0),
       );
 
       final animation = anim.ScaleTween(
@@ -776,7 +776,7 @@ void main() {
       final sprite = Sprite(
         position: const Offset(100, 50),
         rotation: math.pi / 4,
-        scale: 2.0,
+        scale: const Offset(2.0, 2.0),
         renderSize: const Size(64, 64),
         flipX: true,
         flipY: false,
@@ -784,7 +784,7 @@ void main() {
 
       expect(sprite.position, const Offset(100, 50));
       expect(sprite.rotation, math.pi / 4);
-      expect(sprite.scale, 2.0);
+      expect(sprite.scale, const Offset(2.0, 2.0));
       expect(sprite.renderSize, const Size(64, 64));
       expect(sprite.flipX, true);
       expect(sprite.flipY, false);

@@ -287,7 +287,7 @@ class SceneNode {
     if (renderable != null) {
       renderable!.position = worldPosition;
       renderable!.rotation = worldRotation;
-      renderable!.scale = worldScale;
+      renderable!.scale = Offset(worldScale, worldScale);
     }
 
     // Update children

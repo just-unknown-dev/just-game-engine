@@ -122,7 +122,7 @@ class ReactiveTransformComponent extends TransformComponent
   }
 
   @override
-  set scale(double value) {
+  set scale(Offset value) {
     if (super.scale != value) {
       super.scale = value;
       notifyChange('scale');

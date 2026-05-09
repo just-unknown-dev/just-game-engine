@@ -158,7 +158,7 @@ class RenderSystem extends System {
           sourceRect: srcRect,
           position: renderable.position,
           rotation: renderable.rotation,
-          scale: renderable.scale,
+          scale: (renderable.scale.dx + renderable.scale.dy) / 2,
           color: tintColor,
         );
       } else {
@@ -218,7 +218,7 @@ class RenderSystem extends System {
       canvas.save();
       canvas.translate(transform.position.dx, transform.position.dy);
       canvas.rotate(transform.rotation);
-      canvas.scale(transform.scale);
+      canvas.scale(transform.scale.dx, transform.scale.dy);
 
       final text = entity.getComponent<TextComponent>();
       if (text != null && text.visible) {

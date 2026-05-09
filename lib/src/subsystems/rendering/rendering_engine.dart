@@ -546,7 +546,7 @@ class RenderingEngine {
               sourceRect: src,
               position: renderable.position,
               rotation: renderable.rotation,
-              scale: renderable.scale,
+              scale: (renderable.scale.dx + renderable.scale.dy) / 2,
               color: (renderable.tint ?? Colors.white).withValues(
                 alpha: renderable.opacity,
               ),
