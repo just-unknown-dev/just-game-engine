@@ -1,8 +1,7 @@
 library;
 
-import 'package:flutter/painting.dart';
-
 import '../../ecs.dart';
+import '../../../math/vector3.dart';
 
 /// Marks an entity as a checkpoint / respawn point.
 ///
@@ -13,13 +12,13 @@ import '../../ecs.dart';
 /// Usage:
 /// ```dart
 /// world.createEntity([
-///   TransformComponent(position: Offset(400, 300)),
-///   CheckpointComponent(respawnPosition: Offset(400, 260)),
+///   TransformComponent(position: Vector3.fromXY(400, 300)),
+///   CheckpointComponent(respawnPosition: Vector3.fromXY(400, 260)),
 /// ]);
 /// ```
 class CheckpointComponent extends Component {
   /// World-space position the player is moved to on respawn.
-  Offset respawnPosition;
+  Vector3 respawnPosition;
 
   /// Activation radius in world units.
   final double radius;

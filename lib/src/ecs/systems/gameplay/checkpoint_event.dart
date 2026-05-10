@@ -1,8 +1,7 @@
 library;
 
-import 'package:flutter/painting.dart';
-
 import '../../ecs.dart';
+import '../../../math/vector3.dart';
 
 /// Fired when a player entity touches and activates a checkpoint for the
 /// first time.
@@ -14,7 +13,7 @@ class CheckpointActivatedEvent extends GameEvent {
   final Entity playerEntity;
 
   /// World-space respawn position stored by the checkpoint.
-  final Offset respawnPosition;
+  final Vector3 respawnPosition;
 
   CheckpointActivatedEvent({
     required this.checkpointEntity,
@@ -30,7 +29,7 @@ class PlayerRespawnEvent extends GameEvent {
   final Entity playerEntity;
 
   /// World-space position the player should be moved to.
-  final Offset respawnPosition;
+  final Vector3 respawnPosition;
 
   PlayerRespawnEvent({
     required this.playerEntity,

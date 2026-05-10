@@ -130,7 +130,7 @@ class PhysicsSystem extends System {
             // The dynamic body is the non-static one.
             final dynEntity = !body1.isStatic ? entity1 : entity2;
             final dynVel = dynEntity.getComponent<VelocityComponent>();
-            if ((dynVel?.velocity.dy ?? 0.0) <= 0) continue;
+            if ((dynVel?.velocity.y ?? 0.0) <= 0) continue;
           }
 
           // Check collision using SAT
@@ -221,8 +221,10 @@ class PhysicsSystem extends System {
     );
 
     // Calculate relative velocity along normal (scalar, no allocation)
-    final relVelDx = velocity2.velocity.x - velocity1.velocity.x;
-    final relVelDy = velocity2.velocity.y - velocity1.velocity.y;
+    final relVelDx =
+        (velocity2?.velocity.x ?? 0.0) - (velocity1?.velocity.x ?? 0.0);
+    final relVelDy =
+        (velocity2?.velocity.y ?? 0.0) - (velocity1?.velocity.y ?? 0.0);
     final velocityAlongNormal = relVelDx * normal.dx + relVelDy * normal.dy;
 
     // Don't resolve if velocities are separating

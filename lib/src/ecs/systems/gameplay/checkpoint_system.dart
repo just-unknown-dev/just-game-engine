@@ -5,6 +5,7 @@ import 'package:flutter/painting.dart';
 import '../../ecs.dart';
 import '../../components/components.dart';
 import '../system_priorities.dart';
+import '../../../math/vector3.dart';
 import 'checkpoint_event.dart';
 
 /// Checkpoint / respawn system.
@@ -28,7 +29,7 @@ import 'checkpoint_event.dart';
 /// world.events.on<PlayerRespawnEvent>((e) {
 ///   final transform = e.playerEntity.getComponent<TransformComponent>()!;
 ///   final velocity  = e.playerEntity.getComponent<VelocityComponent>()!;
-///   transform.setPositionXY(e.respawnPosition.dx, e.respawnPosition.dy);
+///   transform.position.setFrom(e.respawnPosition);
 ///   velocity.setVelocityXY(0, 0);
 /// });
 /// ```
@@ -45,10 +46,10 @@ class CheckpointSystem extends System {
     CheckpointComponent,
   ];
 
-  /// Last activated respawn position (world-space).  Defaults to [Offset.zero]
+  /// Last activated respawn position (world-space).  Defaults to zero
   /// until the player touches a checkpoint.
-  Offset _currentRespawnPoint = Offset.zero;
-  Offset get currentRespawnPoint => _currentRespawnPoint;
+  Vector3 _currentRespawnPoint = Vector3.zero();
+  Vector3 get currentRespawnPoint => _currentRespawnPoint;
 
   /// Creates a [CheckpointSystem] that looks for player entities tagged with
   /// [playerTag].
@@ -75,13 +76,13 @@ class CheckpointSystem extends System {
 
       for (final player in players) {
         final playerTransform = player.getComponent<TransformComponent>()!;
-        final dx = playerTransform.position.dx - cpPos.dx;
-        final dy = playerTransform.position.dy - cpPos.dy;
+        final dx = playerTransform.position.x - cpPos.x;
+        final dy = playerTransform.position.y - cpPos.y;
         final distSq = dx * dx + dy * dy;
 
         if (distSq <= cp.radius * cp.radius) {
           cp.isActivated = true;
-          _currentRespawnPoint = cp.respawnPosition;
+          _currentRespawnPoint = Vector3.copy(cp.respawnPosition);
 
           world.events.fire(
             CheckpointActivatedEvent(
@@ -109,8 +110,8 @@ class CheckpointSystem extends System {
 
   /// Manually set the active respawn point without requiring the player to
   /// touch a checkpoint entity.  Useful for level-start defaults.
-  void setRespawnPoint(Offset position) {
-    _currentRespawnPoint = position;
+  void setRespawnPoint(Vector3 position) {
+    _currentRespawnPoint = Vector3.copy(position);
   }
 
   // ── Debug rendering ──────────────────────────────────────────────────────
@@ -122,7 +123,7 @@ class CheckpointSystem extends System {
       final cp = entity.getComponent<CheckpointComponent>()!;
 
       canvas.drawCircle(
-        transform.position,
+        transform.position.toOffset(),
         cp.radius,
         cp.isActivated ? _activatedPaint : _inactivePaint,
       );
