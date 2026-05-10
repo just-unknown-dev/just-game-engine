@@ -8,6 +8,7 @@ import '../../ecs.dart';
 import '../../components/components.dart';
 import '../../../interfaces/interfaces.dart';
 import '../../../subsystems/physics/physics_engine.dart';
+import '../../../math/vector3.dart';
 import '../system_priorities.dart';
 import 'collision_event.dart';
 
@@ -24,8 +25,8 @@ class PhysicsSystem extends System {
   /// aligned with their visual counterparts.
   GameCamera? camera;
 
-  /// Gravity
-  Offset gravity = const Offset(0, 0);
+  /// Gravity acceleration (units/s²).  z is ignored by the 2-D physics system.
+  Vector3 gravity = Vector3.zero();
 
   /// Cell size for the spatial grid broad-phase. Tune to roughly match
   /// the size of the largest physics body for best performance.
@@ -80,7 +81,7 @@ class PhysicsSystem extends System {
       final transform = entity.getComponent<TransformComponent>()!;
       final body = entity.getComponent<PhysicsBodyComponent>()!;
 
-      final bounds = body.shape.getBounds(transform.position);
+      final bounds = body.shape.getBounds(transform.position.toOffset());
       final minX = (bounds.left / broadPhaseCellSize).floor();
       final minY = (bounds.top / broadPhaseCellSize).floor();
       final maxX = (bounds.right / broadPhaseCellSize).floor();
@@ -134,9 +135,9 @@ class PhysicsSystem extends System {
 
           // Check collision using SAT
           final manifold = body1.shape.getManifold(
-            transform1.position,
+            transform1.position.toOffset(),
             body2.shape,
-            transform2.position,
+            transform2.position.toOffset(),
           );
 
           if (manifold.isColliding) {
@@ -210,21 +211,18 @@ class PhysicsSystem extends System {
 
     final corr1 = correctionMag * inverseMass1;
     transform1.setPositionXY(
-      transform1.position.dx - normal.dx * corr1,
-      transform1.position.dy - normal.dy * corr1,
+      transform1.position.x - normal.dx * corr1,
+      transform1.position.y - normal.dy * corr1,
     );
     final corr2 = correctionMag * inverseMass2;
     transform2.setPositionXY(
-      transform2.position.dx + normal.dx * corr2,
-      transform2.position.dy + normal.dy * corr2,
+      transform2.position.x + normal.dx * corr2,
+      transform2.position.y + normal.dy * corr2,
     );
 
-    // Calculate relative velocity along normal (scalar, no Offset allocation).
-    // Static bodies have no VelocityComponent; treat their velocity as zero.
-    final relVelDx =
-        (velocity2?.velocity.dx ?? 0.0) - (velocity1?.velocity.dx ?? 0.0);
-    final relVelDy =
-        (velocity2?.velocity.dy ?? 0.0) - (velocity1?.velocity.dy ?? 0.0);
+    // Calculate relative velocity along normal (scalar, no allocation)
+    final relVelDx = velocity2.velocity.x - velocity1.velocity.x;
+    final relVelDy = velocity2.velocity.y - velocity1.velocity.y;
     final velocityAlongNormal = relVelDx * normal.dx + relVelDy * normal.dy;
 
     // Don't resolve if velocities are separating
@@ -239,19 +237,17 @@ class PhysicsSystem extends System {
 
     // Apply impulse (skip if the body has no VelocityComponent — static body).
     final imp1 = impulseScalar * inverseMass1;
-    if (velocity1 != null) {
+    if (velocity1 != null)
       velocity1.setVelocityXY(
-        velocity1.velocity.dx - normal.dx * imp1,
-        velocity1.velocity.dy - normal.dy * imp1,
+        velocity1.velocity.x - normal.dx * imp1,
+        velocity1.velocity.y - normal.dy * imp1,
       );
-    }
     final imp2 = impulseScalar * inverseMass2;
-    if (velocity2 != null) {
+    if (velocity2 != null)
       velocity2.setVelocityXY(
-        velocity2.velocity.dx + normal.dx * imp2,
-        velocity2.velocity.dy + normal.dy * imp2,
+        velocity2.velocity.x + normal.dx * imp2,
+        velocity2.velocity.y + normal.dy * imp2,
       );
-    }
   }
 
   @override
@@ -273,18 +269,18 @@ class PhysicsSystem extends System {
 
       final shape = body.shape;
       if (shape is CircleShape) {
-        canvas.drawCircle(transform.position, shape.radius, paint);
+        canvas.drawCircle(transform.position.toOffset(), shape.radius, paint);
       } else if (shape is PolygonShape) {
         final path = Path();
         if (shape.vertices.isNotEmpty) {
           path.moveTo(
-            transform.position.dx + shape.vertices[0].dx,
-            transform.position.dy + shape.vertices[0].dy,
+            transform.position.x + shape.vertices[0].dx,
+            transform.position.y + shape.vertices[0].dy,
           );
           for (int i = 1; i < shape.vertices.length; i++) {
             path.lineTo(
-              transform.position.dx + shape.vertices[i].dx,
-              transform.position.dy + shape.vertices[i].dy,
+              transform.position.x + shape.vertices[i].dx,
+              transform.position.y + shape.vertices[i].dy,
             );
           }
           path.close();

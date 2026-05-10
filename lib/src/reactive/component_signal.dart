@@ -1,11 +1,10 @@
 library;
 
-import 'dart:ui';
-
 import 'package:just_signals/just_signals.dart';
 
 import '../ecs/ecs.dart';
 import '../ecs/components/components.dart';
+import '../math/vector3.dart';
 
 /// A signal that wraps a component's property for reactive updates.
 ///
@@ -16,8 +15,8 @@ import '../ecs/components/components.dart';
 /// final transform = entity.getComponent<TransformComponent>()!;
 /// final positionX = ComponentSignal<TransformComponent, double>(
 ///   transform,
-///   getter: (c) => c.position.dx,
-///   setter: (c, v) => c.position = Offset(v, c.position.dy),
+///   getter: (c) => c.position.x,
+///   setter: (c, v) => c.position.x = v,
 /// );
 ///
 /// positionX.value = 100; // Updates component and notifies listeners
@@ -74,14 +73,14 @@ class TransformSignals {
   TransformSignals(TransformComponent component)
     : x = ComponentSignal<TransformComponent, double>(
         component,
-        getter: (c) => c.position.dx,
-        setter: (c, v) => c.position = Offset(v, c.position.dy),
+        getter: (c) => c.position.x,
+        setter: (c, v) => c.position.x = v,
         debugLabel: 'TransformSignals.x',
       ),
       y = ComponentSignal<TransformComponent, double>(
         component,
-        getter: (c) => c.position.dy,
-        setter: (c, v) => c.position = Offset(c.position.dx, v),
+        getter: (c) => c.position.y,
+        setter: (c, v) => c.position.y = v,
         debugLabel: 'TransformSignals.y',
       ),
       rotation = ComponentSignal<TransformComponent, double>(
@@ -90,7 +89,7 @@ class TransformSignals {
         setter: (c, v) => c.rotation = v,
         debugLabel: 'TransformSignals.rotation',
       ),
-      scale = ComponentSignal<TransformComponent, double>(
+      scale = ComponentSignal<TransformComponent, Vector3>(
         component,
         getter: (c) => c.scale,
         setter: (c, v) => c.scale = v,
@@ -100,7 +99,7 @@ class TransformSignals {
   final ComponentSignal<TransformComponent, double> x;
   final ComponentSignal<TransformComponent, double> y;
   final ComponentSignal<TransformComponent, double> rotation;
-  final ComponentSignal<TransformComponent, double> scale;
+  final ComponentSignal<TransformComponent, Vector3> scale;
 
   /// Sets position in a batch (single notification).
   void setPosition(double x, double y) {
@@ -139,14 +138,14 @@ class VelocitySignals {
   VelocitySignals(VelocityComponent component)
     : vx = ComponentSignal<VelocityComponent, double>(
         component,
-        getter: (c) => c.velocity.dx,
-        setter: (c, v) => c.velocity = Offset(v, c.velocity.dy),
+        getter: (c) => c.velocity.x,
+        setter: (c, v) => c.velocity.x = v,
         debugLabel: 'VelocitySignals.vx',
       ),
       vy = ComponentSignal<VelocityComponent, double>(
         component,
-        getter: (c) => c.velocity.dy,
-        setter: (c, v) => c.velocity = Offset(c.velocity.dx, v),
+        getter: (c) => c.velocity.y,
+        setter: (c, v) => c.velocity.y = v,
         debugLabel: 'VelocitySignals.vy',
       ),
       maxSpeed = ComponentSignal<VelocityComponent, double>(

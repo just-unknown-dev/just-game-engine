@@ -1,11 +1,12 @@
 library;
 
-import 'dart:ui';
+import 'dart:ui' show VoidCallback;
 
 import 'package:just_signals/just_signals.dart';
 
 import '../ecs/ecs.dart';
 import '../ecs/components/components.dart';
+import '../math/vector3.dart';
 
 /// A mixin for components that want built-in change notification.
 ///
@@ -106,11 +107,9 @@ class ReactiveTransformComponent extends TransformComponent
   ReactiveTransformComponent({super.position, super.rotation, super.scale});
 
   @override
-  set position(Offset value) {
-    if (super.position != value) {
-      super.position = value;
-      notifyChange('position');
-    }
+  set position(Vector3 value) {
+    super.position = value;
+    notifyChange('position');
   }
 
   @override
@@ -122,16 +121,14 @@ class ReactiveTransformComponent extends TransformComponent
   }
 
   @override
-  set scale(double value) {
-    if (super.scale != value) {
-      super.scale = value;
-      notifyChange('scale');
-    }
+  set scale(Vector3 value) {
+    super.scale = value;
+    notifyChange('scale');
   }
 
   @override
-  void translate(Offset offset) {
-    super.translate(offset);
+  void translate(Vector3 delta) {
+    super.translate(delta);
     notifyChange('position');
   }
 
@@ -148,11 +145,9 @@ class ReactiveVelocityComponent extends VelocityComponent
   ReactiveVelocityComponent({super.velocity, super.maxSpeed});
 
   @override
-  set velocity(Offset value) {
-    if (super.velocity != value) {
-      super.velocity = value;
-      notifyChange('velocity');
-    }
+  set velocity(Vector3 value) {
+    super.velocity = value;
+    notifyChange('velocity');
   }
 
   @override

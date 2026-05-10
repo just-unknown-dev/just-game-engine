@@ -29,7 +29,7 @@ class ParticleEffects {
   ///
   /// Emits [particleCount] particles in 0.1 seconds then stops.
   static ParticleEmitter explosion({
-    required Offset position,
+    required Vector3 position,
     int particleCount = 50,
     Color color = Colors.orange,
   }) {
@@ -54,7 +54,7 @@ class ParticleEffects {
   }
 
   /// Continuous upward fire effect.
-  static ParticleEmitter fire({required Offset position}) {
+  static ParticleEmitter fire({required Vector3 position}) {
     return ParticleEmitter(
       position: position,
       maxParticles: 100,
@@ -84,7 +84,7 @@ class ParticleEffects {
   }
 
   /// Slow-rising smoke plume.
-  static ParticleEmitter smoke({required Offset position}) {
+  static ParticleEmitter smoke({required Vector3 position}) {
     return ParticleEmitter(
       position: position,
       maxParticles: 50,
@@ -109,7 +109,7 @@ class ParticleEffects {
   }
 
   /// Magical twinkling sparkle burst.
-  static ParticleEmitter sparkle({required Offset position}) {
+  static ParticleEmitter sparkle({required Vector3 position}) {
     return ParticleEmitter(
       position: position,
       maxParticles: 30,
@@ -133,7 +133,7 @@ class ParticleEffects {
   }
 
   /// Falling rain effect.  [position] should be at the top of the screen.
-  static ParticleEmitter rain({required Offset position, double width = 800}) {
+  static ParticleEmitter rain({required Vector3 position, double width = 800}) {
     return ParticleEmitter(
       position: position,
       maxParticles: 200,
@@ -158,7 +158,7 @@ class ParticleEffects {
   }
 
   /// Gently drifting snowfall.
-  static ParticleEmitter snow({required Offset position}) {
+  static ParticleEmitter snow({required Vector3 position}) {
     return ParticleEmitter(
       position: position,
       maxParticles: 100,
@@ -188,7 +188,7 @@ class ParticleEffects {
 
   /// Swirling portal vortex effect — particles spiral inward with cyan-to-
   /// purple color transition.
-  static ParticleEmitter portal({required Offset position}) {
+  static ParticleEmitter portal({required Vector3 position}) {
     return ParticleEmitter(
       position: position,
       maxParticles: 120,
@@ -207,8 +207,8 @@ class ParticleEffects {
       angularVelocity: 3.0,
       angularVelocityVariation: 1.0,
       forces: [
-        VortexForce(center: position, strength: 200, radius: 180),
-        AttractorForce(center: position, strength: 80, radius: 200),
+        VortexForce(center: position.toOffset(), strength: 200, radius: 180),
+        AttractorForce(center: position.toOffset(), strength: 80, radius: 200),
         DragForce(coefficient: 0.04),
       ],
     );
@@ -219,7 +219,7 @@ class ParticleEffects {
   /// [color] defaults to a vivid magenta; pass any color to match the spell
   /// type.
   static ParticleEmitter magic({
-    required Offset position,
+    required Vector3 position,
     Color color = const Color(0xFFE040FB),
   }) {
     return ParticleEmitter(
@@ -238,7 +238,7 @@ class ParticleEffects {
       speed: 30,
       speedVariation: 15,
       forces: [
-        AttractorForce(center: position, strength: 40, radius: 120),
+        AttractorForce(center: position.toOffset(), strength: 40, radius: 120),
         NoiseForce(strength: 120, scale: 0.01, speed: 0.6),
         DragForce(coefficient: 0.06),
       ],
@@ -249,7 +249,7 @@ class ParticleEffects {
   ///
   /// [boundsBottom] defines the Y coordinate of the floor; defaults to 600.
   static ParticleEmitter bloodSplatter({
-    required Offset position,
+    required Vector3 position,
     int count = 30,
     double boundsBottom = 600,
   }) {
@@ -285,7 +285,7 @@ class ParticleEffects {
   ///
   /// [direction] biases the spread: `1.0` = right-facing, `-1.0` = left.
   static ParticleEmitter dustKick({
-    required Offset position,
+    required Vector3 position,
     double direction = 1.0,
   }) {
     final angle = direction >= 0 ? -math.pi * 0.7 : -math.pi * 0.3;
@@ -310,7 +310,7 @@ class ParticleEffects {
   }
 
   /// Electric sparks — high-speed noise-driven particles rendered as streaks.
-  static ParticleEmitter electricSparks({required Offset position}) {
+  static ParticleEmitter electricSparks({required Vector3 position}) {
     return ParticleEmitter(
       position: position,
       maxParticles: 80,
@@ -336,7 +336,7 @@ class ParticleEffects {
 
   /// Water splash — arcing droplets that bounce off a floor.
   static ParticleEmitter waterSplash({
-    required Offset position,
+    required Vector3 position,
     double floorY = 400,
   }) {
     return ParticleEmitter(
@@ -368,7 +368,7 @@ class ParticleEffects {
   }
 
   /// Healing aura — green particles that rise gently from the target.
-  static ParticleEmitter healAura({required Offset position}) {
+  static ParticleEmitter healAura({required Vector3 position}) {
     return ParticleEmitter(
       position: position,
       maxParticles: 40,
@@ -387,7 +387,7 @@ class ParticleEffects {
       forces: [
         GravityForce(const Offset(0, -30)),
         AttractorForce(
-          center: position + const Offset(0, -60),
+          center: position.toOffset() + const Offset(0, -60),
           strength: 30,
           radius: 80,
         ),
@@ -401,7 +401,7 @@ class ParticleEffects {
   ///
   /// Sub-emitter example: [subEmitters] can be used to spawn smaller confetti
   /// on death for extra density.
-  static ParticleEmitter confetti({required Offset position, int count = 80}) {
+  static ParticleEmitter confetti({required Vector3 position, int count = 80}) {
     return ParticleEmitter(
       position: position,
       maxParticles: count,
@@ -431,7 +431,7 @@ class ParticleEffects {
   }
 
   /// Lava embers rising from molten rock.
-  static ParticleEmitter lavaEmbers({required Offset position}) {
+  static ParticleEmitter lavaEmbers({required Vector3 position}) {
     return ParticleEmitter(
       position: position,
       maxParticles: 60,

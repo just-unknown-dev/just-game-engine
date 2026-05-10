@@ -325,7 +325,7 @@ class RaycastSystem extends System {
       final result = _intersect(
         origin: ray.origin,
         dir: ray.direction,
-        centre: centre,
+        centre: centre.toOffset(),
         collider: collider,
         maxDist: ray.maxDistance,
       );
@@ -358,7 +358,7 @@ class RaycastSystem extends System {
       final result = _intersect(
         origin: ray.origin,
         dir: ray.direction,
-        centre: centre,
+        centre: centre.toOffset(),
         collider: collider,
         maxDist: ray.maxDistance,
       );
@@ -398,7 +398,7 @@ class RaycastSystem extends System {
       final result = _intersect(
         origin: ray.origin,
         dir: ray.direction,
-        centre: centre,
+        centre: centre.toOffset(),
         collider: collider,
         maxDist: maxDist,
       );
