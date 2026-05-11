@@ -25,7 +25,6 @@ import '../ecs/ecs.dart';
 import '../subsystems/achievements/achievement_manager.dart';
 import '../subsystems/auth/auth_manager.dart';
 import '../subsystems/currency/currency_manager.dart';
-import '../subsystems/firebase/firebase_subsystem.dart';
 import '../subsystems/ads/ads.dart';
 import '../subsystems/inventory/inventory_manager.dart';
 import '../subsystems/leaderboard/leaderboard_manager.dart';
@@ -141,12 +140,6 @@ class Engine implements ILifecycle {
   /// Generic item inventory manager.
   late final InventoryManager inventory;
 
-  /// Firebase services (Auth, Firestore, Analytics, Remote Config).
-  ///
-  /// Not auto-initialized — call [FirebaseSubsystem.initialize] at app startup
-  /// with your project's [FirebaseOptions].
-  late final FirebaseSubsystem firebase;
-
   /// Mobile ads — Banner, Interstitial, Rewarded, App Open, and GDPR/UMP consent.
   ///
   /// Not auto-initialized — register a provider and call [AdsManager.initialize]
@@ -222,8 +215,6 @@ class Engine implements ILifecycle {
     leaderboard = LeaderboardManager();
     currency = CurrencyManager();
     inventory = InventoryManager();
-    firebase = FirebaseSubsystem();
-
     // Initialize each subsystem
     await cache.initialize(); // Initialize cache manager first
     assets.initialize(); // Then initialize asset manager
@@ -392,7 +383,6 @@ class Engine implements ILifecycle {
 
     // Dispose subsystems in reverse order
     ads.dispose();
-    firebase.dispose();
     leaderboard.dispose();
     auth.dispose();
     achievements.dispose();
