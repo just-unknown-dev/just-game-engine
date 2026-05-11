@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 
 import '../../ecs.dart';
 import '../../components/components.dart';
-import '../../../subsystems/physics/physics_engine.dart';
+import '../../../interfaces/interfaces.dart';
+import 'package:just_physics_engine/just_physics_engine.dart';
+import '../../../math/vector3.dart';
 import '../system_priorities.dart';
 import 'collision_event.dart';
 
@@ -18,8 +20,13 @@ class PhysicsSystem extends System {
   @override
   int get priority => SystemPriorities.physics;
 
-  /// Gravity
-  Offset gravity = const Offset(0, 0);
+  /// Camera used to apply the world-to-screen transform during debug rendering.
+  /// Must match the camera used by [RenderSystem] so collider outlines stay
+  /// aligned with their visual counterparts.
+  GameCamera? camera;
+
+  /// Gravity acceleration (units/s²).  z is ignored by the 2-D physics system.
+  Vector3 gravity = Vector3.zero();
 
   /// Cell size for the spatial grid broad-phase. Tune to roughly match
   /// the size of the largest physics body for best performance.
@@ -33,24 +40,29 @@ class PhysicsSystem extends System {
   @override
   List<Type> get requiredComponents => [
     TransformComponent,
-    VelocityComponent,
     PhysicsBodyComponent,
   ];
 
   @override
   void update(double deltaTime) {
+    // Reset isGrounded every frame so it reflects only the current contacts.
+    forEach((entity) {
+      entity.getComponent<PhysicsBodyComponent>()!.isGrounded = false;
+    });
+
     // Apply forces
     forEach((entity) {
-      final velocity = entity.getComponent<VelocityComponent>()!;
       final body = entity.getComponent<PhysicsBodyComponent>()!;
+      if (body.isStatic) return;
 
-      if (!body.isStatic) {
-        // Apply gravity
-        velocity.addScaled(gravity, deltaTime);
+      final velocity = entity.getComponent<VelocityComponent>();
+      if (velocity == null) return;
 
-        // Apply drag
-        velocity.scale(body.drag);
-      }
+      // Apply gravity
+      velocity.addScaled(gravity, deltaTime);
+
+      // Apply drag
+      velocity.scale(body.drag);
     });
 
     // Detect and resolve collisions
@@ -69,7 +81,7 @@ class PhysicsSystem extends System {
       final transform = entity.getComponent<TransformComponent>()!;
       final body = entity.getComponent<PhysicsBodyComponent>()!;
 
-      final bounds = body.shape.getBounds(transform.position);
+      final bounds = body.shape.getBounds(transform.position.toOffset());
       final minX = (bounds.left / broadPhaseCellSize).floor();
       final minY = (bounds.top / broadPhaseCellSize).floor();
       final maxX = (bounds.right / broadPhaseCellSize).floor();
@@ -112,11 +124,20 @@ class PhysicsSystem extends System {
             continue;
           }
 
+          // One-way platform: skip resolution when the dynamic body is moving
+          // upward (or has no downward velocity), so it can pass through.
+          if (body1.isOneWay || body2.isOneWay) {
+            // The dynamic body is the non-static one.
+            final dynEntity = !body1.isStatic ? entity1 : entity2;
+            final dynVel = dynEntity.getComponent<VelocityComponent>();
+            if ((dynVel?.velocity.y ?? 0.0) <= 0) continue;
+          }
+
           // Check collision using SAT
           final manifold = body1.shape.getManifold(
-            transform1.position,
+            transform1.position.toOffset(),
             body2.shape,
-            transform2.position,
+            transform2.position.toOffset(),
           );
 
           if (manifold.isColliding) {
@@ -139,6 +160,16 @@ class PhysicsSystem extends System {
                 penetration: manifold.penetration,
               ),
             );
+
+            // isGrounded detection.
+            // manifold.normal points from entity1 → entity2.
+            // normal.dy > 0.5  → entity2 is below entity1 → entity1 grounded.
+            // normal.dy < -0.5 → entity1 is below entity2 → entity2 grounded.
+            if (manifold.normal.dy > 0.5) {
+              body1.isGrounded = true;
+            } else if (manifold.normal.dy < -0.5) {
+              body2.isGrounded = true;
+            }
           }
         }
       }
@@ -154,8 +185,8 @@ class PhysicsSystem extends System {
     PhysicsBodyComponent body2,
     CollisionManifold manifold,
   ) {
-    final velocity1 = entity1.getComponent<VelocityComponent>()!;
-    final velocity2 = entity2.getComponent<VelocityComponent>()!;
+    final velocity1 = entity1.getComponent<VelocityComponent>();
+    final velocity2 = entity2.getComponent<VelocityComponent>();
 
     final normal = manifold.normal;
 
@@ -180,18 +211,20 @@ class PhysicsSystem extends System {
 
     final corr1 = correctionMag * inverseMass1;
     transform1.setPositionXY(
-      transform1.position.dx - normal.dx * corr1,
-      transform1.position.dy - normal.dy * corr1,
+      transform1.position.x - normal.dx * corr1,
+      transform1.position.y - normal.dy * corr1,
     );
     final corr2 = correctionMag * inverseMass2;
     transform2.setPositionXY(
-      transform2.position.dx + normal.dx * corr2,
-      transform2.position.dy + normal.dy * corr2,
+      transform2.position.x + normal.dx * corr2,
+      transform2.position.y + normal.dy * corr2,
     );
 
-    // Calculate relative velocity along normal (scalar, no Offset allocation)
-    final relVelDx = velocity2.velocity.dx - velocity1.velocity.dx;
-    final relVelDy = velocity2.velocity.dy - velocity1.velocity.dy;
+    // Calculate relative velocity along normal (scalar, no allocation)
+    final relVelDx =
+        (velocity2?.velocity.x ?? 0.0) - (velocity1?.velocity.x ?? 0.0);
+    final relVelDy =
+        (velocity2?.velocity.y ?? 0.0) - (velocity1?.velocity.y ?? 0.0);
     final velocityAlongNormal = relVelDx * normal.dx + relVelDy * normal.dy;
 
     // Don't resolve if velocities are separating
@@ -204,21 +237,31 @@ class PhysicsSystem extends System {
     final impulseScalar =
         -(1.0 + restitution) * velocityAlongNormal / inverseMassSum;
 
-    // Apply impulse
+    // Apply impulse (skip if the body has no VelocityComponent — static body).
     final imp1 = impulseScalar * inverseMass1;
-    velocity1.setVelocityXY(
-      velocity1.velocity.dx - normal.dx * imp1,
-      velocity1.velocity.dy - normal.dy * imp1,
-    );
+    if (velocity1 != null)
+      velocity1.setVelocityXY(
+        velocity1.velocity.x - normal.dx * imp1,
+        velocity1.velocity.y - normal.dy * imp1,
+      );
     final imp2 = impulseScalar * inverseMass2;
-    velocity2.setVelocityXY(
-      velocity2.velocity.dx + normal.dx * imp2,
-      velocity2.velocity.dy + normal.dy * imp2,
-    );
+    if (velocity2 != null)
+      velocity2.setVelocityXY(
+        velocity2.velocity.x + normal.dx * imp2,
+        velocity2.velocity.y + normal.dy * imp2,
+      );
   }
 
   @override
   void render(Canvas canvas, Size size) {
+    // Apply the same camera transform that RenderSystem uses so collider
+    // outlines are drawn in world space, not screen space.
+    if (camera != null) {
+      camera!.viewportSize = size;
+      canvas.save();
+      camera!.applyTransform(canvas, size);
+    }
+
     // Debug rendering
     forEach((entity) {
       final transform = entity.getComponent<TransformComponent>()!;
@@ -228,18 +271,18 @@ class PhysicsSystem extends System {
 
       final shape = body.shape;
       if (shape is CircleShape) {
-        canvas.drawCircle(transform.position, shape.radius, paint);
+        canvas.drawCircle(transform.position.toOffset(), shape.radius, paint);
       } else if (shape is PolygonShape) {
         final path = Path();
         if (shape.vertices.isNotEmpty) {
           path.moveTo(
-            transform.position.dx + shape.vertices[0].dx,
-            transform.position.dy + shape.vertices[0].dy,
+            transform.position.x + shape.vertices[0].dx,
+            transform.position.y + shape.vertices[0].dy,
           );
           for (int i = 1; i < shape.vertices.length; i++) {
             path.lineTo(
-              transform.position.dx + shape.vertices[i].dx,
-              transform.position.dy + shape.vertices[i].dy,
+              transform.position.x + shape.vertices[i].dx,
+              transform.position.y + shape.vertices[i].dy,
             );
           }
           path.close();
@@ -247,6 +290,10 @@ class PhysicsSystem extends System {
         canvas.drawPath(path, paint);
       }
     });
+
+    if (camera != null) {
+      canvas.restore();
+    }
   }
 
   // Cached debug paints

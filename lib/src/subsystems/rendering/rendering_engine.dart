@@ -544,9 +544,9 @@ class RenderingEngine {
                 );
             batch.add(
               sourceRect: src,
-              position: renderable.position,
+              position: renderable.position.toOffset(),
               rotation: renderable.rotation,
-              scale: renderable.scale,
+              scale: (renderable.scale.x + renderable.scale.y) / 2,
               color: (renderable.tint ?? Colors.white).withValues(
                 alpha: renderable.opacity,
               ),
@@ -614,7 +614,7 @@ class RenderingEngine {
     }
 
     // Draw origin point
-    canvas.drawCircle(renderable.position, 3, _debugOriginPaint);
+    canvas.drawCircle(renderable.position.toOffset(), 3, _debugOriginPaint);
   }
 
   /// Render debug information

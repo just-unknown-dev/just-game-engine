@@ -16,16 +16,16 @@
 class MoveEffect extends DeterministicEffect {
   /// Explicit start position. When `null` the entity's current
   /// [TransformComponent.position] is captured on the first tick.
-  final Offset? from;
+  final Vector3? from;
 
   /// Target world position.
-  final Offset to;
+  final Vector3 to;
 
   /// Easing curve applied to normalised progress.
   final EasingType easing;
 
   // Runtime-captured baseline — set on first applyTick call.
-  Offset? _capturedFrom;
+  Vector3? _capturedFrom;
 
   MoveEffect({
     required this.to,
@@ -65,10 +65,10 @@ class MoveEffect extends DeterministicEffect {
 
   @override
   Map<String, dynamic> toJson() => {
-    'to': [to.dx, to.dy],
-    if (from != null) 'from': [from!.dx, from!.dy],
+    'to': [to.x, to.y, to.z],
+    if (from != null) 'from': [from!.x, from!.y, from!.z],
     if (_capturedFrom != null)
-      'capturedFrom': [_capturedFrom!.dx, _capturedFrom!.dy],
+      'capturedFrom': [_capturedFrom!.x, _capturedFrom!.y, _capturedFrom!.z],
     'easing': easing.name,
     'durationTicks': durationTicks,
     'loop': loop,
@@ -78,11 +78,16 @@ class MoveEffect extends DeterministicEffect {
     final toList = json['to'] as List;
     final fromList = json['from'] as List?;
     final effect = MoveEffect(
-      to: Offset((toList[0] as num).toDouble(), (toList[1] as num).toDouble()),
+      to: Vector3(
+        (toList[0] as num).toDouble(),
+        (toList[1] as num).toDouble(),
+        toList.length > 2 ? (toList[2] as num).toDouble() : 0.0,
+      ),
       from: fromList != null
-          ? Offset(
+          ? Vector3(
               (fromList[0] as num).toDouble(),
               (fromList[1] as num).toDouble(),
+              fromList.length > 2 ? (fromList[2] as num).toDouble() : 0.0,
             )
           : null,
       easing: EasingType.values.byName(json['easing'] as String),
@@ -91,9 +96,10 @@ class MoveEffect extends DeterministicEffect {
     );
     final capturedList = json['capturedFrom'] as List?;
     if (capturedList != null) {
-      effect._capturedFrom = Offset(
+      effect._capturedFrom = Vector3(
         (capturedList[0] as num).toDouble(),
         (capturedList[1] as num).toDouble(),
+        capturedList.length > 2 ? (capturedList[2] as num).toDouble() : 0.0,
       );
     }
     return effect;

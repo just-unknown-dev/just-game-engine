@@ -215,7 +215,7 @@ class ParticleEmitter extends Renderable {
   // ── Public accessors ──────────────────────────────────────────────────────
 
   Particle _createPooledParticle() => Particle(
-    position: position,
+    position: position.toOffset(),
     velocity: Offset.zero,
     lifetime: particleLifetime,
     startSize: startSize,
@@ -374,7 +374,7 @@ class ParticleEmitter extends Renderable {
 
     final p = _particlePool.acquire();
     p.reset(
-      position: position,
+      position: position.toOffset(),
       velocity: velocity,
       lifetime: lifetime.clamp(0.001, double.infinity),
       startSize: size.clamp(0.0, double.infinity),

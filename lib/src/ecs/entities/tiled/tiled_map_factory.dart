@@ -2,11 +2,11 @@
 library;
 
 import 'dart:math' as math;
-import 'package:flutter/material.dart';
 import 'package:just_tiled/just_tiled.dart';
 
 import '../../ecs.dart';
 import '../../components/components.dart';
+import '../../../math/vector3.dart';
 
 /// Callback for mapping Tiled custom properties to engine components.
 ///
@@ -130,7 +130,7 @@ class TiledMapFactory {
     final entity = world.createEntity(name: 'tilelayer_${tileLayer.name}');
     entity.addComponent(
       TransformComponent(
-        position: Offset(tileLayer.offsetX, tileLayer.offsetY),
+        position: Vector3.fromXY(tileLayer.offsetX, tileLayer.offsetY),
       ),
     );
     entity.addComponent(
@@ -159,7 +159,7 @@ class TiledMapFactory {
       // Add TransformComponent from object position
       entity.addComponent(
         TransformComponent(
-          position: Offset(obj.x, obj.y),
+          position: Vector3.fromXY(obj.x, obj.y),
           rotation: obj.rotation * math.pi / 180.0, // degrees to radians
         ),
       );

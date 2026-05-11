@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../rendering/impl/renderable.dart';
+import '../../math/vector3.dart';
 import '_io_native.dart' if (dart.library.html) '_io_stub.dart';
 
 /// Main scene editor class
@@ -285,9 +286,9 @@ class SceneNode {
 
     // Update renderable
     if (renderable != null) {
-      renderable!.position = worldPosition;
+      renderable!.position = Vector3.fromOffset(worldPosition);
       renderable!.rotation = worldRotation;
-      renderable!.scale = worldScale;
+      renderable!.scale = Vector3(worldScale, worldScale, 1.0);
     }
 
     // Update children

@@ -5,18 +5,20 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../../math/vector3.dart';
+
 /// Base class for all renderable objects
 ///
 /// All objects that need to be rendered should extend this class.
 abstract class Renderable {
-  /// Position in world space
-  Offset position;
+  /// Position in world space (x, y used by 2-D Canvas; z reserved for 3-D).
+  Vector3 position;
 
-  /// Rotation in radians
+  /// Rotation in radians (Z-axis; standard 2-D rotation).
   double rotation;
 
-  /// Scale factor
-  double scale;
+  /// Scale factors (x, y used by 2-D Canvas; z reserved for 3-D).
+  Vector3 scale;
 
   /// Layer index for rendering order (lower layers render first)
   int layer;
@@ -35,15 +37,16 @@ abstract class Renderable {
 
   /// Create a renderable object
   Renderable({
-    this.position = Offset.zero,
+    Vector3? position,
     this.rotation = 0.0,
-    this.scale = 1.0,
+    Vector3? scale,
     this.layer = 0,
     this.zOrder = 0,
     this.visible = true,
     this.opacity = 1.0,
     this.tint,
-  });
+  }) : position = position ?? Vector3.zero(),
+       scale = scale ?? Vector3(1.0, 1.0, 1.0);
 
   /// Render this object
   ///
@@ -56,12 +59,12 @@ abstract class Renderable {
   /// Returns null if no bounds are applicable
   Rect? getBounds();
 
-  /// Apply transform to canvas
+  /// Apply transform to canvas (projects 3-D position to 2-D XY plane).
   void applyTransform(Canvas canvas) {
     canvas.save();
-    canvas.translate(position.dx, position.dy);
+    canvas.translate(position.x, position.y);
     canvas.rotate(rotation);
-    canvas.scale(scale, scale);
+    canvas.scale(scale.x, scale.y);
   }
 
   /// Restore canvas state
@@ -131,14 +134,13 @@ class RectangleRenderable extends Renderable {
   @override
   Rect? getBounds() {
     return Rect.fromCenter(
-      center: position,
-      width: size.width * scale,
-      height: size.height * scale,
+      center: position.toOffset(),
+      width: size.width * scale.x,
+      height: size.height * scale.y,
     );
   }
 }
 
-/// A renderable circle shape
 class CircleRenderable extends Renderable {
   /// Radius of the circle
   double radius;
@@ -192,8 +194,8 @@ class CircleRenderable extends Renderable {
 
   @override
   Rect? getBounds() {
-    final scaledRadius = radius * scale;
-    return Rect.fromCircle(center: position, radius: scaledRadius);
+    final scaledRadius = radius * (scale.x + scale.y) / 2;
+    return Rect.fromCircle(center: position.toOffset(), radius: scaledRadius);
   }
 }
 
@@ -240,7 +242,8 @@ class LineRenderable extends Renderable {
 
   @override
   Rect? getBounds() {
-    return Rect.fromPoints(position, position + endPoint);
+    final origin = position.toOffset();
+    return Rect.fromPoints(origin, origin + endPoint);
   }
 }
 
@@ -320,9 +323,9 @@ class TextRenderable extends Renderable {
     }
 
     return Rect.fromCenter(
-      center: position,
-      width: _painter.width * scale,
-      height: _painter.height * scale,
+      center: position.toOffset(),
+      width: _painter.width * scale.x,
+      height: _painter.height * scale.y,
     );
   }
 }

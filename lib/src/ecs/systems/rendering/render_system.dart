@@ -101,22 +101,25 @@ class RenderSystem extends System {
         // matching UPS/FPS). Use position directly for non-physics entities.
         final hasPhysics = entity.hasComponent<PhysicsBodyRefComponent>();
         if (hasPhysics && interpolation < 1.0) {
-          renderComp.renderable.position = Offset(
-            transform.prevPosition.dx +
-                (transform.position.dx - transform.prevPosition.dx) *
+          renderComp.renderable.position.setValues(
+            transform.prevPosition.x +
+                (transform.position.x - transform.prevPosition.x) *
                     interpolation,
-            transform.prevPosition.dy +
-                (transform.position.dy - transform.prevPosition.dy) *
+            transform.prevPosition.y +
+                (transform.position.y - transform.prevPosition.y) *
+                    interpolation,
+            transform.prevPosition.z +
+                (transform.position.z - transform.prevPosition.z) *
                     interpolation,
           );
           renderComp.renderable.rotation =
               transform.prevRotation +
               (transform.rotation - transform.prevRotation) * interpolation;
         } else {
-          renderComp.renderable.position = transform.position;
+          renderComp.renderable.position.setFrom(transform.position);
           renderComp.renderable.rotation = transform.rotation;
         }
-        renderComp.renderable.scale = transform.scale;
+        renderComp.renderable.scale.setFrom(transform.scale);
       }
 
       if (!renderComp.renderable.visible) continue;
@@ -156,9 +159,9 @@ class RenderSystem extends System {
 
         batch.add(
           sourceRect: srcRect,
-          position: renderable.position,
+          position: renderable.position.toOffset(),
           rotation: renderable.rotation,
-          scale: renderable.scale,
+          scale: (renderable.scale.x + renderable.scale.y) / 2,
           color: tintColor,
         );
       } else {
@@ -170,7 +173,7 @@ class RenderSystem extends System {
           final effectRect =
               bounds ??
               Rect.fromCenter(
-                center: renderable.position,
+                center: renderable.position.toOffset(),
                 width: size.width,
                 height: size.height,
               );
@@ -216,9 +219,9 @@ class RenderSystem extends System {
     for (final entity in _uiEntityBuffer) {
       final transform = entity.getComponent<TransformComponent>()!;
       canvas.save();
-      canvas.translate(transform.position.dx, transform.position.dy);
+      canvas.translate(transform.position.x, transform.position.y);
       canvas.rotate(transform.rotation);
-      canvas.scale(transform.scale);
+      canvas.scale(transform.scale.x, transform.scale.y);
 
       final text = entity.getComponent<TextComponent>();
       if (text != null && text.visible) {

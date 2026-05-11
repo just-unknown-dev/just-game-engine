@@ -1,7 +1,7 @@
 library;
 
 import '../../ecs.dart';
-import '../../../subsystems/physics/physics_engine.dart';
+import 'package:just_physics_engine/just_physics_engine.dart';
 
 /// Physics body component - Collision and physics properties
 class PhysicsBodyComponent extends Component {
@@ -26,6 +26,16 @@ class PhysicsBodyComponent extends Component {
   /// Layers this body can collide with
   int collisionMask;
 
+  /// Whether this body is currently resting on a surface.
+  /// Reset to false every frame by [PhysicsSystem] and set to true when a
+  /// downward-facing collision normal is detected.
+  bool isGrounded = false;
+
+  /// One-way / pass-through platform flag.
+  /// When true, dynamic bodies moving upward (velocity.dy < 0) pass through
+  /// this body without collision resolution.
+  bool isOneWay;
+
   /// Create a physics body component
   PhysicsBodyComponent({
     required this.shape,
@@ -35,6 +45,7 @@ class PhysicsBodyComponent extends Component {
     this.isStatic = false,
     this.layer = 1,
     this.collisionMask = -1,
+    this.isOneWay = false,
   });
 
   /// Check if can collide with layer

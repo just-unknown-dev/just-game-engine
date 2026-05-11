@@ -11,8 +11,7 @@ import 'package:just_tiled/just_tiled.dart';
 
 import '../../ecs.dart';
 import '../../components/tiled/tiled_components.dart';
-import '../../../subsystems/physics/physics_engine.dart';
-import '../../../math/vector2.dart';
+import 'package:just_physics_engine/just_physics_engine.dart';
 
 /// System that loads TMX collision objects into the physics engine.
 ///

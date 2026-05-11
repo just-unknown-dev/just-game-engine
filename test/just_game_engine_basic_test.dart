@@ -239,7 +239,7 @@ void main() {
       await engine.initialize();
 
       final entity = engine.world.createEntity();
-      final transform = TransformComponent(position: const Offset(0, 0));
+      final transform = TransformComponent(position: Vector3(0, 0, 0));
 
       entity.addComponent(transform);
       expect(entity.hasComponent<TransformComponent>(), true);
@@ -250,11 +250,11 @@ void main() {
       await engine.initialize();
 
       final entity1 = engine.world.createEntity();
-      entity1.addComponent(TransformComponent(position: const Offset(0, 0)));
-      entity1.addComponent(VelocityComponent(velocity: const Offset(10, 0)));
+      entity1.addComponent(TransformComponent(position: Vector3(0, 0, 0)));
+      entity1.addComponent(VelocityComponent(velocity: Vector3(10, 0, 0)));
 
       final entity2 = engine.world.createEntity();
-      entity2.addComponent(TransformComponent(position: const Offset(0, 0)));
+      entity2.addComponent(TransformComponent(position: Vector3(0, 0, 0)));
 
       final movingEntities = engine.world.query([
         TransformComponent,
@@ -285,13 +285,13 @@ void main() {
     });
 
     test('Particle preset effects can be created', () {
-      final explosion = ParticleEffects.explosion(position: Offset.zero);
+      final explosion = ParticleEffects.explosion(position: Vector3.zero());
       expect(explosion, isNotNull);
 
-      final fire = ParticleEffects.fire(position: Offset.zero);
+      final fire = ParticleEffects.fire(position: Vector3.zero());
       expect(fire, isNotNull);
 
-      final sparkle = ParticleEffects.sparkle(position: Offset.zero);
+      final sparkle = ParticleEffects.sparkle(position: Vector3.zero());
       expect(sparkle, isNotNull);
     });
   });
@@ -351,16 +351,16 @@ void main() {
 
     test('Sprite properties can be set', () {
       final sprite = Sprite(
-        position: const Offset(100, 50),
+        position: Vector3(100, 50, 0),
         rotation: 0.785398, // pi/4
-        scale: 2.0,
+        scale: Vector3(2.0, 2.0, 1),
         renderSize: const Size(64, 64),
         flipX: true,
         flipY: false,
       );
 
       expect(sprite.position, const Offset(100, 50));
-      expect(sprite.scale, 2.0);
+      expect(sprite.scale, const Offset(2.0, 2.0));
       expect(sprite.renderSize, const Size(64, 64));
       expect(sprite.flipX, true);
       expect(sprite.flipY, false);
@@ -386,7 +386,7 @@ void main() {
 
       // Create entity
       final entity = engine.world.createEntity();
-      entity.addComponent(TransformComponent(position: Offset.zero));
+      entity.addComponent(TransformComponent(position: null));
 
       // Create scene
       final scene = engine.sceneEditor.createScene('IntegrationTest');

@@ -49,12 +49,12 @@ class _MyGameState extends State<MyGame> {
     // Create a player entity with ECS components
     _world.createEntityWithComponents([
       TransformComponent(
-        position: Offset(
+        position: Vector3.fromXY(
           _readViewportSize().width / 2,
           _readViewportSize().height / 2,
         ),
       ),
-      VelocityComponent(velocity: const Offset(100, 0)),
+      VelocityComponent(velocity: Vector3(100, 0, 0)),
       RenderableComponent(
         renderable: CircleRenderable(radius: 30, fillColor: Colors.blue),
       ),

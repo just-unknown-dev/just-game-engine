@@ -63,8 +63,8 @@ class DialogueSystem extends System {
       if (px != null && py != null && dc.interactionRadius > 0) {
         final tf = entity.getComponent<TransformComponent>();
         if (tf != null) {
-          final dx = tf.position.dx - px;
-          final dy = tf.position.dy - py;
+          final dx = tf.position.x - px;
+          final dy = tf.position.y - py;
           dc.isInteractable =
               math.sqrt(dx * dx + dy * dy) <= dc.interactionRadius;
         }
@@ -96,8 +96,8 @@ class DialogueSystem extends System {
       final tf = entity.getComponent<TransformComponent>();
       if (tf == null) continue;
 
-      final dx = tf.position.dx - px;
-      final dy = tf.position.dy - py;
+      final dx = tf.position.x - px;
+      final dy = tf.position.y - py;
       if (math.sqrt(dx * dx + dy * dy) <= tc.triggerRadius) {
         if (tc.triggerOnce) tc.hasTriggered = true;
 
@@ -121,6 +121,6 @@ class DialogueSystem extends System {
     if (candidates.isEmpty) return (null, null);
 
     final tf = candidates.first.getComponent<TransformComponent>();
-    return tf != null ? (tf.position.dx, tf.position.dy) : (null, null);
+    return tf != null ? (tf.position.x, tf.position.y) : (null, null);
   }
 }

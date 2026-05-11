@@ -26,6 +26,8 @@ export 'hierarchy/hierarchy_system.dart';
 
 // Gameplay systems
 export 'gameplay/health_system.dart';
+export 'gameplay/checkpoint_system.dart';
+export 'gameplay/checkpoint_event.dart';
 
 // Animation systems
 export 'animation/animation_system_ecs.dart';

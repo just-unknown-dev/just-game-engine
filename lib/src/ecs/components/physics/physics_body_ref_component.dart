@@ -6,7 +6,7 @@
 library;
 
 import '../../ecs.dart';
-import '../../../subsystems/physics/physics_engine.dart';
+import 'package:just_physics_engine/just_physics_engine.dart';
 
 /// Links an entity to a subsystem [PhysicsBody] for automatic position sync.
 class PhysicsBodyRefComponent extends Component {

@@ -19,6 +19,7 @@ export 'physics/physics_body_ref_component.dart';
 
 // Gameplay components
 export 'gameplay/health_component.dart';
+export 'gameplay/checkpoint_component.dart';
 
 // Hierarchy components
 export 'hierarchy/parent_component.dart';
