@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import '../../ecs.dart';
 import '../../components/components.dart';
 import '../../../interfaces/interfaces.dart';
-import '../../../subsystems/physics/physics_engine.dart';
+import 'package:just_physics_engine/just_physics_engine.dart';
 import '../../../math/vector3.dart';
 import '../system_priorities.dart';
 import 'collision_event.dart';

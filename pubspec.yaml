@@ -12,6 +12,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  just_physics_engine: ^0.0.1
   just_audio_engine: ^1.0.1
   just_storage: ^1.2.1
   just_database: ^1.4.2

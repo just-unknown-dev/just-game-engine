@@ -1,7 +1,7 @@
 library;
 
 import '../../ecs.dart';
-import '../../../subsystems/physics/physics_engine.dart';
+import 'package:just_physics_engine/just_physics_engine.dart';
 
 /// Physics body component - Collision and physics properties
 class PhysicsBodyComponent extends Component {

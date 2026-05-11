@@ -11,7 +11,7 @@ import 'time_manager.dart';
 import 'system_manager.dart';
 import 'lifecycle.dart';
 import '../subsystems/rendering/rendering_engine.dart';
-import '../subsystems/physics/physics_engine.dart';
+import 'package:just_physics_engine/just_physics_engine.dart';
 import '../subsystems/input/input_management.dart';
 import '../subsystems/audio/audio.dart';
 import '../subsystems/editor/scene_editor.dart';
