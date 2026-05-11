@@ -13,7 +13,7 @@ import '../post_processing/post_process_pass.dart';
 import '../particles/particles.dart';
 import '../camera/camera_system.dart';
 import '../../interfaces/rendering_interfaces.dart';
-import '../../math/quadtree.dart';
+import 'package:just_dart/just_dart.dart';
 
 export 'impl/renderable.dart';
 export 'impl/game_widget.dart';

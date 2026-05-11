@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'renderable.dart';
 import '../../../core/engine.dart';
 import '../../../interfaces/rendering_interfaces.dart';
-import '../../../math/vector3.dart';
+import 'package:just_dart/just_dart.dart';
 
 /// A sprite that can be rendered
 ///

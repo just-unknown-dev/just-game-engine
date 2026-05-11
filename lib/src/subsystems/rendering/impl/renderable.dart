@@ -5,7 +5,7 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../../../math/vector3.dart';
+import 'package:just_dart/just_dart.dart';
 
 /// Base class for all renderable objects
 ///

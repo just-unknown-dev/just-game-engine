@@ -3,7 +3,7 @@ library;
 import 'dart:math' as math;
 
 import '../../ecs.dart';
-import '../../../math/vector3.dart';
+import 'package:just_dart/just_dart.dart';
 
 /// Velocity component — linear velocity in 3-D world space.
 ///

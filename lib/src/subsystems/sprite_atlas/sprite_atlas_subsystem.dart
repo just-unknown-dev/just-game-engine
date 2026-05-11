@@ -48,7 +48,7 @@ import '../../core/engine.dart';
 import '../rendering/impl/sprite.dart';
 import '../animation/animation_system.dart';
 import '../assets/asset_management.dart';
-import '../../math/vector3.dart';
+import 'package:just_dart/just_dart.dart';
 
 part 'impl/sprite_region.dart';
 part 'impl/atlas_animation_clip.dart';

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:just_memory/just_memory.dart';
 import '../rendering/impl/sprite.dart';
 import '../rendering/impl/renderable.dart';
-import '../../math/vector3.dart';
+import 'package:just_dart/just_dart.dart';
 
 part 'base/animation_base.dart';
 part 'impl/sprite_animation.dart';

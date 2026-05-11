@@ -7,6 +7,7 @@ library;
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:just_dart/just_dart.dart';
 import 'package:just_tiled/just_tiled.dart';
 
 import '../../ecs.dart';

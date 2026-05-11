@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../rendering/impl/renderable.dart';
-import '../../math/vector3.dart';
+import 'package:just_dart/just_dart.dart';
 import '_io_native.dart' if (dart.library.html) '_io_stub.dart';
 
 /// Main scene editor class

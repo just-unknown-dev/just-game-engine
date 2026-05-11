@@ -6,7 +6,7 @@ import 'package:just_tiled/just_tiled.dart';
 
 import '../../ecs.dart';
 import '../../components/components.dart';
-import '../../../math/vector3.dart';
+import 'package:just_dart/just_dart.dart';
 
 /// Callback for mapping Tiled custom properties to engine components.
 ///

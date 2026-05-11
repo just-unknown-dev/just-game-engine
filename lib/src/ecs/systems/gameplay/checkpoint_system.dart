@@ -5,7 +5,7 @@ import 'package:flutter/painting.dart';
 import '../../ecs.dart';
 import '../../components/components.dart';
 import '../system_priorities.dart';
-import '../../../math/vector3.dart';
+import 'package:just_dart/just_dart.dart';
 import 'checkpoint_event.dart';
 
 /// Checkpoint / respawn system.

@@ -1,7 +1,7 @@
 library;
 
 import '../../ecs.dart';
-import '../../../math/vector3.dart';
+import 'package:just_dart/just_dart.dart';
 
 /// Parent-child component - Hierarchy relationships
 class ParentComponent extends Component {

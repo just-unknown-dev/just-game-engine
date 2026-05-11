@@ -80,8 +80,8 @@ export 'src/ecs/entities/entities.dart';
 export 'src/ecs/components/components.dart';
 export 'src/ecs/systems/systems.dart';
 
-// Math - Mutable vector types for hot-path code
-export 'src/math/math.dart';
+// Math - Mutable vector types and spatial utilities shared from just_dart
+export 'package:just_dart/just_dart.dart';
 
 // Memory Management - shared just_memory utilities and engine cache infrastructure
 export 'src/memory/cache_manager.dart';

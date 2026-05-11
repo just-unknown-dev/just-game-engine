@@ -6,7 +6,7 @@ import 'package:just_signals/just_signals.dart';
 
 import '../ecs/ecs.dart';
 import '../ecs/components/components.dart';
-import '../math/vector3.dart';
+import 'package:just_dart/just_dart.dart';
 
 /// A mixin for components that want built-in change notification.
 ///
