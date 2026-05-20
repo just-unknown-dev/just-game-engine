@@ -4,6 +4,7 @@ library;
 export 'package:just_physics_engine/just_physics_engine.dart'
     show
         PhysicsEngine,
+        Box2DPhysicsEngine,
         PhysicsBody,
         RigidBody,
         CollisionDetector,
@@ -15,9 +16,6 @@ export 'package:just_physics_engine/just_physics_engine.dart'
         CollisionManifold,
         SpatialGrid,
         BodyPair,
-        Vector2Extension,
-        PhysicsEngine3D,
-        PhysicsBody3D,
-        SphereShape3D,
-        BoxShape3D;
+        Ray,
+        PhysicsEngine3D;
 export 'impl/ray_casting.dart';
