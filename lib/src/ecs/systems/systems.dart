@@ -17,6 +17,7 @@ export 'rendering/post_process_system.dart';
 export 'physics/physics_system.dart';
 export 'physics/physics_bridge_system.dart';
 export 'physics/collision_event.dart';
+export 'physics/sensor_event.dart';
 
 // Input systems
 export 'input/input_system.dart';
