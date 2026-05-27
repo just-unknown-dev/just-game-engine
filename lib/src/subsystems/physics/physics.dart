@@ -4,6 +4,7 @@ library;
 export 'package:just_physics_engine/just_physics_engine.dart'
     show
         PhysicsEngine,
+        Box2DPhysicsEngine,
         PhysicsBody,
         RigidBody,
         CollisionDetector,
@@ -12,12 +13,21 @@ export 'package:just_physics_engine/just_physics_engine.dart'
         CircleShape,
         PolygonShape,
         RectangleShape,
+        CapsuleShape,
+        SegmentShape,
+        ChainShape,
+        RoundedPolygonShape,
         CollisionManifold,
         SpatialGrid,
         BodyPair,
-        Vector2Extension,
-        PhysicsEngine3D,
-        PhysicsBody3D,
-        SphereShape3D,
-        BoxShape3D;
+        Ray,
+        RayBodyHit,
+        ShapeCastResult,
+        JointConstraint,
+        JointType,
+        DistanceJoint,
+        MouseJoint,
+        WeldJoint,
+        RevoluteJoint,
+        Box2DJoint;
 export 'impl/ray_casting.dart';

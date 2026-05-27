@@ -8,6 +8,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart'
     show KeyDownEvent, KeyRepeatEvent, LogicalKeyboardKey;
 import 'package:just_debugger/just_debugger.dart';
+import '../../../core/debugger/collider_debugger_system.dart';
 import '../../../core/engine.dart';
 import '../../../debugger/engine_debugger.dart';
 import '../../../ecs/systems/rendering/render_system.dart';
@@ -63,6 +64,7 @@ class _GameWidgetState extends State<GameWidget>
 
   final FocusNode _focusNode = FocusNode();
   JustDebuggerController? _ownedDebuggerController;
+  ColliderDebuggerSystem? _colliderDebugger;
 
   JustDebuggerController? get _effectiveDebuggerController {
     if (!widget.showDebug) return null;
@@ -82,6 +84,13 @@ class _GameWidgetState extends State<GameWidget>
 
     // Enable debug mode if requested
     widget.engine.rendering.debugMode = widget.showDebug;
+
+    if (widget.showDebug) {
+      _colliderDebugger = ColliderDebuggerSystem(
+        camera: widget.engine.cameraSystem.mainCamera,
+      );
+      widget.engine.world.addSystem(_colliderDebugger!);
+    }
 
     final debuggerController = _effectiveDebuggerController;
     if (debuggerController != null && !debuggerController.isBound) {
@@ -114,6 +123,10 @@ class _GameWidgetState extends State<GameWidget>
   @override
   void dispose() {
     widget.engine.terminal.removeListener(_onTerminalChange);
+    if (_colliderDebugger != null) {
+      widget.engine.world.removeSystem(_colliderDebugger!);
+      _colliderDebugger = null;
+    }
     WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
     _focusNode.dispose();

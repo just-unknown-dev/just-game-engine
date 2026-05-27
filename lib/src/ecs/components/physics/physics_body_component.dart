@@ -36,6 +36,18 @@ class PhysicsBodyComponent extends Component {
   /// this body without collision resolution.
   bool isOneWay;
 
+  /// Sensor mode: detects overlaps but does not resolve collisions.
+  bool isSensor;
+
+  /// Collision filter category bits (Box2D / PhysicsEngine filtering).
+  int categoryBits;
+
+  /// Collision filter mask bits — collides only when (categoryBits & maskBits) != 0.
+  int maskBits;
+
+  /// Collision group index (positive: always collide; negative: never collide; 0: use mask).
+  int groupIndex;
+
   /// Create a physics body component
   PhysicsBodyComponent({
     required this.shape,
@@ -46,6 +58,10 @@ class PhysicsBodyComponent extends Component {
     this.layer = 1,
     this.collisionMask = -1,
     this.isOneWay = false,
+    this.isSensor = false,
+    this.categoryBits = 0x0001,
+    this.maskBits = 0xFFFF,
+    this.groupIndex = 0,
   });
 
   /// Check if can collide with layer

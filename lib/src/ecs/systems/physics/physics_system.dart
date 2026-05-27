@@ -11,6 +11,7 @@ import 'package:just_physics_engine/just_physics_engine.dart';
 import 'package:just_dart/just_dart.dart';
 import '../system_priorities.dart';
 import 'collision_event.dart';
+import 'sensor_event.dart';
 
 /// Physics system - Handles physics simulation for ECS entities
 ///
@@ -36,6 +37,12 @@ class PhysicsSystem extends System {
 
   /// Reusable entity buffer — avoids per-frame list allocation.
   final List<Entity> _entityBuffer = [];
+
+  /// Tracks active sensor overlaps: pairKey → (sensor entity, visitor entity).
+  final Map<int, (Entity, Entity)> _activeSensorPairs = {};
+
+  /// Tracks active solid contacts: pairKey → (entityA, entityB).
+  final Map<int, (Entity, Entity)> _activeContactPairs = {};
 
   @override
   List<Type> get requiredComponents => [
@@ -97,6 +104,8 @@ class PhysicsSystem extends System {
 
     // --- Narrow phase: only check pairs sharing a cell ---
     final checked = <int>{};
+    final currentSensorPairs = <int>{};
+    final currentContactPairs = <int>{};
 
     for (final cell in _gridCells.values) {
       for (int i = 0; i < cell.length; i++) {
@@ -104,7 +113,6 @@ class PhysicsSystem extends System {
           final entity1 = cell[i];
           final entity2 = cell[j];
 
-          // Deduplicate pairs across cells using entity IDs
           final pairKey = entity1.id < entity2.id
               ? entity1.id * 100000 + entity2.id
               : entity2.id * 100000 + entity1.id;
@@ -115,65 +123,102 @@ class PhysicsSystem extends System {
           final body1 = entity1.getComponent<PhysicsBodyComponent>()!;
           final body2 = entity2.getComponent<PhysicsBodyComponent>()!;
 
-          // Skip if both static
           if (body1.isStatic && body2.isStatic) continue;
 
-          // Skip if collision layers don't match
           if (!body1.canCollideWith(body2.layer) ||
               !body2.canCollideWith(body1.layer)) {
             continue;
           }
 
-          // One-way platform: skip resolution when the dynamic body is moving
-          // upward (or has no downward velocity), so it can pass through.
           if (body1.isOneWay || body2.isOneWay) {
-            // The dynamic body is the non-static one.
             final dynEntity = !body1.isStatic ? entity1 : entity2;
             final dynVel = dynEntity.getComponent<VelocityComponent>();
             if ((dynVel?.velocity.y ?? 0.0) <= 0) continue;
           }
 
-          // Check collision using SAT
           final manifold = body1.shape.getManifold(
             transform1.position.toOffset(),
             body2.shape,
             transform2.position.toOffset(),
           );
 
-          if (manifold.isColliding) {
-            _resolveCollision(
-              entity1,
-              entity2,
-              transform1,
-              transform2,
-              body1,
-              body2,
-              manifold,
-            );
+          if (!manifold.isColliding) continue;
 
-            // Publish collision event so other systems can react.
-            world.events.fire(
-              CollisionEvent(
-                entityA: entity1,
-                entityB: entity2,
-                normal: manifold.normal,
-                penetration: manifold.penetration,
-              ),
-            );
-
-            // isGrounded detection.
-            // manifold.normal points from entity1 → entity2.
-            // normal.dy > 0.5  → entity2 is below entity1 → entity1 grounded.
-            // normal.dy < -0.5 → entity1 is below entity2 → entity2 grounded.
-            if (manifold.normal.dy > 0.5) {
-              body1.isGrounded = true;
-            } else if (manifold.normal.dy < -0.5) {
-              body2.isGrounded = true;
+          // Sensor handling — detect overlaps without resolving physics.
+          final eitherSensor = body1.isSensor || body2.isSensor;
+          if (eitherSensor) {
+            currentSensorPairs.add(pairKey);
+            if (!_activeSensorPairs.containsKey(pairKey)) {
+              // Determine which entity is the sensor.
+              final sensor = body1.isSensor ? entity1 : entity2;
+              final visitor = body1.isSensor ? entity2 : entity1;
+              _activeSensorPairs[pairKey] = (sensor, visitor);
+              world.events.fire(
+                SensorEnterEvent(sensor: sensor, visitor: visitor),
+              );
             }
+            continue;
+          }
+
+          // Approximate contact point: midpoint shifted half-penetration.
+          final cpx = (transform1.position.x + transform2.position.x) / 2 +
+              manifold.normal.dx * manifold.penetration / 2;
+          final cpy = (transform1.position.y + transform2.position.y) / 2 +
+              manifold.normal.dy * manifold.penetration / 2;
+
+          _resolveCollision(
+            entity1,
+            entity2,
+            transform1,
+            transform2,
+            body1,
+            body2,
+            manifold,
+          );
+
+          currentContactPairs.add(pairKey);
+          if (!_activeContactPairs.containsKey(pairKey)) {
+            _activeContactPairs[pairKey] = (entity1, entity2);
+          }
+
+          world.events.fire(
+            CollisionEvent(
+              entityA: entity1,
+              entityB: entity2,
+              normal: manifold.normal,
+              penetration: manifold.penetration,
+              contactPoint: Offset(cpx, cpy),
+            ),
+          );
+
+          if (manifold.normal.dy > 0.5) {
+            body1.isGrounded = true;
+          } else if (manifold.normal.dy < -0.5) {
+            body2.isGrounded = true;
           }
         }
       }
     }
+
+    // Fire SensorExitEvent for pairs that were active last frame but not this one.
+    _activeSensorPairs.removeWhere((key, pair) {
+      if (!currentSensorPairs.contains(key)) {
+        world.events.fire(SensorExitEvent(sensor: pair.$1, visitor: pair.$2));
+        return true;
+      }
+      return false;
+    });
+
+    // Fire ContactExitEvent for solid pairs that separated this frame.
+    _activeContactPairs.removeWhere((key, pair) {
+      if (!currentContactPairs.contains(key)) {
+        world.events.fire(
+          ContactExitEvent(entityA: pair.$1, entityB: pair.$2),
+        );
+        return true;
+      }
+      return false;
+    });
   }
 
   void _resolveCollision(
@@ -239,17 +284,19 @@ class PhysicsSystem extends System {
 
     // Apply impulse (skip if the body has no VelocityComponent — static body).
     final imp1 = impulseScalar * inverseMass1;
-    if (velocity1 != null)
+    if (velocity1 != null) {
       velocity1.setVelocityXY(
         velocity1.velocity.x - normal.dx * imp1,
         velocity1.velocity.y - normal.dy * imp1,
       );
+    }
     final imp2 = impulseScalar * inverseMass2;
-    if (velocity2 != null)
+    if (velocity2 != null) {
       velocity2.setVelocityXY(
         velocity2.velocity.x + normal.dx * imp2,
         velocity2.velocity.y + normal.dy * imp2,
       );
+    }
   }
 
   @override
@@ -270,8 +317,64 @@ class PhysicsSystem extends System {
       final paint = body.isStatic ? _debugStaticPaint : _debugDynamicPaint;
 
       final shape = body.shape;
+      final sensorPaint = body.isSensor ? _debugSensorPaint : paint;
       if (shape is CircleShape) {
-        canvas.drawCircle(transform.position.toOffset(), shape.radius, paint);
+        canvas.drawCircle(
+          transform.position.toOffset(),
+          shape.radius,
+          sensorPaint,
+        );
+      } else if (shape is CapsuleShape) {
+        final wa1 = Offset(
+          transform.position.x + shape.center1.dx,
+          transform.position.y + shape.center1.dy,
+        );
+        final wa2 = Offset(
+          transform.position.x + shape.center2.dx,
+          transform.position.y + shape.center2.dy,
+        );
+        canvas.drawCircle(wa1, shape.radius, sensorPaint);
+        canvas.drawCircle(wa2, shape.radius, sensorPaint);
+        canvas.drawLine(wa1, wa2, sensorPaint);
+      } else if (shape is ChainShape) {
+        for (int i = 0; i < shape.vertices.length - 1; i++) {
+          canvas.drawLine(
+            Offset(
+              transform.position.x + shape.vertices[i].dx,
+              transform.position.y + shape.vertices[i].dy,
+            ),
+            Offset(
+              transform.position.x + shape.vertices[i + 1].dx,
+              transform.position.y + shape.vertices[i + 1].dy,
+            ),
+            sensorPaint,
+          );
+        }
+        if (shape.loop && shape.vertices.length > 1) {
+          canvas.drawLine(
+            Offset(
+              transform.position.x + shape.vertices.last.dx,
+              transform.position.y + shape.vertices.last.dy,
+            ),
+            Offset(
+              transform.position.x + shape.vertices.first.dx,
+              transform.position.y + shape.vertices.first.dy,
+            ),
+            sensorPaint,
+          );
+        }
+      } else if (shape is SegmentShape) {
+        canvas.drawLine(
+          Offset(
+            transform.position.x + shape.point1.dx,
+            transform.position.y + shape.point1.dy,
+          ),
+          Offset(
+            transform.position.x + shape.point2.dx,
+            transform.position.y + shape.point2.dy,
+          ),
+          sensorPaint,
+        );
       } else if (shape is PolygonShape) {
         final path = Path();
         if (shape.vertices.isNotEmpty) {
@@ -287,7 +390,7 @@ class PhysicsSystem extends System {
           }
           path.close();
         }
-        canvas.drawPath(path, paint);
+        canvas.drawPath(path, sensorPaint);
       }
     });
 
@@ -306,4 +409,9 @@ class PhysicsSystem extends System {
     ..color = Colors.green
     ..style = PaintingStyle.stroke
     ..strokeWidth = 2.0;
+
+  static final Paint _debugSensorPaint = Paint()
+    ..color = Colors.yellow
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.5;
 }
