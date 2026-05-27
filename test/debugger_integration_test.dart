@@ -16,7 +16,7 @@ void main() {
     engine.stop();
   });
 
-  testWidgets('game widget can expose integrated debugger tools', (
+  testWidgets('game widget does not render embedded debugger panel', (
     tester,
   ) async {
     final engine = Engine();
@@ -34,8 +34,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('ECS Debugger'), findsOneWidget);
-    expect(find.text('Performance'), findsWidgets);
+    expect(find.text('ECS Debugger'), findsNothing);
+    expect(find.text('Performance'), findsNothing);
 
     engine.stop();
   });
@@ -59,12 +59,14 @@ void main() {
     await tester.pump();
 
     expect(find.text('Debug'), findsNothing);
-    expect(find.text('ECS Debugger'), findsOneWidget);
+    expect(find.text('ECS Debugger'), findsNothing);
 
     engine.stop();
   });
 
-  testWidgets('showDebug exposes the ECS debugger overlay', (tester) async {
+  testWidgets('showDebug keeps rendering active without debugger panel', (
+    tester,
+  ) async {
     final engine = Engine();
     await engine.initialize();
     engine.start();
@@ -80,12 +82,15 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('ECS Debugger'), findsOneWidget);
+    expect(find.byType(CustomPaint), findsWidgets);
+    expect(find.text('ECS Debugger'), findsNothing);
 
     engine.stop();
   });
 
-  testWidgets('fps counter stacks above the ECS overlay', (tester) async {
+  testWidgets('fps counter still renders with showDebug enabled', (
+    tester,
+  ) async {
     final engine = Engine();
     await engine.initialize();
     engine.start();
@@ -102,14 +107,8 @@ void main() {
     await tester.pump();
 
     final fpsFinder = find.textContaining('FPS:');
-    final overlayFinder = find.text('ECS Debugger');
-
     expect(fpsFinder, findsOneWidget);
-    expect(overlayFinder, findsOneWidget);
-
-    final fpsRect = tester.getRect(fpsFinder);
-    final overlayRect = tester.getRect(overlayFinder);
-    expect(overlayRect.top, greaterThanOrEqualTo(fpsRect.bottom + 8));
+    expect(find.text('ECS Debugger'), findsNothing);
 
     engine.stop();
   });

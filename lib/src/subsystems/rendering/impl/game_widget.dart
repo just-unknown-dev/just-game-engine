@@ -7,10 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart'
     show KeyDownEvent, KeyRepeatEvent, LogicalKeyboardKey;
-import 'package:just_debugger/just_debugger.dart';
 import '../../../core/debugger/collider_debugger_system.dart';
 import '../../../core/engine.dart';
-import '../../../debugger/engine_debugger.dart';
 import '../../../ecs/systems/rendering/render_system.dart';
 import 'game_terminal.dart';
 
@@ -63,14 +61,7 @@ class _GameWidgetState extends State<GameWidget>
   DateTime _lastFpsUpdate = DateTime.now();
 
   final FocusNode _focusNode = FocusNode();
-  JustDebuggerController? _ownedDebuggerController;
   ColliderDebuggerSystem? _colliderDebugger;
-
-  JustDebuggerController? get _effectiveDebuggerController {
-    if (!widget.showDebug) return null;
-    return _ownedDebuggerController ??= widget.engine
-        .createDebuggerController();
-  }
 
   @override
   void initState() {
@@ -90,11 +81,6 @@ class _GameWidgetState extends State<GameWidget>
         camera: widget.engine.cameraSystem.mainCamera,
       );
       widget.engine.world.addSystem(_colliderDebugger!);
-    }
-
-    final debuggerController = _effectiveDebuggerController;
-    if (debuggerController != null && !debuggerController.isBound) {
-      widget.engine.attachDebugger(debuggerController);
     }
 
     // Subscribe to terminal state changes so the overlay rebuilds
@@ -132,7 +118,6 @@ class _GameWidgetState extends State<GameWidget>
     _focusNode.dispose();
     _repaintNotifier.dispose();
     _fpsNotifier.dispose();
-    _ownedDebuggerController?.dispose();
     super.dispose();
   }
 
@@ -297,27 +282,7 @@ class _GameWidgetState extends State<GameWidget>
       ),
     );
 
-    final debuggerController = _effectiveDebuggerController;
-    if (debuggerController == null) {
-      return content;
-    }
-
-    return JustDebuggerView(
-      controller: debuggerController,
-      showOverlay: widget.showDebug,
-      showInspectorPanel: false,
-      overlayAlignment: Alignment.topRight,
-      overlayMargin: EdgeInsets.only(
-        top: widget.showFPS ? 54 : 12,
-        right: 12,
-        bottom: 12,
-        left: 12,
-      ),
-      inspectorWidth: 420,
-      inspectorHeight: 420,
-      inspectorChild: EngineDebuggerPanel(controller: debuggerController),
-      child: content,
-    );
+    return content;
   }
 }
 
