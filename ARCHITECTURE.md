@@ -1,7 +1,7 @@
 # Just Game Engine - Architectural and Design Blueprints
 
-> **Version:** 1.5.0  
-> **Date:** April 4, 2026  
+> **Version:** 1.6.0  
+> **Date:** May 30, 2026  
 > **Scope:** `packages/just_game_engine` — a 2D Flutter game engine
 
 ---
@@ -34,12 +34,12 @@
 | Field | Value |
 |---|---|
 | **Package name** | `just_game_engine` |
-| **Version** | `1.5.0` |
+| **Version** | `1.6.0` |
 | **Dart SDK** | `^3.11.0` |
 | **Flutter** | `>=1.17.0` |
-| **Runtime dependencies** | `just_audio_engine: ^1.0.0`, `just_storage: ^1.1.2`, `just_database: ^1.3.0`, `just_signals: ^1.0.1`, `just_tiled: ^0.2.0`, `meta: ^1.9.0`, `web: ^1.1.1` |
+| **Runtime dependencies** | `just_physics_engine: ^1.2.0`, `just_audio_engine: ^1.0.1`, `just_storage: ^1.2.1`, `just_database: ^1.4.2`, `just_signals: ^1.0.2`, `just_memory: ^0.1.0`, `just_tiled: ^0.3.0`, `just_dart: ^0.1.0`, `meta: ^1.9.0`, `web: ^1.1.1` |
 | **Dev dependencies** | `flutter_test`, `flutter_lints: ^6.0.0` |
-| **Companion packages** | `just_tiled: ^0.2.0` (Tiled map support), `just_zstd: ^1.0.0` (Zstandard decompressor) |
+| **Companion packages** | `just_tiled: ^0.3.0` (Tiled map support), `just_zstd: ^1.0.0` (Zstandard decompressor) |
 | **Repository** | https://github.com/just-unknown-dev/just-game-engine |
 
 ### Source Layout
@@ -51,7 +51,7 @@ packages/just_game_engine/
 │   └── src/
 │       ├── core/                      ← Engine, GameLoop, TimeManager, SystemManager, Lifecycle, ComputeHelper
 │       ├── interfaces/                ← GameCamera, RenderingInterfaces (shared contracts)
-│       ├── math/                      ← Vec2 (mutable vector), Quadtree (spatial index)
+│       ├── math/                      ← Quadtree (spatial index)
 │       ├── memory/                    ← ObjectPool (GC-friendly recycling), CacheManager (LRU binary cache)
 │       ├── ecs/                       ← World, Entity, Component, System, built-ins
 │       │   ├── base/                  ← Archetype, CommandBuffer, EventBus, EntityPrefab
@@ -74,6 +74,13 @@ packages/just_game_engine/
 │           ├── effects/               ← DeterministicEffect, 11 effect types, EffectSystemECS, serialization
 │           ├── localization/          ← LocalizationManager, LocaleStringTable, StringInterpolator, Flutter widgets
 │           ├── narrative/             ← DialogueManager, YarnParser, DialogueRunner, ECS, UI widgets
+│           ├── achievements/          ← Achievement service + provider abstraction
+│           ├── auth/                  ← Platform auth + profile abstractions
+│           ├── leaderboard/           ← Score submission + leaderboard providers
+│           ├── currency/              ← Currency/economy subsystem
+│           ├── inventory/             ← Inventory subsystem
+│           ├── subtitle/              ← Timed subtitle tracks and overlay
+│           ├── ads/                   ← Ad placement/controller abstraction
 │           ├── editor/                ← SceneEditor, Scene, SceneNode
 │           └── networking/            ← NetworkManager (stub)
 ├── example/
@@ -113,7 +120,7 @@ The engine is organized into **eight horizontal layers**, each depending only on
 └───┬──┘ └──────┘ └───────┘ └──────┘ └───────────┘ └──┬───┘ └──────────┘
     │                            + CameraSystem, CacheManager       │
 ┌───▼───────────────────────────────────────────────────▼─────────────────┐
-│   Math Layer: Vec2 (mutable vector) + Quadtree (spatial index)          │
+│   Math Layer: Quadtree (spatial index)                                   │
 │   Memory Layer: ObjectPool + CacheManager (LRU binary cache)            │
 └───┬─────────────────────────────────────────────────────────────────────┘
     │
@@ -470,13 +477,13 @@ Two completely independent pipelines run each frame: the **update pipeline** (lo
 
 ```
 Renderable  (abstract)
-   │  position: Offset
+  │  position: Vector3
    │  rotation: double
-   │  scale: double
+  │  scale: Vector3
    │  opacity: double
    │  layer: int
    │  zOrder: int
-   │  isVisible: bool
+  │  visible: bool
    │  render(Canvas, Size)  ← abstract
    │
    ├── RectangleRenderable   canvas.drawRect()    fillColor, strokeColor, strokeWidth, cornerRadius
@@ -519,8 +526,8 @@ All `Renderable` subclasses have `copyWith()` methods and support method-chained
 ParticleEmitter  (extends Renderable)
    │  emissionRate: double       particles/second
    │  maxParticles: int
-   │  emitterPosition: Offset
-   │  gravity: Offset
+  │  emitterPosition: Vector3
+  │  gravity: Offset? (legacy compatibility)
    │  startColor / endColor: Color
    │  startSize / endSize: double
    │  minSpeed / maxSpeed: double
@@ -671,8 +678,8 @@ World
 
 | Component | Key Fields | Purpose |
 |---|---|---|
-| `TransformComponent` | `position: Offset`, `rotation: double`, `scale: double` | World-space transform for every game object |
-| `VelocityComponent` | `velocity: Offset`, `maxSpeed: double` | Linear movement rate |
+| `TransformComponent` | `position: Vector3`, `rotation: double`, `scale: Vector3` | World-space transform for every game object |
+| `VelocityComponent` | `velocity: Vector3`, `maxSpeed: double` | Linear movement rate |
 | `RenderableComponent` | `renderable: Renderable` | Links an entity to a drawable |
 | `SpriteComponent` | `spritePath: String`, `frame: int`, `flipX`, `flipY`, `tint: Color?` | Sprite descriptor for the render system |
 | `PhysicsBodyComponent` | `radius`, `mass`, `restitution`, `drag`, `isStatic`, `collisionLayers` | Physical simulation properties |
@@ -705,7 +712,7 @@ World
 | `TileMapRenderSystem` | `TileMapLayer` | 110 | Render tile layers (background) |
 | `InputSystem` | `Input` (+ optional `JoystickInput`) | 100 | Bridges `InputManager` → `InputComponent` / `JoystickInputComponent` via configurable `ButtonMapping` |
 | `PhysicsSystem` | `Transform` + `Velocity` + `PhysicsBody` | 90 | Gravity, drag, collision detection, impulse resolution; fires `CollisionEvent` via `world.events` |
-| `PhysicsBridgeSystem` | `Transform` + `Velocity` + `PhysicsBodyRef` | 89 | Syncs subsystem `PhysicsBody.pos/vel/angle` → ECS components (runs after PhysicsSystem) |
+| `PhysicsBridgeSystem` | `Transform` + `Velocity` + `PhysicsBodyRef` | 89 | Syncs subsystem `PhysicsBody.position/velocity/angle` → ECS components (runs after PhysicsSystem) |
 | `MovementSystem` | `Transform` + `Velocity` | 80 | `position += velocity * dt` |
 | `AnimationSystemECS` | `AnimationState` (+ optional `Sprite`) | 70 | Advances animation timers, drives `SpriteComponent.frame`, stops non-looping animations |
 | `HealthSystem` | `Health` | 60 | Applies `regenRate * dt`, fires death event at 0 HP |
@@ -752,7 +759,7 @@ PhysicsEngine
    List<PhysicsBody> _bodies
    SpatialGrid _spatialGrid  (broad-phase optimization)
    CacheManager? cacheManager
-   gravity: Offset       (default: Offset(0, 98.0) — pixels/s²)
+  gravity: Vector2      (default: Vector2(0, 981.0) — pixels/s²)
    enabled: bool
 
    update(dt):
@@ -955,7 +962,7 @@ AudioEngine
 
 ### 9.2 AudioClip
 
-Holds an `AudioSource` (loaded asset) and a `SoundHandle` (active voice) from `flutter_soloud`. Returned by `playSfx()` / `playMusic()` for programmatic control.
+Holds an audio source handle and playback state managed by `just_audio_engine`. Returned by `playSfx()` / `playMusic()` for programmatic control.
 
 | Method | Description |
 |---|---|
@@ -1046,8 +1053,8 @@ Animation  (abstract)
 Usage:
 ```dart
 PositionTween(
-  start: Offset(0, 0),
-  end: Offset(200, 0),
+  start: Vector3(0, 0, 0),
+  end: Vector3(200, 0, 0),
   duration: 1.0,
   easing: Easings.easeOutBounce,
   target: myRenderable,
@@ -1123,7 +1130,7 @@ AssetManager
 | Format | Asset Type | Notes |
 |---|---|---|
 | `.png`, `.jpg`, `.jpeg` | `ImageAsset` | Decoded to `dart:ui Image` via codec |
-| `.mp3`, `.wav`, `.ogg`, `.flac` | `AudioAsset` | Loaded as `Uint8List`; played via `flutter_soloud` (`SoLoud.instance.loadAsset`) |
+| `.mp3`, `.wav`, `.ogg`, `.flac` | `AudioAsset` | Loaded as `Uint8List`; consumed by `just_audio_engine` at playback time |
 | `.txt` | `TextAsset` | Raw UTF-8 string |
 | `.json` | `JsonAsset` | Auto-decoded with `dart:convert jsonDecode` |
 | `.*` (other) | `BinaryAsset` | Raw `Uint8List` |
@@ -1331,15 +1338,15 @@ class HealthFlashSystem extends ReactiveSystem {
 | **Camera shake** | Not implemented | Coming in next release |
 | **Smooth delta time** | Not implemented | Coming in next release |
 | **ECS render pipeline** | Fixed in v1.2.1 | `GameWidget._GamePainter.paint()` now calls `engine.world.render(canvas, size)` automatically — no manual wiring needed |
-| **ECS deferred mutations** | Implemented in v1.4.0 | `CommandBuffer` provides safe deferred entity creation/destruction/component changes inside system updates |
-| **ECS event system** | Implemented in v1.4.0 | `EventBus` with typed `GameEvent` subscriptions; `CollisionEvent` published by `PhysicsSystem` |
-| **Entity safety** | Implemented in v1.4.0 | Generational IDs detect stale entity references via `isEntityAlive()` |
-| **Entity blueprints** | Implemented in v1.4.0 | `EntityPrefab` + `World.instantiate()` for reusable entity templates |
-| **InputSystem** | Implemented in v1.4.0 | Built-in `InputSystem` bridges `InputManager` → ECS `InputComponent` / `JoystickInputComponent` with configurable `ButtonMapping` |
-| **SpriteBatch** | Implemented in v1.4.0 | `Canvas.drawAtlas()` batching for all sprites sharing an atlas |
-| **Vec2 physics** | Implemented in v1.4.0 | Mutable `Vec2` on all physics hot paths; zero allocation per frame |
-| **Object pooling** | Implemented in v1.4.0 | `ObjectPool<T>` with `maxSize`, statistics, and `Recyclable` interface |
-| **LRU cache eviction** | Implemented in v1.4.0 | `CacheManager.maxBinaryEntries` with timestamp-based eviction |
+| **ECS deferred mutations** | Implemented | `CommandBuffer` provides safe deferred entity creation/destruction/component changes inside system updates |
+| **ECS event system** | Implemented | `EventBus` with typed `GameEvent` subscriptions; `CollisionEvent` published by `PhysicsSystem` |
+| **Entity safety** | Implemented | Generational IDs detect stale entity references via `isEntityAlive()` |
+| **Entity blueprints** | Implemented | `EntityPrefab` + `World.instantiate()` for reusable entity templates |
+| **InputSystem** | Implemented | Built-in `InputSystem` bridges `InputManager` → ECS `InputComponent` / `JoystickInputComponent` with configurable `ButtonMapping` |
+| **SpriteBatch** | Implemented | `Canvas.drawAtlas()` batching for all sprites sharing an atlas |
+| **Vector math hot paths** | Implemented | Mutable vector types are used on hot paths to minimize per-frame allocations |
+| **Object pooling** | Implemented | `ObjectPool<T>` with `maxSize`, statistics, and `Recyclable` interface |
+| **LRU cache eviction** | Implemented | `CacheManager.maxBinaryEntries` with timestamp-based eviction |
 | **Tiled animated tiles** | Caller must drive `TileMapRenderer.update(dt)` | No automatic timer integration into the engine game loop; caller must call `update()` each frame |
 | **Tiled image layers** | Parsed, not auto-rendered | `ImageLayer` is part of the data model but `TileMapRenderer` only renders `TileLayer`; caller must handle image layer drawing manually |
 | **3D expansion** | Not implemented | Coming in next release |
@@ -1520,4 +1527,4 @@ engine.rendering.addRenderable(CustomRenderable(
 
 ---
 
-*Document generated from source analysis of `packages/just_game_engine` v1.4.0*
+*Document generated from source analysis of `packages/just_game_engine` v1.6.0*

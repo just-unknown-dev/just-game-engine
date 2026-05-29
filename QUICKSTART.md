@@ -10,7 +10,7 @@ Add the engine to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  just_game_engine: latest_version
+  just_game_engine: ^1.6.0
 ```
 
 ### Step 2: Get Packages
@@ -58,7 +58,7 @@ void main() async {
     CircleRenderable(
       radius: 50,
       fillColor: Colors.blue,
-      position: Offset.zero,
+      position: Vector3.zero(),
     ),
   );
   
@@ -84,15 +84,15 @@ void main() async {
   final circle = CircleRenderable(
     radius: 50,
     fillColor: Colors.blue,
-    position: Offset(-100, 0),
+    position: Vector3(-100, 0, 0),
   );
   engine.rendering.addRenderable(circle);
   
   // Animate it
   final animation = PositionTween(
     target: circle,
-    start: Offset(-100, 0),
-    end: Offset(100, 0),
+    start: Vector3(-100, 0, 0),
+    end: Vector3(100, 0, 0),
     duration: 2.0,
     easing: Easings.easeInOutQuad,
     loop: true,
@@ -112,7 +112,7 @@ void main() async {
 ```dart
 void setupGame(Engine engine) {
   // Create fire effect
-  final fire = ParticleEffects.fire(position: Offset.zero)
+  final fire = ParticleEffects.fire(position: Vector3.zero())
     ..emissionRate = 50;
   
   List<ParticleEmitter> emitters = [fire];
@@ -137,14 +137,14 @@ void setupGame(Engine engine) {
 void setupPhysics(Engine engine) {
   // Create two colliding bodies
   final body1 = PhysicsBody(
-    position: Offset(-100, 0),
-    velocity: Offset(50, 0),
+    position: Vector2(-100, 0),
+    velocity: Vector2(50, 0),
     shape: CircleShape(30),
   );
   
   final body2 = PhysicsBody(
-    position: Offset(100, 0),
-    velocity: Offset(-50, 0),
+    position: Vector2(100, 0),
+    velocity: Vector2(-50, 0),
     shape: CircleShape(30),
   );
   
@@ -181,10 +181,10 @@ void setupECS(Engine engine) {
   
   // Step 3: Add components (the data)
   player.addComponent(TransformComponent(
-    position: Offset.zero,
+    position: Vector3.zero(),
   ));
   player.addComponent(VelocityComponent(
-    velocity: const Offset(100, 0),
+    velocity: const Vector3(100, 0, 0),
   ));
   player.addComponent(RenderableComponent(
     renderable: CircleRenderable(
@@ -221,12 +221,12 @@ void setupShapes(Engine engine) {
 
   // Circle
   final circle = world.createEntity(name: 'Circle');
-  circle.addComponent(TransformComponent(position: const Offset(-150, 0)));
+  circle.addComponent(TransformComponent(position: const Vector3(-150, 0, 0)));
   circle.addComponent(CircleComponent(radius: 40, color: Colors.blue));
 
   // Rounded rectangle
   final rect = world.createEntity(name: 'Rect');
-  rect.addComponent(TransformComponent(position: Offset.zero));
+  rect.addComponent(TransformComponent(position: Vector3.zero()));
   rect.addComponent(RectangleComponent(
     width: 80,
     height: 50,
@@ -236,7 +236,7 @@ void setupShapes(Engine engine) {
 
   // Polygon (triangle)
   final tri = world.createEntity(name: 'Triangle');
-  tri.addComponent(TransformComponent(position: const Offset(150, 0)));
+  tri.addComponent(TransformComponent(position: const Vector3(150, 0, 0)));
   tri.addComponent(PolygonComponent(
     vertices: const [Offset(0, -40), Offset(35, 30), Offset(-35, 30)],
     color: Colors.orange,
@@ -244,7 +244,7 @@ void setupShapes(Engine engine) {
 
   // Line
   final line = world.createEntity(name: 'Line');
-  line.addComponent(TransformComponent(position: const Offset(-80, 100)));
+  line.addComponent(TransformComponent(position: const Vector3(-80, 100, 0)));
   line.addComponent(LineComponent(
     end: const Offset(80, 0),
     color: Colors.yellow,
@@ -254,7 +254,7 @@ void setupShapes(Engine engine) {
 
   // Capsule (orientation flips automatically based on aspect ratio)
   final capsule = world.createEntity(name: 'Capsule');
-  capsule.addComponent(TransformComponent(position: const Offset(0, 180)));
+  capsule.addComponent(TransformComponent(position: const Vector3(0, 180, 0)));
   capsule.addComponent(CapsuleComponent(
     width: 40,
     height: 90,
@@ -273,7 +273,7 @@ void setupECSPhysics(Engine engine) {
   
   // Add physics system
   final physicsSystem = PhysicsSystem()
-    ..gravity = const Offset(0, 100);  // Downward gravity
+    ..gravity = const Vector3(0, 100, 0);  // Downward gravity
   world.addSystem(physicsSystem);
   
   // Add other systems
@@ -282,7 +282,7 @@ void setupECSPhysics(Engine engine) {
   
   // Create a bouncing ball
   final ball = world.createEntity(name: 'Ball');
-  ball.addComponent(TransformComponent(position: const Offset(0, -200)));
+  ball.addComponent(TransformComponent(position: const Vector3(0, -200, 0)));
   ball.addComponent(VelocityComponent());
   ball.addComponent(RenderableComponent(
     renderable: CircleRenderable(radius: 25, fillColor: Colors.red),
@@ -295,7 +295,7 @@ void setupECSPhysics(Engine engine) {
   
   // Create a ground
   final ground = world.createEntity(name: '  ');
-  ground.addComponent(TransformComponent(position: const Offset(0, 250)));
+  ground.addComponent(TransformComponent(position: const Vector3(0, 250, 0)));
   ground.addComponent(VelocityComponent());  // Static (no velocity)
   ground.addComponent(RenderableComponent(
     renderable: RectangleRenderable(
@@ -324,7 +324,7 @@ void setupTemporaryEntities(Engine engine) {
   
   // Create a temporary particle
   final particle = world.createEntity(name: 'Particle');
-  particle.addComponent(TransformComponent(position: Offset(100, 100)));
+  particle.addComponent(TransformComponent(position: Vector3(100, 100, 0)));
   particle.addComponent(RenderableComponent(
     renderable: CircleRenderable(radius: 10, fillColor: Colors.yellow),
   ));
@@ -332,7 +332,7 @@ void setupTemporaryEntities(Engine engine) {
   
   // Create an enemy with health
   final enemy = world.createEntity(name: 'Enemy');
-  enemy.addComponent(TransformComponent(position: Offset(-100, 0)));
+  enemy.addComponent(TransformComponent(position: Vector3(-100, 0, 0)));
   enemy.addComponent(RenderableComponent(
     renderable: CircleRenderable(radius: 30, fillColor: Colors.red),
   ));
@@ -440,7 +440,7 @@ world.addSystem(FlashingSystem());
 final ball = CircleRenderable(
   radius: 30,
   fillColor: Colors.red,
-  position: Offset(0, -200),
+  position: Vector3(0, -200, 0),
 );
 engine.rendering.addRenderable(ball);
 
@@ -448,15 +448,15 @@ final bounce = AnimationSequence(
   animations: [
     PositionTween(
       target: ball,
-      start: Offset(0, -200),
-      end: Offset(0, 200),
+      start: Vector3(0, -200, 0),
+      end: Vector3(0, 200, 0),
       duration: 1.0,
       easing: Easings.easeInQuad,
     ),
     PositionTween(
       target: ball,
-      start: Offset(0, 200),
-      end: Offset(0, -200),
+      start: Vector3(0, 200, 0),
+      end: Vector3(0, -200, 0),
       duration: 1.0,
       easing: Easings.easeOutQuad,
     ),
@@ -531,7 +531,7 @@ fade.play();
 Use `ParticleEmitterComponent` and `ParticleSystemECS` for fire-and-forget effects. The entity is automatically destroyed when all particles expire.
 
 ```dart
-void spawnExplosion(Engine engine, Offset position) {
+void spawnExplosion(Engine engine, Vector3 position) {
   final world = engine.world;
 
   // Register  once — safe to call multiple times
@@ -563,8 +563,8 @@ void setupCameraFollow(Engine engine) {
   world.addSystem(CameraFollowSystem(cameraSystem: engine.cameraSystem));
 
   final player = world.createEntity(name: 'Player');
-  player.addComponent(TransformComponent(position: Offset.zero));
-  player.addComponent(VelocityComponent(velocity: const Offset(80, 0)));
+  player.addComponent(TransformComponent(position: Vector3.zero()));
+  player.addComponent(VelocityComponent(velocity: const Vector3(80, 0, 0)));
   player.addComponent(RenderableComponent(
     renderable: CircleRenderable(radius: 20, fillColor: Colors.blue),
   ));

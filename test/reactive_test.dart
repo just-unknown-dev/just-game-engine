@@ -156,7 +156,7 @@ void main() {
       signals.setPosition(10, 20);
       // One notification per signal after the batch flushes
       expect(count, lessThanOrEqualTo(2));
-      expect(transform.position, const Offset(10, 20));
+      expect(transform.position, Vector3(10, 20, 0));
     });
 
     test('translate moves by delta', () {

@@ -59,10 +59,7 @@ void main() {
         restitution: 0.8,
       );
       // Particle just below floor moving downward
-      final p = makeParticle(
-        position: Offset(0, 305),
-        velocity: Offset(0, 50),
-      );
+      final p = makeParticle(position: Offset(0, 305), velocity: Offset(0, 50));
       force.apply(p, 0.016);
       // Should have been pushed back to boundary and velocity reflected
       expect(p.position.dy, closeTo(300.0, 0.001));
@@ -562,7 +559,7 @@ void main() {
       );
 
       world.update(0.016);
-      expect(emitter.position, const Offset(200, 400));
+      expect(emitter.position, Vector3(200, 400, 0));
     });
 
     test('does not sync position when syncPositionFromTransform is false', () {
@@ -587,7 +584,7 @@ void main() {
       );
 
       world.update(0.016);
-      expect(emitter.position, const Offset(50, 50));
+      expect(emitter.position, Vector3(50, 50, 0));
     });
 
     test('removeEntityWhenComplete destroys entity after emitter finishes', () {

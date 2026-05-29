@@ -2,6 +2,31 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [1.6.0] - 2026-05-30
+
+### Added
+
+- In-game developer terminal for commands and debugging, including GameWidget integration.
+- Achievement subsystem with tracking, events, and provider abstraction.
+- Authentication and leaderboard subsystems with platform provider support.
+- Currency and inventory subsystems with event-driven updates.
+- Ads subsystem with banner, interstitial, and rewarded support.
+- Subtitle subsystem with cue controller and overlay widget.
+- Checkpoint collision/respawn flow and checkpoint component support.
+- Physics improvements: sensor support, collision event enhancements, and `ColliderDebuggerSystem`.
+
+### Changed
+
+- Transform pipeline refactored for 3D-compatible data flow.
+- Checkpoint respawn positions migrated to `Vector3`.
+- Physics integration migrated to `just_physics_engine` and upgraded.
+- Math utilities migrated to `just_dart`; obsolete math files removed.
+- Achievement persistence moved from storage-backed flow to database-backed flow.
+- GameWidget debugger integration simplified and legacy debugger path removed.
+- Dependency metadata updated; `pubspec_overrides.yaml` added to `.gitignore`.
+
+---
+
 ## [1.5.3] - 2026-04-19
 
 ### Added

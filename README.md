@@ -24,6 +24,7 @@ Just Game Engine is a complete game development framework with 20+ major subsyst
 - **State Management**: Full lifecycle management (initialize, start, pause, resume, stop)
 - **Time Management**: Delta time, time scaling, FPS tracking
 - **System Coordination**: Centralized management of all subsystems
+- **Developer Terminal**: `GameTerminal` for in-game debug commands, cheats, and diagnostics
 
 ### 🎨 Rendering Engine
 - **2D Canvas-Based Rendering**: High-performance drawing with Flutter's Canvas API
@@ -31,7 +32,6 @@ Just Game Engine is a complete game development framework with 20+ major subsyst
 - **Ray Renderable**: `RayRenderable` draws a glowing beam / laser / bullet trail with a two-layer glow effect and configurable fade lifetime
 - **Camera System**: Pan, zoom, and rotation with smooth transforms
 - **Layer Management**: Z-order sorting for proper depth rendering
-- **Debug Visualization**: Bounding boxes, coordinate grids, and performance metrics
 - **ECS Integration**: `GameWidget` automatically renders ECS entities via `RenderSystem` alongside the classic pipeline
 
 ### 🖼️ Sprite System
@@ -67,6 +67,7 @@ Just Game Engine is a complete game development framework with 20+ major subsyst
 - **True Impulse Resolution**: Elastic collisions resolving linear constraints and Coulomb surface friction
 - **Broad-Phase Optimization**: Performant $O(n)$ Spatial Grid queries with Object Sleeping features
 - **Physics Caching**: Triangulation and expensive geometry processing can be reliably disk-cached
+- **Sensor Events**: ECS sensor overlap events (`SensorEnterEvent` / `SensorExitEvent`) for trigger gameplay
 
 ### 🔦 Ray Casting & Tracing
 - **Ray**: 2D ray descriptor with origin, normalised direction, and max-distance; `Ray.fromPoints()` convenience constructor
@@ -105,9 +106,9 @@ Just Game Engine is a complete game development framework with 20+ major subsyst
 - **Built-in Components (34+)**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `SpriteComponent`, `PhysicsBodyComponent`, `PhysicsBodyRefComponent`, `RaycastColliderComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `JoystickInputComponent`, `AnimationStateComponent`, `AudioSourceComponent`, `AudioPlayComponent`, `TileMapLayerComponent`, `TiledObjectComponent`, `UIComponent`, `TextComponent`, `ButtonComponent`, `LinearProgressComponent`, `CircularProgressComponent`, `EffectComponent`, `ShaderComponent`, `ParallaxComponent`, `ParticleEmitterComponent`, `CameraFollowComponent`, `CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent`
 - **Built-in Systems (17+)**: `InputSystem` (100), `PhysicsSystem` (90), `PhysicsBridgeSystem` (89), `MovementSystem` (80), `AnimationSystemECS` (70), `EffectSystemECS` (65), `GameplaySystem` (60), `HierarchySystem` (50), `RenderSystem` (40), `PostProcessSystem` (35), `BoundarySystem` (30), `ParticleSystemECS`, `CameraFollowSystem`, `LifetimeSystem`, `HealthSystem`, `AudioSystem`, `RaycastSystem`, `TileMapRenderSystem`, `TiledCollisionSystem`
 
-### ðŸ”· Shape Components
+### Shape Components
 
-- **Self-Rendering ECS Components**: Five components that extend `RenderableComponent` and draw themselves every frame â€” no additional system beyond `RenderSystem` required
+- **Self-Rendering ECS Components**: Five components that extend `RenderableComponent` and draw themselves every frame - no additional system beyond `RenderSystem` required
 
 - **`CircleComponent`**: Circle centered on the entity's transform. Properties: `radius`, `color`, `filled`, `strokeWidth`
 
@@ -119,7 +120,7 @@ Just Game Engine is a complete game development framework with 20+ major subsyst
 
 - **`CapsuleComponent`**: Rectangle with semicircular end caps (orientation auto-flips based on aspect ratio). Properties: `width`, `height`, `color`, `filled`, `strokeWidth`. Computed `capRadius` getter
 
-### � Input Management
+### Input Management
 - **Keyboard Input**: Key press, hold, and release detection with axis support
 - **Mouse Input**: Position tracking, button states, scroll wheel, and delta movement
 - **Touch Input**: Multi-touch support with pressure and size tracking
@@ -129,6 +130,24 @@ Just Game Engine is a complete game development framework with 20+ major subsyst
 - **Dead Zone**: Configurable dead zones for analog inputs
 - **ECS Bridge**: `InputSystem` automatically maps `InputManager` state to `InputComponent` and `JoystickInputComponent` each frame
 - **Integrated**: Automatic event capture through GameWidget with Focus and Listener
+
+### 🏆 Services & Economy
+- **Achievements**: `AchievementManager` with provider-based platform integration and ECS event hooks
+- **Authentication**: `AuthManager` for platform sign-in flows (for example Play Games/Game Center style providers)
+- **Leaderboards**: `LeaderboardManager` for score submission and provider-backed leaderboard UI bridging
+- **Currency**: `CurrencyManager` for wallet-like balances and economy events
+- **Inventory**: `InventoryManager` for stackable item/state tracking with ECS integration
+- **Ads**: `AdsManager` bridge for banner/interstitial/rewarded/app-open ad providers
+
+### 🧭 Gameplay Checkpoints
+- **CheckpointComponent**: Marks checkpoint entities and stores `Vector3` respawn positions
+- **CheckpointSystem**: Handles checkpoint activation and respawn flow via ECS events
+- **Checkpoint Events**: `CheckpointActivatedEvent` and `PlayerRespawnEvent` for gameplay orchestration
+
+### 📝 Subtitles
+- **SubtitleController**: Timeline-driven subtitle playback
+- **SubtitleTrack / SubtitleCue**: Structured subtitle data model for cue ranges and text
+- **SubtitleOverlay**: Ready-to-use Flutter widget for rendering timed subtitles
 
 ### 🎵 Additional Systems
 - **Audio Engine**: Complete audio playback system with multi-channel mixing
@@ -220,7 +239,7 @@ Both engines are strong options for Flutter game development, but they optimize 
 ### Prerequisites
 
 - Flutter SDK 3.11.0 or higher
-- Dart 3.0.0 or higher
+- Dart 3.11.0 or higher
 
 ### Installation
 
@@ -228,7 +247,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  just_game_engine: ^1.5.3
+  just_game_engine: ^1.6.0
 ```
 
 Then run:
@@ -245,7 +264,8 @@ Just Game Engine
 │   ├── Engine (Main orchestrator + performanceStats)
 │   ├── GameLoop (Fixed timestep loop)
 │   ├── TimeManager (Delta time tracking)
-│   └── SystemManager (Subsystem coordination + frame scheduler)
+│   ├── SystemManager (Subsystem coordination + frame scheduler)
+│   └── GameTerminal (In-game command terminal)
 ├── Math Module
 │   ├── Vec2 (Mutable 2D vector for hot-path code)
 │   └── Quadtree (Spatial indexing for culling; cached bounds)
@@ -257,7 +277,7 @@ Just Game Engine
 │   ├── Camera / CameraSystem (View transformation)
 │   ├── Renderable (Base class)
 │   ├── SpriteBatch (Canvas.drawAtlas batching)
-│   └── GameWidget (Flutter integration + debug HUD)
+│   └── GameWidget (Flutter integration)
 ├── Post-Processing
 │   ├── PostProcessPass (Full-screen FragmentShader pass)
 │   └── PostProcessSystem (ECS bridge; priority 35)
@@ -290,7 +310,8 @@ Just Game Engine
 ├── Physics Engine
 │   ├── PhysicsEngine (Vec2-based simulation)
 │   ├── PhysicsBody (Rigid body with Vec2 internals)
-│   └── CollisionEvent (Typed physics event)
+│   ├── CollisionEvent (Typed physics event)
+│   └── SensorEnterEvent / SensorExitEvent (Trigger overlap events)
 ├── Ray Casting & Tracing
 │   ├── Ray (Origin + direction descriptor)
 │   ├── RaycastColliderComponent (ECS hittable marker)
@@ -325,6 +346,7 @@ Just Game Engine
 │   │   ├── AudioSourceComponent, AudioPlayComponent
 │   │   ├── TileMapLayerComponent, TiledObjectComponent
 │   │   ├── EffectComponent
+│   │   ├── CheckpointComponent
 │   │   ├── CircleComponent, RectangleComponent, PolygonComponent
 │   │   ├── LineComponent, CapsuleComponent
 │   │   └── UIComponent, TextComponent, ButtonComponent,
@@ -337,6 +359,7 @@ Just Game Engine
 │       ├── AnimationSystemECS (priority 70)
 │       ├── EffectSystemECS (priority 65)
 │       ├── HealthSystem (priority 60)
+│       ├── CheckpointSystem (priority 58)
 │       ├── HierarchySystem (priority 50)
 │       ├── RenderSystem (priority 40)
 │       ├── PostProcessSystem (priority 35)
@@ -376,6 +399,16 @@ Just Game Engine
 │   ├── LocaleStringTable (Per-locale flat string map)
 │   ├── StringInterpolator ({var}, plural, select templates)
 │   └── Flutter Widgets (LocalizationScope, LocalizedText, LocaleSelector)
+├── Services & Economy
+│   ├── AchievementManager (Achievement tracking + provider bridge)
+│   ├── AuthManager (Platform sign-in orchestration)
+│   ├── LeaderboardManager (Score submission + provider bridge)
+│   ├── CurrencyManager (Wallet/economy state)
+│   └── InventoryManager (Item ownership and quantities)
+├── Subtitle
+│   ├── SubtitleController (Cue timeline playback)
+│   ├── SubtitleTrack / SubtitleCue (Subtitle data model)
+│   └── SubtitleOverlay (Flutter subtitle rendering widget)
 ├── Narrative / Dialogue
 │   ├── DialogueManager (Yarn Spinner facade)
 │   ├── YarnTokenizer + YarnParser (Yarn Spinner 2.x)
@@ -384,7 +417,8 @@ Just Game Engine
 │   ├── ECS (DialogueComponent, TriggerComponent, DialogueSystem)
 │   └── UI (DialogueBoxWidget, DialogueChoicesWidget)
 └── Additional Systems
-    └── Networking (Not Implemented)
+  ├── AdsManager (Provider bridge for banner/interstitial/rewarded/app-open)
+  └── Networking (Not Implemented)
 ```
 
 ## Performance Tips
@@ -409,6 +443,7 @@ Just Game Engine
 - `Engine` - Main engine singleton
 - `GameLoop` - Game loop with fixed timestep
 - `TimeManager` - Time tracking and delta time
+- `GameTerminal` - In-game command terminal for debug/admin commands
 
 ### Rendering Classes
 
@@ -436,6 +471,8 @@ Just Game Engine
 
 - `PhysicsEngine` - Physics simulation
 - `PhysicsBody` - Rigid body with collision
+- `CollisionEvent` - Physics collision event published on the ECS event bus
+- `SensorEnterEvent` / `SensorExitEvent` - Sensor overlap events for trigger zones
 
 ### Ray Casting & Tracing Classes
 
@@ -468,8 +505,15 @@ Just Game Engine
 - `Entity` - Component container with unique ID
 - `Component` - Base class for data components
 - `System` - Base class for processing systems
-- **Built-in Components (34+)**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `SpriteComponent`, `ShaderComponent`, `ParallaxComponent`, `ParticleEmitterComponent`, `PhysicsBodyComponent`, `PhysicsBodyRefComponent`, `RaycastColliderComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `JoystickInputComponent`, `CameraFollowComponent`, `AnimationStateComponent`, `AudioSourceComponent`, `AudioPlayComponent`, `TileMapLayerComponent`, `TiledObjectComponent`, `EffectComponent`, `UIComponent`, `TextComponent`, `ButtonComponent`, `LinearProgressComponent`, `CircularProgressComponent`, `CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent`
-- **Built-in Systems (17+)**: `InputSystem`, `PhysicsSystem`, `PhysicsBridgeSystem`, `MovementSystem`, `AnimationSystemECS`, `EffectSystemECS`, `HealthSystem`, `HierarchySystem`, `RenderSystem`, `PostProcessSystem`, `BoundarySystem`, `ParticleSystemECS`, `CameraFollowSystem`, `RaycastSystem`, `LifetimeSystem`, `AudioSystem`, `TileMapRenderSystem`, `TiledCollisionSystem`
+- **Built-in Components (34+)**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `SpriteComponent`, `ShaderComponent`, `ParallaxComponent`, `ParticleEmitterComponent`, `PhysicsBodyComponent`, `PhysicsBodyRefComponent`, `RaycastColliderComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `JoystickInputComponent`, `CameraFollowComponent`, `AnimationStateComponent`, `AudioSourceComponent`, `AudioPlayComponent`, `TileMapLayerComponent`, `TiledObjectComponent`, `EffectComponent`, `CheckpointComponent`, `UIComponent`, `TextComponent`, `ButtonComponent`, `LinearProgressComponent`, `CircularProgressComponent`, `CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent`
+- **Built-in Systems (17+)**: `InputSystem`, `PhysicsSystem`, `PhysicsBridgeSystem`, `MovementSystem`, `AnimationSystemECS`, `EffectSystemECS`, `HealthSystem`, `CheckpointSystem`, `HierarchySystem`, `RenderSystem`, `PostProcessSystem`, `BoundarySystem`, `ParticleSystemECS`, `CameraFollowSystem`, `RaycastSystem`, `LifetimeSystem`, `AudioSystem`, `TileMapRenderSystem`, `TiledCollisionSystem`
+
+### Gameplay / Checkpoint Classes
+
+- `CheckpointComponent` - ECS marker/config component for checkpoint entities and respawn positions
+- `CheckpointSystem` - ECS gameplay system for checkpoint activation and respawn management
+- `CheckpointActivatedEvent` - Event fired when a checkpoint is activated
+- `PlayerRespawnEvent` - Event fired when respawn is requested/applied
 
 ### Shape Component Classes
 
@@ -510,6 +554,25 @@ Just Game Engine
 - `AudioMixer` - Volume and mute control interface
 - `AudioChannel` - Audio channel enum (master, music, sfx, voice, ambient)
 - `AudioState` - Playback state enum (stopped, playing, paused)
+
+### Services & Economy Classes
+
+- `AchievementManager` - Achievement tracking and provider orchestration
+- `AuthManager` - Authentication lifecycle and provider bridge
+- `LeaderboardManager` - Leaderboard score submission and provider bridge
+- `CurrencyManager` - Currency balances and economy event helpers
+- `InventoryManager` - Inventory state and item quantity management
+
+### Ads Classes
+
+- `AdsManager` - Ads facade for provider registration, consent, and ad lifecycles
+
+### Subtitle Classes
+
+- `SubtitleController` - Controls subtitle playback over time
+- `SubtitleTrack` - Ordered subtitle cue collection
+- `SubtitleCue` - Single subtitle cue with start/end timing and text
+- `SubtitleOverlay` - Flutter widget for on-screen subtitle display
 
 ### Post-Processing Classes
 

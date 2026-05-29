@@ -14,8 +14,7 @@ lib/src/core/
 ├── time_manager.dart      # Time tracking and time scale management
 ├── system_manager.dart    # System registry and coordination
 ├── lifecycle.dart         # Lifecycle interfaces and mixins
-├── compute_helper.dart    # Background isolate helpers
-└── README.md             # Comprehensive documentation
+└── compute_helper.dart    # Background isolate helpers
 ```
 
 ## 🎯 Key Features Implemented
@@ -123,7 +122,7 @@ lib/src/core/
 
 The core system properly integrates with all subsystems:
 - ✅ Rendering Engine (post-process pass stack, Quadtree culling, SpriteBatch)
-- ✅ Physics Engine (Vec2-based, incremental SpatialGrid, ray casting)
+- ✅ Physics Engine (Vector2-based, incremental SpatialGrid, ray casting)
 - ✅ Input Management (keyboard, mouse, touch, controller, virtual joystick)
 - ✅ Audio Engine (via `just_audio_engine`; graceful degradation in headless/test env)
 - ✅ Scene Editor
@@ -132,7 +131,7 @@ The core system properly integrates with all subsystems:
 - ✅ Cache Manager (memory fallback when plugin unavailable)
 - ✅ Camera System
 - ✅ ECS World (CommandBuffer, EventBus, EntityPrefab, generational IDs, Zobrist query keys)
-- ✅ Math Module (Vec2, Quadtree)
+- ✅ Math Module (Vector2/Vector3 via just_dart, Quadtree)
 - ✅ Memory Management (ObjectPool, CacheManager)
 - ✅ Post-Processing (full-screen FragmentShader passes + per-entity `ShaderComponent`)
 - ✅ Parallax Backgrounds (multi-layer scrolling, auto-scroll, `ParallaxComponent`)
@@ -154,7 +153,7 @@ All subsystems are:
 - **Files Created**: 7 core files + 130+ subsystem/ECS files
 - **Classes**: 5 core classes + 26+ components + 17+ systems
 - **Interfaces**: 5 interfaces + 1 mixin
-- **Tests**: 127+ passing, 3 skipped
+- **Tests**: Passing in current 1.6.0 branch validation
 - **CI**: GitHub Actions (`flutter analyze --fatal-infos` + `flutter test`)
 - **Documentation**: 500+ lines
 - **Examples**: 250+ lines
@@ -196,12 +195,12 @@ void main() async {
 }
 ```
 
-## ✨ What's Shipped (v1.5.0)
+## ✨ What's Shipped (v1.6.0)
 
 All core systems and subsystems are implemented:
 1. ✅ Core engine, game loop, and time management
 2. ✅ Rendering engine with SpriteBatch, Quadtree culling, and instrumented performance stats
-3. ✅ Physics engine with Vec2 hot-path, collision events, incremental SpatialGrid, and ray casting
+3. ✅ Physics engine with Vector2 hot-path, collision events, incremental SpatialGrid, and ray casting
 4. ✅ Entity-Component System with CommandBuffer, EventBus, EntityPrefab, and generational IDs
 5. ✅ Reactive ECS layer with signal-driven change tracking
 6. ✅ Scene graph and level editor
@@ -209,7 +208,7 @@ All core systems and subsystems are implemented:
 8. ✅ Animation system (subsystem + ECS `AnimationSystemECS`)
 9. ✅ Audio engine via `just_audio_engine` with graceful headless degradation
 10. ✅ Input system with virtual joystick and ECS `InputSystem` bridge
-11. ✅ Math module (Vec2, Quadtree)
+11. ✅ Math module (Vector2/Vector3, Quadtree)
 12. ✅ Memory management (ObjectPool, CacheManager with memory fallback)
 13. ✅ 26+ built-in ECS components and 17+ built-in systems
 14. ✅ Tiled map ECS integration (TileMapRenderSystem, TiledCollisionSystem)
@@ -221,6 +220,8 @@ All core systems and subsystems are implemented:
 20. ✅ Narrative / Dialogue system (Yarn Spinner 2.x, ECS bridge, ready-made UI widgets)
 21. ✅ SystemManager promoted to frame scheduler with per-task timing diagnostics
 22. ✅ GitHub Actions CI + phase-benchmarks in `performance_test.dart`
+23. ✅ Service layer additions: Achievements, Auth, Leaderboards, Currency, Inventory
+24. ✅ Developer UX additions: in-game terminal + subtitle subsystem + ads subsystem
 
 ## 🎓 Key Takeaways
 

@@ -284,9 +284,9 @@ Base class for all renderable objects.
 #### Properties
 
 ```dart
-Offset position                // World position
+Vector3 position               // World position (x, y, z)
 double rotation                // Rotation in radians
-double scale                   // Uniform scale
+Vector3 scale                  // Scale (x, y, z)
 double opacity                 // Opacity (0.0 to 1.0)
 int layer                      // Z-order layer
 bool visible                   // Visibility flag
@@ -310,7 +310,7 @@ CircleRenderable({
   Color? fillColor,
   Color? strokeColor,
   double strokeWidth = 1.0,
-  Offset position = Offset.zero,
+  Vector3? position,
   int layer = 0,
 })
 ```
@@ -327,7 +327,7 @@ RectangleRenderable({
   Color? fillColor,
   Color? strokeColor,
   double strokeWidth = 1.0,
-  Offset position = Offset.zero,
+  Vector3? position,
   double rotation = 0.0,
   int layer = 0,
 })
@@ -603,8 +603,8 @@ Animates object position.
 
 ```dart
 PositionTween({
-  required Offset start,
-  required Offset end,
+  required Vector3 start,
+  required Vector3 end,
   required Renderable target,
   required double duration,
   Easing easing = Easings.linear,
@@ -618,8 +618,8 @@ PositionTween({
 ```dart
 final anim = PositionTween(
   target: myObject,
-  start: Offset(-100, 0),
-  end: Offset(100, 0),
+  start: Vector3(-100, 0, 0),
+  end: Vector3(100, 0, 0),
   duration: 2.0,
   easing: Easings.easeInOutQuad,
   loop: true,
@@ -845,16 +845,16 @@ Emits and manages particles.
 #### Properties
 
 ```dart
-Offset position                // Emission position
+Vector3 position               // Emitter position (inherited from Renderable)
 double emissionRate            // Particles per second
 double particleLifetime        // How long particles live
 Color startColor               // Initial particle color
 Color endColor                 // Final particle color
 double startSize               // Initial size
 double endSize                 // Final size
-Offset velocity                // Base velocity
-Offset velocityVariation       // Random velocity range
-Offset gravity                 // Gravity acceleration
+double speed                   // Base speed magnitude
+double speedVariation          // Random speed range
+Offset? gravity                // Optional legacy gravity (prefer forces list)
 ParticleShape shape            // Particle shape
 int maxParticles               // Maximum particle count
 ```
@@ -873,14 +873,14 @@ void clear()                   // Remove all particles
 
 ```dart
 final emitter = ParticleEmitter(
-  position: Offset(100, 100),
+  position: Vector3(100, 100, 0),
   emissionRate: 50,
   particleLifetime: 2.0,
   startColor: Colors.orange,
   endColor: Colors.red.withOpacity(0),
   startSize: 10,
   endSize: 2,
-  velocity: Offset(0, -50),
+  speed: 50,
   gravity: Offset(0, 20),
 );
 
@@ -898,32 +898,32 @@ Built-in particle effect presets.
 ```dart
 // Explosion
 static ParticleEmitter explosion({
-  required Offset position,
+  required Vector3 position,
 })
 
 // Fire
 static ParticleEmitter fire({
-  required Offset position,
+  required Vector3 position,
 })
 
 // Smoke
 static ParticleEmitter smoke({
-  required Offset position,
+  required Vector3 position,
 })
 
 // Sparkle
 static ParticleEmitter sparkle({
-  required Offset position,
+  required Vector3 position,
 })
 
 // Rain
 static ParticleEmitter rain({
-  required Offset position,
+  required Vector3 position,
 })
 
 // Snow
 static ParticleEmitter snow({
-  required Offset position,
+  required Vector3 position,
 })
 ```
 
@@ -931,11 +931,11 @@ static ParticleEmitter snow({
 
 ```dart
 final explosion = ParticleEffects.explosion(
-  position: Offset.zero,
+  position: Vector3.zero(),
 );
 
 final fire = ParticleEffects.fire(
-  position: Offset(100, 200),
+  position: Vector3(100, 200, 0),
 )..emissionRate = 30;  // Customize
 ```
 
@@ -950,7 +950,7 @@ Manages physics simulation and collision detection.
 #### Properties
 
 ```dart
-Offset gravity                 // Global gravity
+Vector2 gravity                // Global gravity
 bool debugDraw                 // Enable debug rendering
 ```
 
@@ -963,8 +963,6 @@ void addBody(PhysicsBody body) // Add rigid body
 void removeBody(PhysicsBody body)  // Remove body
 void renderDebug(Canvas canvas, Size size)  // Debug visualization
 void clear()                   // Remove all bodies
-Future<void> cachePolygonShape(String id, List<Offset> vertices) // Cache heavy polygons
-Future<List<Offset>?> getCachedPolygonShape(String id) // Fetch cached polygon
 ```
 
 ---
@@ -976,9 +974,9 @@ Rigid body with collision.
 #### Properties
 
 ```dart
-Offset position                // Body position (also available as Vec2 via .pos)
-Offset velocity                // Current velocity (also available as Vec2 via .vel)
-Offset acceleration            // Current acceleration (also available as Vec2 via .acc)
+Vector2 position               // Mutable body position
+Vector2 velocity               // Mutable current velocity
+Vector2 acceleration           // Mutable current acceleration
 CollisionShape shape           // Collision shape (Circle, Rectangle, Polygon)
 double mass                    // Body mass
 double restitution             // Bounciness (0-1)
@@ -996,17 +994,17 @@ bool isActive                  // Active state
 #### Methods
 
 ```dart
-void applyForce(Offset force)  // Apply linear force
+void applyForce(Vector2 force)  // Apply linear force
 void applyTorque(double torque) // Apply angular force
-void applyImpulse(Offset impulse) // Apply instant velocity change
+void applyImpulse(Vector2 impulse) // Apply instant velocity change
 ```
 
 #### Example
 
 ```dart
 final body = PhysicsBody(
-  position: Offset(100, 0),
-  velocity: Offset(50, 0),
+  position: Vector2(100, 0),
+  velocity: Vector2(50, 0),
   shape: CircleShape(30),
   mass: 1.0,
   restitution: 0.8,
@@ -1515,7 +1513,7 @@ Container for components representing a game object.
 final entity = world.createEntity(name: 'Enemy');
 
 // Add components
-entity.addComponent(TransformComponent(position: const Offset(100, 100)));
+entity.addComponent(TransformComponent(position: Vector3(100, 100, 0)));
 entity.addComponent(HealthComponent(maxHealth: 50));
 
 // Check and get components
@@ -1537,20 +1535,20 @@ Base class for all components (pure data, no logic).
 **TransformComponent**
 ```dart
 TransformComponent({
-  Offset position = Offset.zero,
+  Vector3 position = Vector3.zero(),
   double rotation = 0.0,
-  double scale = 1.0,
+  Vector3 scale = Vector3(1.0, 1.0, 1.0),
 })
 
 // Methods
-void translate(Offset delta)
+void translate(Vector3 delta)
 void rotate(double delta)
 ```
 
 **VelocityComponent**
 ```dart
 VelocityComponent({
-  Offset velocity = Offset.zero,
+  Vector3? velocity,
   double? maxSpeed,
 })
 
@@ -1865,7 +1863,7 @@ Base class for systems that process entities with specific components.
 - Requires: `TransformComponent`, `VelocityComponent`, `PhysicsBodyComponent`
 - Handles gravity, drag, collision detection and resolution
 - Fires `CollisionEvent` via `world.events`
-- Properties: `Offset gravity`, `bool enableCollisions`
+- Properties: `Vector3 gravity`, `bool enableCollisions`
 
 **PhysicsBridgeSystem** (priority 89)
 - Requires: `TransformComponent`, `VelocityComponent`, `PhysicsBodyRefComponent`

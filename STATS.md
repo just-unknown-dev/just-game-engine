@@ -1,6 +1,6 @@
 # Engine Diagnostics & Stats Reference
 
-This document describes every stats/diagnostics API exposed by `just_game_engine`. All stats are available at runtime with no external tooling required. They are safe to call every frame (read-only, no allocation beyond the returned map).
+This document describes every stats/diagnostics API exposed by `just_game_engine`. All stats are available at runtime with no external tooling required. They are safe to call every frame (read-only snapshot getters).
 
 ---
 
@@ -32,7 +32,7 @@ The top-level snapshot. Covers the most recent completed update cycle.
 | `lastUpdateMs` | `double` | Wall-clock milliseconds the last full update cycle took (all subsystems combined). |
 | `budgetRemainingMs` | `double` | `16.67 − lastUpdateMs`. Positive = headroom; negative = over budget. |
 | `isOverBudget` | `bool` | `true` when the update cycle exceeded the 60 Hz frame budget (16.67 ms). |
-| `systemTimesMs` | `Map<String, double>` | Per-task elapsed times (mirrors `schedulerStats.taskTimesMs`). Keys: `input`, `camera`, `parallax`, `physics`, `animation`, `audio`, `ecs`. |
+| `systemTimesMs` | `Map<String, double>` | Per-task elapsed times (mirrors `schedulerStats.taskTimesMs`). Default keys: `input`, `camera`, `parallax`, `physics`, `animation`, `particles`, `audio`, `ecs`. |
 | `scheduler` | `Map<String, dynamic>` | Nested `SystemManager.schedulerStats` (see §2). |
 
 **Example:**
@@ -198,7 +198,7 @@ final alpha = engine.gameLoop.interpolation;
 
 ## 9. Debug HUD
 
-When `GameWidget` is constructed with `showDebugHud: true`, an on-screen overlay renders a live summary pulled from the stats above. The HUD is positioned in the top-left corner and updates every frame.
+When `GameWidget` is constructed with `showFPS: true` and/or `showDebug: true`, on-screen overlays render live diagnostics pulled from the stats above. Overlays are positioned in the top-right area and update every frame.
 
 **Displayed values:**
 - FPS from `GameLoop.currentFPS`
@@ -209,7 +209,8 @@ When `GameWidget` is constructed with `showDebugHud: true`, an on-screen overlay
 ```dart
 GameWidget(
   engine: engine,
-  showDebugHud: true, // toggle in debug builds
+  showFPS: true,
+  showDebug: true, // toggle in debug builds
 )
 ```
 
