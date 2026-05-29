@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart'
     show KeyDownEvent, KeyRepeatEvent, LogicalKeyboardKey;
-import '../../../core/debugger/collider_debugger_system.dart';
+import '../../../core/collider_debugger_system.dart';
 import '../../../core/engine.dart';
 import '../../../ecs/systems/rendering/render_system.dart';
 import 'game_terminal.dart';

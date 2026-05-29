@@ -21,6 +21,9 @@ class ColliderDebuggerSystem extends System {
   final bool includeRaycastColliders;
 
   @override
+  int get priority => SystemPriorities.debug;
+
+  @override
   List<Type> get requiredComponents => [TransformComponent];
 
   @override

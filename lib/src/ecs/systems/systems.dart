@@ -55,3 +55,6 @@ export 'rendering/particle_system_ecs.dart';
 
 // Narrative / Dialogue system
 export '../../subsystems/narrative/ecs/dialogue_system.dart';
+
+// Debug systems
+export '../../core/collider_debugger_system.dart';
