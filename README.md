@@ -110,15 +110,62 @@ Just Game Engine is a complete game development framework with 20+ major subsyst
 
 - **Self-Rendering ECS Components**: Five components that extend `RenderableComponent` and draw themselves every frame - no additional system beyond `RenderSystem` required
 
-- **`CircleComponent`**: Circle centered on the entity's transform. Properties: `radius`, `color`, `filled`, `strokeWidth`
+- **Unified Shape Styling**: All shape components now use engine-specific `ShapePaintStyle` (color + optional `ShapeGradient` + blend mode) so color and gradient are combined consistently
 
-- **`RectangleComponent`**: Axis-aligned rectangle with optional rounded corners. Properties: `width`, `height`, `color`, `filled`, `strokeWidth`, `cornerRadius`. Convenience `size` getter
+- **`CircleComponent`**: Circle centered on the entity's transform. Properties: `radius`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`
 
-- **`PolygonComponent`**: Convex or concave polygon defined by local-space `vertices` (`List<Offset>`). Properties: `vertices`, `color`, `filled`, `strokeWidth`
+- **`RectangleComponent`**: Axis-aligned rectangle with optional rounded corners. Properties: `width`, `height`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`, `cornerRadius`. Convenience `size` getter
 
-- **`LineComponent`**: Straight line segment in local space. Properties: `start`, `end`, `color`, `strokeWidth`, `roundCaps`. Convenience `length` getter
+- **`PolygonComponent`**: Convex or concave polygon defined by local-space `vertices` (`List<Offset>`). Properties: `vertices`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`
 
-- **`CapsuleComponent`**: Rectangle with semicircular end caps (orientation auto-flips based on aspect ratio). Properties: `width`, `height`, `color`, `filled`, `strokeWidth`. Computed `capRadius` getter
+- **`LineComponent`**: Straight line segment in local space. Properties: `start`, `end`, `strokeStyle`, `strokeWidth`, `roundCaps`. Convenience `length` getter
+
+- **`CapsuleComponent`**: Rectangle with semicircular end caps (orientation auto-flips based on aspect ratio). Properties: `width`, `height`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`. Computed `capRadius` getter
+
+```dart
+// Unified shape style = color tint + optional engine gradient.
+const linearStyle = ShapePaintStyle(
+  color: Color(0xFF9ED8FF),
+  gradient: ShapeGradient.linear(
+    colors: [Color(0xFF10293D), Color(0xFF2B8AC3)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  ),
+);
+
+const radialStyle = ShapePaintStyle(
+  color: Color(0xFFFFC483),
+  gradient: ShapeGradient.radial(
+    colors: [Color(0xFFFFFFFF), Color(0xFF6A3C00)],
+    radius: 0.9,
+  ),
+);
+
+const sweepStyle = ShapePaintStyle(
+  color: Color(0xFFFF7BE1),
+  gradient: ShapeGradient.sweep(
+    colors: [Color(0xFF3A0842), Color(0xFFAF31C8), Color(0xFF3A0842)],
+  ),
+);
+
+world.createEntityWithComponents([
+  TransformComponent(position: Vector3.fromXY(200, 120)),
+  CircleComponent(radius: 42, fillStyle: radialStyle, strokeStyle: sweepStyle),
+]);
+world.createEntityWithComponents([
+  TransformComponent(position: Vector3.fromXY(370, 120)),
+  RectangleComponent(width: 120, height: 72, fillStyle: linearStyle),
+]);
+world.createEntityWithComponents([
+  TransformComponent(position: Vector3.fromXY(520, 120)),
+  LineComponent(
+    start: const Offset(-60, 0),
+    end: const Offset(60, 0),
+    strokeStyle: linearStyle,
+    strokeWidth: 10,
+  ),
+]);
+```
 
 ### Input Management
 - **Keyboard Input**: Key press, hold, and release detection with axis support
@@ -517,11 +564,13 @@ Just Game Engine
 
 ### Shape Component Classes
 
-- `CircleComponent` — Circle centered on the entity's transform; extends `RenderableComponent`. Properties: `radius`, `color`, `filled`, `strokeWidth`
-- `RectangleComponent` — Axis-aligned rectangle with optional rounded corners; extends `RenderableComponent`. Properties: `width`, `height`, `color`, `filled`, `strokeWidth`, `cornerRadius`. `size` getter returns a `Size`
-- `PolygonComponent` — Convex or concave polygon from local-space `vertices`; extends `RenderableComponent`. Properties: `vertices`, `color`, `filled`, `strokeWidth`
-- `LineComponent` — Straight line segment in local space; extends `RenderableComponent`. Properties: `start`, `end`, `color`, `strokeWidth`, `roundCaps`. `length` getter for segment distance
-- `CapsuleComponent` — Rectangle with semicircular end caps (orientation flips by aspect ratio); extends `RenderableComponent`. Properties: `width`, `height`, `color`, `filled`, `strokeWidth`. `capRadius` getter (half the shorter side)
+- `ShapePaintStyle` — Unified shape paint config that combines `color` tint and optional engine-specific `ShapeGradient` with a `blendMode`
+- `ShapeGradient` — Engine-specific gradient descriptor with `ShapeGradient.linear`, `ShapeGradient.radial`, and `ShapeGradient.sweep`
+- `CircleComponent` — Circle centered on the entity's transform; extends `RenderableComponent`. Properties: `radius`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`
+- `RectangleComponent` — Axis-aligned rectangle with optional rounded corners; extends `RenderableComponent`. Properties: `width`, `height`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`, `cornerRadius`. `size` getter returns a `Size`
+- `PolygonComponent` — Convex or concave polygon from local-space `vertices`; extends `RenderableComponent`. Properties: `vertices`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`
+- `LineComponent` — Straight line segment in local space; extends `RenderableComponent`. Properties: `start`, `end`, `strokeStyle`, `strokeWidth`, `roundCaps`. `length` getter for segment distance
+- `CapsuleComponent` — Rectangle with semicircular end caps (orientation flips by aspect ratio); extends `RenderableComponent`. Properties: `width`, `height`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`. `capRadius` getter (half the shorter side)
 
 ### Input Classes
 

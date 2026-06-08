@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../rendering/renderable_component.dart';
 import '../../../subsystems/rendering/rendering_engine.dart';
+import 'shape_paint_style.dart';
 
 /// Line shape component.
 ///
@@ -20,8 +21,8 @@ class LineComponent extends RenderableComponent {
   /// End point of the line in local space.
   Offset end;
 
-  /// Stroke colour.
-  Color color;
+  /// Stroke style, combining color tint with optional gradient.
+  ShapePaintStyle strokeStyle;
 
   /// Thickness of the line.
   double strokeWidth;
@@ -32,7 +33,7 @@ class LineComponent extends RenderableComponent {
   factory LineComponent({
     Offset start = Offset.zero,
     required Offset end,
-    Color color = Colors.white,
+    ShapePaintStyle strokeStyle = const ShapePaintStyle(color: Colors.white),
     double strokeWidth = 1.0,
     bool roundCaps = false,
   }) {
@@ -40,7 +41,7 @@ class LineComponent extends RenderableComponent {
     self = LineComponent._internal(
       start: start,
       end: end,
-      color: color,
+      strokeStyle: strokeStyle,
       strokeWidth: strokeWidth,
       roundCaps: roundCaps,
       renderable: CustomRenderable(
@@ -50,14 +51,17 @@ class LineComponent extends RenderableComponent {
           self.end + Offset(self.strokeWidth, self.strokeWidth),
         ),
         onRender: (canvas, _) {
-          canvas.drawLine(
+          final lineRect = Rect.fromPoints(
             self.start,
             self.end,
-            Paint()
-              ..color = self.color
-              ..strokeWidth = self.strokeWidth
-              ..strokeCap = self.roundCaps ? StrokeCap.round : StrokeCap.butt,
-          );
+          ).inflate(self.strokeWidth);
+          final linePaint = Paint();
+          self.strokeStyle.applyTo(linePaint, lineRect);
+          linePaint
+            ..strokeWidth = self.strokeWidth
+            ..strokeCap = self.roundCaps ? StrokeCap.round : StrokeCap.butt;
+
+          canvas.drawLine(self.start, self.end, linePaint);
         },
       ),
     );
@@ -67,7 +71,7 @@ class LineComponent extends RenderableComponent {
   LineComponent._internal({
     required this.start,
     required this.end,
-    required this.color,
+    required this.strokeStyle,
     required this.strokeWidth,
     required this.roundCaps,
     required super.renderable,
@@ -81,5 +85,6 @@ class LineComponent extends RenderableComponent {
 
   @override
   String toString() =>
-      'Line(start=$start, end=$end, color=$color, stroke=$strokeWidth)';
+      'Line(start=$start, end=$end, strokeStyle=$strokeStyle, '
+      'stroke=$strokeWidth)';
 }

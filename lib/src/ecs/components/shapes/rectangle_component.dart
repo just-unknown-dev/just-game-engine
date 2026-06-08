@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../rendering/renderable_component.dart';
 import '../../../subsystems/rendering/rendering_engine.dart';
+import 'shape_paint_style.dart';
 
 /// Rectangle shape component.
 ///
@@ -19,8 +20,11 @@ class RectangleComponent extends RenderableComponent {
   /// Height of the rectangle in world units.
   double height;
 
-  /// Fill colour. Used when [filled] is `true`.
-  Color color;
+  /// Fill style, combining color tint with optional gradient.
+  ShapePaintStyle fillStyle;
+
+  /// Stroke style, combining color tint with optional gradient.
+  ShapePaintStyle strokeStyle;
 
   /// Whether the rectangle is filled (`true`) or drawn as an outline (`false`).
   bool filled;
@@ -34,7 +38,10 @@ class RectangleComponent extends RenderableComponent {
   factory RectangleComponent({
     required double width,
     required double height,
-    Color color = Colors.white,
+    ShapePaintStyle fillStyle = const ShapePaintStyle(color: Colors.white),
+    ShapePaintStyle strokeStyle = const ShapePaintStyle(
+      color: Color(0x73FFFFFF),
+    ),
     bool filled = true,
     double strokeWidth = 1.0,
     double cornerRadius = 0.0,
@@ -43,7 +50,8 @@ class RectangleComponent extends RenderableComponent {
     self = RectangleComponent._internal(
       width: width,
       height: height,
-      color: color,
+      fillStyle: fillStyle,
+      strokeStyle: strokeStyle,
       filled: filled,
       strokeWidth: strokeWidth,
       cornerRadius: cornerRadius,
@@ -63,18 +71,18 @@ class RectangleComponent extends RenderableComponent {
             ),
             Radius.circular(self.cornerRadius),
           );
+          final shapeRect = rrect.outerRect;
           if (self.filled) {
-            canvas.drawRRect(rrect, Paint()..color = self.color);
+            final fillPaint = Paint();
+            self.fillStyle.applyTo(fillPaint, shapeRect);
+            canvas.drawRRect(rrect, fillPaint);
           }
-          canvas.drawRRect(
-            rrect,
-            Paint()
-              ..color = self.filled
-                  ? Colors.white.withValues(alpha: 0.45)
-                  : self.color
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = self.strokeWidth,
-          );
+
+          final strokePaint = Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = self.strokeWidth;
+          self.strokeStyle.applyTo(strokePaint, shapeRect);
+          canvas.drawRRect(rrect, strokePaint);
         },
       ),
     );
@@ -84,7 +92,8 @@ class RectangleComponent extends RenderableComponent {
   RectangleComponent._internal({
     required this.width,
     required this.height,
-    required this.color,
+    required this.fillStyle,
+    required this.strokeStyle,
     required this.filled,
     required this.strokeWidth,
     required this.cornerRadius,
@@ -99,6 +108,7 @@ class RectangleComponent extends RenderableComponent {
 
   @override
   String toString() =>
-      'Rectangle(${width}x$height, color=$color, filled=$filled, '
+      'Rectangle(${width}x$height, fillStyle=$fillStyle, '
+      'strokeStyle=$strokeStyle, filled=$filled, '
       'stroke=$strokeWidth, radius=$cornerRadius)';
 }

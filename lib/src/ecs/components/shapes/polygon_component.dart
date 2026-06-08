@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../rendering/renderable_component.dart';
 import '../../../subsystems/rendering/rendering_engine.dart';
+import 'shape_paint_style.dart';
 
 /// Polygon shape component.
 ///
@@ -19,8 +20,11 @@ class PolygonComponent extends RenderableComponent {
   /// the path back to the first vertex.
   List<Offset> vertices;
 
-  /// Fill colour. Used when [filled] is `true`.
-  Color color;
+  /// Fill style, combining color tint with optional gradient.
+  ShapePaintStyle fillStyle;
+
+  /// Stroke style, combining color tint with optional gradient.
+  ShapePaintStyle strokeStyle;
 
   /// Whether the polygon is filled (`true`) or drawn as an outline (`false`).
   bool filled;
@@ -30,14 +34,18 @@ class PolygonComponent extends RenderableComponent {
 
   factory PolygonComponent({
     required List<Offset> vertices,
-    Color color = Colors.white,
+    ShapePaintStyle fillStyle = const ShapePaintStyle(color: Colors.white),
+    ShapePaintStyle strokeStyle = const ShapePaintStyle(
+      color: Color(0x73FFFFFF),
+    ),
     bool filled = true,
     double strokeWidth = 1.0,
   }) {
     late PolygonComponent self;
     self = PolygonComponent._internal(
       vertices: vertices,
-      color: color,
+      fillStyle: fillStyle,
+      strokeStyle: strokeStyle,
       filled: filled,
       strokeWidth: strokeWidth,
       renderable: CustomRenderable(
@@ -67,18 +75,29 @@ class PolygonComponent extends RenderableComponent {
             path.lineTo(v.dx, v.dy);
           }
           path.close();
-          if (self.filled) {
-            canvas.drawPath(path, Paint()..color = self.color);
+
+          Rect shapeRect;
+          double minX = self.vertices.first.dx, maxX = minX;
+          double minY = self.vertices.first.dy, maxY = minY;
+          for (final v in self.vertices) {
+            if (v.dx < minX) minX = v.dx;
+            if (v.dx > maxX) maxX = v.dx;
+            if (v.dy < minY) minY = v.dy;
+            if (v.dy > maxY) maxY = v.dy;
           }
-          canvas.drawPath(
-            path,
-            Paint()
-              ..color = self.filled
-                  ? Colors.white.withValues(alpha: 0.45)
-                  : self.color
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = self.strokeWidth,
-          );
+          shapeRect = Rect.fromLTRB(minX, minY, maxX, maxY);
+
+          if (self.filled) {
+            final fillPaint = Paint();
+            self.fillStyle.applyTo(fillPaint, shapeRect);
+            canvas.drawPath(path, fillPaint);
+          }
+
+          final strokePaint = Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = self.strokeWidth;
+          self.strokeStyle.applyTo(strokePaint, shapeRect);
+          canvas.drawPath(path, strokePaint);
         },
       ),
     );
@@ -87,7 +106,8 @@ class PolygonComponent extends RenderableComponent {
 
   PolygonComponent._internal({
     required this.vertices,
-    required this.color,
+    required this.fillStyle,
+    required this.strokeStyle,
     required this.filled,
     required this.strokeWidth,
     required super.renderable,
@@ -98,6 +118,7 @@ class PolygonComponent extends RenderableComponent {
 
   @override
   String toString() =>
-      'Polygon(${vertices.length} vertices, color=$color, filled=$filled, '
+      'Polygon(${vertices.length} vertices, fillStyle=$fillStyle, '
+      'strokeStyle=$strokeStyle, filled=$filled, '
       'stroke=$strokeWidth)';
 }
