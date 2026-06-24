@@ -50,6 +50,11 @@ class Entity {
     _world?._removeComponentFromEntity<T>(this);
   }
 
+  /// Remove a component by runtime [type].
+  void removeComponentByType(Type type) {
+    _world?._removeComponentFromEntity2(this, type);
+  }
+
   /// Get a component of the specified type
   T? getComponent<T extends Component>() {
     return _archetype?.getComponent<T>(_archetypeRow);
@@ -58,6 +63,11 @@ class Entity {
   /// Check if entity has a component of the specified type
   bool hasComponent<T extends Component>() {
     return _archetype?.types.contains(T) ?? false;
+  }
+
+  /// Check if entity has a component by runtime [type].
+  bool hasComponentByType(Type type) {
+    return _archetype?.types.contains(type) ?? false;
   }
 
   /// Get all components
