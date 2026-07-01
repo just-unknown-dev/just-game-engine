@@ -10,6 +10,7 @@ export 'core/velocity_component.dart';
 // Rendering components
 export 'rendering/renderable_component.dart';
 export 'rendering/sprite_component.dart';
+export 'rendering/animated_sprite_component.dart';
 export 'rendering/parallax_component.dart';
 export 'rendering/shader_component.dart';
 
@@ -31,6 +32,8 @@ export 'input/joystick_input_component.dart';
 
 // Animation components
 export 'animation/animation_state_component.dart';
+export 'animation/animation_event.dart';
+export 'animation/animation_controller_component.dart';
 
 // Audio components
 export 'audio/audio_components.dart';
