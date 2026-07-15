@@ -30,6 +30,12 @@ class CameraFollowSystem extends System {
 
   CameraFollowSystem({required this.cameraSystem});
 
+  /// Optional gate — while this returns `true` (e.g. the level editor is
+  /// open and authoring, not the player actually playing), a camera entity
+  /// in the world is ignored and this system drives [cameraSystem]'s
+  /// mainCamera directly instead, exactly like when no camera entity exists.
+  bool Function()? isAuthoringActive;
+
   @override
   int get priority => SystemPriorities.camera;
 
@@ -43,6 +49,14 @@ class CameraFollowSystem extends System {
   LookaheadBehavior? _lookahead;
   SpringFollowBehavior? _springFollow;
   MultiTargetBehavior? _multiTarget;
+
+  // Used only when a [CameraComponent] entity is present in the world:
+  // behaviors run against this shadow camera instead of [cameraSystem]'s
+  // mainCamera, and the result is written onto the camera entity's
+  // [TransformComponent]/[CameraComponent.zoom] so
+  // [CameraTransformSyncSystem] can mirror it onto the real camera.
+  Camera? _shadowCamera;
+  bool? _lastModeUsedCameraEntity;
 
   @override
   void update(double deltaTime) {
@@ -80,6 +94,7 @@ class CameraFollowSystem extends System {
 
     if (byPriority.isEmpty) {
       _clearBehaviors();
+      _lastModeUsedCameraEntity = null;
       return;
     }
 
@@ -87,14 +102,34 @@ class CameraFollowSystem extends System {
     final lowestPriority = byPriority.keys.reduce((a, b) => a < b ? a : b);
     final targets = byPriority[lowestPriority]!;
 
+    final authoring = isAuthoringActive?.call() ?? false;
+    final cameraEntities = authoring
+        ? const <Entity>[]
+        : world.query([TransformComponent, CameraComponent]);
+    final camEntity = cameraEntities.isEmpty ? null : cameraEntities.first;
+
+    // If the presence of a camera entity changed since last frame, drop any
+    // cached behaviors so they get recreated cleanly for the new mode
+    // instead of being driven against the wrong output.
+    final usingCameraEntity = camEntity != null;
+    if (_lastModeUsedCameraEntity != null &&
+        _lastModeUsedCameraEntity != usingCameraEntity) {
+      _clearBehaviors();
+    }
+    _lastModeUsedCameraEntity = usingCameraEntity;
+
     if (targets.length == 1) {
-      _applySingleTarget(targets.first);
+      _applySingleTarget(targets.first, camEntity, deltaTime);
     } else {
-      _applyMultiTarget(targets);
+      _applyMultiTarget(targets, camEntity, deltaTime);
     }
   }
 
-  void _applySingleTarget(_FollowEntry entry) {
+  void _applySingleTarget(
+    _FollowEntry entry,
+    Entity? camEntity,
+    double deltaTime,
+  ) {
     // Remove multi-target if it was active.
     if (_multiTarget != null) {
       cameraSystem.removeBehavior(_multiTarget!);
@@ -102,6 +137,7 @@ class CameraFollowSystem extends System {
     }
 
     final hasVelocity = entry.velocity != Offset.zero;
+    final CameraBehavior active;
 
     if (hasVelocity) {
       // Use lookahead behavior.
@@ -115,10 +151,11 @@ class CameraFollowSystem extends System {
           targetVelocity: entry.velocity,
           lookaheadDistance: entry.lookaheadDistance,
         );
-        cameraSystem.addBehavior(_lookahead!);
+        if (camEntity == null) cameraSystem.addBehavior(_lookahead!);
       } else {
         _lookahead!.updateTarget(entry.position, entry.velocity);
       }
+      active = _lookahead!;
     } else {
       // Use spring follow (no velocity data available).
       if (_lookahead != null) {
@@ -131,14 +168,23 @@ class CameraFollowSystem extends System {
           deadZoneWidth: entry.deadZoneWidth,
           deadZoneHeight: entry.deadZoneHeight,
         );
-        cameraSystem.addBehavior(_springFollow!);
+        if (camEntity == null) cameraSystem.addBehavior(_springFollow!);
       } else {
         _springFollow!.updateTarget(entry.position);
       }
+      active = _springFollow!;
+    }
+
+    if (camEntity != null) {
+      _driveCameraEntity(camEntity, active, deltaTime);
     }
   }
 
-  void _applyMultiTarget(List<_FollowEntry> entries) {
+  void _applyMultiTarget(
+    List<_FollowEntry> entries,
+    Entity? camEntity,
+    double deltaTime,
+  ) {
     // Remove single-target behaviors if they were active.
     if (_lookahead != null) {
       cameraSystem.removeBehavior(_lookahead!);
@@ -153,13 +199,49 @@ class CameraFollowSystem extends System {
 
     if (_multiTarget == null) {
       _multiTarget = MultiTargetBehavior(targets: positions);
-      cameraSystem.addBehavior(_multiTarget!);
+      if (camEntity == null) cameraSystem.addBehavior(_multiTarget!);
     } else {
       // Update live target list in-place.
       _multiTarget!.targets
         ..clear()
         ..addAll(positions);
     }
+
+    if (camEntity != null) {
+      _driveCameraEntity(camEntity, _multiTarget!, deltaTime);
+    }
+  }
+
+  /// Runs [behavior] against a private shadow camera (never registered with
+  /// [cameraSystem]) and writes the result onto [camEntity]'s transform/zoom.
+  void _driveCameraEntity(
+    Entity camEntity,
+    CameraBehavior behavior,
+    double deltaTime,
+  ) {
+    final transform = camEntity.getComponent<TransformComponent>();
+    final camComponent = camEntity.getComponent<CameraComponent>();
+    if (transform == null || camComponent == null) return;
+
+    final shadow = _shadowCamera ??= Camera(
+      position: transform.position.toOffset(),
+      zoom: camComponent.zoom,
+    );
+    // Mirror live camera settings so spring feel / zoom limits / viewport
+    // match what mainCamera would otherwise use.
+    shadow.viewportSize = cameraSystem.mainCamera.viewportSize;
+    shadow.minZoom = cameraSystem.mainCamera.minZoom;
+    shadow.maxZoom = cameraSystem.mainCamera.maxZoom;
+    shadow.useSpring = cameraSystem.mainCamera.useSpring;
+    shadow.springStiffness = cameraSystem.mainCamera.springStiffness;
+    shadow.springDamping = cameraSystem.mainCamera.springDamping;
+    shadow.worldBounds = camComponent.bounds;
+
+    behavior.update(shadow, deltaTime);
+    shadow.update(deltaTime);
+
+    transform.setPositionXY(shadow.position.dx, shadow.position.dy);
+    camComponent.zoom = shadow.zoom;
   }
 
   void _clearBehaviors() {

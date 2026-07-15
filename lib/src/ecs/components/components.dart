@@ -21,6 +21,7 @@ export 'physics/physics_body_ref_component.dart';
 // Gameplay components
 export 'gameplay/health_component.dart';
 export 'gameplay/checkpoint_component.dart';
+export 'gameplay/spawn_component.dart';
 
 // Hierarchy components
 export 'hierarchy/parent_component.dart';
@@ -49,6 +50,7 @@ export 'others/lifetime_component.dart';
 export 'tiled/tiled_components.dart';
 
 // Camera components
+export 'camera/camera_component.dart';
 export 'camera/camera_follow_component.dart';
 
 // Deterministic Effects components
