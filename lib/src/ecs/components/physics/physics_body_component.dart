@@ -48,6 +48,10 @@ class PhysicsBodyComponent extends Component {
   /// Collision group index (positive: always collide; negative: never collide; 0: use mask).
   int groupIndex;
 
+  /// Whether [PhysicsSystem.render] should draw this body's collider outline.
+  /// Only ever drawn in debug builds regardless of this flag.
+  bool showDebugOutline;
+
   /// Create a physics body component
   PhysicsBodyComponent({
     required this.shape,
@@ -62,6 +66,7 @@ class PhysicsBodyComponent extends Component {
     this.categoryBits = 0x0001,
     this.maskBits = 0xFFFF,
     this.groupIndex = 0,
+    this.showDebugOutline = true,
   });
 
   /// Check if can collide with layer

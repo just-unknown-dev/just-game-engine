@@ -2,6 +2,7 @@ library;
 
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 
 import '../../ecs.dart';
@@ -301,6 +302,10 @@ class PhysicsSystem extends System {
 
   @override
   void render(Canvas canvas, Size size) {
+    // Never draw collider outlines in release builds, regardless of the
+    // per-entity showDebugOutline flag.
+    if (!kDebugMode) return;
+
     // Apply the same camera transform that RenderSystem uses so collider
     // outlines are drawn in world space, not screen space.
     if (camera != null) {
@@ -313,6 +318,7 @@ class PhysicsSystem extends System {
     forEach((entity) {
       final transform = entity.getComponent<TransformComponent>()!;
       final body = entity.getComponent<PhysicsBodyComponent>()!;
+      if (!body.showDebugOutline) return;
 
       final paint = body.isStatic ? _debugStaticPaint : _debugDynamicPaint;
 
