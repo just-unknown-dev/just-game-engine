@@ -79,6 +79,7 @@ export 'src/ecs/ecs.dart';
 export 'src/ecs/entities/entities.dart';
 export 'src/ecs/components/components.dart';
 export 'src/ecs/systems/systems.dart';
+export 'src/ecs/spatial/spatial.dart';
 
 // Math - Mutable vector types and spatial utilities shared from just_dart
 export 'package:just_dart/just_dart.dart';

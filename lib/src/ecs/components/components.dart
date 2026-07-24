@@ -53,6 +53,9 @@ export 'tiled/tiled_components.dart';
 export 'camera/camera_component.dart';
 export 'camera/camera_follow_component.dart';
 
+// Culling components
+export 'culling/cull_state_component.dart';
+
 // Deterministic Effects components
 export 'effects/effect_component.dart';
 

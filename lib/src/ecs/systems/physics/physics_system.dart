@@ -63,6 +63,13 @@ class PhysicsSystem extends System {
       final body = entity.getComponent<PhysicsBodyComponent>()!;
       if (body.isStatic) return;
 
+      // Opt-in view culling: entities without a CullStateComponent are
+      // unaffected; those with one skip force application while inactive so
+      // they don't silently accumulate velocity while "asleep".
+      if (entity.getComponent<CullStateComponent>()?.isActive == false) {
+        return;
+      }
+
       final velocity = entity.getComponent<VelocityComponent>();
       if (velocity == null) return;
 
@@ -84,7 +91,15 @@ class PhysicsSystem extends System {
     _gridCells.clear();
 
     _entityBuffer.clear();
-    _entityBuffer.addAll(entities);
+    for (final entity in entities) {
+      // Opt-in view culling: inactive entities are excluded from the
+      // broad-phase entirely — they can't collide with anything while
+      // "asleep" outside the active radius.
+      if (entity.getComponent<CullStateComponent>()?.isActive == false) {
+        continue;
+      }
+      _entityBuffer.add(entity);
+    }
     for (final entity in _entityBuffer) {
       final transform = entity.getComponent<TransformComponent>()!;
       final body = entity.getComponent<PhysicsBodyComponent>()!;

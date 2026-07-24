@@ -2,6 +2,12 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Opt-in view culling** — `CullStateComponent` + `ViewCullingSystem` track which entities are near the camera using two separate radii (a tight render radius and a larger active/simulation radius), backed by a new generic `EntitySpatialGrid` broad-phase index (incrementally synced, modeled on the existing physics `SpatialGrid`). `ViewCullingSystem` mirrors culled entities onto `RenderableComponent.renderable.visible` automatically, and the built-in `MovementSystem`/`PhysicsSystem` skip simulating any entity whose `CullStateComponent.isActive` is `false` — opt-in per entity, zero behavior change for anything that doesn't add the component.
+
 ## [1.6.0] - 2026-05-30
 
 ### Added

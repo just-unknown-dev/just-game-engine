@@ -48,6 +48,9 @@ export 'tiled/tiled_collision_system.dart';
 export 'camera/camera_follow_system.dart';
 export 'camera/camera_transform_sync_system.dart';
 
+// Culling systems
+export 'culling/view_culling_system.dart';
+
 // Deterministic Effects system
 export 'effects/effect_system_ecs.dart';
 
