@@ -33,8 +33,14 @@ class Sprite extends Renderable implements BatchableSprite {
   /// Cached paint object — reused every frame, mutated in-place.
   final Paint _paint = Paint()..filterQuality = FilterQuality.medium;
 
+  // The batched draw path (Canvas.drawAtlas via RenderSystem) only carries a
+  // uniform rotation/scale/translation per sprite — it has no way to express
+  // flipX/flipY. Reporting no batchImage while flipped routes this sprite
+  // through the individual render() path instead, which does support the
+  // flip via canvas.scale(-1, 1). Unflipped sprites keep the batching
+  // optimisation.
   @override
-  ui.Image? get batchImage => image;
+  ui.Image? get batchImage => (flipX || flipY) ? null : image;
 
   @override
   Rect? get batchSourceRect => sourceRect;

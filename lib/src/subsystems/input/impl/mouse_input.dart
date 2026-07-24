@@ -74,15 +74,26 @@ class MouseInput {
   }
 
   /// Handle pointer event from Flutter
+  ///
+  /// [PointerEvent.buttons] always reports the *complete current* combined
+  /// button bitmask (0 once every button is released), not just the button
+  /// that changed. So on both down and up we replace the tracked state with
+  /// that snapshot rather than add/remove — removing `event.buttons` (typically
+  /// 0 on release) from a set that stores the down-time bitmask (e.g. 1) never
+  /// actually removes it, leaving the button permanently stuck "down" after
+  /// the very first click of the session.
   void handlePointerEvent(PointerEvent event) {
     if (event is PointerHoverEvent || event is PointerMoveEvent) {
       _position = event.localPosition;
     } else if (event is PointerDownEvent) {
       _position = event.localPosition;
-      _buttonsDown.add(event.buttons);
+      _buttonsDown
+        ..clear()
+        ..add(event.buttons);
     } else if (event is PointerUpEvent) {
       _position = event.localPosition;
-      _buttonsDown.remove(event.buttons);
+      _buttonsDown.clear();
+      if (event.buttons != 0) _buttonsDown.add(event.buttons);
     }
     // Note: Scroll events are handled separately via onPointerSignal in GameWidget
     // The scroll delta can be accessed via dynamic casting if needed
