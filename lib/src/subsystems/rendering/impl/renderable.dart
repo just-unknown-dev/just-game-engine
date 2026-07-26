@@ -35,6 +35,21 @@ abstract class Renderable {
   /// Tint color
   Color? tint;
 
+  /// Whether [getBounds] already returns world-space bounds (i.e. already
+  /// centered on/incorporating [position]) rather than local bounds
+  /// relative to the entity's own origin.
+  ///
+  /// Defaults to `false`, matching [CustomRenderable]-based shapes
+  /// (`RectangleComponent`, `CircleComponent`, `LineComponent`,
+  /// `PolygonComponent`, `CapsuleComponent`) — their `getBoundsCallback`s
+  /// return bounds centered on `Offset.zero`, so callers needing world-space
+  /// bounds (e.g. `ViewCullingSystem`) must shift by the entity's
+  /// [TransformComponent] position themselves. [Sprite] overrides this to
+  /// `true`: its [getBounds] is already centered on its own [position]
+  /// (synced to world space every render pass by `RenderSystem`), so
+  /// shifting it again would double-count the position.
+  bool get boundsAreWorldSpace => false;
+
   /// Create a renderable object
   Renderable({
     Vector3? position,

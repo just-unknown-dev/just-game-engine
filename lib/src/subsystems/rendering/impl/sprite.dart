@@ -45,6 +45,12 @@ class Sprite extends Renderable implements BatchableSprite {
   @override
   Rect? get batchSourceRect => sourceRect;
 
+  // getBounds() below centers on this sprite's own `position` (kept in sync
+  // with world space every render pass), unlike CustomRenderable-based
+  // shapes' local, origin-centered bounds — see [Renderable.boundsAreWorldSpace].
+  @override
+  bool get boundsAreWorldSpace => true;
+
   /// Create a sprite
   Sprite({
     this.image,

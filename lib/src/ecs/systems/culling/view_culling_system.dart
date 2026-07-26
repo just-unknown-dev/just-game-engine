@@ -103,10 +103,17 @@ class ViewCullingSystem extends System {
 
   Rect _worldBoundsOf(Entity entity) {
     final position = entity.getComponent<TransformComponent>()!.position.toOffset();
-    final localBounds = entity.getComponent<RenderableComponent>()?.renderable.getBounds();
-    if (localBounds == null) {
+    final renderable = entity.getComponent<RenderableComponent>()?.renderable;
+    final bounds = renderable?.getBounds();
+    if (bounds == null) {
       return Rect.fromCenter(center: position, width: 1, height: 1);
     }
-    return localBounds.shift(position);
+    // Renderables like Sprite already center getBounds() on their own
+    // (world-synced) position — shifting those again by the transform
+    // position would double-count it. Only local/origin-centered bounds
+    // (CustomRenderable-based shapes) need the shift. See
+    // Renderable.boundsAreWorldSpace.
+    if (renderable!.boundsAreWorldSpace) return bounds;
+    return bounds.shift(position);
   }
 }
