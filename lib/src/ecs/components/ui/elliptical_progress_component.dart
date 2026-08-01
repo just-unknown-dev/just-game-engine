@@ -1,4 +1,4 @@
-/// UI circular progress component.
+/// UI elliptical progress component.
 library;
 
 import 'dart:math' as math;
@@ -7,12 +7,12 @@ import 'package:flutter/material.dart';
 
 import 'ui_component.dart';
 
-/// Circular UI progress bar component data.
-class CircularProgressComponent extends UIComponent {
+/// Elliptical UI progress bar component data.
+class EllipticalProgressComponent extends UIComponent {
   /// Progress value in range 0..1.
   double progress;
 
-  /// Stroke width of the circular progress track and arc.
+  /// Stroke width of the elliptical progress track and arc.
   double strokeWidth;
 
   /// Progress arc color.
@@ -27,9 +27,14 @@ class CircularProgressComponent extends UIComponent {
   /// Whether the arc grows clockwise.
   bool clockwise;
 
-  /// Create a circular progress UI component.
-  CircularProgressComponent({
+  /// Create a elliptical progress UI component.
+  ///
+  /// [radiusY] defaults to [radius] (a true circle). Pass a different value
+  /// to draw an ellipse instead — e.g. a flattened ring "projected on the
+  /// ground" under a top-down character.
+  EllipticalProgressComponent({
     required double radius,
+    double? radiusY,
     double initialProgress = 0,
     this.strokeWidth = 6,
     this.progressColor = const Color(0xFF80CBC4),
@@ -40,10 +45,14 @@ class CircularProgressComponent extends UIComponent {
     super.enabled = false,
     super.layer,
   }) : progress = initialProgress.clamp(0.0, 1.0),
-       super(size: Size(radius * 2, radius * 2));
+       super(size: Size(radius * 2, (radiusY ?? radius) * 2));
 
-  /// Radius derived from component size.
+  /// Horizontal radius derived from component size.
   double get radius => size.width / 2;
+
+  /// Vertical radius derived from component size. Equal to [radius] unless
+  /// this was constructed with a distinct `radiusY`.
+  double get radiusY => size.height / 2;
 
   /// Set progress with clamping.
   void setProgress(double value) {
@@ -52,5 +61,5 @@ class CircularProgressComponent extends UIComponent {
 
   @override
   String toString() =>
-      'UICircularProgress(${(progress * 100).toStringAsFixed(1)}%)';
+      'UIEllipticalProgress(${(progress * 100).toStringAsFixed(1)}%)';
 }

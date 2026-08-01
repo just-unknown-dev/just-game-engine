@@ -206,7 +206,7 @@ class RenderSystem extends System {
       if (entity.hasComponent<TextComponent>() ||
           entity.hasComponent<ButtonComponent>() ||
           entity.hasComponent<LinearProgressComponent>() ||
-          entity.hasComponent<CircularProgressComponent>()) {
+          entity.hasComponent<EllipticalProgressComponent>()) {
         _uiEntityBuffer.add(entity);
       }
     }
@@ -238,9 +238,10 @@ class RenderSystem extends System {
         _paintLinearProgress(canvas, linearProgress);
       }
 
-      final circularProgress = entity.getComponent<CircularProgressComponent>();
-      if (circularProgress != null && circularProgress.visible) {
-        _paintCircularProgress(canvas, circularProgress);
+      final ellipticalProgress = entity
+          .getComponent<EllipticalProgressComponent>();
+      if (ellipticalProgress != null && ellipticalProgress.visible) {
+        _paintEllipticalProgress(canvas, ellipticalProgress);
       }
 
       canvas.restore();
@@ -261,8 +262,8 @@ class RenderSystem extends System {
     if (entity.hasComponent<LinearProgressComponent>()) {
       return entity.getComponent<LinearProgressComponent>()!.layer;
     }
-    if (entity.hasComponent<CircularProgressComponent>()) {
-      return entity.getComponent<CircularProgressComponent>()!.layer;
+    if (entity.hasComponent<EllipticalProgressComponent>()) {
+      return entity.getComponent<EllipticalProgressComponent>()!.layer;
     }
     return 0;
   }
@@ -346,17 +347,24 @@ class RenderSystem extends System {
     }
   }
 
-  void _paintCircularProgress(
+  void _paintEllipticalProgress(
     Canvas canvas,
-    CircularProgressComponent progress,
+    EllipticalProgressComponent progress,
   ) {
-    final radius = progress.radius;
-    final arcRect = Rect.fromCircle(center: Offset.zero, radius: radius);
+    // Rect.fromCenter + drawOval rather than Rect.fromCircle + drawCircle:
+    // when radiusY == radius (the common case) an oval inscribed in a square
+    // rect is a circle, so this is a strict superset of the old behavior —
+    // it also renders correctly when radiusY differs (an ellipse).
+    final arcRect = Rect.fromCenter(
+      center: Offset.zero,
+      width: progress.size.width,
+      height: progress.size.height,
+    );
 
     _circleTrackPaint
       ..color = progress.trackColor
       ..strokeWidth = progress.strokeWidth;
-    canvas.drawCircle(Offset.zero, radius, _circleTrackPaint);
+    canvas.drawOval(arcRect, _circleTrackPaint);
 
     if (progress.progress > 0) {
       final sweep = math.pi * 2 * progress.progress;
