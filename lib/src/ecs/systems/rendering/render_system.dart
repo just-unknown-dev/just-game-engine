@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../ecs.dart';
 import '../../components/components.dart';
 import '../../../interfaces/interfaces.dart';
+import '../../../subsystems/rendering/impl/renderable.dart';
 import '../../../subsystems/rendering/impl/sprite_batch.dart';
 import '../system_priorities.dart';
 
@@ -40,6 +41,10 @@ class RenderSystem extends System {
 
   /// Reusable buffer for UI entity sorting — avoids per-frame list allocation.
   final List<Entity> _uiEntityBuffer = [];
+
+  /// Reusable buffer for the depth-sorted (`Renderable.ySort`) pass — avoids
+  /// per-frame list allocation. See the [ySort] handling in [render].
+  final List<Renderable> _ySortBuffer = [];
 
   /// Cached [SpriteBatchRenderer] instances keyed by atlas image identity.
   /// Re-created only when the atlas image changes (e.g. hot-reload).
@@ -124,6 +129,17 @@ class RenderSystem extends System {
 
       if (!renderComp.renderable.visible) continue;
 
+      // Depth-sorted entities (Renderable.ySort) skip both the batched and
+      // immediate paths below — they're collected here and drawn afterward,
+      // sorted by world-space Y, so e.g. a tree can draw in front of the
+      // player when it's visually "further down" the screen and behind it
+      // otherwise. Regular (non-ySort) entities are entirely unaffected —
+      // same batch-or-immediate logic as before.
+      if (renderComp.renderable.ySort) {
+        _ySortBuffer.add(renderComp.renderable);
+        continue;
+      }
+
       // ── Per-entity shader detection ────────────────────────────────────
       final shaderComp = entity.getComponent<ShaderComponent>();
       final hasEntityShader =
@@ -198,6 +214,20 @@ class RenderSystem extends System {
     // Flush all sprite batches.
     for (final batch in _spriteBatches.values) {
       batch.flush(canvas);
+    }
+
+    // Depth-sorted pass: draw every ySort-opted-in renderable individually,
+    // ordered by world Y, on top of everything batched/drawn above. Drawing
+    // individually (rather than via SpriteBatch) sacrifices atlas batching
+    // for this group, but it's the only way to interleave draw order across
+    // different atlases/renderable types — acceptable since this group is
+    // expected to be view-culled down to a small on-screen count.
+    if (_ySortBuffer.isNotEmpty) {
+      _ySortBuffer.sort((a, b) => a.position.y.compareTo(b.position.y));
+      for (final renderable in _ySortBuffer) {
+        renderable.render(canvas, size);
+      }
+      _ySortBuffer.clear();
     }
 
     _uiEntityBuffer.clear();

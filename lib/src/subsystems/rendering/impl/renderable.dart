@@ -26,6 +26,13 @@ abstract class Renderable {
   /// Z-order within the layer
   int zOrder;
 
+  /// When `true`, `RenderSystem` draws this renderable in a separate pass
+  /// sorted by world-space [position].y instead of by [zOrder] — so entities
+  /// visually "in front" (further down the screen) draw over ones behind
+  /// them, regardless of type. Opt-in per-renderable (default `false`) so
+  /// unrelated entities (UI, ground decals) keep their existing behavior.
+  bool ySort;
+
   /// Visibility flag
   bool visible;
 
@@ -57,6 +64,7 @@ abstract class Renderable {
     Vector3? scale,
     this.layer = 0,
     this.zOrder = 0,
+    this.ySort = false,
     this.visible = true,
     this.opacity = 1.0,
     this.tint,

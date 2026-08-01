@@ -63,6 +63,7 @@ class Sprite extends Renderable implements BatchableSprite {
     super.scale,
     super.layer,
     super.zOrder,
+    super.ySort,
     super.visible,
     super.opacity,
     super.tint,
