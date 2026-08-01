@@ -109,10 +109,15 @@ class GameTerminal extends ChangeNotifier {
   /// Feed a [LogicalKeyboardKey] key-down event to the terminal.
   ///
   /// Returns `true` if the key was consumed (caller should suppress it from
-  /// reaching normal gameplay input).
-  ///
-  /// Prefer [appendCharacter] for printable input so that Shift/CapsLock and
-  /// platform IMEs are handled correctly by Flutter's key system.
+  /// reaching normal gameplay input). Only handles non-printable control
+  /// keys (Enter, Backspace) — printable input must go through
+  /// [appendCharacter] instead, so that Shift/CapsLock and platform IMEs are
+  /// resolved correctly by Flutter's key system before reaching the
+  /// terminal. Callers (see `GameWidget`) should try this first and only
+  /// fall back to [appendCharacter] when this returns `false`; doing the
+  /// character mapping here too would pre-empt that fallback for every
+  /// printable key, since callers can't tell "not consumed" from "consumed
+  /// via a case-insensitive guess."
   bool handleKeyDown(LogicalKeyboardKey key) {
     if (key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.numpadEnter) {
@@ -126,14 +131,6 @@ class GameTerminal extends ChangeNotifier {
         inputBuffer = inputBuffer.substring(0, inputBuffer.length - 1);
         notifyListeners();
       }
-      return true;
-    }
-
-    // Printable ASCII fallback (used when .character is not available).
-    final char = _logicalKeyToChar(key);
-    if (char != null) {
-      inputBuffer += char;
-      notifyListeners();
       return true;
     }
 
@@ -201,75 +198,6 @@ class GameTerminal extends ChangeNotifier {
     return buf.toString();
   }
 
-  // ── Key-to-char mapping ──────────────────────────────────────────────
-
-  /// Returns the printable character for [key], or null if non-printable.
-  ///
-  /// Handles a-z, A-Z (via Shift), 0-9, space, and common punctuation.
-  static String? _logicalKeyToChar(LogicalKeyboardKey key) {
-    // Digits
-    final digitKeys = <LogicalKeyboardKey, String>{
-      LogicalKeyboardKey.digit0: '0',
-      LogicalKeyboardKey.digit1: '1',
-      LogicalKeyboardKey.digit2: '2',
-      LogicalKeyboardKey.digit3: '3',
-      LogicalKeyboardKey.digit4: '4',
-      LogicalKeyboardKey.digit5: '5',
-      LogicalKeyboardKey.digit6: '6',
-      LogicalKeyboardKey.digit7: '7',
-      LogicalKeyboardKey.digit8: '8',
-      LogicalKeyboardKey.digit9: '9',
-    };
-    final digit = digitKeys[key];
-    if (digit != null) return digit;
-
-    // Numpad digits
-    final numpadKeys = <LogicalKeyboardKey, String>{
-      LogicalKeyboardKey.numpad0: '0',
-      LogicalKeyboardKey.numpad1: '1',
-      LogicalKeyboardKey.numpad2: '2',
-      LogicalKeyboardKey.numpad3: '3',
-      LogicalKeyboardKey.numpad4: '4',
-      LogicalKeyboardKey.numpad5: '5',
-      LogicalKeyboardKey.numpad6: '6',
-      LogicalKeyboardKey.numpad7: '7',
-      LogicalKeyboardKey.numpad8: '8',
-      LogicalKeyboardKey.numpad9: '9',
-    };
-    final numpad = numpadKeys[key];
-    if (numpad != null) return numpad;
-
-    // Space
-    if (key == LogicalKeyboardKey.space) return ' ';
-
-    // Letters (lowercase by default; Shift is not tracked here — the
-    // GameWidget maps KeyDownEvent.character when available instead; this is
-    // a fallback for environments that don't expose .character).
-    final label = key.keyLabel;
-    if (label.length == 1) {
-      final codeUnit = label.codeUnitAt(0);
-      if ((codeUnit >= 65 && codeUnit <= 90) ||
-          (codeUnit >= 97 && codeUnit <= 122)) {
-        return label.toLowerCase();
-      }
-    }
-
-    // Common punctuation / symbols
-    final punctuation = <LogicalKeyboardKey, String>{
-      LogicalKeyboardKey.minus: '-',
-      LogicalKeyboardKey.equal: '=',
-      LogicalKeyboardKey.bracketLeft: '[',
-      LogicalKeyboardKey.bracketRight: ']',
-      LogicalKeyboardKey.semicolon: ';',
-      LogicalKeyboardKey.quote: "'",
-      LogicalKeyboardKey.comma: ',',
-      LogicalKeyboardKey.period: '.',
-      LogicalKeyboardKey.slash: '/',
-      LogicalKeyboardKey.backslash: '\\',
-      LogicalKeyboardKey.underscore: '_',
-    };
-    return punctuation[key];
-  }
 }
 
 // ── Internal types ────────────────────────────────────────────────────────
