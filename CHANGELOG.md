@@ -2,11 +2,25 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
-## [Unreleased]
+## [1.7.0] - 2026-08-01
 
 ### Added
 
 - **Opt-in view culling** — `CullStateComponent` + `ViewCullingSystem` track which entities are near the camera using two separate radii (a tight render radius and a larger active/simulation radius), backed by a new generic `EntitySpatialGrid` broad-phase index (incrementally synced, modeled on the existing physics `SpatialGrid`). `ViewCullingSystem` mirrors culled entities onto `RenderableComponent.renderable.visible` automatically, and the built-in `MovementSystem`/`PhysicsSystem` skip simulating any entity whose `CullStateComponent.isActive` is `false` — opt-in per entity, zero behavior change for anything that doesn't add the component.
+- **`GameWidget.passthroughKeys`** — new optional `Set<LogicalKeyboardKey>? passthroughKeys` constructor parameter. Keys in the set are still forwarded to `Engine.input` for polling-based gameplay systems, but `GameWidget`'s `Focus.onKeyEvent` now returns `KeyEventResult.ignored` for them (instead of always `handled`), the correct signal per Flutter's `Focus` API that an ancestor may want the key. **Caveat**: whether an ancestor `Shortcuts`/`CallbackShortcuts` widget actually receives that bubbled event depends on the `FocusScope` structure above `GameWidget` — a typical `MaterialApp` → `Navigator` → route → `Scaffold` chain did not reliably deliver it in testing. For a binding that must fire regardless of the surrounding tree (e.g. an app-level Escape-to-pause shortcut), use `HardwareKeyboard.instance.addHandler` instead, which runs independently of `Focus`. See the parameter's doc comment for details. Defaults to `null` — fully backward compatible.
+- **`GameWidget.overlay`** — new optional `Widget? overlay` constructor parameter: an app-level UI composition slot stacked above the game canvas and below the engine's own FPS counter / dev terminal, so debugging tools stay visible and interactive on top of app content. Removes the need for host apps to wrap `GameWidget` in their own external `Stack` purely to add HUD/menu overlays.
+
+### Changed
+
+- **`GameWidget` internal reactive consistency** — FPS counter now driven by `Signal<int>` + `SignalBuilder<int>` instead of `ValueNotifier<int>` + `ValueListenableBuilder<int>`, aligning with the engine's documented ESP Architecture (no behavior change). Dev-terminal consumption now uses a `ListenableBuilder` scoped to just the terminal overlay subtree instead of a whole-widget `setState` per keystroke — **fixes** unnecessary over-rebuilding where every terminal keystroke previously rebuilt the entire `GameWidget` tree instead of just the terminal panel.
+- **`GameWidget` pointer-handling scope narrowed** — `GestureDetector`/`Listener`/`MouseRegion` (world pointer input) now wrap only the game canvas instead of the entire internal `Stack`, so taps on the new `overlay` slot no longer also fire world pointer/tap handling. `Focus` (keyboard) is unaffected and still wraps the whole widget; canvas pointer behavior for existing callers is unchanged (same full-bleed bounds as before).
+- **`GameWidget` pins keyboard focus to the canvas** — `descendantsAreFocusable: false` on the internal `Focus` node, so tapping a button placed in `overlay` no longer steals primary focus away from `_focusNode` with nothing to hand it back. Buttons/interactive `overlay` content remain fully clickable via normal pointer/gesture handling; this only opts them out of taking keyboard focus — including any focus-driven widget (`TextField`, a keyboard-adjustable `Slider`) placed in `overlay`, which is a real limitation now called out on `overlay`'s doc comment.
+- **New recommended app architecture** — see the new `## ESP Architecture` README section for the Engine · Signal · Presentation pattern this release's `GameWidget` changes are designed around.
+
+### Fixed
+
+- **`GameWidget`'s terminal-toggle key (backquote) no longer leaks into gameplay or the terminal's own input.** Previously only `KeyDownEvent` was special-cased, so holding backquote after the terminal opened generated `KeyRepeatEvent`s that fell through to "treat as terminal input," spamming backticks into the input buffer, and the paired key-*up* event leaked into `Engine.input`'s polled key state whenever it happened to land right as the terminal closed (an asymmetry versus opening, which happened to swallow it). The toggle key's events (down, repeat, and up) are now all unconditionally consumed by `GameWidget` regardless of the terminal's open/closed state.
+- **`GameTerminal` can now type uppercase letters and shifted symbols.** `GameTerminal.handleKeyDown` had its own "printable ASCII fallback" that mapped every digit/letter/space/punctuation key via a case-insensitive `LogicalKeyboardKey.keyLabel` lookup and returned `true` — pre-empting `GameWidget`'s intended fallback to `appendCharacter(event.character)` (the Shift/CapsLock/IME-aware path both functions' doc comments already described as "preferred") for every printable key, every time. The dev terminal could previously never produce an uppercase letter or a shifted symbol like `!`/`@`. `handleKeyDown` now only special-cases Enter/Backspace, as originally intended; all printable input goes through `appendCharacter`.
 
 ## [1.6.0] - 2026-05-30
 
