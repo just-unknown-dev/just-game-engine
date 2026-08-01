@@ -51,6 +51,9 @@ export 'camera/camera_transform_sync_system.dart';
 // Culling systems
 export 'culling/view_culling_system.dart';
 
+// Navigation systems
+export 'navigation/flow_field_system.dart';
+
 // Deterministic Effects system
 export 'effects/effect_system_ecs.dart';
 

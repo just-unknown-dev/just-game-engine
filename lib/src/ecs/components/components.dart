@@ -56,6 +56,9 @@ export 'camera/camera_follow_component.dart';
 // Culling components
 export 'culling/cull_state_component.dart';
 
+// Navigation components
+export 'navigation/navigation_obstacle_component.dart';
+
 // Deterministic Effects components
 export 'effects/effect_component.dart';
 
@@ -70,4 +73,4 @@ export 'ui/ui_component.dart';
 export 'ui/text_component.dart';
 export 'ui/button_component.dart';
 export 'ui/linear_progress_component.dart';
-export 'ui/circular_progress_component.dart';
+export 'ui/elliptical_progress_component.dart';
