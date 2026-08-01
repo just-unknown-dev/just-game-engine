@@ -597,6 +597,30 @@ void reset()                   // Reset to start
 
 ---
 
+## Animation Blend Tree
+
+Unity-Animator-style parametric blending between sprite-sheet clips plus
+crossfaded state transitions. Full algorithm derivation, API walkthrough,
+and integration guide: see `ANIMATION_BLEND_TREE.md` at the package root.
+Summary of the public types:
+
+| Type | Where | What it does |
+|---|---|---|
+| `BlendSpace1D` | `subsystems/animation/blend/` | Linear interpolation between two adjacent thresholds. |
+| `BlendSpace2D` | `subsystems/animation/blend/` | Gradient Band Interpolation over a 2D parameter plane. |
+| `BlendCompositor` | `subsystems/animation/blend/` | `cumulativeAlphas(weights)` — turns blend weights into correct sequential draw alphas. |
+| `BlendMotion` (`ClipMotion` / `BlendTree1DMotion` / `BlendTree2DMotion`) | `ecs/components/animation/blend_motion.dart` | What a state plays: one clip, or a parametric blend over several. |
+| `BlendClip`, `BlendFrameSource`, `GridBlendFrameSource` | `ecs/components/animation/blend_clip.dart` | Per-clip fps/frame-count and where its pixels come from. |
+| `BlendState`, `BlendTransition`, `BlendStateMachine` | `ecs/components/animation/blend_state_machine.dart` | Named states + crossfade-duration overrides between them. |
+| `AnimationBlendTreeComponent` | `ecs/components/animation/` | Attaches a `BlendStateMachine` + clips + live float parameters to an entity. `setFloat(name, value)`, `play(stateName, {restart})`. |
+| `AnimationBlendTreeSystem` | `ecs/systems/animation/` | Priority `SystemPriorities.animation` (70). Advances phases/transitions, writes weighted frames into the entity's `BlendSprite`. |
+| `BlendSprite`, `BlendLayer` | `subsystems/rendering/impl/blend_sprite.dart` | Composite `Renderable` — drop-in for `Sprite` wherever blending is needed. |
+
+All of the above are JSON round-trippable (`fromJson`/`toJson`), mirroring
+the `AnimationClip` convention used elsewhere in the engine.
+
+---
+
 ### PositionTween
 
 Animates object position.

@@ -2,6 +2,43 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [1.8.0] - 2026-08-01
+
+### Added
+
+- **Animation Blend Tree + State Machine** — `AnimationBlendTreeComponent` +
+  `AnimationBlendTreeSystem` (`lib/src/ecs/components/animation/`,
+  `lib/src/ecs/systems/animation/`) smoothly blend between sprite-sheet
+  animation clips based on runtime float parameters and crossfade between
+  states, replacing hard "swap the whole sheet" cuts. Two algorithms
+  resolve per-clip weights from up to two parameters: `BlendSpace1D`
+  (linear interpolation between adjacent thresholds) and `BlendSpace2D`
+  (Gradient Band Interpolation — Rune Skovbo Johansen's technique behind
+  Unity's Freeform Directional/Cartesian 2D blend trees, adapted here for
+  sprite-frame blending). `BlendCompositor.cumulativeAlphas` turns those
+  weights into sequential Porter-Duff "over" draws — via the new
+  `BlendSprite` renderable — that reproduce a true weighted average for any
+  number of simultaneously-blended layers, not just two. Clips of differing
+  frame counts/fps share a single normalized phase (`AnimationBlendTreeSystem`'s
+  weighted-average-cycle-rate formula) so multi-clip blends and transition
+  crossfades never pop out of lockstep. States, transitions, and blend
+  trees are both Dart-constructible and JSON round-trippable
+  (`fromJson`/`toJson`, mirroring the existing `AnimationClip` convention
+  in `animated_sprite_component.dart`). See `ANIMATION_BLEND_TREE.md` for
+  the full algorithm write-up, API guide, and known limitations.
+
+### Changed
+
+- `dying_breath`'s `PlayerAnimationSystem` locomotion selection
+  (idle/walk/run/strafe-left/strafe-right/run-backwards, and the
+  equivalent while firing on the move) now drives two 2D
+  freeform-directional blend trees instead of a hard 8-octant sheet swap
+  with a hard walk/run speed-gate pop — see the "Migration case study"
+  section of `ANIMATION_BLEND_TREE.md` for the before/after. Facing
+  direction (which of the 8 sprite-sheet rows is drawn) is unchanged by
+  this — see that same document for why blending stops at the clip/gait
+  level and deliberately doesn't extend to facing rows.
+
 ## [1.7.0] - 2026-08-01
 
 ### Added

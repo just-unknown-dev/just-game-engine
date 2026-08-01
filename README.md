@@ -52,6 +52,7 @@ Just Game Engine is a complete game development framework with 20+ major subsyst
 - **Easing Functions**: 15+ built-in easing curves (linear, quad, cubic, elastic, bounce, etc.)
 - **Animation Sequences**: Chain animations to play one after another
 - **Animation Groups**: Run multiple animations in parallel
+- **Animation Blend Trees**: Unity-Animator-style parametric blending between sprite-sheet clips (1D + 2D/Gradient Band Interpolation) plus crossfaded state transitions — see [ANIMATION_BLEND_TREE.md](ANIMATION_BLEND_TREE.md)
 - **Loop and Ping-Pong**: Repeat animations infinitely or bounce back and forth
 - **Speed Control**: Adjust animation playback speed dynamically (0.1x - 5.0x)
 
@@ -512,6 +513,9 @@ Just Game Engine
 - `AnimationSequence` - Sequential animations
 - `AnimationGroup` - Parallel animations
 - `Easings` - Easing function library
+- `BlendSpace1D`, `BlendSpace2D`, `BlendCompositor` - Blend tree weighting/compositing algorithms
+- `BlendMotion` (`ClipMotion`, `BlendTree1DMotion`, `BlendTree2DMotion`), `BlendState`, `BlendTransition`, `BlendStateMachine` - Blend tree data model
+- `AnimationBlendTreeComponent`, `AnimationBlendTreeSystem`, `BlendSprite` - Blend tree ECS/rendering integration
 
 ### Particle Classes
 

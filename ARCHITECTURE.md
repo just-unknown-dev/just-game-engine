@@ -692,6 +692,7 @@ World
 | `InputComponent` | `moveDirection: Offset`, `buttons: Map<String, bool>` | Input state posted by InputSystem |
 | `JoystickInputComponent` | `direction: Offset`, `magnitude: double` | Virtual joystick data for touch controls |
 | `AnimationStateComponent` | `currentAnimation: String`, `time`, `isPlaying`, `loop`, `frameCount`, `frameDuration`, `currentFrame` | Per-entity animation playback state |
+| `AnimationBlendTreeComponent` | `machine: BlendStateMachine`, `clips: Map<String,BlendClip>`, float parameters, `currentStateName`/`targetStateName` + phases | Blend-tree/state-machine playback state (see §10.4) |
 | `RaycastColliderComponent` | `radius`, `tag`, `isBlocker`, `isReflective`, `reflectivity` | Marks entity as hittable by ray queries |
 | `AudioSourceComponent` | `clipPath: String`, `volume`, `pan`, `loop`, `is3D`, `channel` | Audio source for ECS-driven playback |
 | `AudioPlayComponent` | `clipPath: String`, `volume` | One-shot audio trigger (consumed and removed) |
@@ -715,6 +716,7 @@ World
 | `PhysicsBridgeSystem` | `Transform` + `Velocity` + `PhysicsBodyRef` | 89 | Syncs subsystem `PhysicsBody.position/velocity/angle` → ECS components (runs after PhysicsSystem) |
 | `MovementSystem` | `Transform` + `Velocity` | 80 | `position += velocity * dt` |
 | `AnimationSystemECS` | `AnimationState` (+ optional `Sprite`) | 70 | Advances animation timers, drives `SpriteComponent.frame`, stops non-looping animations |
+| `AnimationBlendTreeSystem` | `Renderable(BlendSprite)` + `AnimationBlendTreeComponent` | 70 | Resolves transitions, evaluates blend-tree weights, phase-syncs playback, composites weighted frames (see §10.4) |
 | `HealthSystem` | `Health` | 60 | Applies `regenRate * dt`, fires death event at 0 HP |
 | `HierarchySystem` | `Transform` + `Parent` | 50 | Propagates parent world transform to children |
 | `RenderSystem` | `Transform` + `Renderable` | 40 | Syncs `TransformComponent` into `Renderable`, calls `render()`; also renders UI components (`Text`, `Button`, `Progress`) |
@@ -1076,6 +1078,34 @@ AnimationSystem
    stop(name)
    getAnimation(name) → Animation?
    update(dt): iterates all playing animations and calls animation.update(dt)
+```
+
+### 10.4 Blend Tree Animation
+
+Unity-Animator-style parametric blending between sprite-sheet clips plus
+crossfaded state transitions — a separate, purpose-built system from
+10.1–10.3 above (no shared types). Full algorithm derivation, API
+walkthrough, and integration guide: `ANIMATION_BLEND_TREE.md` at the
+package root.
+
+```
+AnimationBlendTreeComponent (ecs/components/animation/)
+   BlendStateMachine machine        ← states + transitions (pure data)
+   Map<String, BlendClip> clips     ← fps/frameCount/frameSource per clip
+   Map<String, double> parameters   ← setFloat(name, value)
+   play(stateName, {restart})       ← requests a crossfaded transition
+
+AnimationBlendTreeSystem (ecs/systems/animation/), priority 70
+   Per entity with [RenderableComponent(BlendSprite), AnimationBlendTreeComponent]:
+     1. resolve any pending play() request into a transition
+     2. evaluate current (and, if transitioning, target) state's BlendMotion
+        → weighted clip list (BlendSpace1D / BlendSpace2D)
+     3. advance phase-synchronized playback (shared normalized time per state)
+     4. composite weighted frames into BlendSprite.layers (BlendCompositor)
+
+BlendSprite (subsystems/rendering/impl/) — drop-in Renderable for Sprite;
+   never atlas-batched (multiple source images per draw), same tint/opacity
+   semantics as Sprite.
 ```
 
 ---

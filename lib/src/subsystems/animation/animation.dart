@@ -5,3 +5,4 @@
 library;
 
 export 'animation_system.dart';
+export 'blend/blend.dart';

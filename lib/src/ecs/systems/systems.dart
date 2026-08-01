@@ -32,6 +32,7 @@ export 'gameplay/checkpoint_event.dart';
 
 // Animation systems
 export 'animation/animation_system_ecs.dart';
+export 'animation/animation_blend_tree_system.dart';
 
 // Audio systems
 export 'audio/audio_system.dart';

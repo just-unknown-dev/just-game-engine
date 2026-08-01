@@ -35,6 +35,10 @@ export 'input/joystick_input_component.dart';
 export 'animation/animation_state_component.dart';
 export 'animation/animation_event.dart';
 export 'animation/animation_controller_component.dart';
+export 'animation/blend_motion.dart';
+export 'animation/blend_clip.dart';
+export 'animation/blend_state_machine.dart';
+export 'animation/animation_blend_tree_component.dart';
 
 // Audio components
 export 'audio/audio_components.dart';
