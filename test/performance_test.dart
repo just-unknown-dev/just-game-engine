@@ -380,7 +380,7 @@ void main() {
       // Add systems
       engine.world.addSystem(MovementSystem());
       engine.world.addSystem(RenderSystem());
-      engine.world.addSystem(PhysicsSystem());
+      engine.world.addSystem(PhysicsSystem(engine.physics));
 
       // Create 500 entities with components
       for (int i = 0; i < 500; i++) {
@@ -726,12 +726,14 @@ void main() {
           engine.performanceStats['scheduler'] as Map<String, dynamic>;
       final taskTimes = scheduler['taskTimesMs'] as Map<String, double>;
 
-      // All seven tasks registered in Engine._registerSystems must be present.
+      // Tasks registered in Engine._registerSystems must be present. No
+      // standalone 'physics' task — PhysicsSystem steps engine.physics
+      // inline from within the 'ecs' task instead (see Engine.physics'
+      // doc comment for why).
       const expectedTasks = [
         'input',
         'camera',
         'parallax',
-        'physics',
         'animation',
         'audio',
         'ecs',

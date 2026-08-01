@@ -111,6 +111,15 @@ class Engine implements ILifecycle {
 
   // Subsystem references
   late final RenderingEngine rendering;
+
+  /// The physics simulation — Box2D FFI on native platforms, pure-Dart on
+  /// web. [physics.initialize] runs eagerly (see below), so bodies can be
+  /// added before any [World] or [PhysicsSystem] exists, but **stepping**
+  /// (`physics.update`) is owned by [PhysicsSystem] when one is registered
+  /// in [world], not by this `Engine`'s own update loop — that keeps a
+  /// frame's gameplay-set velocity reaching the physics step the same frame
+  /// it was set instead of lagging a frame behind. If no [PhysicsSystem] is
+  /// in [world], bodies added here simply won't advance.
   late final PhysicsEngine physics;
   late final InputManager input;
   late final AudioEngine audio;
@@ -279,10 +288,8 @@ class Engine implements ILifecycle {
       (deltaTime) =>
           parallax.update(deltaTime, cameraSystem.mainCamera.position),
     );
-    _systemManager.registerUpdateTask(
-      'physics',
-      (deltaTime) => physics.update(deltaTime),
-    );
+    // No standalone 'physics' task here — see the doc comment on [physics]
+    // above. PhysicsSystem steps it inline within the 'ecs' task below.
     _systemManager.registerUpdateTask(
       'animation',
       (deltaTime) => animation.update(deltaTime),

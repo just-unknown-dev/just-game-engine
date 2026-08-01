@@ -15,6 +15,15 @@ class MovementSystem extends System {
   void update(double deltaTime) {
     // Direct column iteration — avoids per-entity getComponent lookups.
     for (final archetype in world.queryArchetypes(requiredComponents)) {
+      // PhysicsSystem owns transform/velocity integration for any entity
+      // that also carries PhysicsBodyComponent (it delegates to
+      // Engine.physics, which does its own position integration
+      // internally) — integrating here too would double-move them every
+      // frame. Only archetypes that actually add PhysicsBodyComponent pay
+      // for this check, same opt-in-cost pattern as the CullStateComponent
+      // check below.
+      if (archetype.types.contains(PhysicsBodyComponent)) continue;
+
       final transforms = archetype.getColumn(TransformComponent)!;
       final velocities = archetype.getColumn(VelocityComponent)!;
       // Opt-in view culling: only archetypes that actually added

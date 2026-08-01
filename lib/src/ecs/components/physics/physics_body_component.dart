@@ -20,15 +20,10 @@ class PhysicsBodyComponent extends Component {
   /// Is this a static body (doesn't move)
   bool isStatic;
 
-  /// Collision layer (for filtering)
-  int layer;
-
-  /// Layers this body can collide with
-  int collisionMask;
-
   /// Whether this body is currently resting on a surface.
-  /// Reset to false every frame by [PhysicsSystem] and set to true when a
-  /// downward-facing collision normal is detected.
+  /// Maintained by [PhysicsSystem] from contact begin/end events — true for
+  /// the whole duration a ground-normal contact persists, not just its
+  /// first frame.
   bool isGrounded = false;
 
   /// One-way / pass-through platform flag.
@@ -59,8 +54,6 @@ class PhysicsBodyComponent extends Component {
     this.restitution = 0.8,
     this.drag = 0.98,
     this.isStatic = false,
-    this.layer = 1,
-    this.collisionMask = -1,
     this.isOneWay = false,
     this.isSensor = false,
     this.categoryBits = 0x0001,
@@ -68,11 +61,6 @@ class PhysicsBodyComponent extends Component {
     this.groupIndex = 0,
     this.showDebugOutline = true,
   });
-
-  /// Check if can collide with layer
-  bool canCollideWith(int otherLayer) {
-    return (collisionMask & otherLayer) != 0;
-  }
 
   @override
   String toString() =>

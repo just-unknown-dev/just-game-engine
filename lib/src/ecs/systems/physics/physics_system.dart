@@ -1,7 +1,5 @@
 library;
 
-import 'dart:math' as math;
-
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 
@@ -14,11 +12,27 @@ import '../system_priorities.dart';
 import 'collision_event.dart';
 import 'sensor_event.dart';
 
-/// Physics system - Handles physics simulation for ECS entities
+/// Physics system — the ECS front end for [PhysicsEngine].
 ///
-/// Uses a spatial grid for broad-phase collision detection to avoid O(n²)
-/// pairwise checks across all entities.
+/// Owns the [PhysicsBody] lifecycle for every [PhysicsBodyComponent] entity:
+/// each frame it syncs component state into the body, steps [physics] once,
+/// then syncs the result back into [TransformComponent]/[VelocityComponent]
+/// and fires [CollisionEvent]/[ContactExitEvent]/[SensorEnterEvent]/
+/// [SensorExitEvent] on [World.events].
+///
+/// [physics] is stepped *here*, inline, rather than as a separate `Engine`
+/// update task — that keeps this frame's gameplay-set velocity (e.g. from a
+/// player-control system running earlier in the same ECS pass) reaching the
+/// physics step the same frame it was set, instead of lagging a frame behind.
 class PhysicsSystem extends System {
+  /// [physics] is the single physics implementation this system drives —
+  /// pass `engine.physics`. On native platforms that's the Box2D FFI
+  /// backend; on web, the pure-Dart backend. Both share the same API.
+  PhysicsSystem(this.physics);
+
+  /// The subsystem physics engine this system steps and syncs against.
+  final PhysicsEngine physics;
+
   @override
   int get priority => SystemPriorities.physics;
 
@@ -27,291 +41,236 @@ class PhysicsSystem extends System {
   /// aligned with their visual counterparts.
   GameCamera? camera;
 
-  /// Gravity acceleration (units/s²).  z is ignored by the 2-D physics system.
-  Vector3 gravity = Vector3.zero();
-
-  /// Cell size for the spatial grid broad-phase. Tune to roughly match
-  /// the size of the largest physics body for best performance.
-  double broadPhaseCellSize = 128.0;
-
-  final Map<int, List<Entity>> _gridCells = {};
-
-  /// Reusable entity buffer — avoids per-frame list allocation.
-  final List<Entity> _entityBuffer = [];
-
-  /// Tracks active sensor overlaps: pairKey → (sensor entity, visitor entity).
-  final Map<int, (Entity, Entity)> _activeSensorPairs = {};
-
-  /// Tracks active solid contacts: pairKey → (entityA, entityB).
-  final Map<int, (Entity, Entity)> _activeContactPairs = {};
-
   @override
   List<Type> get requiredComponents => [
     TransformComponent,
     PhysicsBodyComponent,
   ];
 
+  /// entity.id → its mirrored [PhysicsBody].
+  final Map<int, PhysicsBody> _entityBodyMap = {};
+
+  /// Reverse lookup for translating polled body pairs back to entities.
+  final Map<PhysicsBody, Entity> _bodyEntityMap = {};
+
+  // Per-entity count of currently-active ground-normal contacts, so
+  // isGrounded stays true for the whole duration a body rests on something
+  // (not just the first frame of contact) using only begin/end events —
+  // avoids needing a "poll all active contacts every frame" API from
+  // [PhysicsEngine]. entity.id → count.
+  final Map<int, int> _groundContactCount = {};
+
+  // Which entity a given contact pair grounded, if any — consulted on
+  // contact-end to know which counter to decrement.
+  final Map<BodyPair, Entity> _groundedEntityForPair = {};
+
   @override
   void update(double deltaTime) {
-    // Reset isGrounded every frame so it reflects only the current contacts.
-    forEach((entity) {
-      entity.getComponent<PhysicsBodyComponent>()!.isGrounded = false;
-    });
-
-    // Apply forces
-    forEach((entity) {
-      final body = entity.getComponent<PhysicsBodyComponent>()!;
-      if (body.isStatic) return;
-
-      // Opt-in view culling: entities without a CullStateComponent are
-      // unaffected; those with one skip force application while inactive so
-      // they don't silently accumulate velocity while "asleep".
-      if (entity.getComponent<CullStateComponent>()?.isActive == false) {
-        return;
-      }
-
-      final velocity = entity.getComponent<VelocityComponent>();
-      if (velocity == null) return;
-
-      // Apply gravity
-      velocity.addScaled(gravity, deltaTime);
-
-      // Apply drag
-      velocity.scale(body.drag);
-    });
-
-    // Detect and resolve collisions
-    _handleCollisions();
+    _syncIn();
+    physics.update(deltaTime);
+    _syncOut();
+    _dispatchEvents();
   }
 
-  static int _gridHash(int x, int y) => (x * 73856093) ^ ((y * 19349663) >> 1);
+  void _syncIn() {
+    final activeIds = <int>{};
 
-  void _handleCollisions() {
-    // --- Broad phase: spatial grid ---
-    _gridCells.clear();
+    forEach((entity) {
+      if (!entity.isActive) return;
+      activeIds.add(entity.id);
 
-    _entityBuffer.clear();
-    for (final entity in entities) {
-      // Opt-in view culling: inactive entities are excluded from the
-      // broad-phase entirely — they can't collide with anything while
-      // "asleep" outside the active radius.
-      if (entity.getComponent<CullStateComponent>()?.isActive == false) {
-        continue;
-      }
-      _entityBuffer.add(entity);
-    }
-    for (final entity in _entityBuffer) {
       final transform = entity.getComponent<TransformComponent>()!;
-      final body = entity.getComponent<PhysicsBodyComponent>()!;
+      final comp = entity.getComponent<PhysicsBodyComponent>()!;
+      final velocityComp = entity.getComponent<VelocityComponent>();
+      final culled =
+          entity.getComponent<CullStateComponent>()?.isActive == false;
 
-      final bounds = body.shape.getBounds(transform.position.toOffset());
-      final minX = (bounds.left / broadPhaseCellSize).floor();
-      final minY = (bounds.top / broadPhaseCellSize).floor();
-      final maxX = (bounds.right / broadPhaseCellSize).floor();
-      final maxY = (bounds.bottom / broadPhaseCellSize).floor();
-
-      for (int x = minX; x <= maxX; x++) {
-        for (int y = minY; y <= maxY; y++) {
-          final hash = _gridHash(x, y);
-          (_gridCells[hash] ??= []).add(entity);
+      var body = _entityBodyMap[entity.id];
+      if (body == null) {
+        body = PhysicsBody(
+          position: Vector2(transform.position.x, transform.position.y),
+          shape: comp.shape,
+          mass: comp.isStatic ? 0.0 : comp.mass,
+          restitution: comp.restitution,
+          drag: comp.drag,
+          angle: transform.rotation,
+          useGravity: !comp.isStatic,
+          isSensor: comp.isSensor,
+          isOneWay: comp.isOneWay,
+          categoryBits: comp.categoryBits,
+          maskBits: comp.maskBits,
+          groupIndex: comp.groupIndex,
+        );
+        if (velocityComp != null) {
+          body.velocity.setValues(
+            velocityComp.velocity.x,
+            velocityComp.velocity.y,
+          );
         }
+        physics.addBody(body);
+        _entityBodyMap[entity.id] = body;
+        _bodyEntityMap[body] = entity;
+        entity.addComponent(PhysicsBodyRefComponent(body));
+      } else {
+        body.shape = comp.shape;
+        body.mass = comp.isStatic ? 0.0 : comp.mass;
+        body.restitution = comp.restitution;
+        body.drag = comp.drag;
+        body.useGravity = !comp.isStatic;
+        body.isSensor = comp.isSensor;
+        body.isOneWay = comp.isOneWay;
+        body.categoryBits = comp.categoryBits;
+        body.maskBits = comp.maskBits;
+        body.groupIndex = comp.groupIndex;
       }
-    }
 
-    // --- Narrow phase: only check pairs sharing a cell ---
-    final checked = <int>{};
-    final currentSensorPairs = <int>{};
-    final currentContactPairs = <int>{};
+      // Opt-in view culling: freeze the body in place while inactive rather
+      // than stepping it, matching the pre-unification behaviour of
+      // excluding culled entities from force application/broad-phase.
+      body.isActive = !culled;
+      if (culled) return;
 
-    for (final cell in _gridCells.values) {
-      for (int i = 0; i < cell.length; i++) {
-        for (int j = i + 1; j < cell.length; j++) {
-          final entity1 = cell[i];
-          final entity2 = cell[j];
-
-          final pairKey = entity1.id < entity2.id
-              ? entity1.id * 100000 + entity2.id
-              : entity2.id * 100000 + entity1.id;
-          if (!checked.add(pairKey)) continue;
-
-          final transform1 = entity1.getComponent<TransformComponent>()!;
-          final transform2 = entity2.getComponent<TransformComponent>()!;
-          final body1 = entity1.getComponent<PhysicsBodyComponent>()!;
-          final body2 = entity2.getComponent<PhysicsBodyComponent>()!;
-
-          if (body1.isStatic && body2.isStatic) continue;
-
-          if (!body1.canCollideWith(body2.layer) ||
-              !body2.canCollideWith(body1.layer)) {
-            continue;
-          }
-
-          if (body1.isOneWay || body2.isOneWay) {
-            final dynEntity = !body1.isStatic ? entity1 : entity2;
-            final dynVel = dynEntity.getComponent<VelocityComponent>();
-            if ((dynVel?.velocity.y ?? 0.0) <= 0) continue;
-          }
-
-          final manifold = body1.shape.getManifold(
-            transform1.position.toOffset(),
-            body2.shape,
-            transform2.position.toOffset(),
-          );
-
-          if (!manifold.isColliding) continue;
-
-          // Sensor handling — detect overlaps without resolving physics.
-          final eitherSensor = body1.isSensor || body2.isSensor;
-          if (eitherSensor) {
-            currentSensorPairs.add(pairKey);
-            if (!_activeSensorPairs.containsKey(pairKey)) {
-              // Determine which entity is the sensor.
-              final sensor = body1.isSensor ? entity1 : entity2;
-              final visitor = body1.isSensor ? entity2 : entity1;
-              _activeSensorPairs[pairKey] = (sensor, visitor);
-              world.events.fire(
-                SensorEnterEvent(sensor: sensor, visitor: visitor),
-              );
-            }
-            continue;
-          }
-
-          // Approximate contact point: midpoint shifted half-penetration.
-          final cpx = (transform1.position.x + transform2.position.x) / 2 +
-              manifold.normal.dx * manifold.penetration / 2;
-          final cpy = (transform1.position.y + transform2.position.y) / 2 +
-              manifold.normal.dy * manifold.penetration / 2;
-
-          _resolveCollision(
-            entity1,
-            entity2,
-            transform1,
-            transform2,
-            body1,
-            body2,
-            manifold,
-          );
-
-          currentContactPairs.add(pairKey);
-          if (!_activeContactPairs.containsKey(pairKey)) {
-            _activeContactPairs[pairKey] = (entity1, entity2);
-          }
-
-          world.events.fire(
-            CollisionEvent(
-              entityA: entity1,
-              entityB: entity2,
-              normal: manifold.normal,
-              penetration: manifold.penetration,
-              contactPoint: Offset(cpx, cpy),
-            ),
-          );
-
-          if (manifold.normal.dy > 0.5) {
-            body1.isGrounded = true;
-          } else if (manifold.normal.dy < -0.5) {
-            body2.isGrounded = true;
-          }
-        }
+      // Push ECS state → body immediately before stepping. This is the only
+      // place ECS state flows into the body each frame; sync-out (below) is
+      // the only place it flows back out — so within a frame nothing else
+      // fights this system for authority over TransformComponent. Pushing
+      // position (not just velocity) every frame is what makes an external
+      // teleport/spawn write to TransformComponent take effect next step.
+      body.position.setValues(transform.position.x, transform.position.y);
+      body.angle = transform.rotation;
+      if (velocityComp != null) {
+        body.velocity.setValues(
+          velocityComp.velocity.x,
+          velocityComp.velocity.y,
+        );
       }
-    }
-
-    // Fire SensorExitEvent for pairs that were active last frame but not this one.
-    _activeSensorPairs.removeWhere((key, pair) {
-      if (!currentSensorPairs.contains(key)) {
-        world.events.fire(SensorExitEvent(sensor: pair.$1, visitor: pair.$2));
-        return true;
-      }
-      return false;
+      // PhysicsEngine's sleep system is an optimisation for engines where
+      // physics is the sole source of truth (bodies only wake via external
+      // forces/collisions) — but here ECS pushes fresh state into the body
+      // every frame regardless, so a body the sleep system put to bed would
+      // otherwise never be picked back up: PhysicsEngine.update()'s per-body
+      // loop is gated entirely by `if (body.isAwake)`, so once asleep it
+      // stops touching the body altogether — the velocity we just pushed
+      // above would sit there forever, un-integrated, no matter how much
+      // fresh input keeps arriving. Force-waking unconditionally here is
+      // what actually lets this frame's push take effect.
+      body.isAwake = true;
+      body.sleepTimer = 0.0;
     });
 
-    // Fire ContactExitEvent for solid pairs that separated this frame.
-    _activeContactPairs.removeWhere((key, pair) {
-      if (!currentContactPairs.contains(key)) {
-        world.events.fire(
-          ContactExitEvent(entityA: pair.$1, entityB: pair.$2),
-        );
-        return true;
+    // Remove bodies for entities that disappeared (destroyed or lost their
+    // PhysicsBodyComponent) since last frame.
+    final staleIds = _entityBodyMap.keys
+        .where((id) => !activeIds.contains(id))
+        .toList();
+    for (final id in staleIds) {
+      final body = _entityBodyMap.remove(id);
+      if (body != null) {
+        physics.removeBody(body);
+        _bodyEntityMap.remove(body);
+        _groundContactCount.remove(id);
       }
-      return false;
+      world.getEntity(id)?.removeComponent<PhysicsBodyRefComponent>();
+    }
+  }
+
+  void _syncOut() {
+    _entityBodyMap.forEach((id, body) {
+      final entity = world.getEntity(id);
+      if (entity == null) return;
+      if (entity.getComponent<CullStateComponent>()?.isActive == false) {
+        return; // culled — body is frozen, nothing new to sync
+      }
+
+      final transform = entity.getComponent<TransformComponent>();
+      if (transform != null) {
+        // Capture previous positions for sub-frame render interpolation.
+        transform.prevPosition.setFrom(transform.position);
+        transform.prevRotation = transform.rotation;
+        transform.setPositionXY(body.position.x, body.position.y);
+        transform.rotation = body.angle;
+      }
+
+      final velocityComp = entity.getComponent<VelocityComponent>();
+      if (velocityComp != null) {
+        velocityComp.setVelocityXY(body.velocity.x, body.velocity.y);
+        // MovementSystem skips PhysicsBodyComponent entities (this system
+        // owns their integration instead), so its maxSpeed clamp never
+        // reaches them unless applied here too.
+        velocityComp.clampToMaxSpeed();
+      }
     });
   }
 
-  void _resolveCollision(
-    Entity entity1,
-    Entity entity2,
-    TransformComponent transform1,
-    TransformComponent transform2,
-    PhysicsBodyComponent body1,
-    PhysicsBodyComponent body2,
-    CollisionManifold manifold,
-  ) {
-    final velocity1 = entity1.getComponent<VelocityComponent>();
-    final velocity2 = entity2.getComponent<VelocityComponent>();
+  void _dispatchEvents() {
+    physics.pollContactBeginEvents((a, b, nx, ny) {
+      final entityA = _bodyEntityMap[a];
+      final entityB = _bodyEntityMap[b];
+      if (entityA == null || entityB == null) return;
 
-    final normal = manifold.normal;
+      // Whichever side sits "above" (normal points from A down to B, or
+      // from B down to A) is the one resting on the other.
+      if (ny > 0.5) {
+        _addGroundContact(BodyPair(a, b), entityA);
+      } else if (ny < -0.5) {
+        _addGroundContact(BodyPair(a, b), entityB);
+      }
 
-    final penetration = manifold.penetration;
-    if (penetration <= 0) return;
-
-    final inverseMass1 = body1.isStatic
-        ? 0.0
-        : (body1.mass > 0 ? 1.0 / body1.mass : 0.0);
-    final inverseMass2 = body2.isStatic
-        ? 0.0
-        : (body2.mass > 0 ? 1.0 / body2.mass : 0.0);
-    final inverseMassSum = inverseMass1 + inverseMass2;
-
-    if (inverseMassSum == 0) return;
-
-    // Push bodies apart weighted by inverse mass so heavier objects move less.
-    const correctionPercent = 0.8;
-    const slop = 0.05;
-    final correctionMag =
-        math.max(penetration - slop, 0.0) / inverseMassSum * correctionPercent;
-
-    final corr1 = correctionMag * inverseMass1;
-    transform1.setPositionXY(
-      transform1.position.x - normal.dx * corr1,
-      transform1.position.y - normal.dy * corr1,
-    );
-    final corr2 = correctionMag * inverseMass2;
-    transform2.setPositionXY(
-      transform2.position.x + normal.dx * corr2,
-      transform2.position.y + normal.dy * corr2,
-    );
-
-    // Calculate relative velocity along normal (scalar, no allocation)
-    final relVelDx =
-        (velocity2?.velocity.x ?? 0.0) - (velocity1?.velocity.x ?? 0.0);
-    final relVelDy =
-        (velocity2?.velocity.y ?? 0.0) - (velocity1?.velocity.y ?? 0.0);
-    final velocityAlongNormal = relVelDx * normal.dx + relVelDy * normal.dy;
-
-    // Don't resolve if velocities are separating
-    if (velocityAlongNormal > 0) return;
-
-    // Use the lesser restitution so collisions are never artificially springy.
-    final restitution = math.min(body1.restitution, body2.restitution);
-
-    // Calculate impulse scalar j
-    final impulseScalar =
-        -(1.0 + restitution) * velocityAlongNormal / inverseMassSum;
-
-    // Apply impulse (skip if the body has no VelocityComponent — static body).
-    final imp1 = impulseScalar * inverseMass1;
-    if (velocity1 != null) {
-      velocity1.setVelocityXY(
-        velocity1.velocity.x - normal.dx * imp1,
-        velocity1.velocity.y - normal.dy * imp1,
+      world.events.fire(
+        CollisionEvent(
+          entityA: entityA,
+          entityB: entityB,
+          normal: Offset(nx, ny),
+          // Penetration/contact point aren't exposed by the native Box2D
+          // contact-begin event (only the normal is) — defaulted so this
+          // works uniformly across backends. Neither field is read by any
+          // known consumer today.
+          penetration: 0.0,
+        ),
       );
-    }
-    final imp2 = impulseScalar * inverseMass2;
-    if (velocity2 != null) {
-      velocity2.setVelocityXY(
-        velocity2.velocity.x + normal.dx * imp2,
-        velocity2.velocity.y + normal.dy * imp2,
-      );
+    });
+
+    physics.pollContactEndEvents((a, b) {
+      final entityA = _bodyEntityMap[a];
+      final entityB = _bodyEntityMap[b];
+      if (entityA == null || entityB == null) return;
+
+      _removeGroundContact(BodyPair(a, b));
+
+      world.events.fire(ContactExitEvent(entityA: entityA, entityB: entityB));
+    });
+
+    physics.pollSensorBeginEvents((sensorBody, visitorBody) {
+      final sensor = _bodyEntityMap[sensorBody];
+      final visitor = _bodyEntityMap[visitorBody];
+      if (sensor == null || visitor == null) return;
+      world.events.fire(SensorEnterEvent(sensor: sensor, visitor: visitor));
+    });
+
+    physics.pollSensorEndEvents((sensorBody, visitorBody) {
+      final sensor = _bodyEntityMap[sensorBody];
+      final visitor = _bodyEntityMap[visitorBody];
+      if (sensor == null || visitor == null) return;
+      world.events.fire(SensorExitEvent(sensor: sensor, visitor: visitor));
+    });
+  }
+
+  void _addGroundContact(BodyPair pair, Entity grounded) {
+    _groundedEntityForPair[pair] = grounded;
+    final count = (_groundContactCount[grounded.id] ?? 0) + 1;
+    _groundContactCount[grounded.id] = count;
+    grounded.getComponent<PhysicsBodyComponent>()?.isGrounded = true;
+  }
+
+  void _removeGroundContact(BodyPair pair) {
+    final grounded = _groundedEntityForPair.remove(pair);
+    if (grounded == null) return;
+    final count = (_groundContactCount[grounded.id] ?? 1) - 1;
+    if (count <= 0) {
+      _groundContactCount.remove(grounded.id);
+      grounded.getComponent<PhysicsBodyComponent>()?.isGrounded = false;
+    } else {
+      _groundContactCount[grounded.id] = count;
     }
   }
 
