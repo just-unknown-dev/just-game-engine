@@ -6,6 +6,7 @@ A comprehensive 2D game engine built for Flutter, providing everything you need 
 
 - **[Quick Start Guide](QUICKSTART.md)** - Get started in 5 minutes
 - **[API Reference](API.md)** - Detailed API documentation for all classes
+- **[ESP Architecture](ESP_ARCHITECTURE.md)** - Recommended Engine · Signal · Presentation app structure
 - **[Documentation](https://engine.justunknown.com/docs/getting-started)** - Just Game Engine documentation.
 - **[Discord](https://discord.gg/VXFxVj4Y)** - Join our community
 
@@ -467,6 +468,10 @@ Just Game Engine
   ├── AdsManager (Provider bridge for banner/interstitial/rewarded/app-open)
   └── Networking (Not Implemented)
 ```
+
+## ESP Architecture (Recommended App Structure)
+
+**E**ngine · **S**ignal · **P**resentation — a three-layer pattern for structuring an app on top of Just Game Engine, built entirely from pieces the engine already ships (`EventBus`, the Reactive ECS's `Signal`/`ComponentSignal`, `just_signals`' `SignalBuilder`). See **[ESP_ARCHITECTURE.md](ESP_ARCHITECTURE.md)** for the full write-up: the layer diagram, pros/cons with mitigations, and pattern-specific performance tips.
 
 ## Performance Tips
 
