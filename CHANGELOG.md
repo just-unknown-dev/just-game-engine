@@ -2,6 +2,18 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [1.6.1] - 2026-08-02
+
+### Added
+
+- Unified shape styling: `ShapePaintStyle` and `ShapeGradient` (linear, radial, sweep) now back `fillStyle`/`strokeStyle` on every shape component (`CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent`), replacing the old flat `color` property.
+- `Entity.removeComponentByType(Type type)` and `Entity.hasComponentByType(Type type)` for runtime-type component access when the static type isn't known at the call site.
+
+### Changed
+
+- `ColliderDebuggerSystem` relocated from `core/debugger/` to `core/` and exported via `core.dart` and `systems.dart`.
+- `just_physics_engine` dependency upgraded to `^1.2.2`.
+
 ## [1.6.0] - 2026-05-30
 
 ### Added

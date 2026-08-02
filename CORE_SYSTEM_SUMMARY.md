@@ -153,7 +153,7 @@ All subsystems are:
 - **Files Created**: 7 core files + 130+ subsystem/ECS files
 - **Classes**: 5 core classes + 26+ components + 17+ systems
 - **Interfaces**: 5 interfaces + 1 mixin
-- **Tests**: Passing in current 1.6.0 branch validation
+- **Tests**: Passing in current 1.6.1 branch validation
 - **CI**: GitHub Actions (`flutter analyze --fatal-infos` + `flutter test`)
 - **Documentation**: 500+ lines
 - **Examples**: 250+ lines
@@ -195,7 +195,7 @@ void main() async {
 }
 ```
 
-## ✨ What's Shipped (v1.6.0)
+## ✨ What's Shipped (v1.6.1)
 
 All core systems and subsystems are implemented:
 1. ✅ Core engine, game loop, and time management
@@ -222,6 +222,8 @@ All core systems and subsystems are implemented:
 22. ✅ GitHub Actions CI + phase-benchmarks in `performance_test.dart`
 23. ✅ Service layer additions: Achievements, Auth, Leaderboards, Currency, Inventory
 24. ✅ Developer UX additions: in-game terminal + subtitle subsystem + ads subsystem
+25. ✅ Unified shape styling (`ShapePaintStyle` + `ShapeGradient`) across all shape components
+26. ✅ Entity runtime-type component API (`removeComponentByType`, `hasComponentByType`)
 
 ## 🎓 Key Takeaways
 
