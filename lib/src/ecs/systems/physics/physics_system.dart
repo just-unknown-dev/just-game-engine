@@ -97,6 +97,7 @@ class PhysicsSystem extends System {
           useGravity: !comp.isStatic,
           isSensor: comp.isSensor,
           isOneWay: comp.isOneWay,
+          fixedRotation: comp.fixedRotation,
           categoryBits: comp.categoryBits,
           maskBits: comp.maskBits,
           groupIndex: comp.groupIndex,

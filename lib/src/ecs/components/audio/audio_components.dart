@@ -25,7 +25,7 @@ class AudioSourceComponent extends Component {
   });
 
   /// Asset path to the audio clip.
-  final String clipPath;
+  String clipPath;
 
   /// Volume [0.0 – 1.0].
   double volume;
@@ -115,7 +115,7 @@ class AudioStreamComponent extends Component {
   });
 
   /// Asset path to the audio file.
-  final String path;
+  String path;
 
   /// Volume [0.0 – 1.0].
   double volume;

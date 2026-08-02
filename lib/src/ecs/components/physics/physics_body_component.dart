@@ -31,6 +31,12 @@ class PhysicsBodyComponent extends Component {
   /// this body without collision resolution.
   bool isOneWay;
 
+  /// Locks rotation: collisions (e.g. friction against a static obstacle)
+  /// never change this body's [TransformComponent.rotation]. Set this for
+  /// top-down characters that should slide along scenery instead of
+  /// visibly spinning when they clip a tree, rock, or other body.
+  bool fixedRotation;
+
   /// Sensor mode: detects overlaps but does not resolve collisions.
   bool isSensor;
 
@@ -55,6 +61,7 @@ class PhysicsBodyComponent extends Component {
     this.drag = 0.98,
     this.isStatic = false,
     this.isOneWay = false,
+    this.fixedRotation = false,
     this.isSensor = false,
     this.categoryBits = 0x0001,
     this.maskBits = 0xFFFF,

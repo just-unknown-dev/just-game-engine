@@ -8,7 +8,7 @@ class LifetimeComponent extends Component {
   double timeRemaining;
 
   /// Initial lifetime
-  final double initialLifetime;
+  double initialLifetime;
 
   /// Create a lifetime component
   LifetimeComponent(this.initialLifetime) : timeRemaining = initialLifetime;
