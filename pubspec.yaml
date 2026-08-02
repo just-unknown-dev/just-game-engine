@@ -1,6 +1,6 @@
 name: just_game_engine
 description: "A feature-rich 2D game engine for Flutter with ECS, physics, audio, tilemaps, particles, animation, and input systems for building cross-platform games."
-version: 1.6.0
+version: 1.6.1
 homepage: https://engine.justunknown.com/
 repository: https://github.com/just-unknown-dev/just-game-engine
 issue_tracker: https://github.com/just-unknown-dev/just-game-engine/issues
@@ -12,7 +12,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  just_physics_engine: ^1.2.1
+  just_physics_engine: ^1.2.2
   just_audio_engine: ^1.0.1
   just_storage: ^1.2.1
   just_database: ^1.4.2
