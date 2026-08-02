@@ -1503,8 +1503,10 @@ Container for components representing a game object.
 
 - `void addComponent(Component component)` - Attach a component
 - `void removeComponent<T extends Component>()` - Remove component by type
+- `void removeComponentByType(Type type)` - Remove component by runtime `Type` (when `T` isn't known at compile time)
 - `T? getComponent<T extends Component>()` - Get component by type
 - `bool hasComponent<T extends Component>()` - Check if component exists
+- `bool hasComponentByType(Type type)` - Check if component exists by runtime `Type`
 - `bool hasComponents(List<Type> types)` - Check if all components exist
 
 #### Example

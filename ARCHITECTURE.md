@@ -34,10 +34,10 @@
 | Field | Value |
 |---|---|
 | **Package name** | `just_game_engine` |
-| **Version** | `1.6.0` |
+| **Version** | `1.6.1` |
 | **Dart SDK** | `^3.11.0` |
 | **Flutter** | `>=1.17.0` |
-| **Runtime dependencies** | `just_physics_engine: ^1.2.0`, `just_audio_engine: ^1.0.1`, `just_storage: ^1.2.1`, `just_database: ^1.4.2`, `just_signals: ^1.0.2`, `just_memory: ^0.1.0`, `just_tiled: ^0.3.0`, `just_dart: ^0.1.0`, `meta: ^1.9.0`, `web: ^1.1.1` |
+| **Runtime dependencies** | `just_physics_engine: ^1.2.2`, `just_audio_engine: ^1.0.1`, `just_storage: ^1.2.1`, `just_database: ^1.4.2`, `just_signals: ^1.0.2`, `just_memory: ^0.1.0`, `just_tiled: ^0.3.0`, `just_dart: ^0.1.0`, `meta: ^1.9.0`, `web: ^1.1.1` |
 | **Dev dependencies** | `flutter_test`, `flutter_lints: ^6.0.0` |
 | **Companion packages** | `just_tiled: ^0.3.0` (Tiled map support), `just_zstd: ^1.0.0` (Zstandard decompressor) |
 | **Repository** | https://github.com/just-unknown-dev/just-game-engine |

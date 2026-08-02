@@ -208,11 +208,13 @@ Five self-rendering ECS components cover the most common geometric shapes. Becau
 
 | Component | Key properties |
 |---|---|
-| `CircleComponent` | `radius`, `color`, `filled`, `strokeWidth` |
-| `RectangleComponent` | `width`, `height`, `color`, `filled`, `strokeWidth`, `cornerRadius` |
-| `PolygonComponent` | `vertices` (`List<Offset>`), `color`, `filled`, `strokeWidth` |
-| `LineComponent` | `start`, `end`, `color`, `strokeWidth`, `roundCaps` |
-| `CapsuleComponent` | `width`, `height`, `color`, `filled`, `strokeWidth` |
+| `CircleComponent` | `radius`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth` |
+| `RectangleComponent` | `width`, `height`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`, `cornerRadius` |
+| `PolygonComponent` | `vertices` (`List<Offset>`), `fillStyle`, `strokeStyle`, `filled`, `strokeWidth` |
+| `LineComponent` | `start`, `end`, `strokeStyle`, `strokeWidth`, `roundCaps` |
+| `CapsuleComponent` | `width`, `height`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth` |
+
+`fillStyle`/`strokeStyle` are `ShapePaintStyle` values — a color tint plus an optional `ShapeGradient` (`linear`, `radial`, or `sweep`).
 
 ```dart
 void setupShapes(Engine engine) {
@@ -222,7 +224,10 @@ void setupShapes(Engine engine) {
   // Circle
   final circle = world.createEntity(name: 'Circle');
   circle.addComponent(TransformComponent(position: const Vector3(-150, 0, 0)));
-  circle.addComponent(CircleComponent(radius: 40, color: Colors.blue));
+  circle.addComponent(CircleComponent(
+    radius: 40,
+    fillStyle: const ShapePaintStyle(color: Colors.blue),
+  ));
 
   // Rounded rectangle
   final rect = world.createEntity(name: 'Rect');
@@ -230,7 +235,7 @@ void setupShapes(Engine engine) {
   rect.addComponent(RectangleComponent(
     width: 80,
     height: 50,
-    color: Colors.green,
+    fillStyle: const ShapePaintStyle(color: Colors.green),
     cornerRadius: 8,
   ));
 
@@ -239,7 +244,7 @@ void setupShapes(Engine engine) {
   tri.addComponent(TransformComponent(position: const Vector3(150, 0, 0)));
   tri.addComponent(PolygonComponent(
     vertices: const [Offset(0, -40), Offset(35, 30), Offset(-35, 30)],
-    color: Colors.orange,
+    fillStyle: const ShapePaintStyle(color: Colors.orange),
   ));
 
   // Line
@@ -247,7 +252,7 @@ void setupShapes(Engine engine) {
   line.addComponent(TransformComponent(position: const Vector3(-80, 100, 0)));
   line.addComponent(LineComponent(
     end: const Offset(80, 0),
-    color: Colors.yellow,
+    strokeStyle: const ShapePaintStyle(color: Colors.yellow),
     strokeWidth: 3,
     roundCaps: true,
   ));
@@ -258,7 +263,7 @@ void setupShapes(Engine engine) {
   capsule.addComponent(CapsuleComponent(
     width: 40,
     height: 90,
-    color: Colors.purple,
+    fillStyle: const ShapePaintStyle(color: Colors.purple),
   ));
 }
 ```

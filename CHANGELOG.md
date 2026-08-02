@@ -22,6 +22,18 @@ All notable changes to the Just Game Engine will be documented in this file.
 - **`GameWidget`'s terminal-toggle key (backquote) no longer leaks into gameplay or the terminal's own input.** Previously only `KeyDownEvent` was special-cased, so holding backquote after the terminal opened generated `KeyRepeatEvent`s that fell through to "treat as terminal input," spamming backticks into the input buffer, and the paired key-*up* event leaked into `Engine.input`'s polled key state whenever it happened to land right as the terminal closed (an asymmetry versus opening, which happened to swallow it). The toggle key's events (down, repeat, and up) are now all unconditionally consumed by `GameWidget` regardless of the terminal's open/closed state.
 - **`GameTerminal` can now type uppercase letters and shifted symbols.** `GameTerminal.handleKeyDown` had its own "printable ASCII fallback" that mapped every digit/letter/space/punctuation key via a case-insensitive `LogicalKeyboardKey.keyLabel` lookup and returned `true` — pre-empting `GameWidget`'s intended fallback to `appendCharacter(event.character)` (the Shift/CapsLock/IME-aware path both functions' doc comments already described as "preferred") for every printable key, every time. The dev terminal could previously never produce an uppercase letter or a shifted symbol like `!`/`@`. `handleKeyDown` now only special-cases Enter/Backspace, as originally intended; all printable input goes through `appendCharacter`.
 
+## [1.6.1] - 2026-08-02
+
+### Added
+
+- Unified shape styling: `ShapePaintStyle` and `ShapeGradient` (linear, radial, sweep) now back `fillStyle`/`strokeStyle` on every shape component (`CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent`), replacing the old flat `color` property.
+- `Entity.removeComponentByType(Type type)` and `Entity.hasComponentByType(Type type)` for runtime-type component access when the static type isn't known at the call site.
+
+### Changed
+
+- `ColliderDebuggerSystem` relocated from `core/debugger/` to `core/` and exported via `core.dart` and `systems.dart`.
+- `just_physics_engine` dependency upgraded to `^1.2.2`.
+
 ## [1.6.0] - 2026-05-30
 
 ### Added
