@@ -66,7 +66,9 @@ class AuthManager {
     try {
       final user = await _provider.signIn();
       if (user != null) {
-        debugPrint('AuthManager: signed in as ${user.displayName} (${user.platform.name})');
+        debugPrint(
+          'AuthManager: signed in as ${user.displayName} (${user.platform.name})',
+        );
         _world?.events.fire(AuthSignedInEvent(user: user));
       }
       return user;

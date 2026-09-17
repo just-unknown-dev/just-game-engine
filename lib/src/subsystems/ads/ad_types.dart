@@ -59,12 +59,7 @@ class JustRewardItem {
 }
 
 /// GDPR/UMP consent status.
-enum ConsentStatus {
-  obtained,
-  notRequired,
-  denied,
-  unknown,
-}
+enum ConsentStatus { obtained, notRequired, denied, unknown }
 
 /// Configuration for the UMP consent flow passed to [AdsProvider.initialize].
 class ConsentConfig {

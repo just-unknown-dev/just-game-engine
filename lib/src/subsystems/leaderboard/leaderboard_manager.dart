@@ -85,12 +85,19 @@ class LeaderboardManager {
     }
     try {
       await _provider.submitScore(def, score);
-      debugPrint('LeaderboardManager: submitted score $score to "$leaderboardId"');
+      debugPrint(
+        'LeaderboardManager: submitted score $score to "$leaderboardId"',
+      );
       _world?.events.fire(
-        LeaderboardScoreSubmittedEvent(leaderboardId: leaderboardId, score: score),
+        LeaderboardScoreSubmittedEvent(
+          leaderboardId: leaderboardId,
+          score: score,
+        ),
       );
     } catch (e) {
-      debugPrint('LeaderboardManager: submitScore "$leaderboardId" failed ($e)');
+      debugPrint(
+        'LeaderboardManager: submitScore "$leaderboardId" failed ($e)',
+      );
     }
   }
 
@@ -110,7 +117,9 @@ class LeaderboardManager {
     try {
       return await _provider.getTopScores(def, limit: limit);
     } catch (e) {
-      debugPrint('LeaderboardManager: getTopScores "$leaderboardId" failed ($e)');
+      debugPrint(
+        'LeaderboardManager: getTopScores "$leaderboardId" failed ($e)',
+      );
       return [];
     }
   }
@@ -127,7 +136,9 @@ class LeaderboardManager {
     try {
       await _provider.showLeaderboard(def);
     } catch (e) {
-      debugPrint('LeaderboardManager: showLeaderboard "$leaderboardId" failed ($e)');
+      debugPrint(
+        'LeaderboardManager: showLeaderboard "$leaderboardId" failed ($e)',
+      );
     }
   }
 

@@ -102,7 +102,10 @@ class ViewCullingSystem extends System {
   }
 
   Rect _worldBoundsOf(Entity entity) {
-    final position = entity.getComponent<TransformComponent>()!.position.toOffset();
+    final position = entity
+        .getComponent<TransformComponent>()!
+        .position
+        .toOffset();
     final renderable = entity.getComponent<RenderableComponent>()?.renderable;
     final bounds = renderable?.getBounds();
     if (bounds == null) {

@@ -20,7 +20,9 @@ class EpicGamesLeaderboardProvider implements LeaderboardProvider {
 
   @override
   Future<void> submitScore(LeaderboardDefinition leaderboard, int score) async {
-    debugPrint('EpicGamesLeaderboardProvider: submitScore called but SDK not wired — stub only');
+    debugPrint(
+      'EpicGamesLeaderboardProvider: submitScore called but SDK not wired — stub only',
+    );
   }
 
   @override
@@ -31,7 +33,9 @@ class EpicGamesLeaderboardProvider implements LeaderboardProvider {
 
   @override
   Future<void> showLeaderboard(LeaderboardDefinition leaderboard) async {
-    debugPrint('EpicGamesLeaderboardProvider: showLeaderboard called but SDK not wired — stub only');
+    debugPrint(
+      'EpicGamesLeaderboardProvider: showLeaderboard called but SDK not wired — stub only',
+    );
   }
 
   @override

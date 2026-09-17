@@ -39,7 +39,10 @@ class NoOpLeaderboardProvider implements LeaderboardProvider {
   Future<void> initialize() async {}
 
   @override
-  Future<void> submitScore(LeaderboardDefinition leaderboard, int score) async {}
+  Future<void> submitScore(
+    LeaderboardDefinition leaderboard,
+    int score,
+  ) async {}
 
   @override
   Future<List<LeaderboardEntry>> getTopScores(

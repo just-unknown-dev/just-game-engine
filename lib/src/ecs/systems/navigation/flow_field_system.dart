@@ -124,9 +124,7 @@ class FlowFieldSystem extends System {
           .getComponent<TransformComponent>()!
           .position
           .toOffset();
-      final radius = entity
-          .getComponent<NavigationObstacleComponent>()!
-          .radius;
+      final radius = entity.getComponent<NavigationObstacleComponent>()!.radius;
 
       final obstacleBounds = Rect.fromCircle(center: pos, radius: radius);
       if (!bounds.overlaps(obstacleBounds)) continue;
@@ -162,12 +160,14 @@ class FlowFieldSystem extends System {
     }
 
     final distance = Int32List(cellCount)..fillRange(0, cellCount, -1);
-    final targetCol = ((targetPos.dx - bounds.left) / cellSize)
-        .floor()
-        .clamp(0, cols - 1);
-    final targetRow = ((targetPos.dy - bounds.top) / cellSize)
-        .floor()
-        .clamp(0, rows - 1);
+    final targetCol = ((targetPos.dx - bounds.left) / cellSize).floor().clamp(
+      0,
+      cols - 1,
+    );
+    final targetRow = ((targetPos.dy - bounds.top) / cellSize).floor().clamp(
+      0,
+      rows - 1,
+    );
     final targetIndex = targetRow * cols + targetCol;
 
     // The target's own cell must be walkable to seed the BFS, regardless of

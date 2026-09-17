@@ -86,7 +86,11 @@ class AudioSystem extends System {
       if (audio.handle == null && audio.playOnAdd) {
         final transform = entity.getComponent<TransformComponent>();
         final pos = (audio.is3d && transform != null)
-            ? Audio3DPosition(transform.position.x, transform.position.y, transform.position.z)
+            ? Audio3DPosition(
+                transform.position.x,
+                transform.position.y,
+                transform.position.z,
+              )
             : null;
 
         _engine
@@ -114,7 +118,11 @@ class AudioSystem extends System {
         if (transform != null) {
           _engine.updateSfxPosition(
             audio.handle! as String,
-            Audio3DPosition(transform.position.x, transform.position.y, transform.position.z),
+            Audio3DPosition(
+              transform.position.x,
+              transform.position.y,
+              transform.position.z,
+            ),
           );
         }
       }
@@ -128,7 +136,11 @@ class AudioSystem extends System {
       final transform = entity.getComponent<TransformComponent>();
 
       final pos = (play.is3d && transform != null)
-          ? Audio3DPosition(transform.position.x, transform.position.y, transform.position.z)
+          ? Audio3DPosition(
+              transform.position.x,
+              transform.position.y,
+              transform.position.z,
+            )
           : null;
 
       _engine.playSfx(

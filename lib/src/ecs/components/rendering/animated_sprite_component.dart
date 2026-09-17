@@ -76,16 +76,15 @@ class TransformKeyframe {
     Object? scaleX = _sentinel,
     Object? scaleY = _sentinel,
     KeyframeEasing? easing,
-  }) =>
-      TransformKeyframe(
-        time: time ?? this.time,
-        posX: posX == _sentinel ? this.posX : posX as double?,
-        posY: posY == _sentinel ? this.posY : posY as double?,
-        rotation: rotation == _sentinel ? this.rotation : rotation as double?,
-        scaleX: scaleX == _sentinel ? this.scaleX : scaleX as double?,
-        scaleY: scaleY == _sentinel ? this.scaleY : scaleY as double?,
-        easing: easing ?? this.easing,
-      );
+  }) => TransformKeyframe(
+    time: time ?? this.time,
+    posX: posX == _sentinel ? this.posX : posX as double?,
+    posY: posY == _sentinel ? this.posY : posY as double?,
+    rotation: rotation == _sentinel ? this.rotation : rotation as double?,
+    scaleX: scaleX == _sentinel ? this.scaleX : scaleX as double?,
+    scaleY: scaleY == _sentinel ? this.scaleY : scaleY as double?,
+    easing: easing ?? this.easing,
+  );
 }
 
 const _sentinel = Object();
@@ -103,14 +102,12 @@ class AnimationClip {
     List<TransformKeyframe>? keyframes,
     List<AnimationEvent>? events,
   }) : frames = List<int>.from(frames),
-       keyframes =
-           keyframes == null
-               ? <TransformKeyframe>[]
-               : List<TransformKeyframe>.from(keyframes),
-       events =
-           events == null
-               ? <AnimationEvent>[]
-               : List<AnimationEvent>.from(events);
+       keyframes = keyframes == null
+           ? <TransformKeyframe>[]
+           : List<TransformKeyframe>.from(keyframes),
+       events = events == null
+           ? <AnimationEvent>[]
+           : List<AnimationEvent>.from(events);
 
   final String name;
 
@@ -321,11 +318,9 @@ class AnimatedSpriteComponent extends Component {
     return clip.frames[frameIndex.clamp(0, clip.frames.length - 1)];
   }
 
-  int get currentColumn =>
-      columns > 0 ? currentAbsoluteFrame % columns : 0;
+  int get currentColumn => columns > 0 ? currentAbsoluteFrame % columns : 0;
 
-  int get currentRow =>
-      columns > 0 ? currentAbsoluteFrame ~/ columns : 0;
+  int get currentRow => columns > 0 ? currentAbsoluteFrame ~/ columns : 0;
 
   /// Duration of [activeClip] in seconds, or 0 if unknown.
   double get clipDuration {
@@ -374,8 +369,7 @@ class AnimatedSpriteComponent extends Component {
     columns = (meta['columns'] as num?)?.toInt() ?? columns;
     rows = (meta['rows'] as num?)?.toInt() ?? rows;
 
-    final clipsJson =
-        (json['clips'] as Map?)?.cast<String, dynamic>() ?? {};
+    final clipsJson = (json['clips'] as Map?)?.cast<String, dynamic>() ?? {};
     clips = {
       for (final e in clipsJson.entries)
         e.key: AnimationClip.fromJson(

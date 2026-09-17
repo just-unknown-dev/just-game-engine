@@ -55,7 +55,7 @@ export 'src/subsystems/parallax/parallax.dart';
 export 'src/subsystems/physics/physics.dart';
 
 // Input - Keyboard, mouse, controller, touch, and virtual joystick
-export 'src/subsystems/input/input.dart';
+export 'package:just_inputs/just_inputs.dart';
 
 // Audio - Sound effects, music, and ECS audio integration
 export 'src/subsystems/audio/audio.dart';

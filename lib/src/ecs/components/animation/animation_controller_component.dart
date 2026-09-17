@@ -17,14 +17,12 @@ class AnimationControllerComponent extends Component {
     this.playOnStart = false,
     List<TransformKeyframe>? keyframes,
     List<AnimationEvent>? events,
-  }) : keyframes =
-           keyframes == null
-               ? <TransformKeyframe>[]
-               : List<TransformKeyframe>.from(keyframes),
-       events =
-           events == null
-               ? <AnimationEvent>[]
-               : List<AnimationEvent>.from(events);
+  }) : keyframes = keyframes == null
+           ? <TransformKeyframe>[]
+           : List<TransformKeyframe>.from(keyframes),
+       events = events == null
+           ? <AnimationEvent>[]
+           : List<AnimationEvent>.from(events);
 
   // ── Configuration ─────────────────────────────────────────────────────────
 
@@ -130,7 +128,9 @@ class AnimationControllerComponent extends Component {
     final kfsJson = json['keyframes'] as List?;
     if (kfsJson != null) {
       keyframes.addAll(
-        kfsJson.map((k) => TransformKeyframe.fromJson(k as Map<String, dynamic>)),
+        kfsJson.map(
+          (k) => TransformKeyframe.fromJson(k as Map<String, dynamic>),
+        ),
       );
     }
 

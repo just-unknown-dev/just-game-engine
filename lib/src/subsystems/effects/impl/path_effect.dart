@@ -79,7 +79,8 @@ class PathEffect extends DeterministicEffect {
       final p1 = relativeToStart ? o + waypoints[1] : waypoints[1];
       final p2 = relativeToStart ? o + waypoints[2] : waypoints[2];
       final p3 = relativeToStart ? o + waypoints[3] : waypoints[3];
-      result = p0 * (mt * mt * mt) +
+      result =
+          p0 * (mt * mt * mt) +
           p1 * (3 * mt * mt * t) +
           p2 * (3 * mt * t * t) +
           p3 * (t * t * t);
@@ -135,7 +136,11 @@ class PathEffect extends DeterministicEffect {
       'durationTicks': durationTicks,
       'loop': loop,
       if (_capturedStart != null)
-        'capturedStart': [_capturedStart!.x, _capturedStart!.y, _capturedStart!.z],
+        'capturedStart': [
+          _capturedStart!.x,
+          _capturedStart!.y,
+          _capturedStart!.z,
+        ],
     };
   }
 

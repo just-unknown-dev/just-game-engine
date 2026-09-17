@@ -46,10 +46,7 @@ class BoundarySystem extends System {
           if (velocity != null) {
             if (transform.position.x < bounds.left ||
                 transform.position.x > bounds.right) {
-              velocity.setVelocityXY(
-                -velocity.velocity.x,
-                velocity.velocity.y,
-              );
+              velocity.setVelocityXY(-velocity.velocity.x, velocity.velocity.y);
               transform.setPositionXY(
                 transform.position.x.clamp(bounds.left, bounds.right),
                 transform.position.y,
@@ -57,10 +54,7 @@ class BoundarySystem extends System {
             }
             if (transform.position.y < bounds.top ||
                 transform.position.y > bounds.bottom) {
-              velocity.setVelocityXY(
-                velocity.velocity.x,
-                -velocity.velocity.y,
-              );
+              velocity.setVelocityXY(velocity.velocity.x, -velocity.velocity.y);
               transform.setPositionXY(
                 transform.position.x,
                 transform.position.y.clamp(bounds.top, bounds.bottom),

@@ -148,7 +148,8 @@ class ShaderComponent extends Component {
     double width,
     double height,
     double elapsedSeconds,
-  )? setUniforms;
+  )?
+  setUniforms;
 
   // ── Internal state ──────────────────────────────────────────────────────
 

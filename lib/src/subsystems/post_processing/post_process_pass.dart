@@ -82,7 +82,8 @@ class PostProcessPass {
     double viewportWidth,
     double viewportHeight,
     double elapsedSeconds,
-  )? setUniforms;
+  )?
+  setUniforms;
 
   /// Create a post-process pass.
   ///

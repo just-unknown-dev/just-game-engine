@@ -28,8 +28,9 @@ class AdsManager {
 
   // ── Signals ────────────────────────────────────────────────────────────────
 
-  final Signal<ConsentStatus> consentStatus =
-      Signal<ConsentStatus>(ConsentStatus.unknown);
+  final Signal<ConsentStatus> consentStatus = Signal<ConsentStatus>(
+    ConsentStatus.unknown,
+  );
   final Signal<bool> isInitialized = Signal<bool>(false);
   final Signal<bool> isInterstitialReady = Signal<bool>(false);
   final Signal<bool> isRewardedReady = Signal<bool>(false);
@@ -91,8 +92,9 @@ class AdsManager {
       }
       return instance;
     } catch (e) {
-      _world?.events
-          .fire(AdFailedToLoadEvent(adType: AdType.banner, error: '$e'));
+      _world?.events.fire(
+        AdFailedToLoadEvent(adType: AdType.banner, error: '$e'),
+      );
       return null;
     }
   }

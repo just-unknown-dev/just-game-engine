@@ -19,7 +19,9 @@ class SteamAuthProvider implements AuthProvider {
 
   @override
   Future<AuthUser?> signIn() async {
-    debugPrint('SteamAuthProvider: signIn called but SDK not wired — stub only');
+    debugPrint(
+      'SteamAuthProvider: signIn called but SDK not wired — stub only',
+    );
     return null;
   }
 

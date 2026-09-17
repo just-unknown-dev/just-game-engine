@@ -12,7 +12,7 @@ import 'system_manager.dart';
 import 'lifecycle.dart';
 import '../subsystems/rendering/rendering_engine.dart';
 import 'package:just_physics_engine/just_physics_engine.dart';
-import '../subsystems/input/input_management.dart';
+import 'package:just_inputs/just_inputs.dart';
 import '../subsystems/audio/audio.dart';
 import '../subsystems/editor/scene_editor.dart';
 import '../subsystems/animation/animation_system.dart';
@@ -122,6 +122,12 @@ class Engine implements ILifecycle {
   /// in [world], bodies added here simply won't advance.
   late final PhysicsEngine physics;
   late final InputManager input;
+
+  /// Named-action resolver layered over [input] — see `just_inputs`'
+  /// `InputActionResolver`. Starts with no bindings; the app applies its own
+  /// action defaults (and optionally loads a saved project file) after
+  /// [initialize] completes.
+  late final InputActionResolver actions;
   late final AudioEngine audio;
   late final MusicManager music;
   late final SoundEffectManager sfx;
@@ -234,6 +240,7 @@ class Engine implements ILifecycle {
     rendering.initialize();
     physics.initialize();
     input.initialize();
+    actions = InputActionResolver(input);
     // Audio is optional — catch plugin-unavailable errors so headless /
     // test environments can still initialize the rest of the engine.
     try {
@@ -279,6 +286,7 @@ class Engine implements ILifecycle {
     _systemManager.registerSystem('ecs', world);
 
     _systemManager.registerUpdateTask('input', (_) => input.update());
+    _systemManager.registerUpdateTask('actions', (_) => actions.update());
     _systemManager.registerUpdateTask(
       'camera',
       (deltaTime) => cameraSystem.update(deltaTime),

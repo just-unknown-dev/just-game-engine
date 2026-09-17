@@ -20,7 +20,9 @@ class SteamLeaderboardProvider implements LeaderboardProvider {
 
   @override
   Future<void> submitScore(LeaderboardDefinition leaderboard, int score) async {
-    debugPrint('SteamLeaderboardProvider: submitScore called but SDK not wired — stub only');
+    debugPrint(
+      'SteamLeaderboardProvider: submitScore called but SDK not wired — stub only',
+    );
   }
 
   @override
@@ -31,7 +33,9 @@ class SteamLeaderboardProvider implements LeaderboardProvider {
 
   @override
   Future<void> showLeaderboard(LeaderboardDefinition leaderboard) async {
-    debugPrint('SteamLeaderboardProvider: showLeaderboard called but SDK not wired — stub only');
+    debugPrint(
+      'SteamLeaderboardProvider: showLeaderboard called but SDK not wired — stub only',
+    );
   }
 
   @override

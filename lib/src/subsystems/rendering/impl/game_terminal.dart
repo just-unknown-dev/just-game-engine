@@ -197,7 +197,6 @@ class GameTerminal extends ChangeNotifier {
     }
     return buf.toString();
   }
-
 }
 
 // ── Internal types ────────────────────────────────────────────────────────

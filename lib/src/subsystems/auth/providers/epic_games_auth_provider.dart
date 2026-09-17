@@ -19,7 +19,9 @@ class EpicGamesAuthProvider implements AuthProvider {
 
   @override
   Future<AuthUser?> signIn() async {
-    debugPrint('EpicGamesAuthProvider: signIn called but SDK not wired — stub only');
+    debugPrint(
+      'EpicGamesAuthProvider: signIn called but SDK not wired — stub only',
+    );
     return null;
   }
 
