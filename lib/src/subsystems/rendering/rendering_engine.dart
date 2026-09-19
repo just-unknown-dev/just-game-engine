@@ -7,6 +7,7 @@ library;
 import 'dart:collection';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'render_hook_chain.dart';
 import 'impl/renderable.dart';
 import 'impl/sprite_batch.dart';
 import '../post_processing/post_process_pass.dart';
@@ -52,17 +53,45 @@ class RenderingEngine {
   /// Whether the engine is initialized
   bool _initialized = false;
 
-  /// Optional callback invoked in screen space after the background clear but
-  /// before the camera transform. Used by [ParallaxSystem] to paint parallax
-  /// backgrounds that scroll at their own rates.
-  void Function(Canvas canvas, Size size)? onRenderBackground;
+  /// Called in screen space after the background clear but before the
+  /// camera transform. [ParallaxSystem] paints its backgrounds here.
+  final RenderHookChain backgroundHooks = RenderHookChain();
 
-  /// Optional callback invoked inside the camera-transformed context after all
-  /// subsystem layers have been rendered. Use this to inject ECS world
-  /// rendering so both pipelines share a single camera transform.
+  /// Called inside the camera-transformed context after every subsystem
+  /// layer, so ECS world rendering (and anything drawn over it) shares the
+  /// one camera transform. [GameWidget] adds `engine.world.render`.
   ///
-  /// Set by [GameWidget] to `engine.world.render`.
-  void Function(Canvas canvas, Size size)? onRenderOverlay;
+  /// A chain, not a single field: several things — the world, an editor, a
+  /// debug overlay — draw here, and with a single field the first writer won
+  /// and the rest were silently dropped.
+  final RenderHookChain overlayHooks = RenderHookChain();
+
+  RenderHook? _legacyBackground;
+  RenderHook? _legacyOverlay;
+
+  /// The hook last assigned through the setter, for callers that still read
+  /// it back.
+  @Deprecated('Use backgroundHooks.add / remove')
+  RenderHook? get onRenderBackground => _legacyBackground;
+
+  /// Assigning replaces only the hook this setter previously added; hooks
+  /// added through [backgroundHooks] directly are untouched.
+  @Deprecated('Use backgroundHooks.add / remove')
+  set onRenderBackground(RenderHook? hook) {
+    if (_legacyBackground != null) backgroundHooks.remove(_legacyBackground!);
+    _legacyBackground = hook;
+    if (hook != null) backgroundHooks.add(hook);
+  }
+
+  @Deprecated('Use overlayHooks.add / remove')
+  RenderHook? get onRenderOverlay => _legacyOverlay;
+
+  @Deprecated('Use overlayHooks.add / remove')
+  set onRenderOverlay(RenderHook? hook) {
+    if (_legacyOverlay != null) overlayHooks.remove(_legacyOverlay!);
+    _legacyOverlay = hook;
+    if (hook != null) overlayHooks.add(hook);
+  }
 
   /// Debug mode flag
   bool debugMode = false;
@@ -425,7 +454,7 @@ class RenderingEngine {
     }
 
     // Render parallax backgrounds in screen space (before camera transform).
-    onRenderBackground?.call(canvas, size);
+    backgroundHooks(canvas, size);
 
     // ── Post-process: push offscreen layers (outermost first) ─────────────
     // Each active pass wraps the scene+overlay in a saveLayer so Flutter's
@@ -578,7 +607,7 @@ class RenderingEngine {
 
     // Invoke overlay callback (ECS world systems) — inside the motion-blur
     // layer so ECS entities are blurred along with subsystem renderables.
-    onRenderOverlay?.call(canvas, size);
+    overlayHooks(canvas, size);
 
     // ── Camera effect post-render (pops motion-blur saveLayer) ───────────
     // Called BEFORE the post-process pop so the blurred world is what the

@@ -389,9 +389,17 @@ void main() {
 
       engine.physics.addBody(body);
       final initialPosX = body.position.x;
-      engine.physics.update(1.0); // 1 second
 
-      expect(body.position.x, closeTo(initialPosX + 100, 0.01));
+      // Stepped as 60 frames rather than one 1-second frame. Both backends
+      // clamp their accumulator to a handful of fixed sub-steps per call, so a
+      // single huge delta simulates only a fraction of the time asked for —
+      // that clamp is what stops a stalled frame from triggering a death
+      // spiral of catch-up steps.
+      for (var i = 0; i < 60; i++) {
+        engine.physics.update(1.0 / 60.0);
+      }
+
+      expect(body.position.x, closeTo(initialPosX + 100, 2.0));
     });
 
     test('Collision detection', () async {

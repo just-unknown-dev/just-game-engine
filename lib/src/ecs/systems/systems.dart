@@ -16,11 +16,13 @@ export 'rendering/post_process_system.dart';
 // Physics systems
 export 'physics/physics_system.dart';
 export 'physics/physics_bridge_system.dart';
+export 'physics/physics_joint_binding_system.dart';
 export 'physics/collision_event.dart';
 export 'physics/sensor_event.dart';
 
 // Input systems
 export 'input/input_system.dart';
+export 'input/simple_movement_system.dart';
 
 // Hierarchy systems
 export 'hierarchy/hierarchy_system.dart';
@@ -65,3 +67,6 @@ export '../../subsystems/narrative/ecs/dialogue_system.dart';
 
 // Debug systems
 export '../../core/collider_debugger_system.dart';
+
+// Platformer systems — character control, moving platforms, level rules,
+// enemies, parallax and camera zones.

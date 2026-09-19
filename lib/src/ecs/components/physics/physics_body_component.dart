@@ -26,10 +26,34 @@ class PhysicsBodyComponent extends Component {
   /// first frame.
   bool isGrounded = false;
 
+  /// Which entity this body is currently standing on, if any.
+  ///
+  /// Maintained by [PhysicsSystem] alongside [isGrounded]. Needed so a rider
+  /// can inherit a moving platform's velocity — contact friction alone leaves
+  /// the player sliding off the back of anything that moves.
+  Entity? groundEntity;
+
   /// One-way / pass-through platform flag.
-  /// When true, dynamic bodies moving upward (velocity.dy < 0) pass through
-  /// this body without collision resolution.
+  ///
+  /// When true, a contact against this body is only resolved when approached
+  /// from [oneWayDirection]; otherwise the other body passes through. Honoured
+  /// on both the pure-Dart and Box2D backends.
   bool isOneWay;
+
+  /// Which side [isOneWay] makes this body solid from.
+  OneWayDirection oneWayDirection;
+
+  /// How this body participates in the simulation.
+  ///
+  /// [isStatic] is the older, coarser switch and still wins when set — this
+  /// exists so a body can be *kinematic*: moved only by explicit velocity
+  /// writes and immovable by anything that pushes it, which is what a moving
+  /// platform needs.
+  BodyType bodyType;
+
+  /// Per-body gravity multiplier. See [PhysicsBody.gravityScale] — this is
+  /// what variable jump height is driven through.
+  double gravityScale;
 
   /// Locks rotation: collisions (e.g. friction against a static obstacle)
   /// never change this body's [TransformComponent.rotation]. Set this for
@@ -61,6 +85,9 @@ class PhysicsBodyComponent extends Component {
     this.drag = 0.98,
     this.isStatic = false,
     this.isOneWay = false,
+    this.oneWayDirection = OneWayDirection.fromAbove,
+    this.bodyType = BodyType.dynamic,
+    this.gravityScale = 1.0,
     this.fixedRotation = false,
     this.isSensor = false,
     this.categoryBits = 0x0001,
@@ -69,7 +96,10 @@ class PhysicsBodyComponent extends Component {
     this.showDebugOutline = true,
   });
 
+  /// The body type actually simulated, folding in the older [isStatic] flag.
+  BodyType get effectiveBodyType => isStatic ? BodyType.static : bodyType;
+
   @override
   String toString() =>
-      'PhysicsBody(shape: $shape, m: $mass, static: $isStatic)';
+      'PhysicsBody(shape: $shape, m: $mass, type: ${effectiveBodyType.name})';
 }

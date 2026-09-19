@@ -21,7 +21,7 @@ class CheckpointComponent extends Component {
   Vector3 respawnPosition;
 
   /// Activation radius in world units.
-  final double radius;
+  double radius;
 
   /// Whether this checkpoint has already been activated.
   bool isActivated;

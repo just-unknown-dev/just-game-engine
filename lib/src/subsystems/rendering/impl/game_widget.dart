@@ -401,7 +401,7 @@ class _GamePainter extends CustomPainter {
   _GamePainter(this.engine, {super.repaint}) {
     // Wire ECS world rendering into the subsystem pipeline so both share
     // the same camera transform (unified render pipeline).
-    engine.rendering.onRenderOverlay ??= engine.world.render;
+    engine.rendering.overlayHooks.addIfAbsent(engine.world.render);
   }
 
   @override

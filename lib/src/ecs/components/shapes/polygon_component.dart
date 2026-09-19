@@ -114,9 +114,6 @@ class PolygonComponent extends RenderableComponent {
   });
 
   @override
-  Type get componentType => RenderableComponent;
-
-  @override
   String toString() =>
       'Polygon(${vertices.length} vertices, fillStyle=$fillStyle, '
       'strokeStyle=$strokeStyle, filled=$filled, '

@@ -21,8 +21,21 @@ abstract final class SystemPriorities {
   /// Input processing — must run before any simulation systems.
   static const int input = 100;
 
+  /// Character control — reads input, writes velocity.
+  ///
+  /// Sits between [input] and [physics] deliberately: a jump pressed this
+  /// frame must reach this frame's simulation step, not the next one, or the
+  /// controls feel a frame behind at every press.
+  static const int playerControl = 95;
+
   /// Physics (broad-phase + narrow-phase + resolution).
   static const int physics = 90;
+
+  /// Moving platforms — steers kinematic bodies along their paths.
+  ///
+  /// Just above [physics] so the platform's velocity for this frame is set
+  /// before the step that carries its riders along.
+  static const int movingPlatform = 92;
 
   /// Movement — applies velocity to transform.
   static const int movement = 80;
@@ -39,6 +52,19 @@ abstract final class SystemPriorities {
 
   /// Gameplay logic (health, lifetime, scoring, …).
   static const int gameplay = 60;
+
+  /// Genre rules layered on top of [gameplay] — hazards, pickups, goals,
+  /// destructible geometry, kill planes. Just below [gameplay] so health
+  /// changes it causes are seen by [checkpoint] in the same frame.
+  ///
+  /// This is the slot a genre package (`just_platformer_kit` and friends)
+  /// runs its rule system in.
+  static const int genreRules = 59;
+
+  /// Former name for [genreRules], from when the platformer shipped inside
+  /// the engine.
+  @Deprecated('Use genreRules instead. The engine is genre-neutral.')
+  static const int platformerGameplay = genreRules;
 
   /// Checkpoint / respawn — runs just after gameplay so the checkpoint can
   /// react to player state (e.g. health reaching zero) within the same frame.

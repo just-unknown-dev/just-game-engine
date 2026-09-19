@@ -1,6 +1,5 @@
 library;
 
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -10,7 +9,11 @@ import '../../components/components.dart';
 import '../../../interfaces/interfaces.dart';
 import '../../../subsystems/rendering/impl/renderable.dart';
 import '../../../subsystems/rendering/impl/sprite_batch.dart';
+import '../../serialization/component_definition.dart';
 import '../system_priorities.dart';
+import 'render_pass.dart';
+
+export 'render_pass.dart';
 
 /// Render system - Renders ECS world-space renderables and UI components.
 class RenderSystem extends System {
@@ -20,27 +23,18 @@ class RenderSystem extends System {
   /// Optional camera used to transform world-space entities.
   final GameCamera? camera;
 
+  /// Skips entities it returns false for, without touching them.
+  ///
+  /// A viewing aid for tools: an editor hiding a layer, or isolating the
+  /// selection, filters here rather than flipping a component's visibility —
+  /// which would be saved, and would change what the level does. Null, the
+  /// default, draws everything and costs nothing.
+  bool Function(Entity entity)? shouldRender;
+
   /// Factory for creating sprite-batch renderers from an atlas image.
   final SpriteBatchFactory _spriteBatchFactory;
 
   // ── Cached paint objects to avoid per-frame allocation ───────────────
-  final Paint _buttonFillPaint = Paint();
-  final Paint _buttonBorderPaint = Paint()..style = PaintingStyle.stroke;
-  final Paint _trackPaint = Paint();
-  final Paint _progressFillPaint = Paint();
-  final Paint _progressBorderPaint = Paint()..style = PaintingStyle.stroke;
-  final Paint _circleTrackPaint = Paint()..style = PaintingStyle.stroke;
-  final Paint _circleProgressPaint = Paint()
-    ..style = PaintingStyle.stroke
-    ..strokeCap = StrokeCap.round;
-
-  /// Cached TextPainter — reused across _paintText and _paintButton.
-  final TextPainter _textPainter = TextPainter(
-    textDirection: TextDirection.ltr,
-  );
-
-  /// Reusable buffer for UI entity sorting — avoids per-frame list allocation.
-  final List<Entity> _uiEntityBuffer = [];
 
   /// Reusable buffer for the depth-sorted (`Renderable.ySort`) pass — avoids
   /// per-frame list allocation. See the [ySort] handling in [render].
@@ -55,16 +49,44 @@ class RenderSystem extends System {
   final Paint _entityShaderPaint = Paint();
 
   /// Create a render system.
-  RenderSystem({this.camera, SpriteBatchFactory? spriteBatchFactory})
-    : _spriteBatchFactory =
-          spriteBatchFactory ?? ((atlas) => SpriteBatch(atlas));
+  ///
+  /// [passes] run after the renderable pass, inside the camera transform, in
+  /// ascending [RenderPass.order]. By default that is one
+  /// [ComponentPainterPass], which draws every component whose definition
+  /// has a painter — text, buttons, progress bars, and a game's own.
+  RenderSystem({
+    this.camera,
+    SpriteBatchFactory? spriteBatchFactory,
+    List<RenderPass>? passes,
+  }) : _spriteBatchFactory =
+           spriteBatchFactory ?? ((atlas) => SpriteBatch(atlas)),
+       passes = List.unmodifiable(
+         (passes ?? [ComponentPainterPass()])
+           ..sort((a, b) => a.order.compareTo(b.order)),
+       );
+
+  /// The extra passes this system runs; see the constructor.
+  final List<RenderPass> passes;
 
   @override
   List<Type> get requiredComponents => [TransformComponent];
 
-  /// Whether the camera transform is already applied by an outer context
-  /// (e.g. [RenderingEngine.onRenderOverlay]). When true, [render] skips
-  /// its own save/transform/restore.
+  /// Whether some outer context has already applied the camera transform.
+  /// When true, [render] skips its own save/transform/restore.
+  ///
+  /// **[RenderingEngine.onRenderOverlay] is NOT such a context**, despite what
+  /// this doc used to claim. `RenderingEngine.render` calls `canvas.restore()`
+  /// — ending the camera transform — immediately *before* invoking
+  /// `onRenderOverlay`, which is where `World.render` runs. ECS systems
+  /// therefore draw in **screen space** and each must apply the camera itself,
+  /// which is exactly what [ColliderDebuggerSystem] and [PhysicsSystem.camera]
+  /// do.
+  ///
+  /// So: pass [camera] to this system. Leaving it null makes every entity draw
+  /// at its world coordinates interpreted as raw screen pixels — the scene
+  /// collapses into the top-left corner and stops responding to panning and
+  /// zooming. Nothing throws; it just renders wrongly, which makes it an
+  /// unusually slow bug to track down.
   bool cameraAppliedExternally = false;
 
   /// Sub-frame interpolation factor in [0.0, 1.0].
@@ -75,6 +97,49 @@ class RenderSystem extends System {
   /// Defaults to 1.0 (no interpolation — render at current position).
   double interpolation = 1.0;
 
+  // ── Layer ordering ────────────────────────────────────────────────────────
+  //
+  // world.query returns entities in archetype order, which is effectively
+  // arbitrary and shifts as components are added or removed. That is fine
+  // until a level has a background and a foreground, at which point "what
+  // draws in front" becomes luck. LayerComponent makes it authorable.
+
+  /// Reusable sort buffer, so ordering does not allocate a list per frame.
+  final List<Entity> _layerSortBuffer = [];
+
+  /// Cached sort key per entity id, valid for one sort pass.
+  final Map<int, int> _layerKeyCache = {};
+
+  /// Returns [entities] ordered by ([LayerComponent.layer],
+  /// [LayerComponent.zOrder]), or unchanged when nothing in the world uses
+  /// layers.
+  ///
+  /// The early-out matters: most worlds never add a [LayerComponent], and they
+  /// should not pay for a sort per frame. Entities without one sort as layer 0,
+  /// so they interleave predictably with those that have one.
+  List<Entity> _layerSorted(List<Entity> entities) {
+    var usesLayers = false;
+    _layerKeyCache.clear();
+    for (final entity in entities) {
+      final layer = entity.getComponent<LayerComponent>();
+      if (layer == null) continue;
+      usesLayers = true;
+      // Pack layer and zOrder into one comparable int so the sort is a single
+      // integer compare rather than two component lookups per comparison.
+      _layerKeyCache[entity.id] = (layer.layer << 20) + layer.zOrder;
+    }
+    if (!usesLayers) return entities;
+
+    _layerSortBuffer
+      ..clear()
+      ..addAll(entities)
+      ..sort(
+        (a, b) =>
+            (_layerKeyCache[a.id] ?? 0).compareTo(_layerKeyCache[b.id] ?? 0),
+      );
+    return _layerSortBuffer;
+  }
+
   @override
   void render(Canvas canvas, Size size) {
     if (camera != null && !cameraAppliedExternally) {
@@ -83,10 +148,11 @@ class RenderSystem extends System {
       camera!.applyTransform(canvas, size);
     }
 
-    final renderableEntities = world.query([
-      TransformComponent,
-      RenderableComponent,
-    ]);
+    final filter = shouldRender;
+    final candidates = world.query([TransformComponent, RenderableComponent]);
+    final renderableEntities = _layerSorted(
+      filter == null ? candidates : candidates.where(filter).toList(),
+    );
 
     // ── Batched sprite rendering ──────────────────────────────────────────
     // Sprites that share the same atlas image are collected into a SpriteBatch
@@ -230,51 +296,17 @@ class RenderSystem extends System {
       _ySortBuffer.clear();
     }
 
-    _uiEntityBuffer.clear();
-    for (final entity in world.query([TransformComponent])) {
-      if (!entity.isActive) continue;
-      if (entity.hasComponent<TextComponent>() ||
-          entity.hasComponent<ButtonComponent>() ||
-          entity.hasComponent<LinearProgressComponent>() ||
-          entity.hasComponent<EllipticalProgressComponent>()) {
-        _uiEntityBuffer.add(entity);
+    if (passes.isNotEmpty) {
+      final context = RenderContext(
+        world: world,
+        size: size,
+        camera: camera,
+        interpolation: interpolation,
+      );
+      final passFilter = filter ?? _acceptAll;
+      for (final pass in passes) {
+        pass.render(canvas, context, passFilter);
       }
-    }
-    _uiEntityBuffer.sort((a, b) {
-      final aLayer = _uiLayerFor(a);
-      final bLayer = _uiLayerFor(b);
-      return aLayer.compareTo(bLayer);
-    });
-
-    for (final entity in _uiEntityBuffer) {
-      final transform = entity.getComponent<TransformComponent>()!;
-      canvas.save();
-      canvas.translate(transform.position.x, transform.position.y);
-      canvas.rotate(transform.rotation);
-      canvas.scale(transform.scale.x, transform.scale.y);
-
-      final text = entity.getComponent<TextComponent>();
-      if (text != null && text.visible) {
-        _paintText(canvas, text);
-      }
-
-      final button = entity.getComponent<ButtonComponent>();
-      if (button != null && button.visible) {
-        _paintButton(canvas, button);
-      }
-
-      final linearProgress = entity.getComponent<LinearProgressComponent>();
-      if (linearProgress != null && linearProgress.visible) {
-        _paintLinearProgress(canvas, linearProgress);
-      }
-
-      final ellipticalProgress = entity
-          .getComponent<EllipticalProgressComponent>();
-      if (ellipticalProgress != null && ellipticalProgress.visible) {
-        _paintEllipticalProgress(canvas, ellipticalProgress);
-      }
-
-      canvas.restore();
     }
 
     if (camera != null && !cameraAppliedExternally) {
@@ -282,132 +314,5 @@ class RenderSystem extends System {
     }
   }
 
-  int _uiLayerFor(Entity entity) {
-    if (entity.hasComponent<TextComponent>()) {
-      return entity.getComponent<TextComponent>()!.layer;
-    }
-    if (entity.hasComponent<ButtonComponent>()) {
-      return entity.getComponent<ButtonComponent>()!.layer;
-    }
-    if (entity.hasComponent<LinearProgressComponent>()) {
-      return entity.getComponent<LinearProgressComponent>()!.layer;
-    }
-    if (entity.hasComponent<EllipticalProgressComponent>()) {
-      return entity.getComponent<EllipticalProgressComponent>()!.layer;
-    }
-    return 0;
-  }
-
-  void _paintText(Canvas canvas, TextComponent text) {
-    _textPainter
-      ..text = TextSpan(text: text.text, style: text.textStyle)
-      ..textAlign = text.textAlign
-      ..layout();
-
-    _textPainter.paint(
-      canvas,
-      Offset(-_textPainter.width / 2, -_textPainter.height / 2),
-    );
-  }
-
-  void _paintButton(Canvas canvas, ButtonComponent button) {
-    final rect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset.zero,
-        width: button.size.width,
-        height: button.size.height,
-      ),
-      Radius.circular(button.borderRadius),
-    );
-
-    _buttonFillPaint.color = button.currentColor;
-    canvas.drawRRect(rect, _buttonFillPaint);
-
-    if (button.borderColor != null) {
-      _buttonBorderPaint.color = button.borderColor!;
-      canvas.drawRRect(rect, _buttonBorderPaint);
-    }
-
-    _textPainter
-      ..text = TextSpan(text: button.text, style: button.textStyle)
-      ..textAlign = TextAlign.center
-      ..layout(maxWidth: button.size.width);
-
-    _textPainter.paint(
-      canvas,
-      Offset(-_textPainter.width / 2, -_textPainter.height / 2),
-    );
-  }
-
-  void _paintLinearProgress(Canvas canvas, LinearProgressComponent progress) {
-    final rect = Rect.fromCenter(
-      center: Offset.zero,
-      width: progress.size.width,
-      height: progress.size.height,
-    );
-    final track = RRect.fromRectAndRadius(
-      rect,
-      Radius.circular(progress.borderRadius),
-    );
-
-    _trackPaint.color = progress.trackColor;
-    canvas.drawRRect(track, _trackPaint);
-
-    final fillWidth = progress.size.width * progress.progress;
-    if (fillWidth > 0) {
-      final fillRect = Rect.fromLTWH(
-        rect.left,
-        rect.top,
-        fillWidth,
-        rect.height,
-      );
-      _progressFillPaint.color = progress.progressColor;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          fillRect,
-          Radius.circular(progress.borderRadius),
-        ),
-        _progressFillPaint,
-      );
-    }
-
-    if (progress.borderColor != null) {
-      _progressBorderPaint.color = progress.borderColor!;
-      canvas.drawRRect(track, _progressBorderPaint);
-    }
-  }
-
-  void _paintEllipticalProgress(
-    Canvas canvas,
-    EllipticalProgressComponent progress,
-  ) {
-    // Rect.fromCenter + drawOval rather than Rect.fromCircle + drawCircle:
-    // when radiusY == radius (the common case) an oval inscribed in a square
-    // rect is a circle, so this is a strict superset of the old behavior —
-    // it also renders correctly when radiusY differs (an ellipse).
-    final arcRect = Rect.fromCenter(
-      center: Offset.zero,
-      width: progress.size.width,
-      height: progress.size.height,
-    );
-
-    _circleTrackPaint
-      ..color = progress.trackColor
-      ..strokeWidth = progress.strokeWidth;
-    canvas.drawOval(arcRect, _circleTrackPaint);
-
-    if (progress.progress > 0) {
-      final sweep = math.pi * 2 * progress.progress;
-      _circleProgressPaint
-        ..color = progress.progressColor
-        ..strokeWidth = progress.strokeWidth;
-      canvas.drawArc(
-        arcRect,
-        progress.startAngle,
-        progress.clockwise ? sweep : -sweep,
-        false,
-        _circleProgressPaint,
-      );
-    }
-  }
+  static bool _acceptAll(Entity _) => true;
 }

@@ -4,8 +4,10 @@
 /// This is the entry point for initializing and running the game engine.
 library;
 
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 
+import 'engine_plugin.dart';
 import 'game_loop.dart';
 import 'time_manager.dart';
 import 'system_manager.dart';
@@ -57,12 +59,27 @@ class Engine implements ILifecycle {
   /// Factory constructor
   factory Engine() => instance;
 
-  /// Reset the singleton instance (use in tests only)
+  /// Disposes the singleton and forgets it, so the next [Engine] call builds
+  /// a fresh one (use in tests only).
+  ///
+  /// This used to only forget it. Every test file that reset between cases
+  /// then abandoned a fully initialised engine per test — native Box2D world
+  /// and worker threads included — until the native side gave out partway
+  /// through the file, which surfaced as a shifting "did not complete"
+  /// cascade that hid whatever had actually broken.
   @visibleForTesting
-  static void resetInstance() => _instance = null;
+  static void resetInstance() {
+    final outgoing = _instance;
+    _instance = null;
+    outgoing?.dispose();
+  }
 
   /// System manager for coordinating subsystems
   late final SystemManager _systemManager;
+
+  /// Plugins attached to this engine — editors, profilers, recorders. They
+  /// receive every update and an overlay render; see [EnginePlugin].
+  late final PluginHost plugins = PluginHost(this);
 
   /// Public access to the system manager (e.g. for reading [SystemManager.schedulerStats]).
   SystemManager get systemManager => _systemManager;
@@ -186,7 +203,11 @@ class Engine implements ILifecycle {
       _timeManager = TimeManager();
       _systemManager = SystemManager();
       await _systemManager.initialize();
-      _gameLoop = GameLoop(onUpdate: _update, timeManager: _timeManager);
+      _gameLoop = GameLoop(
+        onUpdate: _update,
+        onRender: _frame,
+        timeManager: _timeManager,
+      );
 
       // Initialize subsystems
       await _initializeSubsystems();
@@ -236,7 +257,7 @@ class Engine implements ILifecycle {
     cameraSystem.initialize(); // Initialize camera before rendering
     parallax.initialize();
     rendering.camera = cameraSystem.mainCamera;
-    rendering.onRenderBackground = parallax.render;
+    rendering.backgroundHooks.add(parallax.render);
     rendering.initialize();
     physics.initialize();
     input.initialize();
@@ -366,6 +387,11 @@ class Engine implements ILifecycle {
   }
 
   /// Update the engine state (called every frame)
+  /// Once per frame, after the fixed steps: plugins tick here, on wall-clock
+  /// time, so an editor keeps working while the game is paused or its time
+  /// scale is zero.
+  void _frame() => plugins.update(_timeManager.unscaledDeltaTime);
+
   void _update(double deltaTime) {
     if (_state != EngineState.running) return;
 
@@ -390,6 +416,7 @@ class Engine implements ILifecycle {
     }
 
     debugPrint('Shutting down engine...');
+    plugins.detachAll();
 
     // Stop the game loop if running
     if (_state == EngineState.running || _state == EngineState.paused) {
@@ -407,7 +434,14 @@ class Engine implements ILifecycle {
     animation.dispose();
     parallax.dispose();
     sceneEditor.dispose();
-    audio.dispose();
+    // Optional, as in initialize(): with no audio plugin — headless, tests,
+    // a platform without one — the shutdown call fails asynchronously, and
+    // unhandled it surfaced as an error in whatever ran next.
+    unawaited(
+      audio.dispose().catchError((Object e) {
+        debugPrint('AudioEngine: dispose skipped (${e.runtimeType})');
+      }),
+    );
     input.dispose();
     physics.dispose();
     rendering.dispose();

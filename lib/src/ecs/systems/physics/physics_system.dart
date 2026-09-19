@@ -28,7 +28,11 @@ class PhysicsSystem extends System {
   /// [physics] is the single physics implementation this system drives —
   /// pass `engine.physics`. On native platforms that's the Box2D FFI
   /// backend; on web, the pure-Dart backend. Both share the same API.
-  PhysicsSystem(this.physics);
+  ///
+  /// Pass the same [camera] as the `RenderSystem`, or the collider outlines
+  /// drawn in debug builds land at their world coordinates read as screen
+  /// pixels — away from the entities they outline.
+  PhysicsSystem(this.physics, {this.camera});
 
   /// The subsystem physics engine this system steps and syncs against.
   final PhysicsEngine physics;
@@ -46,6 +50,16 @@ class PhysicsSystem extends System {
     TransformComponent,
     PhysicsBodyComponent,
   ];
+
+  /// Below this positional difference (world units), an ECS/body mismatch is
+  /// float round-trip noise rather than a deliberate teleport.
+  ///
+  /// Sync-out writes the body's position straight into the transform, so in
+  /// steady state the two agree exactly and this never fires.
+  static const double _teleportEpsilon = 1e-4;
+
+  /// Angular counterpart of [_teleportEpsilon], in radians.
+  static const double _teleportAngleEpsilon = 1e-5;
 
   /// entity.id → its mirrored [PhysicsBody].
   final Map<int, PhysicsBody> _entityBodyMap = {};
@@ -95,8 +109,11 @@ class PhysicsSystem extends System {
           drag: comp.drag,
           angle: transform.rotation,
           useGravity: !comp.isStatic,
+          gravityScale: comp.gravityScale,
+          bodyType: comp.effectiveBodyType,
           isSensor: comp.isSensor,
           isOneWay: comp.isOneWay,
+          oneWayDirection: comp.oneWayDirection,
           fixedRotation: comp.fixedRotation,
           categoryBits: comp.categoryBits,
           maskBits: comp.maskBits,
@@ -119,10 +136,35 @@ class PhysicsSystem extends System {
         body.drag = comp.drag;
         body.useGravity = !comp.isStatic;
         body.isSensor = comp.isSensor;
-        body.isOneWay = comp.isOneWay;
-        body.categoryBits = comp.categoryBits;
-        body.maskBits = comp.maskBits;
-        body.groupIndex = comp.groupIndex;
+
+        // Routed through the engine rather than written directly: on the
+        // Box2D backend these each need a native call, and a plain field
+        // write would only update the Dart mirror. The engine's setters
+        // no-op cheaply when the value is unchanged where that matters.
+        if (body.isOneWay != comp.isOneWay ||
+            body.oneWayDirection != comp.oneWayDirection) {
+          physics.setBodyOneWay(
+            body,
+            comp.isOneWay,
+            direction: comp.oneWayDirection,
+          );
+        }
+        if (body.bodyType != comp.effectiveBodyType) {
+          physics.setBodyType(body, comp.effectiveBodyType);
+        }
+        if (body.gravityScale != comp.gravityScale) {
+          physics.setBodyGravityScale(body, comp.gravityScale);
+        }
+        if (body.categoryBits != comp.categoryBits ||
+            body.maskBits != comp.maskBits ||
+            body.groupIndex != comp.groupIndex) {
+          physics.setBodyFilter(
+            body,
+            categoryBits: comp.categoryBits,
+            maskBits: comp.maskBits,
+            groupIndex: comp.groupIndex,
+          );
+        }
       }
 
       // Opt-in view culling: freeze the body in place while inactive rather
@@ -137,8 +179,30 @@ class PhysicsSystem extends System {
       // fights this system for authority over TransformComponent. Pushing
       // position (not just velocity) every frame is what makes an external
       // teleport/spawn write to TransformComponent take effect next step.
-      body.position.setValues(transform.position.x, transform.position.y);
-      body.angle = transform.rotation;
+      // A position write on the ECS side means a teleport: a respawn, a
+      // checkpoint, a level load, a warp. Push it through the engine's
+      // setBodyTransform so it actually reaches the native simulation —
+      // assigning body.position directly is discarded by the Box2D backend's
+      // sync-back after the next step.
+      //
+      // Gated on real divergence, not done unconditionally: Box2D documents
+      // SetTransform as expensive (it rebuilds broad-phase proxies and drops
+      // the solver's warm start), and this runs for every body every frame.
+      // Ordinary motion never trips it, because sync-out wrote this exact
+      // value back from the body a moment ago.
+      final dx = (transform.position.x - body.position.x).abs();
+      final dy = (transform.position.y - body.position.y).abs();
+      final dAngle = (transform.rotation - body.angle).abs();
+      if (dx > _teleportEpsilon ||
+          dy > _teleportEpsilon ||
+          dAngle > _teleportAngleEpsilon) {
+        physics.setBodyTransform(
+          body,
+          transform.position.x,
+          transform.position.y,
+          angle: transform.rotation,
+        );
+      }
       if (velocityComp != null) {
         body.velocity.setValues(
           velocityComp.velocity.x,
@@ -212,9 +276,9 @@ class PhysicsSystem extends System {
       // Whichever side sits "above" (normal points from A down to B, or
       // from B down to A) is the one resting on the other.
       if (ny > 0.5) {
-        _addGroundContact(BodyPair(a, b), entityA);
+        _addGroundContact(BodyPair(a, b), entityA, entityB);
       } else if (ny < -0.5) {
-        _addGroundContact(BodyPair(a, b), entityB);
+        _addGroundContact(BodyPair(a, b), entityB, entityA);
       }
 
       world.events.fire(
@@ -256,11 +320,17 @@ class PhysicsSystem extends System {
     });
   }
 
-  void _addGroundContact(BodyPair pair, Entity grounded) {
+  void _addGroundContact(BodyPair pair, Entity grounded, Entity ground) {
     _groundedEntityForPair[pair] = grounded;
     final count = (_groundContactCount[grounded.id] ?? 0) + 1;
     _groundContactCount[grounded.id] = count;
-    grounded.getComponent<PhysicsBodyComponent>()?.isGrounded = true;
+    final comp = grounded.getComponent<PhysicsBodyComponent>();
+    if (comp == null) return;
+    comp.isGrounded = true;
+    // Recorded so a rider can inherit a moving platform's velocity. With
+    // several ground contacts at once the most recent wins, which is the
+    // right answer when stepping from static ground onto a platform.
+    comp.groundEntity = ground;
   }
 
   void _removeGroundContact(BodyPair pair) {
@@ -269,7 +339,11 @@ class PhysicsSystem extends System {
     final count = (_groundContactCount[grounded.id] ?? 1) - 1;
     if (count <= 0) {
       _groundContactCount.remove(grounded.id);
-      grounded.getComponent<PhysicsBodyComponent>()?.isGrounded = false;
+      final comp = grounded.getComponent<PhysicsBodyComponent>();
+      if (comp != null) {
+        comp.isGrounded = false;
+        comp.groundEntity = null;
+      }
     } else {
       _groundContactCount[grounded.id] = count;
     }

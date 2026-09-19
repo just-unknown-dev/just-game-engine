@@ -96,9 +96,6 @@ class CapsuleComponent extends RenderableComponent {
     required super.renderable,
   });
 
-  @override
-  Type get componentType => RenderableComponent;
-
   /// Radius of the semicircular end caps — half of the shorter side.
   double get capRadius => width < height ? width / 2.0 : height / 2.0;
 

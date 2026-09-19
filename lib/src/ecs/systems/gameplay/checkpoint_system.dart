@@ -1,6 +1,9 @@
 library;
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/painting.dart';
+
+import '../../../interfaces/interfaces.dart';
 
 import '../../ecs.dart';
 import '../../components/components.dart';
@@ -53,7 +56,12 @@ class CheckpointSystem extends System {
 
   /// Creates a [CheckpointSystem] that looks for player entities tagged with
   /// [playerTag].
-  CheckpointSystem({this.playerTag = 'player'});
+  CheckpointSystem({this.playerTag = 'player', this.camera});
+
+  /// Camera for drawing checkpoint radii in debug builds — the same one the
+  /// `RenderSystem` uses. Without it they are drawn at their world
+  /// coordinates read as screen pixels, away from their checkpoints.
+  GameCamera? camera;
 
   @override
   void update(double deltaTime) {
@@ -118,6 +126,15 @@ class CheckpointSystem extends System {
 
   @override
   void render(Canvas canvas, Size size) {
+    // A debugging aid: it has no place in a shipped game.
+    if (!kDebugMode) return;
+
+    final cam = camera;
+    if (cam != null) {
+      cam.viewportSize = size;
+      canvas.save();
+      cam.applyTransform(canvas, size);
+    }
     forEach((entity) {
       final transform = entity.getComponent<TransformComponent>()!;
       final cp = entity.getComponent<CheckpointComponent>()!;
@@ -128,6 +145,7 @@ class CheckpointSystem extends System {
         cp.isActivated ? _activatedPaint : _inactivePaint,
       );
     });
+    if (cam != null) canvas.restore();
   }
 
   static final Paint _inactivePaint = Paint()

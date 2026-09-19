@@ -100,9 +100,6 @@ class RectangleComponent extends RenderableComponent {
     required super.renderable,
   });
 
-  @override
-  Type get componentType => RenderableComponent;
-
   /// Convenience getter for the size as a [Size] object.
   Size get size => Size(width, height);
 

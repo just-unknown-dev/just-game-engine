@@ -15,6 +15,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => Engine.resetInstance());
 
+  // resetInstance() disposes the engine it discards, so each test starts
+  // from a fresh one without leaking the last.
+
   group('Performance Tests', () {
     test('Engine initialization performance', () async {
       final stopwatch = Stopwatch()..start();
@@ -347,7 +350,9 @@ void main() {
       // Create 1000 entities with various components
       for (int i = 0; i < 1000; i++) {
         final entity = engine.world.createEntity(name: 'Entity_$i');
-        entity.addComponent(TransformComponent(position: Vector3(i * 1.0, 0, 0)));
+        entity.addComponent(
+          TransformComponent(position: Vector3(i * 1.0, 0, 0)),
+        );
 
         if (i % 2 == 0) {
           entity.addComponent(VelocityComponent(velocity: Vector3(10, 0, 0)));
@@ -385,7 +390,9 @@ void main() {
       // Create 500 entities with components
       for (int i = 0; i < 500; i++) {
         final entity = engine.world.createEntity();
-        entity.addComponent(TransformComponent(position: Vector3(i * 1.0, 0, 0)));
+        entity.addComponent(
+          TransformComponent(position: Vector3(i * 1.0, 0, 0)),
+        );
         entity.addComponent(VelocityComponent(velocity: Vector3(10, 5, 0)));
         entity.addComponent(
           RenderableComponent(
@@ -477,7 +484,9 @@ void main() {
       // Add 100 ECS entities
       for (int i = 0; i < 100; i++) {
         final entity = engine.world.createEntity();
-        entity.addComponent(TransformComponent(position: Vector3(i * 1.0, 0, 0)));
+        entity.addComponent(
+          TransformComponent(position: Vector3(i * 1.0, 0, 0)),
+        );
         entity.addComponent(VelocityComponent(velocity: Vector3(10, 0, 0)));
       }
 

@@ -5,6 +5,7 @@
 library;
 
 export 'engine.dart';
+export 'engine_plugin.dart';
 export 'game_loop.dart';
 export 'time_manager.dart';
 export 'system_manager.dart';

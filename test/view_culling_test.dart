@@ -43,7 +43,10 @@ void main() {
   test(
     'entity beyond the render radius but within the active radius is active but not visible',
     () {
-      final entity = spawnAt(700, 0); // outside 480 render edge, inside 800 active edge
+      final entity = spawnAt(
+        700,
+        0,
+      ); // outside 480 render edge, inside 800 active edge
       world.update(0.016);
 
       final cull = entity.getComponent<CullStateComponent>()!;
@@ -105,7 +108,10 @@ void main() {
   test(
     'an entity newly appearing past the plain render edge (never visible before) is not visible, even within the hysteresis margin',
     () {
-      final entity = spawnAt(495, 0); // within hysteresis edge, but was never visible
+      final entity = spawnAt(
+        495,
+        0,
+      ); // within hysteresis edge, but was never visible
       world.update(0.016);
 
       expect(entity.getComponent<CullStateComponent>()!.isVisible, isFalse);

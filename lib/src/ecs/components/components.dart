@@ -9,6 +9,7 @@ export 'core/velocity_component.dart';
 
 // Rendering components
 export 'rendering/renderable_component.dart';
+export 'rendering/layer_component.dart';
 export 'rendering/sprite_component.dart';
 export 'rendering/animated_sprite_component.dart';
 export 'rendering/parallax_component.dart';
@@ -17,6 +18,10 @@ export 'rendering/shader_component.dart';
 // Physics components
 export 'physics/physics_body_component.dart';
 export 'physics/physics_body_ref_component.dart';
+export 'physics/joints/distance_joint_component.dart';
+export 'physics/joints/prismatic_joint_component.dart';
+export 'physics/joints/weld_joint_component.dart';
+export 'physics/joints/wheel_joint_component.dart';
 
 // Gameplay components
 export 'gameplay/health_component.dart';
@@ -30,6 +35,7 @@ export 'hierarchy/children_component.dart';
 // Input components
 export 'input/input_component.dart';
 export 'input/joystick_input_component.dart';
+export 'input/simple_movement_component.dart';
 
 // Animation components
 export 'animation/animation_state_component.dart';
@@ -74,3 +80,7 @@ export 'ui/text_component.dart';
 export 'ui/button_component.dart';
 export 'ui/linear_progress_component.dart';
 export 'ui/elliptical_progress_component.dart';
+
+// Platformer components — gameplay meaning for level geometry, hazards,
+// pickups, enemies and the character controller.
+export 'ui/ui_painters.dart';

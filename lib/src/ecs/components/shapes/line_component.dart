@@ -77,9 +77,6 @@ class LineComponent extends RenderableComponent {
     required super.renderable,
   });
 
-  @override
-  Type get componentType => RenderableComponent;
-
   /// Length of the line segment.
   double get length => (end - start).distance;
 

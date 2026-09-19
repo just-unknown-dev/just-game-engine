@@ -10,6 +10,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => Engine.resetInstance());
 
+  // resetInstance() disposes the engine it discards, so each test starts
+  // from a fresh one without leaking the last.
+
   group('Core Engine Sanity Tests', () {
     test('Engine can be instantiated', () {
       final engine = Engine();

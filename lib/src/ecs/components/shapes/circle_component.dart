@@ -82,9 +82,6 @@ class CircleComponent extends RenderableComponent {
   });
 
   @override
-  Type get componentType => RenderableComponent;
-
-  @override
   String toString() =>
       'Circle(r=$radius, fillStyle=$fillStyle, strokeStyle=$strokeStyle, '
       'filled=$filled, stroke=$strokeWidth)';
