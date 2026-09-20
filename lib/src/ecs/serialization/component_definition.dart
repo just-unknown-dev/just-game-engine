@@ -77,6 +77,19 @@ class ScrubHint {
 /// How an angle is shown; the value itself is always radians.
 enum AngleUnit { radians, degrees }
 
+/// Several numeric fields of a component on one inspector row, as a vector's
+/// axes are: `Dead zone  W [0.10]  H [0.10]`.
+class FieldRowHint {
+  const FieldRowHint(this.label, this.cells);
+
+  /// The row's label, where a single field's would be.
+  final String label;
+
+  /// [SchemaField.name] → the short label of its cell: `X`, `W`, `Min`.
+  /// In order, left to right.
+  final Map<String, String> cells;
+}
+
 /// How one field appears in an inspector. Presentation only — the field's
 /// name, kind, limits and read/write come from its [SchemaField].
 class FieldHint {
@@ -89,6 +102,7 @@ class FieldHint {
     this.scrub,
     this.unit,
     this.fileExtensions,
+    this.itemTemplate,
   });
 
   final String? label;
@@ -106,6 +120,12 @@ class FieldHint {
 
   /// For asset references: which files the picker offers.
   final List<String>? fileExtensions;
+
+  /// For a list or map field: what a newly added item looks like — a map of
+  /// keys to starting values for a list of objects, a value for a map's new
+  /// entry. An editor's "Add" copies it, so a new item starts with the right
+  /// shape and types. Null leaves the editor to copy the last item.
+  final Object? itemTemplate;
 }
 
 /// How a component appears in an inspector and component picker.
@@ -122,6 +142,7 @@ class ComponentHints {
     this.allowMultiple = false,
     this.deletable = true,
     this.fieldGroups,
+    this.fieldRows = const [],
     this.fields = const {},
   });
 
@@ -142,6 +163,11 @@ class ComponentHints {
 
   /// Header → field names under it, in order. Fields in no group list first.
   final Map<String, List<String>>? fieldGroups;
+
+  /// Numbers that belong together, shown side by side on one row — a width
+  /// and a height, a minimum and a maximum. A row sits where its first field
+  /// would, and only gathers fields listed beside it (the same group).
+  final List<FieldRowHint> fieldRows;
 
   /// Per-field presentation, by [SchemaField.name].
   final Map<String, FieldHint> fields;

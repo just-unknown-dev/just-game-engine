@@ -71,6 +71,10 @@ abstract final class FieldTypes {
   static const text = TextFieldType();
   static const assetRef = AssetRefFieldType();
 
+  /// The name of another entity in the scene. Stored as text, looked up
+  /// when it is needed; the editor offers the scene's entities.
+  static const entityRef = EntityRefFieldType();
+
   /// An enum stored by name, parsed back with [FieldConstraints.enumParser].
   /// Prefer [EnumFieldType], which needs no parser and knows its values.
   static const enumeration = EnumerationFieldType();
@@ -105,6 +109,7 @@ abstract final class FieldTypes {
     decimal,
     text,
     assetRef,
+    entityRef,
     enumeration,
     list,
     map,

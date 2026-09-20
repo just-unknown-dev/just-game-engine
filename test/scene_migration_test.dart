@@ -1,7 +1,6 @@
 // v0 → v1: flat legacy components are hoisted under `fields`, the two vector
 // shapes are reshaped, and nothing else changes.
 
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
@@ -22,8 +21,8 @@ void main() {
   });
 
   test('a current file is returned as is', () {
-    final v1 = {'version': 1, 'name': 's', 'entities': []};
-    expect(identical(SceneFormat.migrate(v1), v1), isTrue);
+    final now = {'version': SceneFormat.current, 'name': 's', 'entities': []};
+    expect(identical(SceneFormat.migrate(now), now), isTrue);
   });
 
   test('migration never mutates its input', () {

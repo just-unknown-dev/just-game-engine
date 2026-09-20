@@ -7,6 +7,7 @@ import 'package:just_physics_engine/just_physics_engine.dart';
 
 import '../components/components.dart';
 import '../ecs.dart';
+import 'camera_definitions.dart';
 import 'component_definition.dart';
 import 'field_type.dart';
 
@@ -200,6 +201,9 @@ abstract final class CoreDefinitions {
         'Size': ['width', 'height', 'cornerRadius'],
         'Appearance': ['filled', 'fillStyle', 'strokeStyle', 'strokeWidth'],
       },
+      fieldRows: [
+        FieldRowHint('Size', {'width': 'W', 'height': 'H'}),
+      ],
       fields: {
         'width': FieldHint(label: 'W', scrub: ScrubHint(fractionDigits: 1)),
         'height': FieldHint(label: 'H', scrub: ScrubHint(fractionDigits: 1)),
@@ -298,6 +302,9 @@ abstract final class CoreDefinitions {
         'Size': ['width', 'height'],
         'Appearance': ['filled', 'fillStyle', 'strokeStyle', 'strokeWidth'],
       },
+      fieldRows: [
+        FieldRowHint('Size', {'width': 'W', 'height': 'H'}),
+      ],
       fields: {
         'width': FieldHint(label: 'W', scrub: ScrubHint(fractionDigits: 1)),
         'height': FieldHint(label: 'H', scrub: ScrubHint(fractionDigits: 1)),
@@ -385,6 +392,9 @@ abstract final class CoreDefinitions {
         'Health': ['health', 'maxHealth'],
         'State': ['isInvulnerable'],
       },
+      fieldRows: [
+        FieldRowHint('Health', {'health': 'HP', 'maxHealth': 'Max'}),
+      ],
       fields: {
         'health': FieldHint(label: 'HP', scrub: ScrubHint(fractionDigits: 1)),
         'maxHealth': FieldHint(
@@ -495,67 +505,6 @@ abstract final class CoreDefinitions {
       ),
     ],
     extent: const _SpriteExtent(),
-  );
-
-  static final cameraFollow = ComponentDefinition<CameraFollowComponent>(
-    type: 'CameraFollowComponent',
-    hints: const ComponentHints(
-      name: 'Camera Follow',
-      group: 'Camera',
-      description: 'The camera tracks this entity.',
-      icon: Icons.videocam,
-      accentColor: Color(0xFF26C6DA),
-      fields: {
-        'enabled': FieldHint(label: 'Enabled'),
-        'lookaheadDistance': FieldHint(
-          label: 'Lookahead',
-          scrub: ScrubHint(fractionDigits: 1),
-        ),
-        'deadZoneWidth': FieldHint(
-          label: 'Dead zone W',
-          scrub: ScrubHint(fractionDigits: 1),
-        ),
-        'deadZoneHeight': FieldHint(
-          label: 'Dead zone H',
-          scrub: ScrubHint(fractionDigits: 1),
-        ),
-        'priority': FieldHint(
-          label: 'Priority',
-          scrub: ScrubHint(integer: true),
-        ),
-      },
-    ),
-    create: CameraFollowComponent.new,
-    fields: [
-      _b(
-        'enabled',
-        (c) => (c as CameraFollowComponent).enabled,
-        (c, v) => (c as CameraFollowComponent).enabled = v,
-      ),
-      _d(
-        'lookaheadDistance',
-        (c) => (c as CameraFollowComponent).lookaheadDistance,
-        (c, v) => (c as CameraFollowComponent).lookaheadDistance = v,
-        min: 0,
-      ),
-      _d(
-        'deadZoneWidth',
-        (c) => (c as CameraFollowComponent).deadZoneWidth,
-        (c, v) => (c as CameraFollowComponent).deadZoneWidth = v,
-        min: 0,
-      ),
-      _d(
-        'deadZoneHeight',
-        (c) => (c as CameraFollowComponent).deadZoneHeight,
-        (c, v) => (c as CameraFollowComponent).deadZoneHeight = v,
-        min: 0,
-      ),
-      _i(
-        'priority',
-        (c) => (c as CameraFollowComponent).priority,
-        (c, v) => (c as CameraFollowComponent).priority = v,
-      ),
-    ],
   );
 
   static final physicsBody = ComponentDefinition<PhysicsBodyComponent>(
@@ -721,76 +670,6 @@ abstract final class CoreDefinitions {
     ],
     extent: const _PhysicsBodyExtent(),
   );
-
-  static final camera = ComponentDefinition<CameraComponent>(
-    type: 'CameraComponent',
-    hints: const ComponentHints(
-      name: 'Camera',
-      group: 'Camera',
-      description: 'A camera, with optional world bounds.',
-      icon: Icons.camera_alt_rounded,
-      accentColor: Color(0xFF26C6DA),
-      deletable: false,
-      fields: {
-        'zoom': FieldHint(
-          label: 'Zoom',
-          scrub: ScrubHint(step: 0.05, fractionDigits: 2),
-        ),
-        'boundsLeft': FieldHint(label: 'Bounds Left'),
-        'boundsTop': FieldHint(label: 'Bounds Top'),
-        'boundsWidth': FieldHint(label: 'Bounds Width'),
-        'boundsHeight': FieldHint(label: 'Bounds Height'),
-      },
-    ),
-    create: CameraComponent.new,
-    fields: [
-      _d(
-        'zoom',
-        (c) => (c as CameraComponent).zoom,
-        (c, v) => (c as CameraComponent).zoom = v,
-        min: 0.01,
-      ),
-      _d(
-        'boundsLeft',
-        (c) => (c as CameraComponent).bounds.left,
-        (c, v) => _setBounds(c, left: v),
-      ),
-      _d(
-        'boundsTop',
-        (c) => (c as CameraComponent).bounds.top,
-        (c, v) => _setBounds(c, top: v),
-      ),
-      _d(
-        'boundsWidth',
-        (c) => (c as CameraComponent).bounds.width,
-        (c, v) => _setBounds(c, width: v),
-        min: 1,
-      ),
-      _d(
-        'boundsHeight',
-        (c) => (c as CameraComponent).bounds.height,
-        (c, v) => _setBounds(c, height: v),
-        min: 1,
-      ),
-    ],
-  );
-
-  static void _setBounds(
-    Component c, {
-    double? left,
-    double? top,
-    double? width,
-    double? height,
-  }) {
-    final cam = c as CameraComponent;
-    final b = cam.bounds;
-    cam.bounds = Rect.fromLTWH(
-      left ?? b.left,
-      top ?? b.top,
-      width ?? b.width,
-      height ?? b.height,
-    );
-  }
 
   static final spawn = ComponentDefinition<SpawnComponent>(
     type: 'SpawnComponent',
@@ -1120,6 +999,12 @@ abstract final class CoreDefinitions {
         'Motor': ['enableMotor', 'motorSpeed', 'maxMotorForce'],
         'Limits': ['enableLimit', 'lowerTranslation', 'upperTranslation'],
       },
+      fieldRows: [
+        FieldRowHint('Range', {
+          'lowerTranslation': 'Min',
+          'upperTranslation': 'Max',
+        }),
+      ],
       fields: {
         ..._jointHints,
         'axis': FieldHint(label: 'Axis'),
@@ -1286,8 +1171,7 @@ abstract final class CoreDefinitions {
     lifetime,
     sprite,
     physicsBody,
-    cameraFollow,
-    camera,
+    ...CameraDefinitions.all,
     spawn,
     tag,
     input,

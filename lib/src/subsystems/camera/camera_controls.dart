@@ -19,7 +19,6 @@ import 'package:flutter/material.dart';
 
 import 'camera_system.dart';
 
-export 'camera_behaviors.dart';
 export 'camera_effects.dart';
 
 /// A widget that wraps [child] with scroll-wheel and on-screen +/− zoom

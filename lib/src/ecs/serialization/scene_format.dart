@@ -15,7 +15,7 @@ import 'scene_migrations.dart';
 /// is written in the current format the next time it is saved.
 abstract final class SceneFormat {
   /// The version this engine writes.
-  static const int current = 1;
+  static const int current = 2;
 
   /// The version [json] declares; 0 when it declares none.
   static int versionOf(Map<String, dynamic> json) =>

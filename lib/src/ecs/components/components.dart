@@ -56,8 +56,12 @@ export 'others/lifetime_component.dart';
 export 'tiled/tiled_components.dart';
 
 // Camera components
-export 'camera/camera_component.dart';
-export 'camera/camera_follow_component.dart';
+export 'camera/virtual_camera_component.dart';
+export 'camera/camera_framing_component.dart';
+export 'camera/camera_confiner_components.dart';
+export 'camera/camera_noise_components.dart';
+export 'camera/camera_target_components.dart';
+export 'camera/camera_manager_components.dart';
 
 // Culling components
 export 'culling/cull_state_component.dart';

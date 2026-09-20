@@ -73,6 +73,19 @@ class AssetRefFieldType extends FieldType<String> {
   Object? decode(Object? json, FieldConstraints c) => json;
 }
 
+/// The name of another entity. Stored as text: an entity is referred to by
+/// what the author called it, which survives a reload and a respawn where an
+/// id would not.
+class EntityRefFieldType extends FieldType<String> {
+  const EntityRefFieldType();
+  @override
+  String get id => 'entityRef';
+  @override
+  Object? encode(String value) => value;
+  @override
+  Object? decode(Object? json, FieldConstraints c) => json;
+}
+
 /// An enum stored by name and parsed back with [FieldConstraints.enumParser].
 class EnumerationFieldType extends FieldType<Object> {
   const EnumerationFieldType();

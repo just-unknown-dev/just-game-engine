@@ -83,9 +83,8 @@ abstract final class SystemPriorities {
   /// Rendering ECS entities.
   static const int render = 40;
 
-  /// Camera follow — repositions the camera based on [CameraFollowComponent]
-  /// entities. Runs after [render] so the camera position update does not
-  /// lag the current frame's rendering by one frame.
+  /// The camera brain — picks and blends virtual cameras once everything
+  /// has moved for the frame, so a shot frames where its target *is*.
   static const int camera = 45;
 
   /// Fullscreen post-process shader passes — runs after [render] to apply

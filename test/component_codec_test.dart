@@ -39,21 +39,55 @@ void main() {
     expect(back.isOneWay, isTrue);
   });
 
-  test('CameraFollowComponent keeps its dead zone and priority', () {
+  test('a virtual camera keeps its target, lens and standby mode', () {
     final back = roundTrip(
-      CameraFollowComponent(
+      VirtualCameraComponent(
+        priority: 20,
         enabled: false,
-        lookaheadDistance: 140,
-        deadZoneWidth: 60,
-        deadZoneHeight: 40,
-        priority: 3,
+        followName: 'Player',
+        followTag: 'player',
+        zoom: 1.5,
+        dutch: 0.25,
+        standbyUpdate: CameraStandbyUpdate.always,
       ),
     );
+    expect(back.priority, 20);
     expect(back.enabled, isFalse);
-    expect(back.lookaheadDistance, 140);
-    expect(back.deadZoneWidth, 60);
-    expect(back.deadZoneHeight, 40);
-    expect(back.priority, 3);
+    expect(back.followName, 'Player');
+    expect(back.followTag, 'player');
+    expect(back.zoom, 1.5);
+    expect(back.dutch, 0.25);
+    expect(back.standbyUpdate, CameraStandbyUpdate.always);
+  });
+
+  test('camera framing keeps its zones, damping and axes', () {
+    final back = roundTrip(
+      CameraFramingComponent(
+        screenX: -0.1,
+        screenY: 0.15,
+        deadZoneWidth: 0.2,
+        deadZoneHeight: 0.3,
+        softZoneWidth: 0.7,
+        softZoneHeight: 0.6,
+        dampingX: 0.4,
+        dampingY: 1.2,
+        lookaheadTime: 0.25,
+        lookaheadSmoothing: 0.5,
+        followX: true,
+        followY: false,
+      ),
+    );
+    expect(back.screenX, -0.1);
+    expect(back.screenY, 0.15);
+    expect(back.deadZoneWidth, 0.2);
+    expect(back.deadZoneHeight, 0.3);
+    expect(back.softZoneWidth, 0.7);
+    expect(back.softZoneHeight, 0.6);
+    expect(back.dampingX, 0.4);
+    expect(back.dampingY, 1.2);
+    expect(back.lookaheadTime, 0.25);
+    expect(back.lookaheadSmoothing, 0.5);
+    expect(back.followY, isFalse);
   });
 
   test('SpriteComponent keeps its tint', () {
@@ -108,8 +142,8 @@ void main() {
       'TextComponent',
       'LineComponent',
       'PolygonComponent',
-      'CameraComponent',
-      'CameraFollowComponent',
+      'VirtualCameraComponent',
+      'CameraFramingComponent',
       'LayerComponent',
       'SpawnComponent',
       'CheckpointComponent',

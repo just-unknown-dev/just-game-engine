@@ -47,8 +47,8 @@ export 'tiled/tiled_render_system.dart';
 export 'tiled/tiled_collision_system.dart';
 
 // Camera systems
-export 'camera/camera_follow_system.dart';
-export 'camera/camera_transform_sync_system.dart';
+export 'camera/camera_brain_system.dart';
+export 'camera/camera_target_systems.dart';
 
 // Culling systems
 export 'culling/view_culling_system.dart';
