@@ -60,6 +60,11 @@ class SpriteAtlas {
   // Immutable after construction — built once by the parser.
   final Map<String, SpriteRegion> _regions;
 
+  /// What the authoring tool stored beyond the standard format — the
+  /// `meta.just` block of an Aseprite-style export: per-clip loop flags and
+  /// frame events. Empty for a file that has none.
+  final Map<String, dynamic> userData;
+
   // Mutable — callers can register clips at runtime.
   final Map<String, AtlasAnimationClip> _clips = {};
 
@@ -68,7 +73,9 @@ class SpriteAtlas {
     required this.pages,
     required Map<String, SpriteRegion> regions,
     Map<String, AtlasAnimationClip>? clips,
-  }) : _regions = Map.unmodifiable(regions) {
+    Map<String, dynamic>? userData,
+  }) : _regions = Map.unmodifiable(regions),
+       userData = Map.unmodifiable(userData ?? const <String, dynamic>{}) {
     if (clips != null) _clips.addAll(clips);
   }
 
@@ -235,6 +242,27 @@ class SpriteAtlas {
     return asset.atlas!;
   }
 
+  /// Builds an atlas from already-decoded [json], fetching each page's image
+  /// through [loadImage] instead of the asset bundle — for a tool that reads
+  /// files the bundle does not hold yet, or a test that has no bundle.
+  /// [basePath] is the JSON file's directory, with its trailing slash;
+  /// [jsonPath] lets a legacy grid sheet find the image beside it.
+  static Future<SpriteAtlas> fromJson(
+    Map<String, dynamic> json, {
+    String basePath = '',
+    String? jsonPath,
+    required Future<ui.Image> Function(String imagePath) loadImage,
+  }) async {
+    final atlas = await AtlasParser.detect(
+      json,
+      jsonPath: jsonPath,
+    ).parse(json, basePath);
+    for (final page in atlas.pages) {
+      page.image ??= await loadImage(page.imagePath);
+    }
+    return atlas;
+  }
+
   /// Internal factory called by [AtlasAsset.load] to build the [SpriteAtlas]
   /// from an already-decoded JSON map without re-entering [AssetManager].
   static Future<SpriteAtlas> _buildFromJson(
@@ -242,7 +270,7 @@ class SpriteAtlas {
     String jsonPath,
   ) async {
     final basePath = _directoryOf(jsonPath);
-    final parser = AtlasParser.detect(json);
+    final parser = AtlasParser.detect(json, jsonPath: jsonPath);
     final atlas = await parser.parse(json, basePath);
     for (final page in atlas.pages) {
       await page.loadImage();

@@ -9,7 +9,7 @@ part of '../sprite_atlas_subsystem.dart';
 /// |---|---|
 /// | `"forward"`  | `from → to` |
 /// | `"reverse"`  | `to → from` |
-/// | `"pingpong"` | `from → to → (to-1) → from` |
+/// | `"pingpong"` | `from → to → (to-1) → (from+1)` |
 ///
 /// Per-frame durations (in MS in Aseprite, converted to seconds) produce
 /// [AtlasAnimationClip]s that drive [AtlasSpriteAnimation] with exact
@@ -106,8 +106,10 @@ class AsepriteAtlasParser extends AtlasParser {
         clips[clipName] = AtlasAnimationClip(
           name: clipName,
           frames: frames,
-          // Aseprite does not encode a per-tag loop flag; default to true.
-          loop: true,
+          // Aseprite's export has no per-tag loop flag, so a clip loops
+          // unless the tool that wrote the file says otherwise, in
+          // `meta.just.clips.<name>.loop`.
+          loop: _clipLoops(meta, clipName),
         );
       }
     }
@@ -118,7 +120,16 @@ class AsepriteAtlasParser extends AtlasParser {
       pages: [page],
       regions: regions,
       clips: clips,
+      userData: (meta['just'] as Map?)?.cast<String, dynamic>(),
     );
+  }
+
+  static bool _clipLoops(Map<String, dynamic> meta, String clip) {
+    final just = meta['just'];
+    final clips = just is Map ? just['clips'] : null;
+    final entry = clips is Map ? clips[clip] : null;
+    final loop = entry is Map ? entry['loop'] : null;
+    return loop is bool ? loop : true;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -151,8 +162,14 @@ class AsepriteAtlasParser extends AtlasParser {
       case 'reverse':
         return forward.reversed.toList();
       case 'pingpong':
-        // forward + backward excluding the shared endpoints to avoid duplicates.
-        return [...forward, ...forward.reversed.skip(1)];
+        // There and back, leaving out both ends of the way back: the last
+        // frame is not shown twice, and neither is the first when the clip
+        // loops round to it.
+        return [
+          ...forward,
+          if (forward.length > 2)
+            ...forward.reversed.skip(1).take(forward.length - 2),
+        ];
       default:
         return forward;
     }

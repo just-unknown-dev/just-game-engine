@@ -332,7 +332,92 @@ class V1ToV2 extends SceneMigration {
   }
 }
 
+/// v2 → v3: sprites play from an atlas.
+///
+/// - `AnimatedSpriteComponent` becomes `SpriteAnimationComponent`. Its
+///   `jsonPath` becomes `atlasPath` and `activeClip` becomes `clip`. The old
+///   grid description (frame size, columns, inline clips, fps) has no place
+///   in the new component — an atlas file holds all of that — so an entity
+///   that relied on it is listed in [needsAtlas] for a tool to export one.
+/// - `AnimationStateComponent` is removed: it named a clip and counted
+///   frames, which the sprite animation now does by itself.
+/// - `SpriteComponent.frame` is dropped; a frame of a sheet is an atlas
+///   region now.
+class V2ToV3 extends SceneMigration {
+  const V2ToV3();
+
+  @override
+  int get from => 2;
+
+  /// Entity-level rules a package adds for its own components.
+  static final List<EntityMigration> perEntity = [];
+
+  /// Names of entities whose old animated sprite had no atlas JSON to point
+  /// at, from the most recent [apply]. Their sheet needs exporting as an
+  /// atlas before they animate again.
+  static final List<String> needsAtlas = [];
+
+  @override
+  Map<String, dynamic> apply(Map<String, dynamic> json) {
+    needsAtlas.clear();
+    final list = json['entities'];
+    if (list is! List) return json;
+    for (final entity in list.whereType<Map<String, dynamic>>()) {
+      final components = entity['components'];
+      if (components is List) {
+        components.removeWhere(
+          (c) => c is Map && c['type'] == 'AnimationStateComponent',
+        );
+        for (var i = 0; i < components.length; i++) {
+          final c = components[i];
+          if (c is! Map) continue;
+          final fields = c['fields'];
+          if (c['type'] == 'SpriteComponent' && fields is Map) {
+            fields.remove('frame');
+          }
+          if (c['type'] != 'AnimatedSpriteComponent') continue;
+          final old = fields is Map ? fields : const {};
+          final atlasPath = _atlasPathOf(old);
+          if ((old['jsonPath'] as String? ?? '').trim().isEmpty) {
+            needsAtlas.add('${entity['name'] ?? '(unnamed)'}');
+          }
+          components[i] = <String, dynamic>{
+            'type': 'SpriteAnimationComponent',
+            'fields': <String, dynamic>{
+              'atlasPath': atlasPath,
+              'clip': old['activeClip'] ?? '',
+              'playOnStart': old['playOnStart'] ?? true,
+              'speed': 1.0,
+              'flipX': false,
+              'flipY': false,
+              'tint': null,
+              // The old component smoothed; keep what the scene looked like.
+              'pixelArt': false,
+            },
+          };
+        }
+      }
+      for (final migrate in perEntity) {
+        migrate(entity, json);
+      }
+    }
+    return json;
+  }
+
+  /// The old `jsonPath` if there was one; failing that the sheet's own path
+  /// with `.json`, which is where a tool exporting an atlas for it will put
+  /// the file.
+  static String _atlasPathOf(Map old) {
+    final json = (old['jsonPath'] as String? ?? '').trim();
+    if (json.isNotEmpty) return json;
+    final sheet = (old['spritePath'] as String? ?? '').trim();
+    final dot = sheet.lastIndexOf('.');
+    if (sheet.isEmpty || dot <= sheet.lastIndexOf('/')) return '';
+    return '${sheet.substring(0, dot)}.json';
+  }
+}
+
 /// Every migration, in order.
 abstract final class SceneMigrations {
-  static const List<SceneMigration> chain = [V0ToV1(), V1ToV2()];
+  static const List<SceneMigration> chain = [V0ToV1(), V1ToV2(), V2ToV3()];
 }

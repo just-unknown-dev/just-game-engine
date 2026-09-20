@@ -1,13 +1,12 @@
 library;
 
 import '../../ecs.dart';
-import '../rendering/animated_sprite_component.dart' show TransformKeyframe;
+import 'transform_keyframe.dart';
 import 'animation_event.dart';
 
 /// Drives transform animations on an entity via a flat keyframe timeline.
 ///
-/// Unlike [AnimatedSpriteComponent] (which uses named clips), this component
-/// has a single timeline of [duration] seconds. It interpolates
+/// Unlike a sprite's frame clips, this component has a single timeline of [duration] seconds. It interpolates
 /// [TransformKeyframe]s onto the entity's [TransformComponent] and fires
 /// [AnimationEvent]s as the playhead advances.
 class AnimationControllerComponent extends Component {

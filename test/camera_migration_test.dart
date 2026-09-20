@@ -74,7 +74,7 @@ void main() {
         },
       ]),
     );
-    expect(SceneFormat.versionOf(out), 2);
+    expect(SceneFormat.versionOf(out), SceneFormat.current);
 
     final camera = _named(out, 'MainCamera');
     expect(_fields(camera, 'CameraComponent'), isNull);
@@ -219,7 +219,7 @@ void main() {
     ]);
     final out = SceneFormat.migrate(input);
     expect(out['entities'], input['entities']);
-    expect(out['version'], 2);
+    expect(out['version'], SceneFormat.current);
   });
 
   test("a package's entity rule runs, and can rewrite one into several", () {
@@ -251,7 +251,7 @@ void main() {
     );
   });
 
-  test('a v0 file goes all the way to v2', () {
+  test('a v0 file goes all the way to the current format', () {
     final out = SceneFormat.migrate({
       'name': 's',
       'entities': [
@@ -267,7 +267,7 @@ void main() {
         },
       ],
     });
-    expect(out['version'], 2);
+    expect(out['version'], SceneFormat.current);
     expect(
       _fields(_named(out, 'MainCamera'), 'VirtualCameraComponent')!['zoom'],
       1.5,

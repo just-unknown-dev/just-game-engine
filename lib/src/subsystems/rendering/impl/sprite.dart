@@ -30,6 +30,11 @@ class Sprite extends Renderable implements BatchableSprite {
   /// Flip vertically
   bool flipY;
 
+  /// How the texture is sampled when scaled. [FilterQuality.none] keeps
+  /// pixel art crisp; the default smooths, which suits painted art.
+  FilterQuality get filterQuality => _paint.filterQuality;
+  set filterQuality(FilterQuality value) => _paint.filterQuality = value;
+
   /// Cached paint object — reused every frame, mutated in-place.
   final Paint _paint = Paint()..filterQuality = FilterQuality.medium;
 
@@ -38,9 +43,11 @@ class Sprite extends Renderable implements BatchableSprite {
   // flipX/flipY. Reporting no batchImage while flipped routes this sprite
   // through the individual render() path instead, which does support the
   // flip via canvas.scale(-1, 1). Unflipped sprites keep the batching
-  // optimisation.
+  // optimisation. The batch also samples every sprite one way, so a sprite
+  // that asked for different filtering draws by itself too.
   @override
-  ui.Image? get batchImage => (flipX || flipY) ? null : image;
+  ui.Image? get batchImage =>
+      (flipX || flipY || filterQuality != FilterQuality.medium) ? null : image;
 
   @override
   Rect? get batchSourceRect => sourceRect;

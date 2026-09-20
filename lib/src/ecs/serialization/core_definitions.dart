@@ -459,16 +459,25 @@ abstract final class CoreDefinitions {
     hints: const ComponentHints(
       name: 'Sprite',
       group: 'Rendering',
-      description: 'An image, or one frame of a sheet.',
+      description: 'An image, or one region of a sprite atlas.',
       icon: Icons.image,
       accentColor: Color(0xFF42A5F5),
       fieldGroups: {
-        'Sprite': ['spritePath', 'frame'],
-        'Options': ['flipX', 'flipY', 'tint'],
+        'Sprite': ['spritePath'],
+        'From an atlas': ['atlasPath', 'region'],
+        'Options': ['flipX', 'flipY', 'tint', 'pixelArt'],
       },
       fields: {
         'spritePath': FieldHint(label: 'Path'),
-        'frame': FieldHint(label: 'Frame', scrub: ScrubHint(integer: true)),
+        'atlasPath': FieldHint(label: 'Atlas', fileExtensions: ['json']),
+        'region': FieldHint(
+          label: 'Region',
+          description: 'Empty shows the first.',
+        ),
+        'pixelArt': FieldHint(
+          label: 'Pixel art',
+          description: 'No smoothing when scaled.',
+        ),
         'flipX': FieldHint(label: 'Flip X'),
         'flipY': FieldHint(label: 'Flip Y'),
         'tint': FieldHint(label: 'Tint'),
@@ -482,10 +491,17 @@ abstract final class CoreDefinitions {
         read: (c) => (c as SpriteComponent).spritePath,
         write: (c, v) => (c as SpriteComponent).spritePath = v as String,
       ),
-      _i(
-        'frame',
-        (c) => (c as SpriteComponent).frame,
-        (c, v) => (c as SpriteComponent).frame = v,
+      SchemaField(
+        name: 'atlasPath',
+        kind: FieldTypes.assetRef,
+        read: (c) => (c as SpriteComponent).atlasPath,
+        write: (c, v) => (c as SpriteComponent).atlasPath = v as String,
+      ),
+      SchemaField(
+        name: 'region',
+        kind: FieldTypes.text,
+        read: (c) => (c as SpriteComponent).region,
+        write: (c, v) => (c as SpriteComponent).region = v as String,
       ),
       _b(
         'flipX',
@@ -502,6 +518,11 @@ abstract final class CoreDefinitions {
         kind: FieldTypes.color,
         read: (c) => (c as SpriteComponent).tint,
         write: (c, v) => (c as SpriteComponent).tint = v as Color?,
+      ),
+      _b(
+        'pixelArt',
+        (c) => (c as SpriteComponent).pixelArt,
+        (c, v) => (c as SpriteComponent).pixelArt = v,
       ),
     ],
     extent: const _SpriteExtent(),

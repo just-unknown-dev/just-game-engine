@@ -336,134 +336,148 @@ abstract final class CoreComponentSchemas {
     ],
   );
 
-  /// [AnimatedSpriteComponent], from `animated_sprite_editor_component.dart`.
-  static final animatedSprite = ComponentSchema<AnimatedSpriteComponent>(
-    type: 'AnimatedSpriteComponent',
+  /// [SpriteAnimationComponent]: a clip from a sprite atlas.
+  static final spriteAnimation = ComponentSchema<SpriteAnimationComponent>(
+    type: 'SpriteAnimationComponent',
     hints: const ComponentHints(
-      name: 'Animated Sprite',
+      name: 'Sprite Animation',
       group: 'Rendering',
-      description: 'Sprite-sheet animation with named clips and keyframes.',
+      description:
+          'Plays a clip from a sprite atlas: the sheet and JSON a sprite '
+          'tool exports.',
       icon: Icons.movie_filter_rounded,
       accentColor: Color(0xFF7DE6B1),
       fieldGroups: {
-        'Sprite Sheet': [
-          'spritePath',
-          'jsonPath',
-          'frameWidth',
-          'frameHeight',
-          'columns',
-          'rows',
-        ],
-        'Playback': ['activeClip', 'defaultFps', 'loop', 'playOnStart'],
+        'Atlas': ['atlasPath', 'clip'],
+        'Playback': ['playOnStart', 'speed'],
+        'Options': ['flipX', 'flipY', 'tint', 'pixelArt'],
       },
       fields: {
-        'spritePath': FieldHint(label: 'Sprite'),
-        'jsonPath': FieldHint(
-          label: 'Animation JSON',
-          fileExtensions: ['json'],
+        'atlasPath': FieldHint(label: 'Atlas', fileExtensions: ['json']),
+        'clip': FieldHint(
+          label: 'Clip',
+          description: 'A tag in the atlas. Empty plays every frame.',
         ),
-        'frameWidth': FieldHint(
-          label: 'Frame W',
-          scrub: ScrubHint(integer: true),
+        'playOnStart': FieldHint(label: 'Play on start'),
+        'speed': FieldHint(
+          label: 'Speed',
+          scrub: ScrubHint(step: 0.05, fractionDigits: 2),
         ),
-        'frameHeight': FieldHint(
-          label: 'Frame H',
-          scrub: ScrubHint(integer: true),
+        'flipX': FieldHint(label: 'Flip X'),
+        'flipY': FieldHint(label: 'Flip Y'),
+        'tint': FieldHint(label: 'Tint'),
+        'pixelArt': FieldHint(
+          label: 'Pixel art',
+          description: 'No smoothing when scaled.',
         ),
-        'columns': FieldHint(label: 'Columns', scrub: ScrubHint(integer: true)),
-        'rows': FieldHint(label: 'Rows', scrub: ScrubHint(integer: true)),
-        'activeClip': FieldHint(label: 'Active Clip'),
-        'defaultFps': FieldHint(label: 'FPS', scrub: ScrubHint(step: 0.5)),
-        'loop': FieldHint(label: 'Loop'),
-        'playOnStart': FieldHint(label: 'Play on Start'),
-        'clips': FieldHint(label: 'Clips', visible: false),
       },
     ),
-    id: 'animated_sprite_4f8a2b1c',
-    create: () => AnimatedSpriteComponent(),
+    id: 'sprite_animation_7c21d9e4',
+    create: SpriteAnimationComponent.new,
     fields: [
       SchemaField(
-        name: 'spritePath',
+        name: 'atlasPath',
         kind: FieldTypes.assetRef,
-        read: (c) => (c as AnimatedSpriteComponent).spritePath,
+        read: (c) => (c as SpriteAnimationComponent).atlasPath,
         write: (c, v) =>
-            (c as AnimatedSpriteComponent).spritePath = v as String,
+            (c as SpriteAnimationComponent).atlasPath = v as String,
       ),
       SchemaField(
-        name: 'jsonPath',
-        kind: FieldTypes.assetRef,
-        read: (c) => (c as AnimatedSpriteComponent).jsonPath,
-        write: (c, v) {
-          final asc = c as AnimatedSpriteComponent;
-          asc.jsonPath = v as String;
-          asc.initialized = false;
-        },
-      ),
-      SchemaField(
-        name: 'frameWidth',
-        kind: FieldTypes.integer,
-        read: (c) => (c as AnimatedSpriteComponent).frameWidth,
-        write: (c, v) =>
-            (c as AnimatedSpriteComponent).frameWidth = (v as num).toInt(),
-        min: 1,
-      ),
-      SchemaField(
-        name: 'frameHeight',
-        kind: FieldTypes.integer,
-        read: (c) => (c as AnimatedSpriteComponent).frameHeight,
-        write: (c, v) =>
-            (c as AnimatedSpriteComponent).frameHeight = (v as num).toInt(),
-        min: 1,
-      ),
-      SchemaField(
-        name: 'columns',
-        kind: FieldTypes.integer,
-        read: (c) => (c as AnimatedSpriteComponent).columns,
-        write: (c, v) =>
-            (c as AnimatedSpriteComponent).columns = (v as num).toInt(),
-        min: 1,
-      ),
-      SchemaField(
-        name: 'rows',
-        kind: FieldTypes.integer,
-        read: (c) => (c as AnimatedSpriteComponent).rows,
-        write: (c, v) =>
-            (c as AnimatedSpriteComponent).rows = (v as num).toInt(),
-        min: 1,
-      ),
-      SchemaField(
-        name: 'activeClip',
+        name: 'clip',
         kind: FieldTypes.text,
-        read: (c) => (c as AnimatedSpriteComponent).activeClip,
-        write: (c, v) =>
-            (c as AnimatedSpriteComponent).activeClip = v as String,
-      ),
-      SchemaField(
-        name: 'defaultFps',
-        kind: FieldTypes.decimal,
-        read: (c) => (c as AnimatedSpriteComponent).defaultFps,
-        write: (c, v) =>
-            (c as AnimatedSpriteComponent).defaultFps = (v as num).toDouble(),
-        min: 0.1,
-        max: 120,
-      ),
-      SchemaField(
-        name: 'loop',
-        kind: FieldTypes.boolean,
-        read: (c) => (c as AnimatedSpriteComponent).loop,
-        write: (c, v) => (c as AnimatedSpriteComponent).loop = v as bool,
+        read: (c) => (c as SpriteAnimationComponent).clip,
+        write: (c, v) {
+          final animation = c as SpriteAnimationComponent;
+          if (animation.clip == v) return;
+          animation
+            ..clip = v as String
+            ..restart();
+        },
       ),
       SchemaField(
         name: 'playOnStart',
         kind: FieldTypes.boolean,
-        read: (c) => (c as AnimatedSpriteComponent).playOnStart,
-        write: (c, v) => (c as AnimatedSpriteComponent).playOnStart = v as bool,
+        read: (c) => (c as SpriteAnimationComponent).playOnStart,
+        write: (c, v) =>
+            (c as SpriteAnimationComponent).playOnStart = v as bool,
       ),
       SchemaField(
-        name: 'clips',
-        kind: FieldTypes.map,
-        read: (c) => (c as AnimatedSpriteComponent).clipsToJson(),
-        write: (c, v) => (c as AnimatedSpriteComponent).clipsFromJson(v),
+        name: 'speed',
+        kind: FieldTypes.decimal,
+        read: (c) => (c as SpriteAnimationComponent).speed,
+        write: (c, v) =>
+            (c as SpriteAnimationComponent).speed = (v as num).toDouble(),
+        min: 0.0,
+      ),
+      SchemaField(
+        name: 'flipX',
+        kind: FieldTypes.boolean,
+        read: (c) => (c as SpriteAnimationComponent).flipX,
+        write: (c, v) => (c as SpriteAnimationComponent).flipX = v as bool,
+      ),
+      SchemaField(
+        name: 'flipY',
+        kind: FieldTypes.boolean,
+        read: (c) => (c as SpriteAnimationComponent).flipY,
+        write: (c, v) => (c as SpriteAnimationComponent).flipY = v as bool,
+      ),
+      SchemaField(
+        name: 'tint',
+        kind: FieldTypes.color,
+        read: (c) => (c as SpriteAnimationComponent).tint,
+        write: (c, v) => (c as SpriteAnimationComponent).tint = v as Color?,
+      ),
+      SchemaField(
+        name: 'pixelArt',
+        kind: FieldTypes.boolean,
+        read: (c) => (c as SpriteAnimationComponent).pixelArt,
+        write: (c, v) => (c as SpriteAnimationComponent).pixelArt = v as bool,
+      ),
+    ],
+  );
+
+  /// [AnimatorComponent]: the animation state machine.
+  static final animator = ComponentSchema<AnimatorComponent>(
+    type: 'AnimatorComponent',
+    hints: const ComponentHints(
+      name: 'Animator',
+      group: 'Animation',
+      description:
+          'A state machine that picks which clip the Sprite Animation plays.',
+      icon: Icons.account_tree_outlined,
+      accentColor: Color(0xFFFFCA28),
+      fields: {
+        'graphPath': FieldHint(
+          label: 'Graph',
+          fileExtensions: ['animator.json', 'json'],
+        ),
+        'enabled': FieldHint(label: 'Enabled'),
+        'faceVelocity': FieldHint(
+          label: 'Face movement',
+          description: 'Flip the sprite to face the way it moves.',
+        ),
+      },
+    ),
+    id: 'animator_5b0e6a37',
+    create: AnimatorComponent.new,
+    fields: [
+      SchemaField(
+        name: 'graphPath',
+        kind: FieldTypes.assetRef,
+        read: (c) => (c as AnimatorComponent).graphPath,
+        write: (c, v) => (c as AnimatorComponent).graphPath = v as String,
+      ),
+      SchemaField(
+        name: 'enabled',
+        kind: FieldTypes.boolean,
+        read: (c) => (c as AnimatorComponent).enabled,
+        write: (c, v) => (c as AnimatorComponent).enabled = v as bool,
+      ),
+      SchemaField(
+        name: 'faceVelocity',
+        kind: FieldTypes.boolean,
+        read: (c) => (c as AnimatorComponent).faceVelocity,
+        write: (c, v) => (c as AnimatorComponent).faceVelocity = v as bool,
       ),
     ],
   );
@@ -559,77 +573,6 @@ abstract final class CoreComponentSchemas {
           ),
         ],
       );
-
-  /// [AnimationStateComponent], from `animation_state_editor_component.dart`.
-  static final animationState = ComponentSchema<AnimationStateComponent>(
-    type: 'AnimationStateComponent',
-    hints: const ComponentHints(
-      name: 'Animation State',
-      group: 'Animation',
-      icon: Icons.animation,
-      accentColor: Color(0xFFFFCA28),
-      fieldGroups: {
-        'Animation': ['animName', 'frameCount', 'frameDuration'],
-        'State': ['loop', 'playing'],
-      },
-      fields: {
-        'animName': FieldHint(label: 'Name'),
-        'frameCount': FieldHint(
-          label: 'Frames',
-          scrub: ScrubHint(integer: true),
-        ),
-        'frameDuration': FieldHint(
-          label: 'Dur(s)',
-          scrub: ScrubHint(step: 0.01, fractionDigits: 3),
-        ),
-        'loop': FieldHint(label: 'Loop'),
-        'playing': FieldHint(label: 'Playing'),
-      },
-    ),
-    id: 'animation_state_40e001f0',
-    create: () => AnimationStateComponent(
-      currentAnimation: 'idle',
-      frameCount: 4,
-      frameDuration: 0.1,
-    ),
-    fields: [
-      SchemaField(
-        name: 'animName',
-        kind: FieldTypes.text,
-        read: (c) => (c as AnimationStateComponent).currentAnimation,
-        write: (c, v) =>
-            (c as AnimationStateComponent).currentAnimation = v as String,
-      ),
-      SchemaField(
-        name: 'frameCount',
-        kind: FieldTypes.integer,
-        read: (c) => (c as AnimationStateComponent).frameCount,
-        write: (c, v) =>
-            (c as AnimationStateComponent).frameCount = (v as num).toInt(),
-        min: 1.0,
-      ),
-      SchemaField(
-        name: 'frameDuration',
-        kind: FieldTypes.decimal,
-        read: (c) => (c as AnimationStateComponent).frameDuration,
-        write: (c, v) => (c as AnimationStateComponent).frameDuration =
-            (v as num).toDouble(),
-        min: 0.0,
-      ),
-      SchemaField(
-        name: 'loop',
-        kind: FieldTypes.boolean,
-        read: (c) => (c as AnimationStateComponent).loop,
-        write: (c, v) => (c as AnimationStateComponent).loop = v as bool,
-      ),
-      SchemaField(
-        name: 'playing',
-        kind: FieldTypes.boolean,
-        read: (c) => (c as AnimationStateComponent).isPlaying,
-        write: (c, v) => (c as AnimationStateComponent).isPlaying = v as bool,
-      ),
-    ],
-  );
 
   /// [AudioSourceComponent], from `audio_source_editor_component.dart`.
   static final audioSource = ComponentSchema<AudioSourceComponent>(
@@ -998,9 +941,9 @@ abstract final class CoreComponentSchemas {
     text,
     line,
     polygon,
-    animatedSprite,
+    spriteAnimation,
+    animator,
     animationController,
-    animationState,
     audioSource,
     audioStream,
     button,

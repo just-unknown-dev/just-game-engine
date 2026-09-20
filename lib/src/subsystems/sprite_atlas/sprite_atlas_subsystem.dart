@@ -12,6 +12,7 @@
 /// | **TexturePacker JSON Hash**  | `frames` is a JSON object |
 /// | **TexturePacker multi-page** | top-level `"textures"` list |
 /// | **Aseprite JSON export**     | detected via `meta.app` = `"aseprite"` |
+/// | **Grid sheet** (legacy)      | `meta.frameWidth/Height`, no `frames` |
 ///
 /// Format is **auto-detected** by [AtlasParser.detect] — no manual selection
 /// is required.
@@ -57,5 +58,6 @@ part 'impl/sprite_atlas.dart';
 part 'impl/atlas_parser.dart';
 part 'impl/texture_packer_parser.dart';
 part 'impl/aseprite_parser.dart';
+part 'impl/grid_sheet_parser.dart';
 part 'impl/atlas_sprite_animation.dart';
 part 'impl/atlas_asset.dart';
