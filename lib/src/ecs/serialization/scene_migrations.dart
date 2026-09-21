@@ -417,7 +417,151 @@ class V2ToV3 extends SceneMigration {
   }
 }
 
+/// v3 → v4: timelines.
+///
+/// `AnimationControllerComponent` — one flat list of transform keyframes —
+/// becomes a `TimelinePlayerComponent` holding the same motion as an
+/// **inline** timeline: a property track for each transform channel the old
+/// keyframes set (absolute, as they were), and an event track. A migration
+/// cannot write files, so nothing becomes a `.timeline.json` by itself; an
+/// editor offers to extract one.
+///
+/// The old easings were quadratic, which a cubic bezier draws exactly (ease
+/// in, ease out) or as near as makes no difference (ease in-out).
+class V3ToV4 extends SceneMigration {
+  const V3ToV4();
+
+  @override
+  int get from => 3;
+
+  /// Entity-level rules a package adds for its own components.
+  static final List<EntityMigration> perEntity = [];
+
+  // Old keyframe property → (transform field, channel).
+  static const Map<String, (String, String)> _channels = {
+    'posX': ('position', 'x'),
+    'posY': ('position', 'y'),
+    'rotation': ('rotation', ''),
+    'scaleX': ('scale', 'x'),
+    'scaleY': ('scale', 'y'),
+  };
+
+  // Easing → the bezier's two control points, as fractions of the segment.
+  static const Map<String, (double, double, double, double)> _beziers = {
+    'easeIn': (1 / 3, 0, 2 / 3, 1 / 3),
+    'easeOut': (1 / 3, 2 / 3, 2 / 3, 1),
+    'easeInOut': (0.455, 0.03, 0.515, 0.955),
+  };
+
+  @override
+  Map<String, dynamic> apply(Map<String, dynamic> json) {
+    final list = json['entities'];
+    if (list is! List) return json;
+    for (final entity in list.whereType<Map<String, dynamic>>()) {
+      final components = entity['components'];
+      if (components is List) {
+        for (var i = 0; i < components.length; i++) {
+          final c = components[i];
+          if (c is! Map || c['type'] != 'AnimationControllerComponent') {
+            continue;
+          }
+          final fields = c['fields'];
+          components[i] = _player(fields is Map ? fields : const {});
+        }
+      }
+      for (final migrate in perEntity) {
+        migrate(entity, json);
+      }
+    }
+    return json;
+  }
+
+  static Map<String, dynamic> _player(Map old) {
+    final keyframes = [
+      for (final k in old['keyframes'] as List? ?? const [])
+        if (k is Map && k['time'] is num) k,
+    ]..sort((a, b) => (a['time'] as num).compareTo(b['time'] as num));
+
+    final tracks = <Map<String, dynamic>>[];
+    for (final entry in _channels.entries) {
+      final keys = _keys(keyframes, entry.key);
+      if (keys.isEmpty) continue;
+      final (field, channel) = entry.value;
+      tracks.add({
+        'kind': 'property',
+        'component': 'TransformComponent',
+        'field': field,
+        if (channel.isNotEmpty) 'channel': channel,
+        'keys': keys,
+      });
+    }
+    final events = [
+      for (final e in old['events'] as List? ?? const [])
+        if (e is Map)
+          <String, dynamic>{'time': e['time'] ?? 0, 'name': e['name'] ?? ''},
+    ];
+    if (events.isNotEmpty) tracks.add({'kind': 'event', 'events': events});
+
+    return <String, dynamic>{
+      'type': 'TimelinePlayerComponent',
+      'fields': <String, dynamic>{
+        'timelinePath': '',
+        'inline': <String, dynamic>{
+          'formatVersion': 1,
+          'duration': old['duration'] ?? 1.0,
+          'fps': 30,
+          'wrap': old['loop'] == true ? 'loop' : 'once',
+          'tracks': tracks,
+        },
+        'playOnStart': old['playOnStart'] ?? false,
+        'speed': 1.0,
+        'wrap': 'fromTimeline',
+        'listenSignal': '',
+      },
+    };
+  }
+
+  /// The keys of one channel: a key wherever a keyframe set [property],
+  /// eased to the next the way that keyframe said.
+  static List<Map<String, dynamic>> _keys(
+    List<Map> keyframes,
+    String property,
+  ) {
+    final set = [
+      for (final k in keyframes)
+        if (k[property] is num) k,
+    ];
+    final keys = <Map<String, dynamic>>[
+      for (final k in set)
+        {
+          't': (k['time'] as num).toDouble(),
+          'v': (k[property] as num).toDouble(),
+          // Handles are as authored here: nothing may smooth them.
+          'm': 'broken',
+        },
+    ];
+    for (var i = 0; i < set.length; i++) {
+      final bezier = _beziers[set[i]['easing']];
+      if (bezier == null || i == set.length - 1) {
+        keys[i]['i'] = 'linear';
+        continue;
+      }
+      final (x1, y1, x2, y2) = bezier;
+      final span = (keys[i + 1]['t'] as double) - (keys[i]['t'] as double);
+      final rise = (keys[i + 1]['v'] as double) - (keys[i]['v'] as double);
+      keys[i]['out'] = [x1 * span, y1 * rise];
+      keys[i + 1]['in'] = [(x2 - 1) * span, (y2 - 1) * rise];
+    }
+    return keys;
+  }
+}
+
 /// Every migration, in order.
 abstract final class SceneMigrations {
-  static const List<SceneMigration> chain = [V0ToV1(), V1ToV2(), V2ToV3()];
+  static const List<SceneMigration> chain = [
+    V0ToV1(),
+    V1ToV2(),
+    V2ToV3(),
+    V3ToV4(),
+  ];
 }

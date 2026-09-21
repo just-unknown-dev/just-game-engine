@@ -2,8 +2,8 @@ library;
 
 /// A named time marker within an animation.
 ///
-/// Used by sprite clips (frame events in an atlas) and by
-/// [AnimationControllerComponent] (the entity timeline).
+/// Used by sprite clips (frame events in an atlas). A timeline's events are
+/// `TimelineEvent`s on an `EventTrack`.
 class AnimationEvent {
   const AnimationEvent({required this.time, required this.name});
 

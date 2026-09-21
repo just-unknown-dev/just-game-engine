@@ -33,7 +33,8 @@ export 'gameplay/checkpoint_system.dart';
 export 'gameplay/checkpoint_event.dart';
 
 // Animation systems
-export 'animation/animation_controller_system.dart';
+export 'animation/timeline_system.dart';
+export 'animation/timeline_trigger_system.dart';
 export 'animation/animator_system.dart';
 export 'animation/register_animation_systems.dart';
 export 'rendering/sprite_systems.dart';

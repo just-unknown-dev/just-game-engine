@@ -5,6 +5,7 @@ import 'package:flutter/painting.dart';
 import 'package:just_dart/just_dart.dart';
 
 import '../components/components.dart';
+import '../../subsystems/timeline/timeline_asset.dart';
 import '../ecs.dart';
 import 'component_codec.dart';
 import 'component_schema.dart';
@@ -482,97 +483,128 @@ abstract final class CoreComponentSchemas {
     ],
   );
 
-  /// [AnimationControllerComponent], from `animation_controller_editor_component.dart`.
-  static final animationController =
-      ComponentSchema<AnimationControllerComponent>(
-        type: 'AnimationControllerComponent',
-        hints: const ComponentHints(
-          name: 'Animation Controller',
-          group: 'Animation',
-          icon: Icons.timeline_rounded,
-          accentColor: Color(0xFF7DD8E0),
-          fieldGroups: {
-            'Playback': ['duration', 'loop', 'playOnStart'],
-          },
-          fields: {
-            'duration': FieldHint(
-              label: 'Duration (s)',
-              scrub: ScrubHint(step: 0.1, fractionDigits: 2),
-            ),
-            'loop': FieldHint(label: 'Loop'),
-            'playOnStart': FieldHint(label: 'Play on Start'),
-            'keyframes': FieldHint(label: 'Keyframes', visible: false),
-            'events': FieldHint(label: 'Events', visible: false),
-          },
+  /// [TimelinePlayerComponent]: plays a timeline asset, or an inline one.
+  static final timelinePlayer = ComponentSchema<TimelinePlayerComponent>(
+    type: 'TimelinePlayerComponent',
+    hints: const ComponentHints(
+      name: 'Timeline Player',
+      group: 'Animation',
+      description:
+          'Plays a timeline: keyed fields, sprite clips, events, camera '
+          'shots and sounds on one clock.',
+      icon: Icons.timeline_rounded,
+      accentColor: Color(0xFF7DD8E0),
+      fieldGroups: {
+        'Timeline': ['timelinePath'],
+        'Playback': ['playOnStart', 'speed', 'wrap', 'listenSignal'],
+        'Part of it': ['from', 'to'],
+      },
+      fields: {
+        'timelinePath': FieldHint(
+          label: 'Timeline',
+          description:
+              'A .timeline.json asset. Empty plays the timeline saved '
+              'inside this component.',
+          fileExtensions: ['timeline.json', 'json'],
         ),
-        id: 'animation_controller_8c3f2e91',
-        create: () => AnimationControllerComponent(),
-        fields: [
-          SchemaField(
-            name: 'duration',
-            kind: FieldTypes.decimal,
-            read: (c) => (c as AnimationControllerComponent).duration,
-            write: (c, v) => (c as AnimationControllerComponent).duration =
-                (v as num).toDouble(),
-            min: 0.1,
-            max: 600,
-          ),
-          SchemaField(
-            name: 'loop',
-            kind: FieldTypes.boolean,
-            read: (c) => (c as AnimationControllerComponent).loop,
-            write: (c, v) =>
-                (c as AnimationControllerComponent).loop = v as bool,
-          ),
-          SchemaField(
-            name: 'playOnStart',
-            kind: FieldTypes.boolean,
-            read: (c) => (c as AnimationControllerComponent).playOnStart,
-            write: (c, v) =>
-                (c as AnimationControllerComponent).playOnStart = v as bool,
-          ),
-          SchemaField(
-            name: 'keyframes',
-            kind: FieldTypes.list,
-            read: (c) => (c as AnimationControllerComponent).keyframes
-                .map((k) => k.toJson())
-                .toList(),
-            write: (c, v) {
-              final acc = c as AnimationControllerComponent;
-              acc.keyframes.clear();
-              if (v is List) {
-                for (final item in v) {
-                  if (item is Map) {
-                    acc.keyframes.add(
-                      TransformKeyframe.fromJson(item.cast<String, dynamic>()),
-                    );
-                  }
-                }
-              }
-            },
-          ),
-          SchemaField(
-            name: 'events',
-            kind: FieldTypes.list,
-            read: (c) => (c as AnimationControllerComponent).events
-                .map((e) => e.toJson())
-                .toList(),
-            write: (c, v) {
-              final acc = c as AnimationControllerComponent;
-              acc.events.clear();
-              if (v is List) {
-                for (final item in v) {
-                  if (item is Map) {
-                    acc.events.add(
-                      AnimationEvent.fromJson(item.cast<String, dynamic>()),
-                    );
-                  }
-                }
-              }
-            },
-          ),
-        ],
-      );
+        'inline': FieldHint(label: 'Inline timeline', visible: false),
+        'playOnStart': FieldHint(label: 'Play on Start'),
+        'speed': FieldHint(
+          label: 'Speed',
+          description: 'Negative plays backwards.',
+          scrub: ScrubHint(step: 0.05, fractionDigits: 2),
+        ),
+        'wrap': FieldHint(label: 'Wrap'),
+        'listenSignal': FieldHint(
+          label: 'Play on signal',
+          description: 'A timeline signal that starts this player.',
+        ),
+        'from': FieldHint(
+          label: 'Play from',
+          description:
+              'Seconds. Zero starts at the beginning. With Play to, this '
+              'entity runs only part of the timeline — so one file can serve '
+              'several entities differently.',
+          scrub: ScrubHint(step: 0.05, fractionDigits: 2),
+        ),
+        'to': FieldHint(
+          label: 'Play to',
+          description: 'Seconds. Zero plays to the end.',
+          scrub: ScrubHint(step: 0.05, fractionDigits: 2),
+        ),
+      },
+    ),
+    id: 'timeline_player_3d91c7aa',
+    create: TimelinePlayerComponent.new,
+    fields: [
+      SchemaField(
+        name: 'timelinePath',
+        kind: FieldTypes.assetRef,
+        read: (c) => (c as TimelinePlayerComponent).timelinePath,
+        write: (c, v) =>
+            (c as TimelinePlayerComponent).timelinePath = v as String? ?? '',
+      ),
+      SchemaField(
+        name: 'inline',
+        kind: FieldTypes.map,
+        read: (c) => (c as TimelinePlayerComponent).inline?.toJson(),
+        write: (c, v) => (c as TimelinePlayerComponent).inline = v is Map
+            ? TimelineAsset.fromJson(v.cast<String, dynamic>())
+            : null,
+      ),
+      SchemaField(
+        name: 'playOnStart',
+        kind: FieldTypes.boolean,
+        read: (c) => (c as TimelinePlayerComponent).playOnStart,
+        write: (c, v) => (c as TimelinePlayerComponent).playOnStart = v as bool,
+      ),
+      SchemaField(
+        name: 'speed',
+        kind: FieldTypes.decimal,
+        read: (c) => (c as TimelinePlayerComponent).speed,
+        write: (c, v) =>
+            (c as TimelinePlayerComponent).speed = (v as num).toDouble(),
+        min: -16,
+        max: 16,
+      ),
+      SchemaField(
+        name: 'wrap',
+        kind: const EnumFieldType(
+          TimelineWrapChoice.values,
+          fallback: TimelineWrapChoice.fromTimeline,
+          id: 'enum.timelineWrapChoice',
+        ),
+        read: (c) => (c as TimelinePlayerComponent).wrap,
+        write: (c, v) =>
+            (c as TimelinePlayerComponent).wrap = v as TimelineWrapChoice,
+      ),
+      SchemaField(
+        name: 'listenSignal',
+        kind: FieldTypes.text,
+        read: (c) => (c as TimelinePlayerComponent).listenSignal,
+        write: (c, v) =>
+            (c as TimelinePlayerComponent).listenSignal = v as String? ?? '',
+      ),
+      SchemaField(
+        name: 'from',
+        kind: FieldTypes.decimal,
+        read: (c) => (c as TimelinePlayerComponent).from,
+        // A scene saved before these existed has no key for them.
+        write: (c, v) =>
+            (c as TimelinePlayerComponent).from = (v as num?)?.toDouble() ?? 0,
+        min: 0,
+      ),
+      SchemaField(
+        name: 'to',
+        kind: FieldTypes.decimal,
+        read: (c) => (c as TimelinePlayerComponent).to,
+        // A scene saved before these existed has no key for them.
+        write: (c, v) =>
+            (c as TimelinePlayerComponent).to = (v as num?)?.toDouble() ?? 0,
+        min: 0,
+      ),
+    ],
+  );
 
   /// [AudioSourceComponent], from `audio_source_editor_component.dart`.
   static final audioSource = ComponentSchema<AudioSourceComponent>(
@@ -943,7 +975,7 @@ abstract final class CoreComponentSchemas {
     polygon,
     spriteAnimation,
     animator,
-    animationController,
+    timelinePlayer,
     audioSource,
     audioStream,
     button,

@@ -93,6 +93,9 @@ export 'package:just_memory/just_memory.dart';
 // Supports TexturePacker (JSON Array / Hash / multi-page) and Aseprite formats
 export 'src/subsystems/sprite_atlas/sprite_atlas.dart';
 
+// Timeline - Reusable timelines that animate any component field
+export 'src/subsystems/timeline/timeline.dart';
+
 // Deterministic Effects - Tick-based Move, Scale, Rotate, Fade, Shake, Path,
 // Sequence, Parallel, Delay, Repeat; serializable for multiplayer.
 export 'src/subsystems/effects/effects.dart';

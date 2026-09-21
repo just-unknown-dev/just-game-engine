@@ -38,9 +38,9 @@ export 'input/joystick_input_component.dart';
 export 'input/simple_movement_component.dart';
 
 // Animation components
-export 'animation/transform_keyframe.dart';
 export 'animation/animation_event.dart';
-export 'animation/animation_controller_component.dart';
+export 'animation/timeline_player_component.dart';
+export 'animation/timeline_trigger_component.dart';
 export 'animation/animator_component.dart';
 
 // Audio components

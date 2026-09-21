@@ -214,8 +214,14 @@ class AnimatorSystem extends System {
     double? progress;
     for (final t in candidates) {
       if (t.hasExitTime) {
-        progress ??= _progress(entity, sprite);
-        if (progress < t.exitTime && !sprite.isComplete) continue;
+        // A state that plays a timeline is done when the timeline is.
+        final player =
+            (graph.stateNamed(animator.currentState)?.timeline ?? '').isEmpty
+            ? null
+            : entity.getComponent<TimelinePlayerComponent>();
+        progress ??= player?.progress ?? _progress(entity, sprite);
+        final done = player?.isFinished ?? sprite.isComplete;
+        if (progress < t.exitTime && !done) continue;
       }
       var holds = true;
       for (final c in t.conditions) {
@@ -261,6 +267,11 @@ class AnimatorSystem extends System {
     sprite
       ..speed = state.speed
       ..switchClip(state.clipName, restartIfSame: true, loop: state.loop);
+    if (state.timeline.isNotEmpty) {
+      entity.getComponent<TimelinePlayerComponent>()?.playTimeline(
+        state.timeline,
+      );
+    }
     _changes.add(AnimatorStateChange(entity, from, state.name));
   }
 

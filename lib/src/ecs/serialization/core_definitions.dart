@@ -8,6 +8,7 @@ import 'package:just_physics_engine/just_physics_engine.dart';
 import '../components/components.dart';
 import '../ecs.dart';
 import 'camera_definitions.dart';
+import 'timeline_definitions.dart';
 import 'component_definition.dart';
 import 'field_type.dart';
 
@@ -1193,6 +1194,7 @@ abstract final class CoreDefinitions {
     sprite,
     physicsBody,
     ...CameraDefinitions.all,
+    ...TimelineDefinitions.all,
     spawn,
     tag,
     input,

@@ -155,6 +155,7 @@ class AnimatorState {
     this.clip = '',
     this.speed = 1.0,
     this.loop,
+    this.timeline = '',
     this.x = 0,
     this.y = 0,
   });
@@ -168,6 +169,11 @@ class AnimatorState {
   /// Overrides whether the clip loops; null takes the clip's own.
   final bool? loop;
 
+  /// A `.timeline.json` the entity's Timeline Player plays from its start
+  /// on entering this state; a transition's exit time then reads the
+  /// timeline's progress, not the clip's. Empty for none.
+  final String timeline;
+
   /// Where the node sits in a graph editor. Means nothing at runtime.
   final double x;
   final double y;
@@ -180,6 +186,7 @@ class AnimatorState {
     clip: json['clip'] as String? ?? '',
     speed: (json['speed'] as num?)?.toDouble() ?? 1.0,
     loop: json['loop'] as bool?,
+    timeline: json['timeline'] as String? ?? '',
     x: (json['x'] as num?)?.toDouble() ?? 0,
     y: (json['y'] as num?)?.toDouble() ?? 0,
   );
@@ -189,6 +196,7 @@ class AnimatorState {
     if (clip.isNotEmpty) 'clip': clip,
     if (speed != 1.0) 'speed': speed,
     if (loop != null) 'loop': loop,
+    if (timeline.isNotEmpty) 'timeline': timeline,
     'x': x,
     'y': y,
   };
@@ -199,6 +207,7 @@ class AnimatorState {
     double? speed,
     bool? loop,
     bool clearLoop = false,
+    String? timeline,
     double? x,
     double? y,
   }) => AnimatorState(
@@ -206,6 +215,7 @@ class AnimatorState {
     clip: clip ?? this.clip,
     speed: speed ?? this.speed,
     loop: clearLoop ? null : loop ?? this.loop,
+    timeline: timeline ?? this.timeline,
     x: x ?? this.x,
     y: y ?? this.y,
   );
