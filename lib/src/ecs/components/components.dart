@@ -81,6 +81,9 @@ export '../../subsystems/narrative/ecs/dialogue_component.dart';
 
 // UI Components - ECS data components for UI elements
 export 'ui/ui_component.dart';
+export 'ui/screen/ui_canvas_component.dart';
+export 'ui/screen/ui_elements.dart';
+export 'ui/screen/ui_slot_component.dart';
 export 'ui/text_component.dart';
 export 'ui/button_component.dart';
 export 'ui/linear_progress_component.dart';

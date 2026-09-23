@@ -91,6 +91,27 @@ abstract final class FieldTypes {
   static const physicsShape = PhysicsShapeFieldType();
 
   /// A value the engine cannot interpret; stored and restored as raw JSON.
+  /// Everything about how a piece of text looks, in one field.
+  static const uiTextStyle = UiTextStyleFieldType();
+
+  /// What a UI element does when it is used.
+  static const uiActions = UiActionsFieldType();
+
+  /// Space around something.
+  static const edgeInsets = EdgeInsetsFieldType();
+
+  /// Where a child is pinned in its parent.
+  static const uiAnchor = UiAnchorFieldType();
+
+  /// Text a player reads: tags, bindings and language keys.
+  static const uiText = UiTextFieldType();
+
+  /// The name of a text style in the theme.
+  static const uiStyleRole = UiStyleRoleFieldType();
+
+  /// The name of a colour in the theme's palette.
+  static const uiColorRole = UiColorRoleFieldType();
+
   static const unknown = UnknownFieldType();
 
   /// The built-in type with [id], or null. For mapping an editor's own
@@ -120,6 +141,13 @@ abstract final class FieldTypes {
     offsetList,
     shapePaintStyle,
     physicsShape,
+    uiTextStyle,
+    uiActions,
+    edgeInsets,
+    uiAnchor,
+    uiText,
+    uiStyleRole,
+    uiColorRole,
     unknown,
   ];
 }

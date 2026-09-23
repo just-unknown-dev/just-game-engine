@@ -6,6 +6,8 @@ import 'package:just_dart/just_dart.dart';
 
 import '../components/components.dart';
 import '../../subsystems/timeline/timeline_asset.dart';
+import '../../subsystems/ui/ui_actions.dart';
+import '../../subsystems/ui/ui_text_style.dart';
 import '../ecs.dart';
 import 'component_codec.dart';
 import 'component_schema.dart';
@@ -109,28 +111,101 @@ abstract final class CoreComponentSchemas {
     ],
   );
 
-  /// [TextComponent], from `text_editor_component.dart`.
+  /// [TextComponent]: text in the world, and everything about how it looks.
   static final text = ComponentSchema<TextComponent>(
     type: 'TextComponent',
     hints: const ComponentHints(
       name: 'Text',
       group: 'UI',
+      description:
+          'Text at this entity. It can read the game — "Coins: {coins}" — '
+          'be looked up in the current language with @a.key, and carry tags '
+          'like [b]bold[/b].',
       icon: Icons.text_fields,
       accentColor: Color(0xFF5C6BC0),
       fieldGroups: {
-        'Size': ['w', 'h'],
-        'Content': ['textValue'],
+        'Content': ['textValue', 'styleRole'],
+        'Look': ['style'],
+        'Layout': ['w', 'h', 'align', 'overflow', 'wrap', 'maxLines'],
+        'Reveal': ['revealSpeed'],
       },
+      fieldRows: [
+        FieldRowHint('Size', {'w': 'W', 'h': 'H'}),
+      ],
       fields: {
-        ..._sizeHints,
-        'textValue': FieldHint(label: 'Text'),
+        'textValue': FieldHint(
+          label: 'Text',
+          description:
+              'Tags: [b] [i] [color=#f80] [size=20] [icon=name] [wave] '
+              '[shake]. Bindings: {coins}, {time:mm:ss}, {self.name}.',
+        ),
+        'styleRole': FieldHint(
+          label: 'Role',
+          description:
+              'What kind of text this is. The theme decides what a role '
+              'looks like, so restyling every label in the game is one '
+              'file rather than every entity.',
+        ),
+        'style': FieldHint(
+          label: 'Style',
+          description:
+              'What this text says for itself, over the role. Anything '
+              'left unset is the role’s, shown greyed.',
+        ),
+        'w': FieldHint(
+          label: 'Width',
+          scrub: ScrubHint(step: 4, fractionDigits: 0),
+        ),
+        'h': FieldHint(
+          label: 'Height',
+          scrub: ScrubHint(step: 4, fractionDigits: 0),
+        ),
+        'align': FieldHint(label: 'Align'),
+        'overflow': FieldHint(
+          label: 'Overflow',
+          description: 'Shrink fits the text to the box.',
+        ),
+        'wrap': FieldHint(
+          label: 'Wrap',
+          description: 'Break lines at the width above.',
+        ),
+        'maxLines': FieldHint(
+          label: 'Max lines',
+          scrub: ScrubHint(integer: true),
+        ),
+        'revealSpeed': FieldHint(
+          label: 'Type out',
+          description: 'Characters a second; 0 shows it all at once.',
+          scrub: ScrubHint(step: 1, fractionDigits: 0),
+        ),
       },
     ),
     painter: const TextComponentPainter(),
     id: 'text_effcff19',
-    create: () => TextComponent(text: 'Text', size: const Size(200, 40)),
+    create: () => TextComponent(text: 'Text'),
     extent: const _UiExtent(),
     fields: [
+      SchemaField(
+        name: 'textValue',
+        kind: FieldTypes.uiText,
+        read: (c) => (c as TextComponent).text,
+        write: (c, v) => (c as TextComponent).text = v as String? ?? '',
+      ),
+      SchemaField(
+        name: 'style',
+        kind: FieldTypes.uiTextStyle,
+        read: (c) => (c as TextComponent).style,
+        write: (c, v) => (c as TextComponent).style = v is UiTextStyle
+            ? v
+            : const UiTextStyle(),
+      ),
+      SchemaField(
+        name: 'styleRole',
+        kind: FieldTypes.uiStyleRole,
+        read: (c) => (c as TextComponent).styleRole,
+        write: (c, v) =>
+            (c as TextComponent).styleRole = v as String? ?? 'body',
+      ),
       SchemaField(
         name: 'w',
         kind: FieldTypes.decimal,
@@ -152,10 +227,45 @@ abstract final class CoreComponentSchemas {
         min: 0.0,
       ),
       SchemaField(
-        name: 'textValue',
-        kind: FieldTypes.text,
-        read: (c) => (c as TextComponent).text,
-        write: (c, v) => (c as TextComponent).text = v as String,
+        name: 'align',
+        kind: const EnumFieldType(
+          UiTextAlign.values,
+          fallback: UiTextAlign.center,
+          id: 'enum.uiTextAlign',
+        ),
+        read: (c) => (c as TextComponent).align,
+        write: (c, v) => (c as TextComponent).align = v as UiTextAlign,
+      ),
+      SchemaField(
+        name: 'overflow',
+        kind: const EnumFieldType(
+          UiTextOverflow.values,
+          fallback: UiTextOverflow.visible,
+          id: 'enum.uiTextOverflow',
+        ),
+        read: (c) => (c as TextComponent).overflow,
+        write: (c, v) => (c as TextComponent).overflow = v as UiTextOverflow,
+      ),
+      SchemaField(
+        name: 'wrap',
+        kind: FieldTypes.boolean,
+        read: (c) => (c as TextComponent).wrap,
+        write: (c, v) => (c as TextComponent).wrap = v as bool? ?? false,
+      ),
+      SchemaField(
+        name: 'maxLines',
+        kind: FieldTypes.integer,
+        read: (c) => (c as TextComponent).maxLines,
+        write: (c, v) => (c as TextComponent).maxLines = (v as num?)?.toInt(),
+        min: 0,
+      ),
+      SchemaField(
+        name: 'revealSpeed',
+        kind: FieldTypes.decimal,
+        read: (c) => (c as TextComponent).revealSpeed,
+        write: (c, v) =>
+            (c as TextComponent).revealSpeed = (v as num?)?.toDouble() ?? 0,
+        min: 0,
       ),
     ],
   );
@@ -733,28 +843,124 @@ abstract final class CoreComponentSchemas {
     ],
   );
 
-  /// [ButtonComponent], from `button_editor_component.dart`.
+  /// [ButtonComponent]: a button in the world, and what pressing it does.
   static final button = ComponentSchema<ButtonComponent>(
     type: 'ButtonComponent',
     hints: const ComponentHints(
       name: 'Button',
       group: 'UI',
+      description:
+          'A button at this entity. What it does is a list of actions the '
+          'scene holds by name, so it survives a save.',
       icon: Icons.smart_button,
-      accentColor: Color(0xFF5C6BC0),
+      accentColor: Color(0xFF7E57C2),
       fieldGroups: {
+        'Label': ['label', 'styleRole', 'labelStyle'],
+        'Does': ['onPressed'],
+        'Look': ['colorRole', 'color', 'borderColor', 'borderRadius'],
         'Size': ['w', 'h'],
-        'Text': ['label'],
       },
+      fieldRows: [
+        FieldRowHint('Size', {'w': 'W', 'h': 'H'}),
+      ],
       fields: {
-        ..._sizeHints,
-        'label': FieldHint(label: 'Label'),
+        'label': FieldHint(
+          label: 'Label',
+          description: 'Bindings and tags work here as they do in a text.',
+        ),
+        'styleRole': FieldHint(
+          label: 'Role',
+          description: 'The theme style the label reads as.',
+        ),
+        'labelStyle': FieldHint(label: 'Label style'),
+        'onPressed': FieldHint(
+          label: 'On pressed',
+          description: 'What happens when the button is released on.',
+        ),
+        'colorRole': FieldHint(
+          label: 'Colour role',
+          description: 'A colour from the theme: primary, danger, surface…',
+        ),
+        'color': FieldHint(
+          label: 'Colour',
+          description: 'Its own colour, which wins over the role.',
+        ),
+        'borderColor': FieldHint(label: 'Border'),
+        'borderRadius': FieldHint(
+          label: 'Corner',
+          scrub: ScrubHint(step: 1, fractionDigits: 0),
+        ),
+        'w': FieldHint(
+          label: 'Width',
+          scrub: ScrubHint(step: 4, fractionDigits: 0),
+        ),
+        'h': FieldHint(
+          label: 'Height',
+          scrub: ScrubHint(step: 4, fractionDigits: 0),
+        ),
       },
     ),
     painter: const ButtonComponentPainter(),
     id: 'button_388d5c40',
-    create: () => ButtonComponent(text: 'Button', size: const Size(120, 40)),
+    create: () => ButtonComponent(),
     extent: const _UiExtent(),
     fields: [
+      SchemaField(
+        name: 'label',
+        kind: FieldTypes.uiText,
+        read: (c) => (c as ButtonComponent).label,
+        write: (c, v) => (c as ButtonComponent).label = v as String? ?? '',
+      ),
+      SchemaField(
+        name: 'labelStyle',
+        kind: FieldTypes.uiTextStyle,
+        read: (c) => (c as ButtonComponent).labelStyle,
+        write: (c, v) => (c as ButtonComponent).labelStyle = v is UiTextStyle
+            ? v
+            : const UiTextStyle(),
+      ),
+      SchemaField(
+        name: 'styleRole',
+        kind: FieldTypes.uiStyleRole,
+        read: (c) => (c as ButtonComponent).styleRole,
+        write: (c, v) =>
+            (c as ButtonComponent).styleRole = v as String? ?? 'button',
+      ),
+      SchemaField(
+        name: 'onPressed',
+        kind: FieldTypes.uiActions,
+        read: (c) => (c as ButtonComponent).onPressed,
+        write: (c, v) => (c as ButtonComponent).onPressed = v is UiActionList
+            ? v
+            : UiActionList.empty,
+      ),
+      SchemaField(
+        name: 'colorRole',
+        kind: FieldTypes.uiColorRole,
+        read: (c) => (c as ButtonComponent).colorRole,
+        write: (c, v) =>
+            (c as ButtonComponent).colorRole = v as String? ?? 'primary',
+      ),
+      SchemaField(
+        name: 'color',
+        kind: FieldTypes.color,
+        read: (c) => (c as ButtonComponent).color,
+        write: (c, v) => (c as ButtonComponent).color = v as Color?,
+      ),
+      SchemaField(
+        name: 'borderColor',
+        kind: FieldTypes.color,
+        read: (c) => (c as ButtonComponent).borderColor,
+        write: (c, v) => (c as ButtonComponent).borderColor = v as Color?,
+      ),
+      SchemaField(
+        name: 'borderRadius',
+        kind: FieldTypes.decimal,
+        read: (c) => (c as ButtonComponent).borderRadius,
+        write: (c, v) =>
+            (c as ButtonComponent).borderRadius = (v as num?)?.toDouble() ?? 8,
+        min: 0,
+      ),
       SchemaField(
         name: 'w',
         kind: FieldTypes.decimal,
@@ -774,12 +980,6 @@ abstract final class CoreComponentSchemas {
           b.size = Size(b.size.width, (v as num).toDouble());
         },
         min: 0.0,
-      ),
-      SchemaField(
-        name: 'label',
-        kind: FieldTypes.text,
-        read: (c) => (c as ButtonComponent).text,
-        write: (c, v) => (c as ButtonComponent).text = v as String,
       ),
     ],
   );

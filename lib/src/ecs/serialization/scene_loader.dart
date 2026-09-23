@@ -58,6 +58,8 @@ abstract final class SceneLoader {
         (
           name: entry['name'] as String?,
           parentName: entry['parentName'] as String?,
+          // Left out means on, which is what nearly every entity is.
+          enabled: entry['enabled'] != false,
           components: [
             for (final raw
                 in (entry['components'] as List? ?? const [])
@@ -79,6 +81,9 @@ abstract final class SceneLoader {
         entry.components,
         name: entry.name,
       );
+      // Authored switched off: it is in the world, and the systems pass
+      // it by until something turns it on.
+      if (!entry.enabled) entity.isActive = false;
       created.add(entity);
       if (entry.name != null) byName[entry.name!] = entity;
     }
@@ -91,7 +96,20 @@ abstract final class SceneLoader {
       final child = byName[entry.name!];
       final parent = byName[parentName];
       if (child == null || parent == null) continue;
-      child.getComponent<ParentComponent>()?.parentId = parent.id;
+      // Both ends of the link, and both made where a file leaves one out.
+      //
+      // Naming a parent used to give the child nothing when it carried no
+      // `ParentComponent` of its own: it went into the parent's list, so
+      // it drew in the right place, but it still read as a root — shown at
+      // the top of the tree, walked past by anything looking upward, and
+      // saved with no parent at all, which lost the hierarchy on the next
+      // save. A file that says `parentName` means it.
+      final existing = child.getComponent<ParentComponent>();
+      if (existing != null) {
+        existing.parentId = parent.id;
+      } else {
+        child.addComponent(ParentComponent(parentId: parent.id));
+      }
       if (!parent.hasComponent<ChildrenComponent>()) {
         parent.addComponent(ChildrenComponent());
       }

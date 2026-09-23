@@ -11,6 +11,7 @@ import 'camera_definitions.dart';
 import 'timeline_definitions.dart';
 import 'component_definition.dart';
 import 'field_type.dart';
+import 'ui_definitions.dart';
 
 /// Definitions for the core components whose save format predates
 /// definitions, one per built-in component.
@@ -1195,6 +1196,7 @@ abstract final class CoreDefinitions {
     physicsBody,
     ...CameraDefinitions.all,
     ...TimelineDefinitions.all,
+    ...UiDefinitions.all,
     spawn,
     tag,
     input,

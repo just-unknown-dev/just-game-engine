@@ -556,6 +556,73 @@ class V3ToV4 extends SceneMigration {
   }
 }
 
+/// v4 → v5: UI that keeps its look.
+///
+/// The old `TextComponent` saved its words and its box and nothing else —
+/// colour, size and alignment lived in a Flutter `TextStyle` that was never
+/// written to the file, so every save quietly reset them. The new one holds
+/// a `UiTextStyle` instead, and old scenes come across with the text they
+/// had, at the size the old default drew it.
+class V4ToV5 extends SceneMigration {
+  const V4ToV5();
+
+  @override
+  int get from => 4;
+
+  /// Entity-level rules a package adds for its own components.
+  static final List<EntityMigration> perEntity = [];
+
+  @override
+  Map<String, dynamic> apply(Map<String, dynamic> json) {
+    final list = json['entities'];
+    if (list is! List) return json;
+    for (final entity in list.whereType<Map<String, dynamic>>()) {
+      final components = entity['components'];
+      if (components is List) {
+        for (var i = 0; i < components.length; i++) {
+          final c = components[i];
+          if (c is! Map) continue;
+          final fields = c['fields'];
+          if (fields is! Map) continue;
+          switch (c['type']) {
+            case 'TextComponent':
+              _text(fields);
+            case 'ButtonComponent':
+              _button(fields);
+          }
+        }
+      }
+      for (final migrate in perEntity) {
+        migrate(entity, json);
+      }
+    }
+    return json;
+  }
+
+  /// The old component's look, as the old painter drew it: white, 16pt,
+  /// centred. That is what these scenes have been showing, so that is what
+  /// they keep.
+  static void _text(Map fields) {
+    fields['textValue'] = fields.remove('textValue') ?? 'Text';
+    fields['style'] = <String, dynamic>{'size': 16.0, 'color': 0xFFFFFFFF};
+    fields['styleRole'] = 'body';
+    fields['align'] = 'center';
+    fields['overflow'] = 'visible';
+    fields['wrap'] = false;
+    fields['revealSpeed'] = 0.0;
+  }
+
+  /// A button's label carried its own style in the same way.
+  static void _button(Map fields) {
+    fields['label'] = fields.remove('label') ?? 'Button';
+    fields['labelStyle'] = <String, dynamic>{
+      'size': 13.0,
+      'weight': 700,
+      'color': 0xFFFFFFFF,
+    };
+  }
+}
+
 /// Every migration, in order.
 abstract final class SceneMigrations {
   static const List<SceneMigration> chain = [
@@ -563,5 +630,6 @@ abstract final class SceneMigrations {
     V1ToV2(),
     V2ToV3(),
     V3ToV4(),
+    V4ToV5(),
   ];
 }

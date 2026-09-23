@@ -1,65 +1,113 @@
-/// UI button component.
+/// A button in the world, on the game's canvas.
 library;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/painting.dart';
 
+import '../../../subsystems/ui/ui_actions.dart';
+import '../../../subsystems/ui/ui_text_style.dart';
+import '../../../subsystems/ui/ui_theme.dart';
 import 'ui_component.dart';
 
-/// UI button component data.
+/// What a button is doing right now.
+enum UiInteractionState {
+  normal,
+  hovered,
+  pressed,
+
+  /// Switched off: it is drawn faded and does nothing.
+  disabled;
+
+  /// How much the button's colour is lifted or dulled in this state.
+  double get tint => switch (this) {
+    normal => 0,
+    hovered => 0.12,
+    pressed => -0.12,
+    disabled => 0,
+  };
+}
+
+/// A button the player can press, drawn at an entity's transform.
+///
+/// What it *does* is a list of [UiAction]s — a name and an argument that a
+/// scene can hold — because a file cannot save a Dart closure. Game code
+/// registers what a name means through [UiActions].
 class ButtonComponent extends UIComponent {
-  /// Button label.
-  String text;
-
-  /// Label style.
-  TextStyle textStyle;
-
-  /// Base fill color.
-  Color backgroundColor;
-
-  /// Fill color while pressed.
-  Color pressedColor;
-
-  /// Optional border color.
-  Color? borderColor;
-
-  /// Corner radius.
-  double borderRadius;
-
-  /// Callback invoked when the button is pressed.
-  VoidCallback? onPressed;
-
-  /// Runtime pressed state.
-  bool isPressed;
-
-  /// Create a UI button component.
   ButtonComponent({
-    required this.text,
-    required super.size,
-    this.textStyle = const TextStyle(
-      color: Colors.white,
-      fontSize: 13,
-      fontWeight: FontWeight.w700,
-    ),
-    this.backgroundColor = const Color(0xFF3A5070),
-    this.pressedColor = const Color(0xFF4E6A96),
+    this.label = 'Button',
+    this.labelStyle = const UiTextStyle(),
+    this.styleRole = 'button',
+    this.onPressed = UiActionList.empty,
+    this.colorRole = 'primary',
+    this.color,
     this.borderColor,
     this.borderRadius = 8,
-    this.onPressed,
-    this.isPressed = false,
+    super.size = const Size(160, 44),
     super.visible,
     super.enabled,
     super.layer,
   });
 
-  /// Effective fill color based on pressed state.
-  Color get currentColor => isPressed ? pressedColor : backgroundColor;
+  /// What is written on it. Bindings and tags work as they do in a text.
+  String label;
 
-  /// Attempt to trigger button action.
-  void trigger() {
-    if (!enabled || !visible) return;
-    onPressed?.call();
+  /// What the label says for itself, over [styleRole] in the theme.
+  UiTextStyle labelStyle;
+
+  /// The theme's text style underneath [labelStyle].
+  String styleRole;
+
+  /// What happens when it is pressed.
+  UiActionList onPressed;
+
+  /// The theme colour it is drawn in — `primary`, `danger`, `surface`.
+  String colorRole;
+
+  /// A colour of its own, which wins over [colorRole] when set.
+  Color? color;
+
+  Color? borderColor;
+  double borderRadius;
+
+  // ── Runtime ──────────────────────────────────────────────────────────────
+
+  /// What the pointer is doing to it. Set by `UiPointerSystem`.
+  UiInteractionState state = UiInteractionState.normal;
+
+  /// Kept for the frame a press lands on, so a game can react without
+  /// listening to anything.
+  bool wasPressed = false;
+
+  bool get isPressed => state == UiInteractionState.pressed;
+
+  /// Whether a pointer may do anything with this.
+  bool get isInteractive => enabled && visible;
+
+  /// The colour it is drawn in under [theme], with its state's tint.
+  Color colorUnder(UiTheme theme) {
+    final base =
+        color ?? theme.color(colorRole, fallbackColor: theme.palette.primary);
+    final lift = state.tint;
+    if (lift == 0) return base;
+    return lift > 0
+        ? Color.lerp(base, const Color(0xFFFFFFFF), lift)!
+        : Color.lerp(base, const Color(0xFF000000), -lift)!;
+  }
+
+  /// How solid it looks: a disabled button is faded rather than hidden, so
+  /// a player can see there is something there to come back to.
+  double get opacity => state == UiInteractionState.disabled ? 0.45 : 1;
+
+  UiTextStyle labelStyleUnder(UiTheme theme) =>
+      labelStyle.over(theme.textStyle(styleRole));
+
+  /// Runs what this button does. Called by the pointer system on a release
+  /// inside the button; a game may call it to press the button itself.
+  void press(UiActionContext context) {
+    if (!isInteractive) return;
+    wasPressed = true;
+    onPressed.run(context);
   }
 
   @override
-  String toString() => 'UIButton("$text")';
+  String toString() => 'Button("$label")';
 }

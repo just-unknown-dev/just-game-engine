@@ -96,6 +96,9 @@ export 'src/subsystems/sprite_atlas/sprite_atlas.dart';
 // Timeline - Reusable timelines that animate any component field
 export 'src/subsystems/timeline/timeline.dart';
 
+// UI - Text, themes, bindings and actions for in-game interfaces
+export 'src/subsystems/ui/ui.dart';
+
 // Deterministic Effects - Tick-based Move, Scale, Rotate, Fade, Shake, Path,
 // Sequence, Parallel, Delay, Repeat; serializable for multiplayer.
 export 'src/subsystems/effects/effects.dart';

@@ -11,6 +11,9 @@ import 'package:just_signals/just_signals.dart';
 import '../../../core/collider_debugger_system.dart';
 import '../../../core/engine.dart';
 import '../../../ecs/systems/rendering/render_system.dart';
+import '../../../ecs/systems/ui/ui_system.dart';
+import '../../ui/ui_layer.dart';
+import '../../ui/ui_theme.dart';
 import 'game_terminal.dart';
 
 /// Main game widget that renders the game
@@ -94,6 +97,30 @@ class GameWidget extends StatefulWidget {
   /// behavior change.
   final Widget? overlay;
 
+  /// Whether the scene's own screen-space UI is drawn.
+  ///
+  /// Every entity with a `UiCanvasComponent` becomes real Flutter widgets
+  /// over the game — a HUD, a menu, a shop, authored in the editor rather
+  /// than written by hand. The layer is hit-transparent wherever there is
+  /// nothing to touch, so a scene with no UI costs a widget that builds to
+  /// nothing.
+  ///
+  /// Unlike [overlay], this sits *outside* the internal `Focus` node, so a
+  /// text field in the scene can be typed into and a menu can be walked
+  /// with the arrow keys. While it holds focus the game does not see key
+  /// presses, which is what typing into a field should do.
+  final bool showUi;
+
+  /// How a text that starts with `@` becomes words, for [showUi].
+  final String Function(String key)? uiLocalise;
+
+  /// Plays a UI sound — a press, a focus move.
+  final void Function(String path)? onUiSound;
+
+  /// A theme for every canvas, whatever it names. The editor uses this to
+  /// preview one; a game leaves it null and lets each canvas choose.
+  final UiTheme? uiTheme;
+
   /// Create a game widget
   const GameWidget({
     super.key,
@@ -103,6 +130,10 @@ class GameWidget extends StatefulWidget {
     this.showTerminal = false,
     this.passthroughKeys,
     this.overlay,
+    this.showUi = true,
+    this.uiLocalise,
+    this.onUiSound,
+    this.uiTheme,
   });
 
   @override
@@ -123,6 +154,13 @@ class _GameWidgetState extends State<GameWidget>
 
   final FocusNode _focusNode = FocusNode();
   ColliderDebuggerSystem? _colliderDebugger;
+
+  /// The scene's UI layer, so the tick can keep it in step with the world.
+  final GlobalKey<UiLayerState> _uiKey = GlobalKey<UiLayerState>();
+
+  /// Found on the first frame it exists — a game may register its systems
+  /// long after this widget was mounted.
+  UiSystem? _uiSystem;
 
   @override
   void initState() {
@@ -163,6 +201,9 @@ class _GameWidgetState extends State<GameWidget>
       widget.engine.world.removeSystem(_colliderDebugger!);
       _colliderDebugger = null;
     }
+    // The layer is going; the system must stop calling into it.
+    _uiSystem?.onChanged = null;
+    _uiSystem = null;
     WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
     _focusNode.dispose();
@@ -202,7 +243,23 @@ class _GameWidgetState extends State<GameWidget>
         widget.engine.gameLoop.interpolation;
     // Signal the CustomPainter to repaint — no widget rebuild needed.
     _repaintNotifier.notify();
+    if (widget.showUi) _syncUi();
     _updateFPS();
+  }
+
+  /// Rebuilds the UI layer if the world changed what it should show.
+  ///
+  /// Two paths meet here: the layer notices entities appearing, going and
+  /// changing by itself, and [UiSystem] reports the ones it cannot see —
+  /// a binding that read a new number without anything being edited.
+  void _syncUi() {
+    final state = _uiKey.currentState;
+    if (state == null) return;
+    if (_uiSystem == null) {
+      _uiSystem = widget.engine.world.getSystem<UiSystem>();
+      _uiSystem?.onChanged = state.markDirty;
+    }
+    state.sync();
   }
 
   void _updateFPS() {
@@ -271,6 +328,69 @@ class _GameWidgetState extends State<GameWidget>
 
   @override
   Widget build(BuildContext context) {
+    // The scene's UI is a sibling of the game, not a descendant: everything
+    // inside the Focus node below is deliberately unfocusable, and a text
+    // field that cannot be focused is not a text field. The engine's own
+    // dev tools sit above it, so a HUD can never hide them.
+    return Stack(
+      children: [
+        Positioned.fill(child: _game()),
+        if (widget.showUi)
+          Positioned.fill(
+            child: UiLayer(
+              key: _uiKey,
+              world: widget.engine.world,
+              localise: widget.uiLocalise,
+              themeOverride: widget.uiTheme,
+              onSound: widget.onUiSound,
+            ),
+          ),
+        if (widget.showFPS) _fpsCounter(),
+        if (widget.showTerminal) _terminalOverlay(),
+      ],
+    );
+  }
+
+  /// The FPS badge — its own RepaintBoundary, driven by a Signal, so it
+  /// rebuilds about once a second and nothing else does.
+  Widget _fpsCounter() => Positioned(
+    top: 10,
+    right: 10,
+    child: RepaintBoundary(
+      child: SignalBuilder<int>(
+        signal: _fpsSignal,
+        builder: (_, fps, _) => Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            'FPS: $fps',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  /// The developer terminal. `ListenableBuilder` keeps each keystroke to
+  /// this subtree rather than the whole widget.
+  Widget _terminalOverlay() => Positioned.fill(
+    child: ListenableBuilder(
+      listenable: widget.engine.terminal,
+      builder: (context, _) {
+        if (!widget.engine.terminal.isVisible) return const SizedBox.shrink();
+        return _TerminalOverlay(terminal: widget.engine.terminal);
+      },
+    ),
+  );
+
+  Widget _game() {
     return Focus(
       focusNode: _focusNode,
       autofocus: true,
@@ -335,50 +455,6 @@ class _GameWidgetState extends State<GameWidget>
           // engine's own dev tools (FPS/terminal) so those stay usable
           // regardless of app content.
           if (widget.overlay != null) Positioned.fill(child: widget.overlay!),
-
-          // FPS counter — isolated in its own RepaintBoundary and driven
-          // by a Signal so it only rebuilds ~1 Hz.
-          if (widget.showFPS)
-            Positioned(
-              top: 10,
-              right: 10,
-              child: RepaintBoundary(
-                child: SignalBuilder<int>(
-                  signal: _fpsSignal,
-                  builder: (_, fps, _) => Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'FPS: $fps',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-          // In-game developer terminal overlay — ListenableBuilder manages
-          // its own subscription, so only this subtree rebuilds per
-          // keystroke/toggle instead of the whole GameWidget tree.
-          if (widget.showTerminal)
-            Positioned.fill(
-              child: ListenableBuilder(
-                listenable: widget.engine.terminal,
-                builder: (context, _) {
-                  if (!widget.engine.terminal.isVisible) {
-                    return const SizedBox.shrink();
-                  }
-                  return _TerminalOverlay(terminal: widget.engine.terminal);
-                },
-              ),
-            ),
         ],
       ),
     );
