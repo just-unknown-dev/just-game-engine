@@ -293,13 +293,9 @@ void main() {
   group('screens', () {
     World withPauseMenu({bool modal = true}) {
       final world = World();
-      canvasWith(
-        world,
-        [
-          [TextComponent(text: 'Score 0')],
-        ],
-        name: 'Hud',
-      );
+      canvasWith(world, [
+        [TextComponent(text: 'Score 0')],
+      ], name: 'Hud');
       canvasWith(
         world,
         [
@@ -340,10 +336,7 @@ void main() {
         isTrue,
       );
 
-      UiActions.run(
-        const UiAction('ui.back'),
-        UiActionContext(world: world),
-      );
+      UiActions.run(const UiAction('ui.back'), UiActionContext(world: world));
       layer.sync();
       await tester.pumpAndSettle();
 
@@ -372,9 +365,7 @@ void main() {
       await tester.pump();
       // Half-way through: on its way in, not yet where it lands.
       await tester.pump(const Duration(milliseconds: 100));
-      final midway = tester.getTopLeft(
-        find.text('Paused', findRichText: true),
-      );
+      final midway = tester.getTopLeft(find.text('Paused', findRichText: true));
       await tester.pumpAndSettle();
       final landed = tester.getTopLeft(find.text('Paused', findRichText: true));
 
@@ -387,11 +378,7 @@ void main() {
     ) async {
       var gameTaps = 0;
       final world = withPauseMenu();
-      final (layer, _) = await show(
-        tester,
-        world,
-        onGameTap: () => gameTaps++,
-      );
+      final (layer, _) = await show(tester, world, onGameTap: () => gameTaps++);
 
       // Nothing open: the pointer reaches the game.
       await tester.tapAt(const Offset(200, 260));
@@ -420,11 +407,7 @@ void main() {
     ) async {
       var gameTaps = 0;
       final world = withPauseMenu(modal: false);
-      final (layer, _) = await show(
-        tester,
-        world,
-        onGameTap: () => gameTaps++,
-      );
+      final (layer, _) = await show(tester, world, onGameTap: () => gameTaps++);
       layer.navigator.push('Pause');
       layer.sync();
       await tester.pumpAndSettle();
@@ -481,10 +464,7 @@ void main() {
       canvasWith(
         world,
         [
-          [
-            ButtonComponent(label: 'Resume'),
-            UiSlotComponent(),
-          ],
+          [ButtonComponent(label: 'Resume'), UiSlotComponent()],
         ],
         canvas: UiCanvasComponent(
           isScreen: true,
@@ -511,23 +491,13 @@ void main() {
 
     testWidgets('a hero flies from one screen to the next', (tester) async {
       final world = World();
+      canvasWith(world, [
+        [TextComponent(text: 'Coin'), UiSlotComponent(heroTag: 'coin')],
+      ], name: 'Hud');
       canvasWith(
         world,
         [
-          [
-            TextComponent(text: 'Coin'),
-            UiSlotComponent(heroTag: 'coin'),
-          ],
-        ],
-        name: 'Hud',
-      );
-      canvasWith(
-        world,
-        [
-          [
-            TextComponent(text: 'Coin'),
-            UiSlotComponent(heroTag: 'coin'),
-          ],
+          [TextComponent(text: 'Coin'), UiSlotComponent(heroTag: 'coin')],
         ],
         canvas: UiCanvasComponent(
           isScreen: true,
@@ -572,9 +542,7 @@ void main() {
   group('the navigator on its own', () {
     test('show hides and flips a layer without touching the stack', () {
       final world = World();
-      world.createEntityWithComponents([
-        UiCanvasComponent(),
-      ], name: 'Hud');
+      world.createEntityWithComponents([UiCanvasComponent()], name: 'Hud');
       final navigator = UiNavigator(world);
       final hud = world
           .findEntityByName('Hud')!

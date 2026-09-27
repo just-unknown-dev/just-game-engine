@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../rendering/renderable_component.dart';
 import '../../../subsystems/rendering/rendering_engine.dart';
 import 'shape_paint_style.dart';
+import 'shape_painting.dart';
 
 /// Circle shape component.
 ///
@@ -50,23 +51,15 @@ class CircleComponent extends RenderableComponent {
           center: Offset.zero,
           radius: self.radius + self.strokeWidth,
         ),
-        onRender: (canvas, _) {
-          final shapeRect = Rect.fromCircle(
-            center: Offset.zero,
-            radius: self.radius,
-          );
-          if (self.filled) {
-            final fillPaint = Paint();
-            self.fillStyle.applyTo(fillPaint, shapeRect);
-            canvas.drawCircle(Offset.zero, self.radius, fillPaint);
-          }
-
-          final strokePaint = Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = self.strokeWidth;
-          self.strokeStyle.applyTo(strokePaint, shapeRect);
-          canvas.drawCircle(Offset.zero, self.radius, strokePaint);
-        },
+        onRender: (canvas, _) => ShapePainting.circle(
+          canvas,
+          Offset.zero,
+          self.radius,
+          fill: self.fillStyle,
+          stroke: self.strokeStyle,
+          strokeWidth: self.strokeWidth,
+          filled: self.filled,
+        ),
       ),
     );
     return self;

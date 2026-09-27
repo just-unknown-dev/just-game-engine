@@ -144,9 +144,9 @@ void main() {
   });
 
   group('SystemPriorities', () {
-    test('parallax sits between tileMap and input', () {
+    test('parallax sits between levelMap and input', () {
       expect(SystemPriorities.parallax, greaterThan(SystemPriorities.input));
-      expect(SystemPriorities.parallax, lessThan(SystemPriorities.tileMap));
+      expect(SystemPriorities.parallax, lessThan(SystemPriorities.levelMap));
     });
   });
 

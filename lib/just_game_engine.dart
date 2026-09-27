@@ -76,7 +76,6 @@ export 'src/subsystems/networking/networking.dart';
 
 // Entity-Component System (ECS) - Data-oriented game architecture
 export 'src/ecs/ecs.dart';
-export 'src/ecs/entities/entities.dart';
 export 'src/ecs/components/components.dart';
 export 'src/ecs/systems/systems.dart';
 export 'src/ecs/spatial/spatial.dart';
@@ -95,6 +94,8 @@ export 'src/subsystems/sprite_atlas/sprite_atlas.dart';
 
 // Timeline - Reusable timelines that animate any component field
 export 'src/subsystems/timeline/timeline.dart';
+// Level maps - layers of tiles, and entities on them; Tiled import/export
+export 'src/subsystems/level_map/level_map.dart';
 
 // UI - Text, themes, bindings and actions for in-game interfaces
 export 'src/subsystems/ui/ui.dart';

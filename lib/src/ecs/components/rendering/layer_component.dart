@@ -11,6 +11,11 @@ import '../../ecs.dart';
 ///
 /// [layerId] is the human-facing name the level designer's layer panel groups
 /// by; [layer] is what actually sorts.
+///
+/// An entity that is a child of a level map can belong to one of the map's
+/// layers ([mapLayer]). It then draws with that layer — just above its tiles,
+/// below the next layer's — and is hidden with it; `LevelMapSystem` keeps
+/// [layerId], [layer] and [zOrder] following the layer.
 class LayerComponent extends Component {
   LayerComponent({
     this.layerId = 'main',
@@ -18,6 +23,7 @@ class LayerComponent extends Component {
     this.zOrder = 0,
     this.visible = true,
     this.locked = false,
+    this.mapLayer,
   });
 
   /// Name of the layer this entity belongs to, e.g. 'background', 'main',
@@ -37,6 +43,20 @@ class LayerComponent extends Component {
   /// Editor-only: excluded from viewport picking, so a finished background
   /// cannot be dragged by accident while working on top of it.
   bool locked;
+
+  /// The id of the layer of its parent's level map it belongs to; null for
+  /// an entity on no map layer. Only means something on a child of an
+  /// entity with a `LevelMapComponent`.
+  int? mapLayer;
+
+  /// Runtime only: its place among what shares its ([layer], [zOrder]) —
+  /// after its map layer's tiles, before the next layer's. Set by
+  /// `LevelMapSystem`; 0 for an entity on no map layer.
+  int subOrder = 0;
+
+  /// Runtime only: its map layer is hidden, so it is not drawn. Set by
+  /// `LevelMapSystem`.
+  bool hiddenByMap = false;
 }
 
 /// Conventional [LayerComponent.layer] values.

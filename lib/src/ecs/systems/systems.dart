@@ -49,9 +49,10 @@ export 'audio/audio_system.dart';
 export 'others/lifetime_system.dart';
 export 'others/boundary_system.dart';
 
-// Tiled Map Editor
-export 'tiled/tiled_render_system.dart';
-export 'tiled/tiled_collision_system.dart';
+// Level maps
+export 'level_map/level_map_system.dart';
+export 'level_map/map_collision_system.dart';
+export 'level_map/register_level_map_systems.dart';
 
 // Camera systems
 export 'camera/camera_brain_system.dart';

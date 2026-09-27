@@ -10,3 +10,4 @@ export 'polygon_component.dart';
 export 'line_component.dart';
 export 'capsule_component.dart';
 export 'shape_paint_style.dart';
+export 'shape_painting.dart';

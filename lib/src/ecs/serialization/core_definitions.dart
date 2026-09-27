@@ -11,6 +11,7 @@ import 'camera_definitions.dart';
 import 'timeline_definitions.dart';
 import 'component_definition.dart';
 import 'field_type.dart';
+import 'level_map_definitions.dart';
 import 'ui_definitions.dart';
 
 /// Definitions for the core components whose save format predates
@@ -1197,6 +1198,7 @@ abstract final class CoreDefinitions {
     ...CameraDefinitions.all,
     ...TimelineDefinitions.all,
     ...UiDefinitions.all,
+    ...LevelMapDefinitions.all,
     spawn,
     tag,
     input,

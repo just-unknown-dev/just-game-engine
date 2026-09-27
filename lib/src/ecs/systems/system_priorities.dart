@@ -12,10 +12,15 @@ library;
 
 /// Named priority constants for [System.priority].
 abstract final class SystemPriorities {
-  /// Tile-map layers — painted first (background).
-  static const int tileMap = 110;
+  /// Level maps — loaded, and their layers kept current for drawing.
+  static const int levelMap = 110;
 
-  /// Parallax backgrounds — rendered just after tile maps, before input.
+  /// Map collision — bodies built from map layers' tiles, after
+  /// [levelMap] has
+  /// loaded the map and before [physics] steps.
+  static const int mapCollision = 108;
+
+  /// Parallax backgrounds — rendered just after level maps, before input.
   static const int parallax = 105;
 
   /// Input processing — must run before any simulation systems.

@@ -6,9 +6,11 @@ library;
 // Core components
 export 'core/transform_component.dart';
 export 'core/velocity_component.dart';
+export 'core/generated_entity_component.dart';
 
 // Rendering components
 export 'rendering/renderable_component.dart';
+export 'rendering/render_items_component.dart';
 export 'rendering/layer_component.dart';
 export 'rendering/sprite_component.dart';
 export 'rendering/sprite_animation_component.dart';
@@ -53,8 +55,9 @@ export 'shapes/shapes.dart';
 export 'others/tag_component.dart';
 export 'others/lifetime_component.dart';
 
-// Tiled Map Editor components
-export 'tiled/tiled_components.dart';
+// Level maps
+export 'level_map/level_map_component.dart';
+export 'level_map/map_body_component.dart';
 
 // Camera components
 export 'camera/virtual_camera_component.dart';

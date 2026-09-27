@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../rendering/renderable_component.dart';
 import '../../../subsystems/rendering/rendering_engine.dart';
 import 'shape_paint_style.dart';
+import 'shape_painting.dart';
 
 /// Rectangle shape component.
 ///
@@ -62,28 +63,19 @@ class RectangleComponent extends RenderableComponent {
           width: self.width + self.strokeWidth * 2,
           height: self.height + self.strokeWidth * 2,
         ),
-        onRender: (canvas, _) {
-          final rrect = RRect.fromRectAndRadius(
-            Rect.fromCenter(
-              center: Offset.zero,
-              width: self.width,
-              height: self.height,
-            ),
-            Radius.circular(self.cornerRadius),
-          );
-          final shapeRect = rrect.outerRect;
-          if (self.filled) {
-            final fillPaint = Paint();
-            self.fillStyle.applyTo(fillPaint, shapeRect);
-            canvas.drawRRect(rrect, fillPaint);
-          }
-
-          final strokePaint = Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = self.strokeWidth;
-          self.strokeStyle.applyTo(strokePaint, shapeRect);
-          canvas.drawRRect(rrect, strokePaint);
-        },
+        onRender: (canvas, _) => ShapePainting.rect(
+          canvas,
+          Rect.fromCenter(
+            center: Offset.zero,
+            width: self.width,
+            height: self.height,
+          ),
+          cornerRadius: self.cornerRadius,
+          fill: self.fillStyle,
+          stroke: self.strokeStyle,
+          strokeWidth: self.strokeWidth,
+          filled: self.filled,
+        ),
       ),
     );
     return self;

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../rendering/renderable_component.dart';
 import '../../../subsystems/rendering/rendering_engine.dart';
 import 'shape_paint_style.dart';
+import 'shape_painting.dart';
 
 /// Polygon shape component.
 ///
@@ -67,38 +68,14 @@ class PolygonComponent extends RenderableComponent {
             maxY + self.strokeWidth,
           );
         },
-        onRender: (canvas, _) {
-          if (self.vertices.isEmpty) return;
-          final path = Path()
-            ..moveTo(self.vertices.first.dx, self.vertices.first.dy);
-          for (final v in self.vertices.skip(1)) {
-            path.lineTo(v.dx, v.dy);
-          }
-          path.close();
-
-          Rect shapeRect;
-          double minX = self.vertices.first.dx, maxX = minX;
-          double minY = self.vertices.first.dy, maxY = minY;
-          for (final v in self.vertices) {
-            if (v.dx < minX) minX = v.dx;
-            if (v.dx > maxX) maxX = v.dx;
-            if (v.dy < minY) minY = v.dy;
-            if (v.dy > maxY) maxY = v.dy;
-          }
-          shapeRect = Rect.fromLTRB(minX, minY, maxX, maxY);
-
-          if (self.filled) {
-            final fillPaint = Paint();
-            self.fillStyle.applyTo(fillPaint, shapeRect);
-            canvas.drawPath(path, fillPaint);
-          }
-
-          final strokePaint = Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = self.strokeWidth;
-          self.strokeStyle.applyTo(strokePaint, shapeRect);
-          canvas.drawPath(path, strokePaint);
-        },
+        onRender: (canvas, _) => ShapePainting.polygon(
+          canvas,
+          self.vertices,
+          fill: self.fillStyle,
+          stroke: self.strokeStyle,
+          strokeWidth: self.strokeWidth,
+          filled: self.filled,
+        ),
       ),
     );
     return self;

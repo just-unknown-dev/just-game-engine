@@ -31,12 +31,26 @@ abstract final class CoreComponentSchemas {
       icon: Icons.layers,
       accentColor: Color(0xFF78909C),
       fields: {
-        'layerId': FieldHint(label: 'Layer'),
+        // On a map layer these follow the layer: shown only off one.
+        'layerId': FieldHint(label: 'Layer', visibleWhen: _offMapLayer),
         'layer': FieldHint(
           label: 'Order',
           scrub: ScrubHint(step: 10, integer: true),
+          visibleWhen: _offMapLayer,
         ),
-        'zOrder': FieldHint(label: 'Z', scrub: ScrubHint(integer: true)),
+        'zOrder': FieldHint(
+          label: 'Z',
+          scrub: ScrubHint(integer: true),
+          visibleWhen: _offMapLayer,
+        ),
+        'mapLayer': FieldHint(
+          label: 'Map layer',
+          description:
+              'The layer of its level map it belongs to: it draws and hides '
+              'with it. Move it to another in the scene tree.',
+          editable: false,
+          visibleWhen: _onMapLayer,
+        ),
       },
     ),
     id: 'layer_3ab67e05',
@@ -65,8 +79,18 @@ abstract final class CoreComponentSchemas {
         min: -1000,
         max: 1000,
       ),
+      SchemaField(
+        name: 'mapLayer',
+        kind: FieldTypes.integer,
+        read: (c) => (c as LayerComponent).mapLayer,
+        write: (c, v) => (c as LayerComponent).mapLayer = (v as num?)?.toInt(),
+      ),
     ],
   );
+
+  static bool _onMapLayer(Component c) =>
+      (c as LayerComponent).mapLayer != null;
+  static bool _offMapLayer(Component c) => !_onMapLayer(c);
 
   /// [CheckpointComponent], from `checkpoint_editor_component.dart`.
   static final checkpoint = ComponentSchema<CheckpointComponent>(

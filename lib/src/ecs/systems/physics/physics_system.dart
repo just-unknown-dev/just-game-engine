@@ -275,10 +275,12 @@ class PhysicsSystem extends System {
 
       // Whichever side sits "above" (normal points from A down to B, or
       // from B down to A) is the one resting on the other.
+      // The normal points from A to B; the ground's surface normal points
+      // from the ground up at whoever stands on it.
       if (ny > 0.5) {
-        _addGroundContact(BodyPair(a, b), entityA, entityB);
+        _addGroundContact(BodyPair(a, b), entityA, entityB, Offset(-nx, -ny));
       } else if (ny < -0.5) {
-        _addGroundContact(BodyPair(a, b), entityB, entityA);
+        _addGroundContact(BodyPair(a, b), entityB, entityA, Offset(nx, ny));
       }
 
       world.events.fire(
@@ -320,7 +322,12 @@ class PhysicsSystem extends System {
     });
   }
 
-  void _addGroundContact(BodyPair pair, Entity grounded, Entity ground) {
+  void _addGroundContact(
+    BodyPair pair,
+    Entity grounded,
+    Entity ground,
+    Offset surfaceNormal,
+  ) {
     _groundedEntityForPair[pair] = grounded;
     final count = (_groundContactCount[grounded.id] ?? 0) + 1;
     _groundContactCount[grounded.id] = count;
@@ -329,8 +336,10 @@ class PhysicsSystem extends System {
     comp.isGrounded = true;
     // Recorded so a rider can inherit a moving platform's velocity. With
     // several ground contacts at once the most recent wins, which is the
-    // right answer when stepping from static ground onto a platform.
+    // right answer when stepping from static ground onto a platform — and
+    // from flat ground onto a slope.
     comp.groundEntity = ground;
+    comp.groundNormal = surfaceNormal;
   }
 
   void _removeGroundContact(BodyPair pair) {
@@ -343,6 +352,7 @@ class PhysicsSystem extends System {
       if (comp != null) {
         comp.isGrounded = false;
         comp.groundEntity = null;
+        comp.groundNormal = const Offset(0, -1);
       }
     } else {
       _groundContactCount[grounded.id] = count;

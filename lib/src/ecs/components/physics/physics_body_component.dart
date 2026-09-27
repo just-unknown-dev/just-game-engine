@@ -1,5 +1,7 @@
 library;
 
+import 'dart:ui' show Offset;
+
 import '../../ecs.dart';
 import 'package:just_physics_engine/just_physics_engine.dart';
 
@@ -32,6 +34,14 @@ class PhysicsBodyComponent extends Component {
   /// can inherit a moving platform's velocity — contact friction alone leaves
   /// the player sliding off the back of anything that moves.
   Entity? groundEntity;
+
+  /// The surface normal of the ground this body stands on: straight up,
+  /// `(0, -1)`, on flat ground, tilted on a slope.
+  ///
+  /// Maintained by [PhysicsSystem] alongside [isGrounded], from the contact
+  /// that grounded the body. A character controller reads it to stand still
+  /// on a slope and to follow the slope when walking down it.
+  Offset groundNormal = const Offset(0, -1);
 
   /// One-way / pass-through platform flag.
   ///

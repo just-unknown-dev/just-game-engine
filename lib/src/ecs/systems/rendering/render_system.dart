@@ -97,47 +97,131 @@ class RenderSystem extends System {
   /// Defaults to 1.0 (no interpolation — render at current position).
   double interpolation = 1.0;
 
-  // ── Layer ordering ────────────────────────────────────────────────────────
+  // ── Draw order ────────────────────────────────────────────────────────────
   //
   // world.query returns entities in archetype order, which is effectively
   // arbitrary and shifts as components are added or removed. That is fine
   // until a level has a background and a foreground, at which point "what
-  // draws in front" becomes luck. LayerComponent makes it authorable.
+  // draws in front" becomes luck. LayerComponent makes it authorable, and a
+  // RenderItem carries its own layer so one entity can draw at several
+  // depths (a tile map's layers).
+  //
+  // Every renderable and every item becomes one entry in a single list,
+  // sorted by (layer << 20) + zOrder, then by a sub-order — which keeps the
+  // entities on a map layer between that layer's tiles and the next one's —
+  // with the order it was found in as the last tie-break: `List.sort` is not
+  // stable, so without it two things on the same layer could swap from one
+  // frame to the next.
 
-  /// Reusable sort buffer, so ordering does not allocate a list per frame.
-  final List<Entity> _layerSortBuffer = [];
+  /// The frame's draw list, reused so ordering does not allocate per frame.
+  final List<_DrawEntry> _drawList = [];
 
-  /// Cached sort key per entity id, valid for one sort pass.
-  final Map<int, int> _layerKeyCache = {};
+  /// Entries recycled between frames.
+  final List<_DrawEntry> _entryPool = [];
 
-  /// Returns [entities] ordered by ([LayerComponent.layer],
-  /// [LayerComponent.zOrder]), or unchanged when nothing in the world uses
-  /// layers.
+  /// Whether a sprite batch holds sprites not yet drawn, and at which key.
+  bool _batchPending = false;
+  int _batchKey = 0;
+  int _batchSub = 0;
+
+  _DrawEntry _takeEntry(
+    Entity entity,
+    RenderItem? item,
+    int key,
+    int sub,
+    int seq,
+  ) {
+    final index = _drawList.length;
+    final entry = index < _entryPool.length
+        ? _entryPool[index]
+        : (_entryPool..add(_DrawEntry())).last;
+    entry
+      ..entity = entity
+      ..item = item
+      ..key = key
+      ..sub = sub
+      ..seq = seq;
+    _drawList.add(entry);
+    return entry;
+  }
+
+  static int _compareEntries(_DrawEntry a, _DrawEntry b) {
+    final byKey = a.key.compareTo(b.key);
+    if (byKey != 0) return byKey;
+    final bySub = a.sub.compareTo(b.sub);
+    return bySub != 0 ? bySub : a.seq.compareTo(b.seq);
+  }
+
+  /// Fills [_drawList] with every renderable and item [filter] lets through,
+  /// sorted when anything asked for an order.
   ///
-  /// The early-out matters: most worlds never add a [LayerComponent], and they
-  /// should not pay for a sort per frame. Entities without one sort as layer 0,
-  /// so they interleave predictably with those that have one.
-  List<Entity> _layerSorted(List<Entity> entities) {
-    var usesLayers = false;
-    _layerKeyCache.clear();
-    for (final entity in entities) {
+  /// The early-out matters: most worlds never add a [LayerComponent] or an
+  /// item, and they should not pay for a sort per frame. Entities without a
+  /// layer sort as layer 0, so they interleave predictably with those that
+  /// have one.
+  void _collect(bool Function(Entity)? filter) {
+    _drawList.clear();
+    var seq = 0;
+    var ordered = false;
+    for (final entity in world.query([
+      TransformComponent,
+      RenderableComponent,
+    ])) {
+      if (filter != null && !filter(entity)) continue;
       final layer = entity.getComponent<LayerComponent>();
-      if (layer == null) continue;
-      usesLayers = true;
-      // Pack layer and zOrder into one comparable int so the sort is a single
-      // integer compare rather than two component lookups per comparison.
-      _layerKeyCache[entity.id] = (layer.layer << 20) + layer.zOrder;
+      var key = 0;
+      if (layer != null) {
+        if (layer.hiddenByMap) continue;
+        ordered = true;
+        // Layer and zOrder packed into one comparable int, so the sort is a
+        // single integer compare rather than two lookups per comparison.
+        key = (layer.layer << 20) + layer.zOrder;
+      }
+      _takeEntry(entity, null, key, layer?.subOrder ?? 0, seq++);
     }
-    if (!usesLayers) return entities;
+    for (final entity in world.query([
+      TransformComponent,
+      RenderItemsComponent,
+    ])) {
+      if (filter != null && !filter(entity)) continue;
+      if (_hiddenByMap(entity)) continue;
+      for (final item in entity.getComponent<RenderItemsComponent>()!.items) {
+        ordered = true;
+        _takeEntry(
+          entity,
+          item,
+          (item.layer << 20) + item.zOrder,
+          item.subOrder,
+          seq++,
+        );
+      }
+    }
+    if (ordered) _drawList.sort(_compareEntries);
+  }
 
-    _layerSortBuffer
-      ..clear()
-      ..addAll(entities)
-      ..sort(
-        (a, b) =>
-            (_layerKeyCache[a.id] ?? 0).compareTo(_layerKeyCache[b.id] ?? 0),
-      );
-    return _layerSortBuffer;
+  /// Whether [entity] is on a map layer that is hidden.
+  static bool _hiddenByMap(Entity entity) =>
+      entity.getComponent<LayerComponent>()?.hiddenByMap ?? false;
+
+  /// What [render] draws, in order: each entity with its item, or null for
+  /// its renderable. For tests.
+  @visibleForTesting
+  List<(Entity, RenderItem?)> debugDrawOrder() {
+    _collect(shouldRender);
+    return [for (final e in _drawList) (e.entity, e.item)];
+  }
+
+  /// Draws every sprite batched so far.
+  ///
+  /// Called before anything that is not batched and whenever the draw key
+  /// changes, so batching never reorders what the layers say: a sprite on
+  /// the background still draws under a tile layer in front of it.
+  void _flushBatches(Canvas canvas) {
+    if (!_batchPending) return;
+    for (final batch in _spriteBatches.values) {
+      batch.flush(canvas);
+    }
+    _batchPending = false;
   }
 
   @override
@@ -149,16 +233,34 @@ class RenderSystem extends System {
     }
 
     final filter = shouldRender;
-    final candidates = world.query([TransformComponent, RenderableComponent]);
-    final renderableEntities = _layerSorted(
-      filter == null ? candidates : candidates.where(filter).toList(),
-    );
+    _collect(filter);
+    _batchPending = false;
+    RenderContext? itemContext;
 
     // ── Batched sprite rendering ──────────────────────────────────────────
-    // Sprites that share the same atlas image are collected into a SpriteBatch
-    // and flushed in a single Canvas.drawAtlas() call per atlas.
-    for (final entity in renderableEntities) {
+    // Consecutive sprites that share an atlas image and a draw key are
+    // collected into a SpriteBatch and drawn in one Canvas.drawAtlas() call.
+    for (final entry in _drawList) {
+      final entity = entry.entity;
       if (!entity.isActive) continue;
+
+      final item = entry.item;
+      if (item != null) {
+        if (!item.visible) continue;
+        _flushBatches(canvas);
+        item.render(
+          canvas,
+          itemContext ??= RenderContext(
+            world: world,
+            size: size,
+            camera: camera,
+            interpolation: interpolation,
+          ),
+          entity,
+        );
+        continue;
+      }
+
       final transform = entity.getComponent<TransformComponent>()!;
       final renderComp = entity.getComponent<RenderableComponent>()!;
 
@@ -239,6 +341,13 @@ class RenderSystem extends System {
             renderable.tint?.withValues(alpha: renderable.opacity) ??
             Color.fromRGBO(255, 255, 255, renderable.opacity);
 
+        if (_batchPending &&
+            (entry.key != _batchKey || entry.sub != _batchSub)) {
+          _flushBatches(canvas);
+        }
+        _batchPending = true;
+        _batchKey = entry.key;
+        _batchSub = entry.sub;
         batch.add(
           sourceRect: srcRect,
           position: renderable.position.toOffset(),
@@ -248,7 +357,9 @@ class RenderSystem extends System {
         );
       } else {
         // Non-sprite, image-less sprite, or entity with a per-entity shader:
-        // render individually, optionally wrapped in a shader saveLayer.
+        // render individually, optionally wrapped in a shader saveLayer —
+        // after whatever was batched beneath it.
+        _flushBatches(canvas);
         if (hasEntityShader) {
           final bounds = renderable.getBounds();
           // Fall back to a generous world-space rect if bounds are unknown.
@@ -277,10 +388,8 @@ class RenderSystem extends System {
       }
     }
 
-    // Flush all sprite batches.
-    for (final batch in _spriteBatches.values) {
-      batch.flush(canvas);
-    }
+    // Whatever is still batched belongs to the topmost sorted content.
+    _flushBatches(canvas);
 
     // Depth-sorted pass: draw every ySort-opted-in renderable individually,
     // ordered by world Y, on top of everything batched/drawn above. Drawing
@@ -303,7 +412,9 @@ class RenderSystem extends System {
         camera: camera,
         interpolation: interpolation,
       );
-      final passFilter = filter ?? _acceptAll;
+      // What a hidden map layer holds is hidden in every pass — text too.
+      bool passFilter(Entity e) =>
+          !_hiddenByMap(e) && (filter == null || filter(e));
       for (final pass in passes) {
         pass.render(canvas, context, passFilter);
       }
@@ -313,6 +424,14 @@ class RenderSystem extends System {
       canvas.restore();
     }
   }
+}
 
-  static bool _acceptAll(Entity _) => true;
+/// One thing to draw this frame: an entity's renderable, or one of its
+/// [RenderItem]s.
+class _DrawEntry {
+  late Entity entity;
+  RenderItem? item;
+  int key = 0;
+  int sub = 0;
+  int seq = 0;
 }
