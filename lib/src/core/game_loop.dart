@@ -207,4 +207,10 @@ class GameLoop {
   ///
   /// This can be used for smooth rendering between update steps.
   double get interpolation => _accumulator / _fixedDeltaTime;
+
+  /// The length of one fixed step in seconds, before time scale.
+  ///
+  /// What real time a step stands for — the input clock advances by this,
+  /// so a hold still takes its time while the game runs slowed or stopped.
+  double get fixedDeltaTime => _fixedDeltaTime;
 }

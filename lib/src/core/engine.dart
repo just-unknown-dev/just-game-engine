@@ -23,6 +23,7 @@ import '../subsystems/networking/networking_manager.dart';
 import '../subsystems/camera/camera_system.dart';
 import '../subsystems/parallax/parallax_background.dart';
 import '../memory/cache_manager.dart';
+import '../subsystems/input/cache_input_override_store.dart';
 import '../ecs/ecs.dart';
 import '../subsystems/achievements/achievement_manager.dart';
 import '../subsystems/auth/auth_manager.dart';
@@ -30,6 +31,7 @@ import '../subsystems/currency/currency_manager.dart';
 import '../subsystems/ads/ads.dart';
 import '../subsystems/inventory/inventory_manager.dart';
 import '../subsystems/leaderboard/leaderboard_manager.dart';
+import '../subsystems/rendering/impl/game_layers.dart';
 import '../subsystems/rendering/impl/game_terminal.dart';
 
 /// Main game engine class that orchestrates all subsystems
@@ -80,6 +82,10 @@ class Engine implements ILifecycle {
   /// Plugins attached to this engine — editors, profilers, recorders. They
   /// receive every update and an overlay render; see [EnginePlugin].
   late final PluginHost plugins = PluginHost(this);
+
+  /// Widgets drawn over the game by packages — the in-game interface — in
+  /// every [GameWidget] showing this engine; see [GameLayer].
+  late final GameLayers layers = GameLayers();
 
   /// Public access to the system manager (e.g. for reading [SystemManager.schedulerStats]).
   SystemManager get systemManager => _systemManager;
@@ -138,13 +144,17 @@ class Engine implements ILifecycle {
   /// it was set instead of lagging a frame behind. If no [PhysicsSystem] is
   /// in [world], bodies added here simply won't advance.
   late final PhysicsEngine physics;
-  late final InputManager input;
 
-  /// Named-action resolver layered over [input] — see `just_inputs`'
-  /// `InputActionResolver`. Starts with no bindings; the app applies its own
-  /// action defaults (and optionally loads a saved project file) after
-  /// [initialize] completes.
-  late final InputActionResolver actions;
+  /// The game's input: devices, the input asset, players. Starts with no
+  /// actions — the game loads its asset after [initialize]. Updated once per
+  /// fixed step, and every frame while paused so menus and rebinding still
+  /// hear it.
+  late final InputService input;
+
+  /// The input clock: real seconds, advanced by each fixed step (before time
+  /// scale, so a hold takes as long in slow motion) and by the frame while
+  /// paused.
+  double _inputTime = 0;
   late final AudioEngine audio;
   late final MusicManager music;
   late final SoundEffectManager sfx;
@@ -236,7 +246,7 @@ class Engine implements ILifecycle {
 
     rendering = RenderingEngine();
     physics = PhysicsEngine();
-    input = InputManager();
+    input = InputService();
     audio = AudioEngine();
     sceneEditor = SceneEditor();
     animation = AnimationSystem();
@@ -253,6 +263,8 @@ class Engine implements ILifecycle {
     inventory = InventoryManager();
     // Initialize each subsystem
     await cache.initialize(); // Initialize cache manager first
+    // Players' own bindings live in the cache.
+    input.overrideStore = CacheInputOverrideStore(cache);
     assets.initialize(); // Then initialize asset manager
     cameraSystem.initialize(); // Initialize camera before rendering
     parallax.initialize();
@@ -260,8 +272,6 @@ class Engine implements ILifecycle {
     rendering.backgroundHooks.add(parallax.render);
     rendering.initialize();
     physics.initialize();
-    input.initialize();
-    actions = InputActionResolver(input);
     // Audio is optional — catch plugin-unavailable errors so headless /
     // test environments can still initialize the rest of the engine.
     try {
@@ -306,8 +316,10 @@ class Engine implements ILifecycle {
     _systemManager.registerSystem('parallax', parallax);
     _systemManager.registerSystem('ecs', world);
 
-    _systemManager.registerUpdateTask('input', (_) => input.update());
-    _systemManager.registerUpdateTask('actions', (_) => actions.update());
+    _systemManager.registerUpdateTask('input', (_) {
+      _inputTime += _gameLoop.fixedDeltaTime;
+      input.update(_inputTime);
+    });
     _systemManager.registerUpdateTask(
       'camera',
       (deltaTime) => cameraSystem.update(deltaTime),
@@ -390,7 +402,15 @@ class Engine implements ILifecycle {
   /// Once per frame, after the fixed steps: plugins tick here, on wall-clock
   /// time, so an editor keeps working while the game is paused or its time
   /// scale is zero.
-  void _frame() => plugins.update(_timeManager.unscaledDeltaTime);
+  void _frame() {
+    // Paused, the fixed steps stop — but a menu still needs its buttons, and
+    // a rebind its keys.
+    if (isPaused) {
+      _inputTime += _timeManager.unscaledDeltaTime;
+      input.update(_inputTime);
+    }
+    plugins.update(_timeManager.unscaledDeltaTime);
+  }
 
   void _update(double deltaTime) {
     if (_state != EngineState.running) return;
@@ -417,6 +437,7 @@ class Engine implements ILifecycle {
 
     debugPrint('Shutting down engine...');
     plugins.detachAll();
+    layers.clear();
 
     // Stop the game loop if running
     if (_state == EngineState.running || _state == EngineState.paused) {

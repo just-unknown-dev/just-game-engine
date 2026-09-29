@@ -139,7 +139,7 @@ void main() {
       'CapsuleComponent',
       'PhysicsBodyComponent',
       'SpriteComponent',
-      'TextComponent',
+      // Text and buttons are just_ui_editor's.
       'LineComponent',
       'PolygonComponent',
       'VirtualCameraComponent',

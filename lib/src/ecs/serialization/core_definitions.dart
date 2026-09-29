@@ -12,7 +12,6 @@ import 'timeline_definitions.dart';
 import 'component_definition.dart';
 import 'field_type.dart';
 import 'level_map_definitions.dart';
-import 'ui_definitions.dart';
 
 /// Definitions for the core components whose save format predates
 /// definitions, one per built-in component.
@@ -740,11 +739,25 @@ abstract final class CoreDefinitions {
     hints: const ComponentHints(
       name: 'Input',
       group: 'Input',
+      description: "A player's actions, by name, for this entity.",
       icon: Icons.keyboard,
       accentColor: Color(0xFFEF5350),
+      fields: {
+        'playerIndex': FieldHint(
+          label: 'Player',
+          description:
+              '0 is player 1. -1 reads every device, whoever is playing.',
+        ),
+      },
     ),
     create: InputComponent.new,
-    fields: const [],
+    fields: [
+      _i(
+        'playerIndex',
+        (c) => (c as InputComponent).playerIndex,
+        (c, v) => (c as InputComponent).playerIndex = v,
+      ),
+    ],
   );
 
   static final effect = ComponentDefinition<EffectComponent>(
@@ -764,12 +777,12 @@ abstract final class CoreDefinitions {
     hints: const ComponentHints(
       name: 'Simple Movement',
       group: 'Input',
-      description: 'Keyboard / joystick movement.',
+      description: 'Moves straight from a vector action, no physics.',
       icon: Icons.directions_run,
       accentColor: Color(0xFFEF5350),
       fieldGroups: {
         'Movement': ['speed', 'deadZone', 'normalizeDiagonal'],
-        'Input': ['useKeyboard', 'useJoystick'],
+        'Input': ['action', 'playerIndex'],
       },
       fields: {
         'speed': FieldHint(
@@ -781,8 +794,11 @@ abstract final class CoreDefinitions {
           scrub: ScrubHint(step: 0.01, fractionDigits: 2),
         ),
         'normalizeDiagonal': FieldHint(label: 'Normalize Diagonal'),
-        'useKeyboard': FieldHint(label: 'Use Keyboard'),
-        'useJoystick': FieldHint(label: 'Use Joystick'),
+        'action': FieldHint(label: 'Action'),
+        'playerIndex': FieldHint(
+          label: 'Player',
+          description: '0 is player 1. -1 reads every device.',
+        ),
       },
     ),
     create: SimpleMovementComponent.new,
@@ -793,15 +809,15 @@ abstract final class CoreDefinitions {
         (c, v) => (c as SimpleMovementComponent).speed = v,
         min: 0,
       ),
-      _b(
-        'useKeyboard',
-        (c) => (c as SimpleMovementComponent).useKeyboard,
-        (c, v) => (c as SimpleMovementComponent).useKeyboard = v,
+      _s(
+        'action',
+        (c) => (c as SimpleMovementComponent).action,
+        (c, v) => (c as SimpleMovementComponent).action = v,
       ),
-      _b(
-        'useJoystick',
-        (c) => (c as SimpleMovementComponent).useJoystick,
-        (c, v) => (c as SimpleMovementComponent).useJoystick = v,
+      _i(
+        'playerIndex',
+        (c) => (c as SimpleMovementComponent).playerIndex,
+        (c, v) => (c as SimpleMovementComponent).playerIndex = v,
       ),
       _b(
         'normalizeDiagonal',
@@ -1197,7 +1213,6 @@ abstract final class CoreDefinitions {
     physicsBody,
     ...CameraDefinitions.all,
     ...TimelineDefinitions.all,
-    ...UiDefinitions.all,
     ...LevelMapDefinitions.all,
     spawn,
     tag,

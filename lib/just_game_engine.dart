@@ -54,8 +54,10 @@ export 'src/subsystems/parallax/parallax.dart';
 // Physics - Movement, gravity, collision detection, and ray casting
 export 'src/subsystems/physics/physics.dart';
 
-// Input - Keyboard, mouse, controller, touch, and virtual joystick
+// Input - actions over keyboard, mouse, gamepads and touch; players,
+// rebinding and on-screen controls
 export 'package:just_inputs/just_inputs.dart';
+export 'src/subsystems/input/cache_input_override_store.dart';
 
 // Audio - Sound effects, music, and ECS audio integration
 export 'src/subsystems/audio/audio.dart';
@@ -97,8 +99,8 @@ export 'src/subsystems/timeline/timeline.dart';
 // Level maps - layers of tiles, and entities on them; Tiled import/export
 export 'src/subsystems/level_map/level_map.dart';
 
-// UI - Text, themes, bindings and actions for in-game interfaces
-export 'src/subsystems/ui/ui.dart';
+// In-game interface: package just_ui_editor, which registers itself
+// through `engine.layers` and the definition registry.
 
 // Deterministic Effects - Tick-based Move, Scale, Rotate, Fade, Shake, Path,
 // Sequence, Parallel, Delay, Repeat; serializable for multiplayer.

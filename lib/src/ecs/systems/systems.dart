@@ -34,9 +34,6 @@ export 'gameplay/checkpoint_event.dart';
 
 // Animation systems
 export 'animation/timeline_system.dart';
-export 'ui/ui_pointer_system.dart';
-export 'ui/register_ui_systems.dart';
-export 'ui/ui_system.dart';
 export 'animation/timeline_trigger_system.dart';
 export 'animation/animator_system.dart';
 export 'animation/register_animation_systems.dart';

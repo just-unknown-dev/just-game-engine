@@ -6,14 +6,12 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart'
-    show KeyDownEvent, KeyRepeatEvent, LogicalKeyboardKey;
+    show KeyDownEvent, KeyRepeatEvent, KeyUpEvent, LogicalKeyboardKey;
 import 'package:just_signals/just_signals.dart';
 import '../../../core/collider_debugger_system.dart';
 import '../../../core/engine.dart';
 import '../../../ecs/systems/rendering/render_system.dart';
-import '../../../ecs/systems/ui/ui_system.dart';
-import '../../ui/ui_layer.dart';
-import '../../ui/ui_theme.dart';
+import 'game_layers.dart';
 import 'game_terminal.dart';
 
 /// Main game widget that renders the game
@@ -97,29 +95,14 @@ class GameWidget extends StatefulWidget {
   /// behavior change.
   final Widget? overlay;
 
-  /// Whether the scene's own screen-space UI is drawn.
+  /// Whether the layers packages registered on [Engine.layers] are drawn
+  /// — the in-game interface among them. See [GameLayer].
   ///
-  /// Every entity with a `UiCanvasComponent` becomes real Flutter widgets
-  /// over the game — a HUD, a menu, a shop, authored in the editor rather
-  /// than written by hand. The layer is hit-transparent wherever there is
-  /// nothing to touch, so a scene with no UI costs a widget that builds to
-  /// nothing.
-  ///
-  /// Unlike [overlay], this sits *outside* the internal `Focus` node, so a
-  /// text field in the scene can be typed into and a menu can be walked
-  /// with the arrow keys. While it holds focus the game does not see key
-  /// presses, which is what typing into a field should do.
-  final bool showUi;
-
-  /// How a text that starts with `@` becomes words, for [showUi].
-  final String Function(String key)? uiLocalise;
-
-  /// Plays a UI sound — a press, a focus move.
-  final void Function(String path)? onUiSound;
-
-  /// A theme for every canvas, whatever it names. The editor uses this to
-  /// preview one; a game leaves it null and lets each canvas choose.
-  final UiTheme? uiTheme;
+  /// Unlike [overlay], layers sit *outside* the internal `Focus` node, so a
+  /// text field in one can be typed into and a menu walked with the arrow
+  /// keys. While a layer holds focus the game does not see key presses,
+  /// which is what typing into a field should do.
+  final bool showLayers;
 
   /// Create a game widget
   const GameWidget({
@@ -130,10 +113,7 @@ class GameWidget extends StatefulWidget {
     this.showTerminal = false,
     this.passthroughKeys,
     this.overlay,
-    this.showUi = true,
-    this.uiLocalise,
-    this.onUiSound,
-    this.uiTheme,
+    this.showLayers = true,
   });
 
   @override
@@ -155,12 +135,8 @@ class _GameWidgetState extends State<GameWidget>
   final FocusNode _focusNode = FocusNode();
   ColliderDebuggerSystem? _colliderDebugger;
 
-  /// The scene's UI layer, so the tick can keep it in step with the world.
-  final GlobalKey<UiLayerState> _uiKey = GlobalKey<UiLayerState>();
-
-  /// Found on the first frame it exists — a game may register its systems
-  /// long after this widget was mounted.
-  UiSystem? _uiSystem;
+  /// This view's half of each registered layer, by layer id.
+  final Map<String, GameLayerController> _controllers = {};
 
   @override
   void initState() {
@@ -187,10 +163,15 @@ class _GameWidgetState extends State<GameWidget>
       _focusNode.requestFocus();
     });
 
-    // Add focus listener to clear input when focus is lost
+    // Layers can be registered after this widget is on screen.
+    widget.engine.layers.addListener(_onLayersChanged);
+    _syncControllers();
+
+    // Keys held when the game loses the keyboard would never see their
+    // key-ups: let them go.
     _focusNode.addListener(() {
-      if (!_focusNode.hasFocus) {
-        widget.engine.input.keyboard.clear();
+      if (!_focusNode.hasFocus && !_layerHasFocus) {
+        widget.engine.input.releaseKeyboard();
       }
     });
   }
@@ -201,12 +182,15 @@ class _GameWidgetState extends State<GameWidget>
       widget.engine.world.removeSystem(_colliderDebugger!);
       _colliderDebugger = null;
     }
-    // The layer is going; the system must stop calling into it.
-    _uiSystem?.onChanged = null;
-    _uiSystem = null;
+    widget.engine.layers.removeListener(_onLayersChanged);
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    _controllers.clear();
     WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
     _focusNode.dispose();
+    _outerFocus.dispose();
     _repaintNotifier.dispose();
     _fpsSignal.dispose();
     super.dispose();
@@ -243,23 +227,46 @@ class _GameWidgetState extends State<GameWidget>
         widget.engine.gameLoop.interpolation;
     // Signal the CustomPainter to repaint — no widget rebuild needed.
     _repaintNotifier.notify();
-    if (widget.showUi) _syncUi();
+    if (widget.showLayers) {
+      final layers = widget.engine.layers;
+      for (final entry in _controllers.entries) {
+        if (layers.isEnabled(entry.key)) entry.value.onFrame();
+      }
+    }
     _updateFPS();
   }
 
-  /// Rebuilds the UI layer if the world changed what it should show.
-  ///
-  /// Two paths meet here: the layer notices entities appearing, going and
-  /// changing by itself, and [UiSystem] reports the ones it cannot see —
-  /// a binding that read a new number without anything being edited.
-  void _syncUi() {
-    final state = _uiKey.currentState;
-    if (state == null) return;
-    if (_uiSystem == null) {
-      _uiSystem = widget.engine.world.getSystem<UiSystem>();
-      _uiSystem?.onChanged = state.markDirty;
+  /// Makes a controller for each layer that has none and drops the ones
+  /// whose layer is gone.
+  void _syncControllers() {
+    final layers = widget.engine.layers.all;
+    final ids = {for (final layer in layers) layer.id};
+    for (final id in _controllers.keys.toList()) {
+      if (!ids.contains(id)) _controllers.remove(id)!.dispose();
     }
-    state.sync();
+    for (final layer in layers) {
+      _controllers.putIfAbsent(
+        layer.id,
+        () => layer.createController(widget.engine),
+      );
+    }
+  }
+
+  void _onLayersChanged() {
+    if (!mounted) return;
+    void apply() {
+      if (!mounted) return;
+      setState(_syncControllers);
+    }
+
+    // Registering mid-build (a layer added from a build method) waits for
+    // the frame to finish rather than dirtying the tree being built.
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) => apply());
+    } else {
+      apply();
+    }
   }
 
   void _updateFPS() {
@@ -326,25 +333,67 @@ class _GameWidgetState extends State<GameWidget>
     return KeyEventResult.handled;
   }
 
+  /// Whether keyboard focus is somewhere in a layer — a menu button, a text
+  /// field.
+  bool get _layerHasFocus {
+    final focus = FocusManager.instance.primaryFocus;
+    return focus != null &&
+        !identical(focus, _focusNode) &&
+        _outerFocus.hasFocus;
+  }
+
+  final FocusNode _outerFocus = FocusNode(
+    debugLabel: 'GameWidget.outer',
+    canRequestFocus: false,
+    skipTraversal: true,
+  );
+
+  /// Keys that reach here came up from a layer, which did not want them:
+  /// the game still hears them, so a player can move while a HUD button has
+  /// focus. Keys the game's own node handled never get here. In
+  /// a text field only key-ups go through — typing is not playing — so
+  /// nothing stays held.
+  KeyEventResult _handleBubbledKey(FocusNode node, KeyEvent event) {
+    if (_focusNode.hasPrimaryFocus) return KeyEventResult.ignored;
+    final typing =
+        FocusManager.instance.primaryFocus?.context
+            ?.findAncestorStateOfType<EditableTextState>() !=
+        null;
+    if (!typing || event is KeyUpEvent) {
+      widget.engine.input.handleKeyEvent(event);
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
-    // The scene's UI is a sibling of the game, not a descendant: everything
-    // inside the Focus node below is deliberately unfocusable, and a text
-    // field that cannot be focused is not a text field. The engine's own
-    // dev tools sit above it, so a HUD can never hide them.
+    // Layers are siblings of the game, not descendants: everything inside
+    // the Focus node below is deliberately unfocusable, and a text field
+    // that cannot be focused is not a text field. The engine's own dev tools
+    // sit above them, so a HUD can never hide them. Keys a layer lets go of
+    // bubble to the outer Focus, and on to the game's input.
+    return Focus(
+      focusNode: _outerFocus,
+      onKeyEvent: _handleBubbledKey,
+      onFocusChange: (focused) {
+        if (!focused) widget.engine.input.releaseKeyboard();
+      },
+      child: _stack(),
+    );
+  }
+
+  Widget _stack() {
     return Stack(
       children: [
         Positioned.fill(child: _game()),
-        if (widget.showUi)
-          Positioned.fill(
-            child: UiLayer(
-              key: _uiKey,
-              world: widget.engine.world,
-              localise: widget.uiLocalise,
-              themeOverride: widget.uiTheme,
-              onSound: widget.onUiSound,
-            ),
-          ),
+        if (widget.showLayers)
+          for (final layer in widget.engine.layers.all)
+            if (widget.engine.layers.isEnabled(layer.id))
+              if (_controllers[layer.id] case final controller?)
+                Positioned.fill(
+                  key: ValueKey('layer:${layer.id}'),
+                  child: Builder(builder: controller.build),
+                ),
         if (widget.showFPS) _fpsCounter(),
         if (widget.showTerminal) _terminalOverlay(),
       ],

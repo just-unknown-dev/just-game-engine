@@ -307,8 +307,8 @@ void main() {
       expect(engine.input, isNotNull);
       expect(engine.input.keyboard, isNotNull);
       expect(engine.input.mouse, isNotNull);
-      expect(engine.input.touch, isNotNull);
-      expect(engine.input.controller, isNotNull);
+      expect(engine.input.touchscreen, isNotNull);
+      expect(engine.input.onScreen, isNotNull);
     });
   });
 

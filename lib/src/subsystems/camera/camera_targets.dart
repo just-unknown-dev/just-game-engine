@@ -15,6 +15,7 @@ import '../../ecs/ecs.dart';
 class CameraTargetResolver {
   final Map<String, Entity?> _byName = {};
   final Map<String, Entity?> _byTag = {};
+  final Map<String, List<Entity>> _allByTag = {};
   World? _world;
 
   /// Forgets last frame's lookups. Called by the brain before it evaluates.
@@ -22,6 +23,7 @@ class CameraTargetResolver {
     _world = world;
     _byName.clear();
     _byTag.clear();
+    _allByTag.clear();
   }
 
   /// The active entity called [name], else the first active one tagged
@@ -46,6 +48,32 @@ class CameraTargetResolver {
       }
       return null;
     });
+  }
+
+  /// Every active entity tagged [tag] — all the players, not just the
+  /// first.
+  List<Entity> resolveAll(String tag) {
+    final world = _world;
+    if (world == null || tag.isEmpty) return const [];
+    return _allByTag.putIfAbsent(
+      tag,
+      () => [
+        for (final entity in world.query([TagComponent]))
+          if (entity.isActive &&
+              entity.getComponent<TagComponent>()!.tag == tag)
+            entity,
+      ],
+    );
+  }
+
+  /// What a member naming [name] and [tag] stands for: the entity called
+  /// [name] if there is one, else every entity tagged [tag].
+  List<Entity> resolveMembers({String name = '', String tag = ''}) {
+    if (name.isNotEmpty) {
+      final named = resolve(name: name);
+      if (named != null) return [named];
+    }
+    return resolveAll(tag);
   }
 
   /// Where [entity] is, or null without a transform.

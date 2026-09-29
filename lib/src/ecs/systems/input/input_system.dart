@@ -1,34 +1,26 @@
 /// Input ECS System
 ///
-/// Bridges the named-action [InputActionResolver] into ECS [InputComponent]
-/// and [JoystickInputComponent] entities each frame.
+/// Copies each player's actions onto the entities they control.
 library;
+
+import 'package:just_inputs/just_inputs.dart';
 
 import '../../ecs.dart';
 import '../../components/components.dart';
-import 'package:just_inputs/just_inputs.dart';
 import '../system_priorities.dart';
 
-/// System that reads [InputActionResolver] state and writes it into ECS
-/// components.
+/// Reads each [InputComponent]'s player from the [InputService] and writes
+/// every action of [maps] into it by its short name — `jump`, `move` — so
+/// gameplay code reads names, not devices.
 ///
-/// Processes two component types:
-/// - [InputComponent]: Copies the resolver's movement axes and every
-///   currently-bound action's down-state.
-/// - [JoystickInputComponent]: Optionally updates virtual-joystick direction
-///   from touch / pointer state reported by [InputManager.touch].
-///
-/// Requires an external [InputActionResolver] reference passed at
-/// construction:
-/// ```dart
-/// world.addSystem(InputSystem(engine.actions));
-/// ```
+/// A component whose player is not playing is cleared: nothing held.
 class InputSystem extends System {
-  /// Reference to the named-action resolver.
-  final InputActionResolver actions;
+  InputSystem(this.input, {this.maps = const ['player']});
 
-  /// Create the input system with an [InputActionResolver].
-  InputSystem(this.actions);
+  final InputService input;
+
+  /// The maps whose actions are copied. Names must not repeat across them.
+  final List<String> maps;
 
   @override
   int get priority => SystemPriorities.input;
@@ -38,48 +30,39 @@ class InputSystem extends System {
 
   @override
   void update(double deltaTime) {
-    _updateInputComponents();
-    _updateJoystickComponents();
-  }
-
-  // ── InputComponent ────────────────────────────────────────────────────
-
-  void _updateInputComponents() {
-    final dir = actions.getVector2('move');
-
     for (final entity in entities) {
-      final input = entity.getComponent<InputComponent>()!;
-      input.moveDirection = dir;
-
-      // Write every currently-bound button action's down-state (vector2
-      // actions like 'move' have no single down/up state to report here).
-      for (final entry in actions.actionSet.defs.entries) {
-        if (entry.value.type != ActionType.button) continue;
-        input.buttons[entry.key] = actions.isActionDown(entry.key);
+      final component = entity.getComponent<InputComponent>()!;
+      final actions = component.playerIndex < 0
+          ? input.actions
+          : input.actionsFor(component.playerIndex);
+      if (actions == null) {
+        component.clear();
+        continue;
       }
+      _copy(actions, component);
     }
   }
 
-  // ── JoystickInputComponent ────────────────────────────────────────────
-
-  void _updateJoystickComponents() {
-    final joystickEntities = world.query([JoystickInputComponent]);
-    if (joystickEntities.isEmpty) return;
-
-    final touches = actions.inputManager.touch;
-    for (final entity in joystickEntities) {
-      final joy = entity.getComponent<JoystickInputComponent>()!;
-
-      // If the joystick is actively tracking a pointer, update from touch.
-      if (joy.isActive && joy.pointerId != null) {
-        final touchPoint = touches.getTouch(joy.pointerId!);
-        if (touchPoint != null) {
-          joy.thumbPosition = touchPoint.position;
-          joy.setDirectionFromDelta(touchPoint.position - joy.basePosition);
-        } else {
-          // Pointer lifted — reset.
-          joy.reset();
+  void _copy(InputActions actions, InputComponent into) {
+    into
+      ..pressed.clear()
+      ..released.clear()
+      ..performed.clear();
+    for (final name in maps) {
+      final map = actions.map(name);
+      if (map == null) continue;
+      for (final action in map.actions) {
+        final key = action.name;
+        switch (action.type) {
+          case ActionValueType.vector2:
+            into.vectors[key] = action.readVector2();
+          case ActionValueType.axis || ActionValueType.button:
+            into.axes[key] = action.readAxis();
         }
+        into.down[key] = action.isPressed();
+        if (action.wasPressedThisFrame()) into.pressed.add(key);
+        if (action.wasReleasedThisFrame()) into.released.add(key);
+        if (action.wasPerformedThisFrame()) into.performed.add(key);
       }
     }
   }

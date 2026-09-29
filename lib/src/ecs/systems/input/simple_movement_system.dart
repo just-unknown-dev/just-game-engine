@@ -1,15 +1,15 @@
 import 'package:flutter/painting.dart';
-import '../../ecs.dart';
 import 'package:just_inputs/just_inputs.dart';
 
+import '../../ecs.dart';
 import '../../components/components.dart';
 import '../system_priorities.dart';
 
-/// Applies directional input directly to [TransformComponent].
+/// Applies a vector action straight to [TransformComponent].
 class SimpleMovementSystem extends System {
-  SimpleMovementSystem(this.inputManager);
+  SimpleMovementSystem(this.input);
 
-  final InputManager inputManager;
+  final InputService input;
 
   @override
   int get priority => SystemPriorities.movement + 1;
@@ -26,23 +26,11 @@ class SimpleMovementSystem extends System {
       final transform = entity.getComponent<TransformComponent>()!;
       final movement = entity.getComponent<SimpleMovementComponent>()!;
 
-      var direction = Offset.zero;
-
-      if (movement.useKeyboard) {
-        direction = Offset(
-          inputManager.keyboard.horizontal,
-          inputManager.keyboard.vertical,
-        );
-      }
-
-      if (movement.useJoystick) {
-        final joystick = entity.getComponent<JoystickInputComponent>();
-        final joystickDirection = joystick?.direction ?? Offset.zero;
-        if (joystickDirection.distance > movement.deadZone) {
-          // Prefer active joystick direction when one is attached.
-          direction = joystickDirection;
-        }
-      }
+      final actions = movement.playerIndex < 0
+          ? input.actions
+          : input.actionsFor(movement.playerIndex);
+      var direction =
+          actions?.tryAction(movement.action)?.readVector2() ?? Offset.zero;
 
       if (direction.distance <= movement.deadZone) {
         movement.lastDirection = Offset.zero;

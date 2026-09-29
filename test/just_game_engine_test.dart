@@ -705,40 +705,32 @@ void main() {
   });
 
   group('Input System Tests', () {
-    test('InputManager initialization', () async {
+    test('InputService initialization', () async {
       final engine = Engine();
       await engine.initialize();
 
       expect(engine.input, isNotNull);
-      expect(engine.input.keyboard, isNotNull);
-      expect(engine.input.mouse, isNotNull);
-      expect(engine.input.touch, isNotNull);
-      expect(engine.input.controller, isNotNull);
-    });
-
-    test('Keyboard state management', () async {
-      final engine = Engine();
-      await engine.initialize();
-
-      final keyboard = engine.input.keyboard;
-      // Keyboard is initialized
-      expect(keyboard, isNotNull);
+      expect(engine.input.devices, [
+        engine.input.keyboard,
+        engine.input.mouse,
+        engine.input.touchscreen,
+        engine.input.onScreen,
+      ]);
+      expect(engine.input.gamepads, isEmpty, reason: 'pads are opt-in');
     });
 
     test('Mouse state management', () async {
       final engine = Engine();
       await engine.initialize();
 
-      final mouse = engine.input.mouse;
-      expect(mouse.position, Offset.zero);
+      expect(engine.input.mouse.control('position')!.read(), Offset.zero);
     });
 
     test('Touch state management', () async {
       final engine = Engine();
       await engine.initialize();
 
-      final touch = engine.input.touch;
-      expect(touch.touches, isEmpty);
+      expect(engine.input.touchscreen.touches, isEmpty);
     });
   });
 
