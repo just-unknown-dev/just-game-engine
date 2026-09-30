@@ -4,6 +4,7 @@
 library;
 
 import '../../../subsystems/audio/audio.dart';
+import '../../../core/world_axes.dart';
 import '../../ecs.dart';
 
 /// Component describing an audio source attached to an entity.
@@ -143,14 +144,18 @@ class AudioStreamComponent extends Component {
 ///
 /// The [AudioSystem] reads the entity's [TransformComponent] and
 /// forwards it to the native listener each frame.
+///
+/// The listener faces the way the world does ([WorldAxes]): forward into
+/// the screen, up towards −Y. Its right is then +X, so a sound to the right
+/// of it on screen plays on the right.
 class AudioListenerComponent extends Component {
   AudioListenerComponent({
-    this.forwardX = 0,
-    this.forwardY = 0,
-    this.forwardZ = -1,
-    this.upX = 0,
-    this.upY = 1,
-    this.upZ = 0,
+    this.forwardX = WorldAxes.forwardX,
+    this.forwardY = WorldAxes.forwardY,
+    this.forwardZ = WorldAxes.forwardZ,
+    this.upX = WorldAxes.upX,
+    this.upY = WorldAxes.upY,
+    this.upZ = WorldAxes.upZ,
   });
 
   double forwardX, forwardY, forwardZ;

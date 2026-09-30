@@ -71,7 +71,7 @@ class ComponentPainterPass extends RenderPass {
       canvas
         ..save()
         ..translate(t.position.x, t.position.y)
-        ..rotate(t.rotation)
+        ..rotate(t.angle)
         ..scale(t.scale.x, t.scale.y);
       item.painter.paintAny(canvas, item.entity, item.component, ctx);
       canvas.restore();

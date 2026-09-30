@@ -119,7 +119,7 @@ class ColliderDebuggerSystem extends System {
     if (collider.width > 0 && collider.height > 0) {
       canvas.save();
       canvas.translate(center.dx, center.dy);
-      canvas.rotate(transform.rotation);
+      canvas.rotate(transform.angle);
       canvas.drawRect(
         Rect.fromCenter(
           center: Offset.zero,

@@ -2,6 +2,7 @@ library;
 
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
+import '../../core/dimensions.dart';
 import 'package:just_dart/just_dart.dart';
 import 'package:just_physics_engine/just_physics_engine.dart';
 
@@ -103,7 +104,7 @@ abstract final class CoreDefinitions {
       deletable: false,
       fieldGroups: {
         'Position': ['position'],
-        'Rotation': ['rotation', 'rotationX', 'rotationY'],
+        'Rotation': ['rotation'],
         'Scale': ['scale'],
       },
       fields: {
@@ -111,20 +112,11 @@ abstract final class CoreDefinitions {
           label: 'Position',
           scrub: ScrubHint(fractionDigits: 1),
         ),
+        // Three angles; a 2-D scene shows only the one about Z.
         'rotation': FieldHint(
-          label: 'Angle',
+          label: 'Rotation',
           unit: AngleUnit.degrees,
           scrub: ScrubHint(fractionDigits: 1),
-        ),
-        'rotationX': FieldHint(
-          label: 'Tilt X',
-          unit: AngleUnit.degrees,
-          visible: false,
-        ),
-        'rotationY': FieldHint(
-          label: 'Tilt Y',
-          unit: AngleUnit.degrees,
-          visible: false,
         ),
         'scale': FieldHint(
           label: 'Scale',
@@ -136,32 +128,28 @@ abstract final class CoreDefinitions {
     fields: [
       SchemaField(
         name: 'position',
-        kind: FieldTypes.vector2,
-        read: (c) =>
-            Vector2((c as TransformComponent).position.x, c.position.y),
+        kind: FieldTypes.vector3,
+        read: (c) => Vector3.copy((c as TransformComponent).position),
         write: (c, v) =>
-            (c as TransformComponent).setPositionXY((v as Vector2).x, v.y),
+            (c as TransformComponent).position.setFrom(v as Vector3),
       ),
-      _d(
-        'rotation',
-        (c) => (c as TransformComponent).rotation,
-        (c, v) => (c as TransformComponent).rotation = v,
+      SchemaField(
+        name: 'rotation',
+        kind: FieldTypes.euler,
+        read: (c) {
+          final t = c as TransformComponent;
+          return Vector3(t.eulerX, t.eulerY, t.angle);
+        },
+        write: (c, v) {
+          final e = v as Vector3;
+          (c as TransformComponent).setEuler(e.x, e.y, e.z);
+        },
       ),
       SchemaField(
         name: 'scale',
         kind: FieldTypes.vector3,
         read: (c) => (c as TransformComponent).scale,
         write: (c, v) => (c as TransformComponent).scale.setFrom(v as Vector3),
-      ),
-      _d(
-        'rotationX',
-        (c) => (c as TransformComponent).rotationX,
-        (c, v) => (c as TransformComponent).rotationX = v,
-      ),
-      _d(
-        'rotationY',
-        (c) => (c as TransformComponent).rotationY,
-        (c, v) => (c as TransformComponent).rotationY = v,
       ),
     ],
   );
@@ -194,6 +182,7 @@ abstract final class CoreDefinitions {
   static final rectangle = ComponentDefinition<RectangleComponent>(
     type: 'RectangleComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Rectangle',
       group: 'Rendering',
       description: 'A filled or outlined rectangle.',
@@ -253,6 +242,7 @@ abstract final class CoreDefinitions {
   static final circle = ComponentDefinition<CircleComponent>(
     type: 'CircleComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Circle',
       group: 'Rendering',
       description: 'A filled or outlined circle.',
@@ -295,6 +285,7 @@ abstract final class CoreDefinitions {
   static final capsule = ComponentDefinition<CapsuleComponent>(
     type: 'CapsuleComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Capsule',
       group: 'Rendering',
       description: 'A filled or outlined capsule.',
@@ -368,10 +359,10 @@ abstract final class CoreDefinitions {
     fields: [
       SchemaField(
         name: 'velocity',
-        kind: FieldTypes.vector2,
-        read: (c) => Vector2((c as VelocityComponent).velocity.x, c.velocity.y),
+        kind: FieldTypes.vector3,
+        read: (c) => Vector3.copy((c as VelocityComponent).velocity),
         write: (c, v) =>
-            (c as VelocityComponent).setVelocityXY((v as Vector2).x, v.y),
+            (c as VelocityComponent).velocity.setFrom(v as Vector3),
       ),
       _d(
         'maxSpeed',
@@ -459,6 +450,7 @@ abstract final class CoreDefinitions {
   static final sprite = ComponentDefinition<SpriteComponent>(
     type: 'SpriteComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Sprite',
       group: 'Rendering',
       description: 'An image, or one region of a sprite atlas.',
@@ -533,6 +525,7 @@ abstract final class CoreDefinitions {
   static final physicsBody = ComponentDefinition<PhysicsBodyComponent>(
     type: 'PhysicsBodyComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Physics Body',
       group: 'Physics',
       description: 'Rigid body with a selectable collision shape.',
@@ -775,6 +768,7 @@ abstract final class CoreDefinitions {
   static final simpleMovement = ComponentDefinition<SimpleMovementComponent>(
     type: 'SimpleMovementComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Simple Movement',
       group: 'Input',
       description: 'Moves straight from a vector action, no physics.',
@@ -861,21 +855,12 @@ abstract final class CoreDefinitions {
     hints: const ComponentHints(
       name: 'Parent',
       group: 'Hierarchy',
-      description: 'Follows another entity at a local offset.',
+      description:
+          'Hangs this entity under another: it moves, turns and scales '
+          'with it. The local values are worked out from where things are.',
       icon: Icons.link,
       accentColor: Color(0xFF26A69A),
-      fields: {
-        'parentId': FieldHint(label: 'Parent', editable: false),
-        'localOffset': FieldHint(
-          label: 'Local offset',
-          scrub: ScrubHint(fractionDigits: 1),
-        ),
-        'localRotation': FieldHint(
-          label: 'Local angle',
-          unit: AngleUnit.degrees,
-          scrub: ScrubHint(fractionDigits: 1),
-        ),
-      },
+      fields: {'parentId': FieldHint(label: 'Parent', editable: false)},
     ),
     create: ParentComponent.new,
     fields: [
@@ -885,16 +870,8 @@ abstract final class CoreDefinitions {
         kind: FieldTypes.integer,
         read: (c) => (c as ParentComponent).parentId,
       ),
-      _o(
-        'localOffset',
-        (c) => Offset((c as ParentComponent).localOffset.x, c.localOffset.y),
-        (c, v) => (c as ParentComponent).localOffset = Vector3(v.dx, v.dy, 0),
-      ),
-      _d(
-        'localRotation',
-        (c) => (c as ParentComponent).localRotation,
-        (c, v) => (c as ParentComponent).localRotation = v,
-      ),
+      // Nothing local is saved: the offset from the parent follows from
+      // the world transforms, which are what the file means.
     ],
   );
 
@@ -919,6 +896,7 @@ abstract final class CoreDefinitions {
   static final distanceJoint = ComponentDefinition<DistanceJointComponent>(
     type: 'DistanceJointComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Distance Joint',
       group: 'Physics',
       description: 'Keeps two bodies a set distance apart.',
@@ -992,6 +970,7 @@ abstract final class CoreDefinitions {
   static final weldJoint = ComponentDefinition<WeldJointComponent>(
     type: 'WeldJointComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Weld Joint',
       group: 'Physics',
       description: 'Fixes two bodies together.',
@@ -1023,6 +1002,7 @@ abstract final class CoreDefinitions {
   static final prismaticJoint = ComponentDefinition<PrismaticJointComponent>(
     type: 'PrismaticJointComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Prismatic Joint',
       group: 'Physics',
       description: 'Slides along one axis.',
@@ -1118,6 +1098,7 @@ abstract final class CoreDefinitions {
   static final wheelJoint = ComponentDefinition<WheelJointComponent>(
     type: 'WheelJointComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Wheel Joint',
       group: 'Physics',
       description: 'A wheel on a suspension.',

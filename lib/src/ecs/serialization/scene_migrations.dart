@@ -1,5 +1,7 @@
 library;
 
+import '../../subsystems/timeline/timeline_format.dart';
+
 /// One step of the scene-format migration chain: from version [from] to
 /// [from] + 1.
 abstract class SceneMigration {
@@ -623,6 +625,158 @@ class V4ToV5 extends SceneMigration {
   }
 }
 
+/// v5 → v6: every entity is 3-D.
+///
+/// * A transform's `position` gains `z` (0), and its rotation — one angle
+///   `rotation` plus the hidden tilts `rotationX` / `rotationY` — becomes
+///   one field, `rotation: {x, y, z}` in radians.
+/// * A velocity gains `z` (0).
+/// * A parent link no longer saves an offset (`localOffset`,
+///   `localRotation`): it follows from the world transforms, which are what
+///   the scene has always shown — the saved offsets were often stale. Where
+///   an offset disagreed with the transforms, [report] says so.
+/// * The legacy `root` node tree — a 2-D copy of the transforms — goes.
+/// * The scene says how it is authored: `mode` is `'2d'` unless it said.
+/// * Inline timelines move to timeline format 2 ([TimelineFormat]).
+///
+/// A package with its own fields to move registers [perType] rules (by
+/// component type, given the fields map) or [perEntity] ones.
+class V5ToV6 extends SceneMigration {
+  const V5ToV6();
+
+  @override
+  int get from => 5;
+
+  /// Per-type rewrites of a component's `fields`, applied after the
+  /// built-in ones. Open so a kit can add its own.
+  static final Map<String, void Function(Map<String, dynamic> fields)>
+  perType = {};
+
+  /// Entity-level rules a package adds for its own components.
+  static final List<EntityMigration> perEntity = [];
+
+  /// What the last run noticed that a person may want to know — parent
+  /// offsets that disagreed with where their entities actually were.
+  static final List<String> report = [];
+
+  @override
+  Map<String, dynamic> apply(Map<String, dynamic> json) {
+    report.clear();
+    json.remove('root');
+    json['mode'] ??= '2d';
+    final list = json['entities'];
+    if (list is! List) return json;
+    final entities = list.whereType<Map<String, dynamic>>().toList();
+
+    // Where each entity was, before anything is rewritten — for noticing
+    // stale offsets.
+    final positions = <String, (double, double)>{};
+    for (final e in entities) {
+      final name = e['name'];
+      final t = _fieldsOf(e, 'TransformComponent');
+      final p = t?['position'];
+      if (name is String && p is Map) {
+        positions[name] = (_d(p['x']), _d(p['y']));
+      }
+    }
+
+    for (final entity in entities) {
+      final components = entity['components'];
+      if (components is List) {
+        for (final c in components) {
+          if (c is! Map) continue;
+          final fields = c['fields'];
+          if (fields is! Map<String, dynamic>) continue;
+          switch (c['type']) {
+            case 'TransformComponent':
+              _transform(fields);
+            case 'VelocityComponent':
+              _addZ(fields, 'velocity');
+            case 'ParentComponent':
+              _parent(fields, entity, positions);
+            case 'TimelinePlayerComponent':
+              final inline = fields['inline'];
+              if (inline is Map<String, dynamic>) {
+                fields['inline'] = TimelineFormat.migrate(inline);
+              }
+          }
+          perType[c['type']]?.call(fields);
+        }
+      }
+      for (final migrate in perEntity) {
+        migrate(entity, json);
+      }
+    }
+    // In the order the editor writes a scene: version, name, mode, the rest.
+    return <String, dynamic>{
+      for (final k in const ['version', 'name', 'mode'])
+        if (json.containsKey(k)) k: json[k],
+      for (final e in json.entries)
+        if (!const ['version', 'name', 'mode'].contains(e.key)) e.key: e.value,
+    };
+  }
+
+  static void _transform(Map<String, dynamic> fields) {
+    _addZ(fields, 'position');
+    final rotation = fields['rotation'];
+    final tiltX = fields.remove('rotationX');
+    final tiltY = fields.remove('rotationY');
+    if (rotation is! Map) {
+      fields['rotation'] = <String, dynamic>{
+        'x': _d(tiltX),
+        'y': _d(tiltY),
+        'z': _d(rotation),
+      };
+    }
+  }
+
+  static void _addZ(Map<String, dynamic> fields, String key) {
+    final v = fields[key];
+    if (v is Map) v['z'] ??= 0.0;
+  }
+
+  static void _parent(
+    Map<String, dynamic> fields,
+    Map<String, dynamic> entity,
+    Map<String, (double, double)> positions,
+  ) {
+    final offset = fields.remove('localOffset');
+    fields.remove('localRotation');
+    final name = entity['name'];
+    final parentName = entity['parentName'];
+    final here = positions[name];
+    final there = positions[parentName];
+    if (offset is Map && here != null && there != null) {
+      final dx = here.$1 - there.$1, dy = here.$2 - there.$2;
+      if ((dx - _d(offset['dx'])).abs() > 1e-6 ||
+          (dy - _d(offset['dy'])).abs() > 1e-6) {
+        report.add(
+          '$name: its saved offset from $parentName '
+          '(${_d(offset['dx'])}, ${_d(offset['dy'])}) disagreed with where '
+          'it is ($dx, $dy); where it is was kept.',
+        );
+      }
+    }
+  }
+
+  static Map<String, dynamic>? _fieldsOf(
+    Map<String, dynamic> entity,
+    String type,
+  ) {
+    final components = entity['components'];
+    if (components is! List) return null;
+    for (final c in components) {
+      if (c is Map && c['type'] == type) {
+        final f = c['fields'];
+        if (f is Map<String, dynamic>) return f;
+      }
+    }
+    return null;
+  }
+
+  static double _d(Object? v) => v is num ? v.toDouble() : 0.0;
+}
+
 /// Every migration, in order.
 abstract final class SceneMigrations {
   static const List<SceneMigration> chain = [
@@ -631,5 +785,6 @@ abstract final class SceneMigrations {
     V2ToV3(),
     V3ToV4(),
     V4ToV5(),
+    V5ToV6(),
   ];
 }

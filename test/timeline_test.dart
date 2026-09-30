@@ -430,7 +430,7 @@ void main() {
       expect(playback.playFrom('half'), isTrue);
       playback.update(0.5);
       expect(xOf(e), closeTo(150, 1e-9));
-      expect(e.getComponent<TransformComponent>()!.rotation, 0);
+      expect(e.getComponent<TransformComponent>()!.angle, 0);
     });
   });
 
@@ -840,7 +840,8 @@ void main() {
         [
           'TransformComponent.position.x',
           'TransformComponent.position.y',
-          'TransformComponent.rotation',
+          // Timeline format 2: the angle is the rotation's z.
+          'TransformComponent.rotation.z',
         ],
       );
       expect(asset.tracks.last, isA<EventTrack>());
@@ -877,7 +878,7 @@ void main() {
       world.update(1.0);
       final at = entity.getComponent<TransformComponent>()!;
       expect(at.position.x, closeTo(100, 1e-6));
-      expect(at.rotation, closeTo(1, 1e-6));
+      expect(at.angle, closeTo(1, 1e-6));
     });
   });
 }

@@ -34,7 +34,8 @@ class PropertyAccess {
   /// for a field that is one value.
   final String channel;
 
-  /// The field kinds whose saved form is a map of numbers, and their keys.
+  /// The field kinds whose saved form is a map of numbers, and their keys —
+  /// for kinds that do not name them themselves ([FieldType.channels]).
   static const Map<String, List<String>> channelsByKind = {
     'vector2': ['x', 'y'],
     'vector3': ['x', 'y', 'z'],
@@ -57,13 +58,17 @@ class PropertyAccess {
   /// Whether [field] can be keyed at all.
   static bool canAnimate(SchemaField field) =>
       field.write != null &&
-      (channelsByKind.containsKey(field.kind.id) ||
+      (field.kind.channels.isNotEmpty ||
+          channelsByKind.containsKey(field.kind.id) ||
           scalarKinds.contains(field.kind.id) ||
           field.kind is EnumFieldType);
 
   /// The channels [field] is keyed by; `['']` for a single value.
-  static List<String> channelsOf(SchemaField field) =>
-      channelsByKind[field.kind.id] ?? const [''];
+  static List<String> channelsOf(SchemaField field) {
+    final own = field.kind.channels;
+    if (own.isNotEmpty) return own;
+    return channelsByKind[field.kind.id] ?? const [''];
+  }
 
   bool get isColor => field.kind.id == 'color';
   bool get isInteger => field.kind.id == 'integer';

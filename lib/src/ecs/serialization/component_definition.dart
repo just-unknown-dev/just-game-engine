@@ -3,8 +3,11 @@ library;
 import 'dart:ui';
 
 import 'package:flutter/widgets.dart' show IconData;
+import 'package:just_dart/just_dart.dart' show Aabb3;
 
+import '../../core/dimensions.dart';
 import '../../interfaces/interfaces.dart';
+import '../../subsystems/rendering/render_view.dart';
 import '../ecs.dart';
 import 'component_codec.dart';
 import 'field_type.dart';
@@ -103,6 +106,8 @@ class FieldHint {
     this.unit,
     this.fileExtensions,
     this.itemTemplate,
+    this.dimensions = Dimensions.both,
+    this.channels2D,
   });
 
   final String? label;
@@ -126,6 +131,15 @@ class FieldHint {
   /// entry. An editor's "Add" copies it, so a new item starts with the right
   /// shape and types. Null leaves the editor to copy the last item.
   final Object? itemTemplate;
+
+  /// Which scene modes the field is shown in — a camera's field of view only
+  /// in 3-D, say. It is saved either way.
+  final Dimensions dimensions;
+
+  /// Which of a vector field's axes a 2-D scene shows (`{'x', 'y'}`), where
+  /// they differ from its type's [FieldType.channels2D]. Hidden axes keep
+  /// their values.
+  final Set<String>? channels2D;
 }
 
 /// How a component appears in an inspector and component picker.
@@ -144,6 +158,7 @@ class ComponentHints {
     this.fieldGroups,
     this.fieldRows = const [],
     this.fields = const {},
+    this.dimensions = Dimensions.both,
   });
 
   /// Display name; the type name when unset.
@@ -171,6 +186,10 @@ class ComponentHints {
 
   /// Per-field presentation, by [SchemaField.name].
   final Map<String, FieldHint> fields;
+
+  /// Which scene modes the component belongs in. An editor offers it only
+  /// there — though one already on an entity is always shown.
+  final Dimensions dimensions;
 }
 
 /// The size a component implies, and how to change it.
@@ -190,6 +209,23 @@ abstract class ComponentExtent {
   /// Mirrors the component across its own centre, if that means anything
   /// for it — a sprite's flip flag, say.
   void flip(Component component, {required bool horizontal}) {}
+
+  /// The component's local bounds in 3-D, centred on its origin, into
+  /// [out]; false when it implies none. A flat thing's is its [sizeOf] with
+  /// no depth — override for something with a depth of its own (a model).
+  bool boundsInto(Component component, Aabb3 out) {
+    final size = sizeOf(component);
+    if (size == null) return false;
+    out.setValues(
+      -size.width / 2,
+      -size.height / 2,
+      0,
+      size.width / 2,
+      size.height / 2,
+      0,
+    );
+    return true;
+  }
 }
 
 /// What a [ComponentPainter] is given per frame.
@@ -199,6 +235,7 @@ class RenderContext {
     required this.size,
     this.camera,
     this.interpolation = 1.0,
+    this.view,
   });
 
   final World world;
@@ -207,6 +244,10 @@ class RenderContext {
 
   /// Sub-frame interpolation factor for physics-driven entities.
   final double interpolation;
+
+  /// The frame's camera as matrices, when the renderer was given them —
+  /// for a painter that draws something in 3-D.
+  final RenderView? view;
 }
 
 /// Draws a component that is not a [RenderableComponent] — text, a button, a

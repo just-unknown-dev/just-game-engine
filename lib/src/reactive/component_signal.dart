@@ -68,7 +68,7 @@ class ComponentSignal<C extends Component, T> extends Signal<T> {
 
 /// A collection of signals for all properties of a transform component.
 ///
-/// Provides convenient reactive access to position, rotation, and scale.
+/// Provides convenient reactive access to position, angle (the 2-D rotation), and scale.
 class TransformSignals {
   TransformSignals(TransformComponent component)
     : x = ComponentSignal<TransformComponent, double>(
@@ -83,11 +83,11 @@ class TransformSignals {
         setter: (c, v) => c.position.y = v,
         debugLabel: 'TransformSignals.y',
       ),
-      rotation = ComponentSignal<TransformComponent, double>(
+      angle = ComponentSignal<TransformComponent, double>(
         component,
-        getter: (c) => c.rotation,
-        setter: (c, v) => c.rotation = v,
-        debugLabel: 'TransformSignals.rotation',
+        getter: (c) => c.angle,
+        setter: (c, v) => c.angle = v,
+        debugLabel: 'TransformSignals.angle',
       ),
       scale = ComponentSignal<TransformComponent, Vector3>(
         component,
@@ -98,7 +98,7 @@ class TransformSignals {
 
   final ComponentSignal<TransformComponent, double> x;
   final ComponentSignal<TransformComponent, double> y;
-  final ComponentSignal<TransformComponent, double> rotation;
+  final ComponentSignal<TransformComponent, double> angle;
   final ComponentSignal<TransformComponent, Vector3> scale;
 
   /// Sets position in a batch (single notification).
@@ -121,14 +121,14 @@ class TransformSignals {
   void syncAll() {
     x.sync();
     y.sync();
-    rotation.sync();
+    angle.sync();
     scale.sync();
   }
 
   void dispose() {
     x.dispose();
     y.dispose();
-    rotation.dispose();
+    angle.dispose();
     scale.dispose();
   }
 }

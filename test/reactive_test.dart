@@ -127,7 +127,7 @@ void main() {
     setUp(() {
       transform = TransformComponent(
         position: Vector3(0, 0, 0),
-        rotation: 0.0,
+        angle: 0.0,
         scale: Vector3(1.0, 1.0, 1),
       );
       signals = TransformSignals(transform);
@@ -166,11 +166,11 @@ void main() {
       expect(transform.position.y, closeTo(7.0, 1e-9));
     });
 
-    test('rotation signal reads and writes rotation', () {
-      transform.rotation = 1.5;
-      expect(signals.rotation.value, closeTo(1.5, 1e-9));
-      signals.rotation.value = 3.0;
-      expect(transform.rotation, closeTo(3.0, 1e-9));
+    test('angle signal reads and writes the angle', () {
+      transform.angle = 1.5;
+      expect(signals.angle.value, closeTo(1.5, 1e-9));
+      signals.angle.value = 3.0;
+      expect(transform.angle, closeTo(3.0, 1e-9));
     });
 
     test('scale signal reads and writes scale', () {

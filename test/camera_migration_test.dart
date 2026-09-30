@@ -122,9 +122,11 @@ void main() {
       'CamBounds',
     );
     final level = _named(out, 'CamBounds');
+    // Every later step runs too: by format 6 a position has a z.
     expect(_fields(level, 'TransformComponent')!['position'], {
       'x': 500.0,
       'y': 350.0,
+      'z': 0.0,
     });
     expect(_fields(level, 'CameraBoundsComponent'), {
       'width': 1200.0,
@@ -177,6 +179,7 @@ void main() {
     expect(_fields(added, 'TransformComponent')!['position'], {
       'x': 640.0,
       'y': 360.0,
+      'z': 0.0,
     });
     expect(_fields(added, 'VirtualCameraComponent')!['followName'], 'Hero');
   });
@@ -218,7 +221,13 @@ void main() {
       },
     ]);
     final out = SceneFormat.migrate(input);
-    expect(out['entities'], input['entities']);
+    // The camera step adds nothing; later steps only reshape the transform.
+    final entities = (out['entities'] as List).cast<Map>();
+    expect(entities.map((e) => e['name']), ['Block']);
+    expect(
+      (entities.single['components'] as List).cast<Map>().map((c) => c['type']),
+      ['TransformComponent'],
+    );
     expect(out['version'], SceneFormat.current);
   });
 

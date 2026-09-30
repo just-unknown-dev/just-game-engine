@@ -26,6 +26,8 @@ export 'input/simple_movement_system.dart';
 
 // Hierarchy systems
 export 'hierarchy/hierarchy_system.dart';
+export 'hierarchy/hierarchy_math.dart';
+export 'hierarchy/transform_hierarchy.dart';
 
 // Gameplay systems
 export 'gameplay/health_system.dart';

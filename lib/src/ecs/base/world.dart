@@ -40,6 +40,15 @@ class World {
   /// Deferred command buffer for safe structural mutations during iteration.
   late final CommandBuffer commands = CommandBuffer(this);
 
+  /// Keeps children's world transforms in step with their parents'.
+  ///
+  /// Part of every world rather than a registered system — it cannot be
+  /// forgotten or cleared away with [clearSystems]. [update] runs it once a
+  /// frame at [SystemPriorities.hierarchy]; set
+  /// [TransformHierarchy.enabled] to false for a world whose parent links
+  /// are only organisational.
+  late final TransformHierarchy transformHierarchy = TransformHierarchy(this);
+
   /// Event bus for decoupled inter-system communication.
   final EventBus events = EventBus();
 
@@ -345,7 +354,12 @@ class World {
 
     _lastSystemTimesMs.clear();
 
+    var hierarchyDone = !transformHierarchy.enabled;
     for (final system in _systems) {
+      if (!hierarchyDone && system.priority < SystemPriorities.hierarchy) {
+        _runHierarchy();
+        hierarchyDone = true;
+      }
       if (system.isActive) {
         _systemStopwatch
           ..reset()
@@ -366,9 +380,21 @@ class World {
       }
     }
 
+    if (!hierarchyDone) _runHierarchy();
+
     _totalStopwatch.stop();
     _lastUpdateTimeMs = _totalStopwatch.elapsedMicroseconds / 1000.0;
     _lastCommandFlushCount = flushCount;
+  }
+
+  void _runHierarchy() {
+    _systemStopwatch
+      ..reset()
+      ..start();
+    transformHierarchy.propagate();
+    _systemStopwatch.stop();
+    _lastSystemTimesMs['TransformHierarchy'] =
+        _systemStopwatch.elapsedMicroseconds / 1000.0;
   }
 
   /// Render all active systems

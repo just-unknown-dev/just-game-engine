@@ -3,6 +3,7 @@ library;
 
 export 'camera_system.dart';
 export 'camera_state.dart';
+export 'camera_lens.dart';
 export 'camera_brain.dart';
 export 'camera_stage.dart';
 export 'camera_targets.dart';

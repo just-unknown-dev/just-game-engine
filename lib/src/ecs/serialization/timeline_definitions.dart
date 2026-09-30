@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
+import '../../core/dimensions.dart';
 
 import '../components/components.dart';
 import '../ecs.dart';
@@ -21,6 +22,7 @@ abstract final class TimelineDefinitions {
   static final trigger = ComponentDefinition<TimelineTriggerComponent>(
     type: 'TimelineTriggerComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Timeline Trigger',
       group: 'Animation',
       description:

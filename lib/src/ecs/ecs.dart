@@ -12,6 +12,9 @@ import 'dart:collection';
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+import 'systems/hierarchy/transform_hierarchy.dart';
+import 'systems/system_priorities.dart';
+
 part 'base/component.dart';
 part 'base/archetype.dart';
 part 'base/entity.dart';

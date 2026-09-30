@@ -1,7 +1,10 @@
 /// A shot: one candidate view of the world.
 library;
 
+import 'dart:math' as math;
+
 import '../../../ecs/ecs.dart';
+import '../../../subsystems/camera/camera_lens.dart';
 
 /// When a camera that is not live keeps evaluating its pipeline.
 enum CameraStandbyUpdate {
@@ -32,6 +35,10 @@ class VirtualCameraComponent extends Component {
     this.zoom = 1.0,
     this.dutch = 0.0,
     this.standbyUpdate = CameraStandbyUpdate.never,
+    this.projection = CameraProjection.orthographic,
+    this.fieldOfView = math.pi / 3,
+    this.nearClip = -10000,
+    this.farClip = 10000,
   });
 
   /// Higher wins. Between equals, the one activated most recently.
@@ -53,6 +60,32 @@ class VirtualCameraComponent extends Component {
   double dutch;
 
   CameraStandbyUpdate standbyUpdate;
+
+  /// Orthographic — a 2-D shot, sized by [zoom] — or perspective.
+  CameraProjection projection;
+
+  /// Vertical field of view in radians, for a perspective shot.
+  double fieldOfView;
+
+  /// Nearest distance drawn. At or behind the camera, a perspective shot
+  /// uses 1 instead (an orthographic one sees behind itself).
+  double nearClip;
+
+  /// Furthest distance drawn.
+  double farClip;
+
+  /// The lens these describe.
+  CameraLens get lens => switch (projection) {
+    CameraProjection.orthographic => CameraLens.orthographic(
+      near: nearClip,
+      far: farClip,
+    ),
+    CameraProjection.perspective => CameraLens.perspective(
+      fieldOfView: fieldOfView,
+      near: nearClip > 0 ? nearClip : 1,
+      far: farClip,
+    ),
+  };
 
   bool get hasTarget => followName.isNotEmpty || followTag.isNotEmpty;
 

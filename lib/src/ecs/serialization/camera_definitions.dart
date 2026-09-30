@@ -2,10 +2,12 @@ library;
 
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
+import '../../core/dimensions.dart';
 
 import '../components/components.dart';
 import '../ecs.dart';
 import 'component_definition.dart';
+import '../../subsystems/camera/camera_lens.dart';
 import '../../subsystems/camera/camera_noise.dart';
 import 'field_type.dart';
 
@@ -80,7 +82,14 @@ abstract final class CameraDefinitions {
       fieldGroups: {
         'Shot': ['priority', 'enabled', 'standbyUpdate'],
         'Follow': ['followName', 'followTag'],
-        'Lens': ['zoom', 'dutch'],
+        'Lens': [
+          'zoom',
+          'dutch',
+          'projection',
+          'fieldOfView',
+          'nearClip',
+          'farClip',
+        ],
       },
       fields: {
         'priority': FieldHint(
@@ -99,6 +108,28 @@ abstract final class CameraDefinitions {
           label: 'Dutch',
           unit: AngleUnit.degrees,
           scrub: ScrubHint(step: 1, fractionDigits: 1),
+        ),
+        // A 2-D shot is orthographic and sized by its zoom; the rest of the
+        // lens only matters in 3-D.
+        'projection': FieldHint(
+          label: 'Projection',
+          dimensions: Dimensions.threeD,
+        ),
+        'fieldOfView': FieldHint(
+          label: 'Field of view',
+          unit: AngleUnit.degrees,
+          scrub: ScrubHint(step: 1, fractionDigits: 1),
+          dimensions: Dimensions.threeD,
+        ),
+        'nearClip': FieldHint(
+          label: 'Near',
+          scrub: ScrubHint(fractionDigits: 1),
+          dimensions: Dimensions.threeD,
+        ),
+        'farClip': FieldHint(
+          label: 'Far',
+          scrub: ScrubHint(fractionDigits: 1),
+          dimensions: Dimensions.threeD,
         ),
       },
     ),
@@ -147,12 +178,41 @@ abstract final class CameraDefinitions {
         (c) => c.dutch,
         (c, v) => c.dutch = v,
       ),
+      SchemaField(
+        name: 'projection',
+        kind: const EnumFieldType(
+          CameraProjection.values,
+          fallback: CameraProjection.orthographic,
+          id: 'camera.projection',
+        ),
+        read: (c) => (c as VirtualCameraComponent).projection,
+        write: (c, v) =>
+            (c as VirtualCameraComponent).projection = v as CameraProjection,
+      ),
+      _d<VirtualCameraComponent>(
+        'fieldOfView',
+        (c) => c.fieldOfView,
+        (c, v) => c.fieldOfView = v,
+        min: 0.01,
+        max: 3.1,
+      ),
+      _d<VirtualCameraComponent>(
+        'nearClip',
+        (c) => c.nearClip,
+        (c, v) => c.nearClip = v,
+      ),
+      _d<VirtualCameraComponent>(
+        'farClip',
+        (c) => c.farClip,
+        (c, v) => c.farClip = v,
+      ),
     ],
   );
 
   static final framing = ComponentDefinition<CameraFramingComponent>(
     type: 'CameraFramingComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Camera Framing',
       group: _group,
       description:
@@ -287,6 +347,7 @@ abstract final class CameraDefinitions {
   static final confiner = ComponentDefinition<CameraConfinerComponent>(
     type: 'CameraConfinerComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Camera Confiner',
       group: _group,
       description:
@@ -318,6 +379,7 @@ abstract final class CameraDefinitions {
   static final bounds = ComponentDefinition<CameraBoundsComponent>(
     type: 'CameraBoundsComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Camera Bounds',
       group: _group,
       description:
@@ -359,6 +421,7 @@ abstract final class CameraDefinitions {
   static final noise = ComponentDefinition<CameraNoiseComponent>(
     type: 'CameraNoiseComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Camera Noise',
       group: _group,
       description: 'Continuous handheld motion over the settled shot.',
@@ -402,6 +465,7 @@ abstract final class CameraDefinitions {
       ComponentDefinition<CameraImpulseListenerComponent>(
         type: 'CameraImpulseListenerComponent',
         hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
           name: 'Camera Impulse Listener',
           group: _group,
           description: 'Lets this shot feel the impulses emitted near it.',
@@ -434,6 +498,7 @@ abstract final class CameraDefinitions {
   static final impulseSource = ComponentDefinition<CameraImpulseSourceComponent>(
     type: 'CameraImpulseSourceComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Camera Impulse Source',
       group: _group,
       description:
@@ -517,6 +582,7 @@ abstract final class CameraDefinitions {
   static final groupFraming = ComponentDefinition<CameraGroupFramingComponent>(
     type: 'CameraGroupFramingComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Camera Group Framing',
       group: _group,
       description:
@@ -565,6 +631,7 @@ abstract final class CameraDefinitions {
   static final trigger = ComponentDefinition<CameraTriggerComponent>(
     type: 'CameraTriggerComponent',
     hints: ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Camera Trigger',
       group: _group,
       description:
@@ -665,6 +732,7 @@ abstract final class CameraDefinitions {
   static final dolly = ComponentDefinition<CameraDollyComponent>(
     type: 'CameraDollyComponent',
     hints: ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Camera Dolly',
       group: _group,
       description:

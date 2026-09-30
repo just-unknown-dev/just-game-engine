@@ -8,6 +8,8 @@ import 'dart:collection';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'render_hook_chain.dart';
+import 'render_view.dart';
+import 'scene_renderer.dart';
 import 'impl/renderable.dart';
 import 'impl/sprite_batch.dart';
 import '../post_processing/post_process_pass.dart';
@@ -19,6 +21,8 @@ import 'package:just_dart/just_dart.dart';
 export 'impl/renderable.dart';
 export 'impl/game_widget.dart';
 export 'impl/sprite_batch.dart';
+export 'render_view.dart';
+export 'scene_renderer.dart';
 
 /// Main rendering engine class responsible for graphics rendering
 ///
@@ -95,6 +99,39 @@ class RenderingEngine {
 
   /// Debug mode flag
   bool debugMode = false;
+
+  // ── Scene renderers and the frame's view ─────────────────────────────
+
+  final List<SceneRenderer> _sceneRenderers = [];
+
+  /// The registered [SceneRenderer]s, in draw order.
+  List<SceneRenderer> get sceneRenderers =>
+      List.unmodifiable(_sceneRenderers);
+
+  /// Adds [renderer] to the frame (see [SceneRenderer] for where it draws).
+  void addSceneRenderer(SceneRenderer renderer) {
+    if (_sceneRenderers.contains(renderer)) return;
+    _sceneRenderers
+      ..add(renderer)
+      ..sort((a, b) => a.order.compareTo(b.order));
+  }
+
+  /// Removes [renderer]; true when it was there.
+  bool removeSceneRenderer(SceneRenderer renderer) =>
+      _sceneRenderers.remove(renderer);
+
+  final RenderView _view = RenderView();
+  bool _viewStale = true;
+
+  /// The camera of the frame being drawn, as matrices — filled at most once
+  /// a frame, and only when read, so a 2-D game pays nothing for it.
+  RenderView get view {
+    if (_viewStale) {
+      _view.update(camera, camera.viewportSize);
+      _viewStale = false;
+    }
+    return _view;
+  }
 
   /// Optional factory for creating [SpriteBatchRenderer] instances.
   /// Defaults to the built-in [SpriteBatch] implementation.
@@ -427,8 +464,22 @@ class RenderingEngine {
   ///
   /// [canvas] - Flutter canvas to render to
   /// [size] - Size of the rendering area
+  ///
+  /// The frame, in order:
+  ///
+  /// 1. clear to [backgroundColor];
+  /// 2. [backgroundHooks], in screen space (parallax);
+  /// 3. post-process layers are opened, and the camera's pre-effects run;
+  /// 4. the [sceneRenderers], in screen space, from [view] — where a 3-D
+  ///    backend draws its image;
+  /// 5. the renderables, through the camera transform, layer by layer;
+  /// 6. [overlayHooks] — the ECS world, then anything drawn over it (an
+  ///    editor, at order 100);
+  /// 7. the camera's post-effects, the post-process layers closing, and the
+  ///    screen-space camera effects (fade, letterbox).
   void render(Canvas canvas, Size size) {
     if (!_initialized) return;
+    _viewStale = true;
 
     _renderStopwatch
       ..reset()
@@ -491,6 +542,14 @@ class RenderingEngine {
     // saveLayer is innermost — wrapping both subsystem renderables and ECS
     // entities, while post-process shaders see the already-blurred output.
     camera.effectManager.preRender(canvas, size);
+
+    // ── Scene renderers (a 3-D backend's image), screen space ─────────────
+    if (_sceneRenderers.isNotEmpty) {
+      final frameView = view;
+      for (final renderer in _sceneRenderers) {
+        if (renderer.enabled) renderer.render(canvas, frameView);
+      }
+    }
 
     // Save canvas state
     canvas.save();

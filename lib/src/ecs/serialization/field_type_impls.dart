@@ -182,6 +182,8 @@ class Vector2FieldType extends FieldType<Vector2> {
   @override
   String get id => 'vector2';
   @override
+  List<String> get channels => const ['x', 'y'];
+  @override
   Object? encode(Vector2 value) => {'x': value.x, 'y': value.y};
   @override
   Object? decode(Object? json, FieldConstraints c) =>
@@ -193,6 +195,12 @@ class Vector3FieldType extends FieldType<Vector3> {
   @override
   String get id => 'vector3';
   @override
+  List<String> get channels => const ['x', 'y', 'z'];
+
+  /// A 2-D scene shows x and y; z (depth) keeps its value.
+  @override
+  Set<String> get channels2D => const {'x', 'y'};
+  @override
   Object? encode(Vector3 value) => {'x': value.x, 'y': value.y, 'z': value.z};
   @override
   Object? decode(Object? json, FieldConstraints c) => json is Map
@@ -202,6 +210,34 @@ class Vector3FieldType extends FieldType<Vector3> {
           _toDouble(json['z']),
         )
       : json;
+}
+
+/// A rotation as three Euler angles in radians, `{x, y, z}` — the engine's
+/// one convention, `q = qY · qX · qZ` (see `Quaternion`). The value is a
+/// [Vector3] of angles. A 2-D scene shows only z, the angle in the plane.
+///
+/// A plain number reads as a turn about Z, which is what a rotation was
+/// before it had three angles.
+class EulerFieldType extends FieldType<Vector3> {
+  const EulerFieldType();
+  @override
+  String get id => 'euler';
+  @override
+  List<String> get channels => const ['x', 'y', 'z'];
+  @override
+  Set<String> get channels2D => const {'z'};
+  @override
+  Object? encode(Vector3 value) => {'x': value.x, 'y': value.y, 'z': value.z};
+  @override
+  Object? decode(Object? json, FieldConstraints c) => switch (json) {
+    Map() => Vector3(
+      _toDouble(json['x']),
+      _toDouble(json['y']),
+      _toDouble(json['z']),
+    ),
+    num() => Vector3(0, 0, json.toDouble()),
+    _ => json,
+  };
 }
 
 class ColorFieldType extends FieldType<Color> {
@@ -219,6 +255,8 @@ class OffsetFieldType extends FieldType<Offset> {
   const OffsetFieldType();
   @override
   String get id => 'offset';
+  @override
+  List<String> get channels => const ['dx', 'dy'];
   @override
   Object? encode(Offset value) => {'dx': value.dx, 'dy': value.dy};
   @override

@@ -4,3 +4,4 @@
 library;
 
 export 'entity_spatial_grid.dart';
+export 'spatial_index.dart';

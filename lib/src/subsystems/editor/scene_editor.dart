@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../core/dimensions.dart';
 import '../rendering/impl/renderable.dart';
 import 'package:just_dart/just_dart.dart';
 import '_io_native.dart' if (dart.library.html) '_io_stub.dart';
@@ -95,19 +96,38 @@ class Scene {
   /// Scene name
   final String name;
 
-  /// Root node of the scene graph
+  /// Root of the legacy 2-D node tree.
+  ///
+  /// A scene's hierarchy is its entities — `ParentComponent` and
+  /// `ChildrenComponent` — with 3-D transforms. This tree is only the old
+  /// [SceneEditor]'s, is written to a file only when it has nodes, and goes
+  /// in 3.0 (deprecated, like [SceneNode], [SceneGraph] and [GameObject]).
   final SceneNode root = SceneNode('root');
 
-  /// Create a scene
-  Scene({required this.name});
+  /// How the scene is authored — 2-D (the default) or 3-D. Only an editor
+  /// reads it; every entity has a 3-D transform either way.
+  SceneMode mode;
 
-  /// Serialise this scene to a JSON-compatible map.
-  Map<String, dynamic> toJson() => {'name': name, 'root': root.toJson()};
+  /// Create a scene
+  Scene({required this.name, this.mode = SceneMode.twoD});
+
+  /// Serialise this scene to a JSON-compatible map: its name and mode (and
+  /// the legacy node tree, when an old [SceneEditor] built one).
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'mode': mode.id,
+    if (root.children.isNotEmpty) 'root': root.toJson(),
+  };
 
   /// Restore a [Scene] from a map produced by [toJson].
   factory Scene.fromJson(Map<String, dynamic> json) {
-    final scene = Scene(name: json['name'] as String);
-    final rootJson = json['root'] as Map<String, dynamic>;
+    final scene = Scene(
+      name: json['name'] as String,
+      mode: SceneMode.fromId(json['mode']),
+    );
+    final rootJson = json['root'];
+    // A scene file since format 6 has no node tree.
+    if (rootJson is! Map<String, dynamic>) return scene;
     // Restore root properties.
     final pos = rootJson['localPosition'] as Map<String, dynamic>;
     scene.root

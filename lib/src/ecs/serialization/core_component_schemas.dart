@@ -2,6 +2,7 @@ library;
 
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
+import '../../core/dimensions.dart';
 import 'package:just_dart/just_dart.dart';
 
 import '../components/components.dart';
@@ -24,6 +25,7 @@ abstract final class CoreComponentSchemas {
   static final layer = ComponentSchema<LayerComponent>(
     type: 'LayerComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Layer',
       group: 'Rendering',
       icon: Icons.layers,
@@ -94,6 +96,7 @@ abstract final class CoreComponentSchemas {
   static final checkpoint = ComponentSchema<CheckpointComponent>(
     type: 'CheckpointComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Checkpoint',
       group: 'Gameplay',
       icon: Icons.flag_outlined,
@@ -137,6 +140,7 @@ abstract final class CoreComponentSchemas {
   static final line = ComponentSchema<LineComponent>(
     type: 'LineComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Line',
       group: 'Rendering',
       icon: Icons.show_chart,
@@ -232,6 +236,7 @@ abstract final class CoreComponentSchemas {
   static final polygon = ComponentSchema<PolygonComponent>(
     type: 'PolygonComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Polygon',
       group: 'Rendering',
       icon: Icons.pentagon_outlined,
@@ -314,6 +319,7 @@ abstract final class CoreComponentSchemas {
   static final spriteAnimation = ComponentSchema<SpriteAnimationComponent>(
     type: 'SpriteAnimationComponent',
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Sprite Animation',
       group: 'Rendering',
       description:

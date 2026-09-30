@@ -99,10 +99,10 @@ void main() {
 
   test('TransformComponent keeps 3D rotation, and 2D saves stay unchanged', () {
     final tilted = roundTrip(
-      TransformComponent(rotationX: 0.3, rotationY: -0.2),
+      TransformComponent(euler: Vector3(0.3, -0.2, 0)),
     );
-    expect(tilted.rotationX, closeTo(0.3, 1e-9));
-    expect(tilted.rotationY, closeTo(-0.2, 1e-9));
+    expect(tilted.eulerX, closeTo(0.3, 1e-9));
+    expect(tilted.eulerY, closeTo(-0.2, 1e-9));
 
     final flat = ComponentCodecRegistry.instance.encode(TransformComponent())!;
     expect(flat.keys, isNot(contains('rotationX')));

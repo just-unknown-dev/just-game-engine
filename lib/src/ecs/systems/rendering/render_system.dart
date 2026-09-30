@@ -9,6 +9,7 @@ import '../../components/components.dart';
 import '../../../interfaces/interfaces.dart';
 import '../../../subsystems/rendering/impl/renderable.dart';
 import '../../../subsystems/rendering/impl/sprite_batch.dart';
+import '../../../subsystems/rendering/render_view.dart';
 import '../../serialization/component_definition.dart';
 import '../system_priorities.dart';
 import 'render_pass.dart';
@@ -58,6 +59,7 @@ class RenderSystem extends System {
     this.camera,
     SpriteBatchFactory? spriteBatchFactory,
     List<RenderPass>? passes,
+    this.viewOf,
   }) : _spriteBatchFactory =
            spriteBatchFactory ?? ((atlas) => SpriteBatch(atlas)),
        passes = List.unmodifiable(
@@ -67,6 +69,11 @@ class RenderSystem extends System {
 
   /// The extra passes this system runs; see the constructor.
   final List<RenderPass> passes;
+
+  /// Where painters and items get the frame's camera as matrices
+  /// ([RenderContext.view]) — `() => engine.rendering.view`, say. Null
+  /// leaves them without, which a 2-D painter never needs.
+  final RenderView Function()? viewOf;
 
   @override
   List<Type> get requiredComponents => [TransformComponent];
@@ -255,6 +262,7 @@ class RenderSystem extends System {
             size: size,
             camera: camera,
             interpolation: interpolation,
+            view: viewOf?.call(),
           ),
           entity,
         );
@@ -286,11 +294,11 @@ class RenderSystem extends System {
                     interpolation,
           );
           renderComp.renderable.rotation =
-              transform.prevRotation +
-              (transform.rotation - transform.prevRotation) * interpolation;
+              transform.prevAngle +
+              (transform.angle - transform.prevAngle) * interpolation;
         } else {
           renderComp.renderable.position.setFrom(transform.position);
-          renderComp.renderable.rotation = transform.rotation;
+          renderComp.renderable.rotation = transform.angle;
         }
         renderComp.renderable.scale.setFrom(transform.scale);
       }
@@ -411,6 +419,7 @@ class RenderSystem extends System {
         size: size,
         camera: camera,
         interpolation: interpolation,
+        view: viewOf?.call(),
       );
       // What a hidden map layer holds is hidden in every pass — text too.
       bool passFilter(Entity e) =>

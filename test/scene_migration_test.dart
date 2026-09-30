@@ -79,9 +79,10 @@ void main() {
           },
         ]),
       );
+      // Through to format 6: z, and the angle as a three-angle rotation.
       expect(componentsOf(out).single['fields'], {
-        'position': {'x': 1.0, 'y': 2.0},
-        'rotation': 0.5,
+        'position': {'x': 1.0, 'y': 2.0, 'z': 0.0},
+        'rotation': {'x': 0.0, 'y': 0.0, 'z': 0.5},
         'scale': {'x': 2.0, 'y': 2.0, 'z': 1.0},
       });
     },
@@ -102,7 +103,7 @@ void main() {
       );
       final c = componentsOf(out);
       expect(c[0]['fields'], {
-        'velocity': {'x': 3.0, 'y': 4.0},
+        'velocity': {'x': 3.0, 'y': 4.0, 'z': 0.0},
         'maxSpeed': 9.0,
       });
       expect(c[1]['fields'], {

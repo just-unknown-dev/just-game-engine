@@ -38,7 +38,7 @@ class RotateEffect extends DeterministicEffect {
     if (transform == null) return;
 
     if (prevElapsed == 0) {
-      _capturedFrom = from ?? transform.rotation;
+      _capturedFrom = from ?? transform.angle;
     }
     final effectiveFrom = _capturedFrom;
     if (effectiveFrom == null) return;
@@ -46,7 +46,7 @@ class RotateEffect extends DeterministicEffect {
     final totalDelta = to - effectiveFrom;
     final prevEased = EffectEasings.resolve(easing, tAt(prevElapsed));
     final currEased = EffectEasings.resolve(easing, tAt(currElapsed));
-    transform.rotation += totalDelta * (currEased - prevEased);
+    transform.angle += totalDelta * (currEased - prevEased);
   }
 
   @override

@@ -107,7 +107,7 @@ class PhysicsSystem extends System {
           mass: comp.isStatic ? 0.0 : comp.mass,
           restitution: comp.restitution,
           drag: comp.drag,
-          angle: transform.rotation,
+          angle: transform.angle,
           useGravity: !comp.isStatic,
           gravityScale: comp.gravityScale,
           bodyType: comp.effectiveBodyType,
@@ -192,7 +192,7 @@ class PhysicsSystem extends System {
       // value back from the body a moment ago.
       final dx = (transform.position.x - body.position.x).abs();
       final dy = (transform.position.y - body.position.y).abs();
-      final dAngle = (transform.rotation - body.angle).abs();
+      final dAngle = (transform.angle - body.angle).abs();
       if (dx > _teleportEpsilon ||
           dy > _teleportEpsilon ||
           dAngle > _teleportAngleEpsilon) {
@@ -200,7 +200,7 @@ class PhysicsSystem extends System {
           body,
           transform.position.x,
           transform.position.y,
-          angle: transform.rotation,
+          angle: transform.angle,
         );
       }
       if (velocityComp != null) {
@@ -249,11 +249,9 @@ class PhysicsSystem extends System {
 
       final transform = entity.getComponent<TransformComponent>();
       if (transform != null) {
-        // Capture previous positions for sub-frame render interpolation.
-        transform.prevPosition.setFrom(transform.position);
-        transform.prevRotation = transform.rotation;
-        transform.setPositionXY(body.position.x, body.position.y);
-        transform.rotation = body.angle;
+        // Capture previous pose for sub-frame render interpolation.
+        transform.capturePrevious();
+        transform.setPlanarPose(body.position.x, body.position.y, body.angle);
       }
 
       final velocityComp = entity.getComponent<VelocityComponent>();

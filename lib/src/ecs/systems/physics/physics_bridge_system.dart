@@ -30,14 +30,12 @@ class PhysicsBridgeSystem extends System {
       final ref = entity.getComponent<PhysicsBodyRefComponent>()!;
       final body = ref.body;
 
-      // Capture previous positions for sub-frame render interpolation.
-      // Use setFrom (in-place copy) — never alias the same mutable Vector3.
-      transform.prevPosition.setFrom(transform.position);
-      transform.prevRotation = transform.rotation;
+      // Capture previous pose for sub-frame render interpolation.
+      transform.capturePrevious();
 
-      // Write subsystem body position → ECS transform
-      transform.setPositionXY(body.position.x, body.position.y);
-      transform.rotation = body.angle;
+      // Write subsystem body pose → ECS transform (z and the X/Y tilts are
+      // the 2-D body's to keep, not to touch).
+      transform.setPlanarPose(body.position.x, body.position.y, body.angle);
 
       // Optionally sync velocity if the entity has a VelocityComponent
       final vel = entity.getComponent<VelocityComponent>();

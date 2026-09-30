@@ -40,6 +40,9 @@ class Entity {
   /// Whether this entity is still owned by a world (not destroyed).
   bool get isAlive => _world != null;
 
+  /// The world this entity lives in — null once it has been destroyed.
+  World? get world => _world;
+
   /// Add a component to this entity
   void addComponent(Component component) {
     _world?._addComponentToEntity(this, component);

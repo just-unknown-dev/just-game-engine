@@ -4,6 +4,7 @@
 /// This is the entry point for initializing and running the game engine.
 library;
 
+import 'engine_config.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 
@@ -198,8 +199,11 @@ class Engine implements ILifecycle {
   ///
   /// This must be called before starting the engine.
   /// Returns true if initialization was successful.
+  ///
+  /// [config] makes choices that cannot change afterwards — which rendering
+  /// engine to build, for one.
   @override
-  Future<bool> initialize() async {
+  Future<bool> initialize({EngineConfig config = const EngineConfig()}) async {
     if (_state != EngineState.uninitialized) {
       debugPrint('Engine is already initialized');
       return false;
@@ -220,7 +224,7 @@ class Engine implements ILifecycle {
       );
 
       // Initialize subsystems
-      await _initializeSubsystems();
+      await _initializeSubsystems(config);
 
       // Register subsystems with system manager
       _registerSystems();
@@ -236,7 +240,7 @@ class Engine implements ILifecycle {
   }
 
   /// Initialize all engine subsystems
-  Future<void> _initializeSubsystems() async {
+  Future<void> _initializeSubsystems(EngineConfig config) async {
     debugPrint('Initializing subsystems...');
 
     // Create subsystem instances
@@ -244,7 +248,7 @@ class Engine implements ILifecycle {
     // async initialization needed, it's ready immediately.
     // (terminal is a final field initialised at declaration)
 
-    rendering = RenderingEngine();
+    rendering = config.createRendering?.call() ?? RenderingEngine();
     physics = PhysicsEngine();
     input = InputService();
     audio = AudioEngine();
@@ -270,6 +274,9 @@ class Engine implements ILifecycle {
     parallax.initialize();
     rendering.camera = cameraSystem.mainCamera;
     rendering.backgroundHooks.add(parallax.render);
+    // Plugins draw over the world (order 100 — after the world's own hook,
+    // which GameWidget adds at the default order).
+    rendering.overlayHooks.addIfAbsent(plugins.renderOverlay, order: 100);
     rendering.initialize();
     physics.initialize();
     // Audio is optional — catch plugin-unavailable errors so headless /

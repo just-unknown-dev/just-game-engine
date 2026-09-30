@@ -55,6 +55,15 @@ abstract class FieldType<T> {
   Object? decodeAny(Object? json, FieldConstraints constraints) =>
       json == null ? null : decode(json, constraints);
 
+  /// The named parts of a vector-like value as saved — `['x', 'y', 'z']` —
+  /// or empty for a single value. What a timeline keys one by one, and what
+  /// an inspector lays out on a row.
+  List<String> get channels => const [];
+
+  /// Which of [channels] a 2-D scene shows: a position's x and y, a
+  /// rotation's z. All of them unless a type says otherwise.
+  Set<String> get channels2D => channels.toSet();
+
   @override
   String toString() => 'FieldType($id)';
 }
@@ -82,6 +91,9 @@ abstract final class FieldTypes {
   static const map = MapFieldType();
   static const vector2 = Vector2FieldType();
   static const vector3 = Vector3FieldType();
+
+  /// A rotation as Euler angles in radians, `{x, y, z}`.
+  static const euler = EulerFieldType();
   static const color = ColorFieldType();
   static const offset = OffsetFieldType();
   static const offsetList = OffsetListFieldType();
@@ -118,6 +130,7 @@ abstract final class FieldTypes {
     map,
     vector2,
     vector3,
+    euler,
     color,
     offset,
     offsetList,

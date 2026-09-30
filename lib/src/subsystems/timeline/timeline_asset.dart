@@ -2,6 +2,7 @@
 /// the component that plays it.
 library;
 
+import 'timeline_format.dart';
 import 'dart:convert';
 
 import 'timeline_track.dart';
@@ -51,8 +52,10 @@ class TimelineAsset {
     ensureBuiltInTracks();
   }
 
-  /// The version of the file format this engine writes.
-  static const int formatVersion = 1;
+  /// The version of the file format this engine writes
+  /// ([TimelineFormat.current]). Older files are brought up to it as they
+  /// are read.
+  static const int formatVersion = TimelineFormat.current;
 
   /// What a timeline file's name ends with.
   static const String fileExtension = 'timeline.json';
@@ -152,8 +155,9 @@ class TimelineAsset {
 
   String encode() => const JsonEncoder.withIndent('  ').convert(toJson());
 
-  factory TimelineAsset.fromJson(Map<String, dynamic> json) {
+  factory TimelineAsset.fromJson(Map<String, dynamic> source) {
     ensureBuiltInTracks();
+    final json = TimelineFormat.migrate(source);
     return TimelineAsset(
       name: json['name'] as String? ?? '',
       duration: (json['duration'] as num?)?.toDouble() ?? 1.0,

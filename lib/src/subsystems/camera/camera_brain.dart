@@ -338,7 +338,11 @@ class CameraBrain {
     var state = CameraState(
       position: transform.position.toOffset(),
       zoom: vcam.zoom,
-      rotation: transform.rotation + vcam.dutch,
+      rotation: transform.angle + vcam.dutch,
+      z: transform.position.z,
+      pitch: transform.eulerX,
+      yaw: transform.eulerY,
+      lens: vcam.lens,
     );
     // A manager's shot is whatever its children make it; its own stages —
     // a confiner, say — then apply whichever child is showing.

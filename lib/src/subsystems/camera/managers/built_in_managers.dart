@@ -108,6 +108,10 @@ class MixerManager extends CameraManager<CameraMixerComponent> {
     var position = Offset.zero;
     var logZoom = 0.0;
     var rotation = 0.0;
+    var z = 0.0, pitch = 0.0, yaw = 0.0;
+    // The lens is the heaviest child's: projections do not average.
+    CameraState? heaviest;
+    var heaviestWeight = 0.0;
     for (final child in context.children) {
       final weight = mix.weights[child.name] ?? 0;
       if (weight <= 0) continue;
@@ -118,12 +122,23 @@ class MixerManager extends CameraManager<CameraMixerComponent> {
       // Lenses mix geometrically, like they blend.
       logZoom += math.log(shot.zoom <= 0 ? 0.0001 : shot.zoom) * weight;
       rotation += shot.rotation * weight;
+      z += shot.z * weight;
+      pitch += shot.pitch * weight;
+      yaw += shot.yaw * weight;
+      if (weight > heaviestWeight) {
+        heaviest = shot;
+        heaviestWeight = weight;
+      }
     }
-    if (total <= 0) return null;
+    if (total <= 0 || heaviest == null) return null;
     return CameraState(
       position: position / total,
       zoom: math.exp(logZoom / total),
       rotation: rotation / total,
+      z: z / total,
+      pitch: pitch / total,
+      yaw: yaw / total,
+      lens: heaviest.lens,
     );
   }
 }

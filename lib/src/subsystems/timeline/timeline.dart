@@ -3,6 +3,7 @@
 library;
 
 export 'timeline_asset.dart';
+export 'timeline_format.dart';
 export 'timeline_keys.dart';
 export 'timeline_player.dart';
 export 'timeline_signals.dart';

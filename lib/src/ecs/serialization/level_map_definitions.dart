@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
+import '../../core/dimensions.dart';
 
 import '../../subsystems/level_map/level_map_data.dart';
 import '../components/level_map/level_map_component.dart';
@@ -15,6 +16,7 @@ abstract final class LevelMapDefinitions {
     // Saved as a tile map before the rename.
     aliases: const ['TileMapComponent'],
     hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
       name: 'Map',
       group: 'Rendering',
       description:

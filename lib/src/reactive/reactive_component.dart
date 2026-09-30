@@ -104,7 +104,12 @@ mixin ReactiveComponent on Component {
 /// A reactive transform component with built-in signals.
 class ReactiveTransformComponent extends TransformComponent
     with ReactiveComponent {
-  ReactiveTransformComponent({super.position, super.rotation, super.scale});
+  ReactiveTransformComponent({
+    super.position,
+    super.angle,
+    super.euler,
+    super.scale,
+  });
 
   @override
   set position(Vector3 value) {
@@ -113,10 +118,10 @@ class ReactiveTransformComponent extends TransformComponent
   }
 
   @override
-  set rotation(double value) {
-    if (super.rotation != value) {
-      super.rotation = value;
-      notifyChange('rotation');
+  set angle(double value) {
+    if (super.angle != value) {
+      super.angle = value;
+      notifyChange('angle');
     }
   }
 
@@ -133,9 +138,9 @@ class ReactiveTransformComponent extends TransformComponent
   }
 
   @override
-  void rotate(double angle) {
-    super.rotate(angle);
-    notifyChange('rotation');
+  void rotate(double delta) {
+    super.rotate(delta);
+    notifyChange('angle');
   }
 }
 

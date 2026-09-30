@@ -5,6 +5,7 @@ library;
 
 // Core components
 export 'core/transform_component.dart';
+export 'core/euler_rotation.dart';
 export 'core/velocity_component.dart';
 export 'core/generated_entity_component.dart';
 
