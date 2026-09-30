@@ -10,8 +10,8 @@ import '../system_priorities.dart';
 
 /// Moves each target group's entity to the weighted centre of its members.
 ///
-/// A member named by tag alone is every entity with that tag — so one
-/// member, tag `player`, frames all the players however many have joined.
+/// A member that names a tag is every entity with that tag — so one member,
+/// tag `player`, frames all the players however many have joined.
 ///
 /// Runs before the brain, so a camera following the group frames where the
 /// group *is* this frame.
@@ -38,9 +38,9 @@ class CameraTargetGroupSystem extends System {
       Rect? box;
       var found = 0;
       for (final member in group.members) {
-        for (final target in _targets.resolveMembers(
-          name: member.name,
-          tag: member.tag,
+        for (final target in _targets.resolveTargetAll(
+          member.target,
+          owner: entity,
         )) {
           if (identical(target, entity)) continue;
           final at = CameraTargetResolver.positionOf(target);
@@ -116,9 +116,9 @@ class CameraTriggerSystem extends System {
     final centre = CameraTargetResolver.positionOf(entity);
     if (centre == null) return false;
     final region = trigger.regionAt(centre);
-    for (final target in _targets.resolveMembers(
-      name: trigger.targetName,
-      tag: trigger.targetTag,
+    for (final target in _targets.resolveTargetAll(
+      trigger.target,
+      owner: entity,
     )) {
       final at = CameraTargetResolver.positionOf(target);
       if (at != null && region.contains(at)) return true;

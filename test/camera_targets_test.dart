@@ -271,14 +271,29 @@ void main() {
     final group = _roundTrip(
       CameraTargetGroupComponent(
         members: [
-          CameraGroupMember(name: 'A', weight: 2, radius: 30),
-          CameraGroupMember(tag: 'enemy', weight: 0.5),
+          CameraGroupMember(
+            target: const EntityTarget.name('A'),
+            weight: 2,
+            radius: 30,
+          ),
+          CameraGroupMember(
+            target: const EntityTarget.tag('enemy'),
+            weight: 0.5,
+          ),
         ],
       ),
     );
     expect(group.members.map((m) => m.toJson()), [
-      {'name': 'A', 'tag': '', 'weight': 2.0, 'radius': 30.0},
-      {'name': '', 'tag': 'enemy', 'weight': 0.5, 'radius': 0.0},
+      {
+        'target': {'name': 'A'},
+        'weight': 2.0,
+        'radius': 30.0,
+      },
+      {
+        'target': {'tag': 'enemy'},
+        'weight': 0.5,
+        'radius': 0.0,
+      },
     ]);
 
     final framing = _roundTrip(

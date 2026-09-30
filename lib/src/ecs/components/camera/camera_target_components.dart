@@ -5,28 +5,48 @@ import 'package:flutter/painting.dart' show Offset, Rect;
 
 import '../../../ecs/ecs.dart';
 
-/// One entity a target group keeps in shot.
+/// Who a target group keeps in shot: one entity, or every entity with a tag.
 class CameraGroupMember {
   CameraGroupMember({
-    this.name = '',
-    this.tag = '',
+    EntityTarget target = EntityTarget.none,
+    @Deprecated('Use target: EntityTarget.name(…).') String? name,
+    @Deprecated('Use target: EntityTarget.tag(…).') String? tag,
     this.weight = 1.0,
     this.radius = 0.0,
-  });
+  }) : target = name != null || tag != null
+           ? EntityTarget.fromNameOrTag(name ?? '', tag ?? '')
+           : target;
 
+  /// Reads [toJson]'s shape, and the old `{name, tag}` one.
   factory CameraGroupMember.fromJson(Map<Object?, Object?> json) =>
       CameraGroupMember(
-        name: json['name'] as String? ?? '',
-        tag: json['tag'] as String? ?? '',
+        target: json.containsKey('target')
+            ? EntityTarget.fromJson(json['target'])
+            : EntityTarget.fromNameOrTag(
+                json['name'] as String? ?? '',
+                json['tag'] as String? ?? '',
+              ),
         weight: (json['weight'] as num?)?.toDouble() ?? 1.0,
         radius: (json['radius'] as num?)?.toDouble() ?? 0.0,
       );
 
-  /// Entity name, tried before [tag].
-  String name;
+  /// The entity by name, or every entity with a tag — one member, tag
+  /// `player`, frames all the players however many have joined.
+  EntityTarget target;
 
-  /// `TagComponent.tag`.
-  String tag;
+  /// The name [target] names, or empty.
+  @Deprecated('Use target.')
+  String get name => target.isName ? target.value : '';
+
+  /// The tag [target] names, or empty.
+  @Deprecated('Use target.')
+  String get tag => target.isTag ? target.value : '';
+
+  @Deprecated('Use target = EntityTarget.name(…).')
+  set name(String value) => target = target.afterSettingName(value);
+
+  @Deprecated('Use target = EntityTarget.tag(…).')
+  set tag(String value) => target = target.afterSettingTag(value);
 
   /// How hard it pulls the centre. `0` keeps it in shot without pulling.
   double weight;
@@ -35,8 +55,7 @@ class CameraGroupMember {
   double radius;
 
   Map<String, dynamic> toJson() => {
-    'name': name,
-    'tag': tag,
+    'target': target.toJson(),
     'weight': weight,
     'radius': radius,
   };
@@ -107,20 +126,36 @@ class CameraTriggerComponent extends Component {
   CameraTriggerComponent({
     this.width = 640,
     this.height = 360,
-    this.targetName = '',
-    this.targetTag = 'player',
+    EntityTarget target = const EntityTarget.tag('player'),
+    @Deprecated('Use target: EntityTarget.name(…).') String? targetName,
+    @Deprecated('Use target: EntityTarget.tag(…).') String? targetTag,
     this.cameraName = '',
     this.mode = CameraTriggerMode.enableWhileInside,
     this.amount = 10,
     this.oneShot = false,
-  });
+  }) : target = targetName != null || targetTag != null
+           ? EntityTarget.fromNameOrTag(targetName ?? '', targetTag ?? '')
+           : target;
 
   double width;
   double height;
 
-  /// Who sets it off: an entity name, tried before [targetTag].
-  String targetName;
-  String targetTag;
+  /// Who sets it off: one entity by name, or any entity with a tag.
+  EntityTarget target;
+
+  /// The name [target] names, or empty.
+  @Deprecated('Use target.')
+  String get targetName => target.isName ? target.value : '';
+
+  /// The tag [target] names, or empty.
+  @Deprecated('Use target.')
+  String get targetTag => target.isTag ? target.value : '';
+
+  @Deprecated('Use target = EntityTarget.name(…).')
+  set targetName(String value) => target = target.afterSettingName(value);
+
+  @Deprecated('Use target = EntityTarget.tag(…).')
+  set targetTag(String value) => target = target.afterSettingTag(value);
 
   /// The camera it switches. Empty means the virtual camera on this same
   /// entity — a zone that carries its own shot.

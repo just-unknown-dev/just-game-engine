@@ -1,15 +1,5 @@
+/// [TagComponent] lives in the ECS core now, beside the world's tag index;
+/// this path still exports it.
 library;
 
-import '../../ecs.dart';
-
-/// Tag component - Simple marker component
-class TagComponent extends Component {
-  /// Tag name
-  String tag;
-
-  /// Create a tag component
-  TagComponent(this.tag);
-
-  @override
-  String toString() => 'Tag($tag)';
-}
+export '../../ecs.dart' show TagComponent, EntityTags, TagNames;

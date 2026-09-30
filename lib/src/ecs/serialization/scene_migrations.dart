@@ -777,6 +777,173 @@ class V5ToV6 extends SceneMigration {
   static double _d(Object? v) => v is num ? v.toDouble() : 0.0;
 }
 
+/// v6 → v7: tags and targets.
+///
+/// * A `TagComponent` carries several tags: `tag: 'x'` becomes
+///   `tags: ['x']`.
+/// * A `SpawnComponent` names a spawner, not a tag: `tag` becomes `spawner`.
+/// * Every pair of fields that found an entity by name, else by tag, becomes
+///   one target ([targetPairs]), and so does a camera group member's
+///   `name` and `tag`. Where both were set the name is kept if an entity in
+///   the scene has it — otherwise the tag, since a name that matches
+///   nothing was only ever falling back to it. [report] says which was
+///   kept, and why.
+///
+/// A package with its own pairs adds them to [targetPairs]; other rewrites
+/// go in [perType] or [perEntity].
+class V6ToV7 extends SceneMigration {
+  const V6ToV7();
+
+  @override
+  int get from => 6;
+
+  /// Component type → (name field, tag field, the target field they become).
+  static final Map<String, (String, String, String)> targetPairs = {
+    'VirtualCameraComponent': ('followName', 'followTag', 'follow'),
+    'CameraTriggerComponent': ('targetName', 'targetTag', 'target'),
+    'CameraStateDrivenComponent': ('sourceName', 'sourceTag', 'source'),
+    'TimelineTriggerComponent': ('targetName', 'targetTag', 'target'),
+  };
+
+  /// Per-type rewrites of a component's `fields`, applied after the
+  /// built-in ones.
+  static final Map<String, void Function(Map<String, dynamic> fields)>
+  perType = {};
+
+  /// Entity-level rules a package adds for its own components.
+  static final List<EntityMigration> perEntity = [];
+
+  /// Where the last run had to choose between a name and a tag.
+  static final List<String> report = [];
+
+  @override
+  Map<String, dynamic> apply(Map<String, dynamic> json) {
+    report.clear();
+    final list = json['entities'];
+    if (list is! List) return json;
+    final entities = list.whereType<Map<String, dynamic>>().toList();
+    final names = {
+      for (final e in entities)
+        if (e['name'] case final String name) name,
+    };
+    for (final entity in entities) {
+      final components = entity['components'];
+      if (components is List) {
+        for (final c in components) {
+          if (c is! Map) continue;
+          final fields = c['fields'];
+          if (fields is! Map<String, dynamic>) continue;
+          final type = c['type'];
+          final where = '${entity['name'] ?? '(unnamed)'}';
+          switch (type) {
+            case 'TagComponent':
+              final tag = fields['tag'];
+              _replace(fields, const ['tag'], 'tags', [
+                if (tag is String && tag.trim().isNotEmpty) tag.trim(),
+              ]);
+            case 'SpawnComponent':
+              if (fields.containsKey('tag')) {
+                _replace(fields, const ['tag'], 'spawner', fields['tag']);
+              }
+            case 'CameraTargetGroupComponent':
+              final members = fields['members'];
+              if (members is List) {
+                for (final m in members.whereType<Map<String, dynamic>>()) {
+                  if (!m.containsKey('name') && !m.containsKey('tag')) {
+                    continue;
+                  }
+                  _replace(
+                    m,
+                    const ['name', 'tag'],
+                    'target',
+                    targetFor(
+                      m['name'],
+                      m['tag'],
+                      names,
+                      where: '$where (camera group member)',
+                    ),
+                  );
+                }
+              }
+          }
+          if (targetPairs[type] case (final n, final t, final target)) {
+            if (fields.containsKey(n) || fields.containsKey(t)) {
+              _replace(
+                fields,
+                [n, t],
+                target,
+                targetFor(
+                  fields[n],
+                  fields[t],
+                  names,
+                  where: '$where ($type.$target)',
+                ),
+              );
+            }
+          }
+          perType[type]?.call(fields);
+        }
+      }
+      for (final migrate in perEntity) {
+        migrate(entity, json);
+      }
+    }
+    return json;
+  }
+
+  /// [fields] with [old] keys replaced by one [key] holding [value], where
+  /// the first of them was — so a migrated file reads in the order the
+  /// editor writes it.
+  static void _replace(
+    Map<String, dynamic> fields,
+    List<String> old,
+    String key,
+    Object? value,
+  ) {
+    final rebuilt = <String, dynamic>{};
+    var placed = false;
+    for (final e in fields.entries) {
+      if (old.contains(e.key)) {
+        if (!placed) rebuilt[key] = value;
+        placed = true;
+      } else if (e.key != key) {
+        rebuilt[e.key] = e.value;
+      }
+    }
+    if (!placed) rebuilt[key] = value;
+    fields
+      ..clear()
+      ..addAll(rebuilt);
+  }
+
+  /// The saved target an old name and tag pair becomes, given the entity
+  /// [names] in the scene. See the class comment for the rule.
+  static Object? targetFor(
+    Object? name,
+    Object? tag,
+    Set<String> names, {
+    String? where,
+  }) {
+    final n = name is String ? name.trim() : '';
+    final t = tag is String ? tag.trim() : '';
+    if (n.isEmpty && t.isEmpty) return null;
+    if (n.isEmpty) return {'tag': t};
+    if (t.isEmpty) return {'name': n};
+    if (names.contains(n)) {
+      if (where != null) {
+        report.add('$where: kept the entity "$n"; the tag "$t" beside it was '
+            'only used when "$n" was missing, and is dropped.');
+      }
+      return {'name': n};
+    }
+    if (where != null) {
+      report.add('$where: nothing in the scene is called "$n", so it was '
+          'always falling back to the tag "$t" — it now names the tag.');
+    }
+    return {'tag': t};
+  }
+}
+
 /// Every migration, in order.
 abstract final class SceneMigrations {
   static const List<SceneMigration> chain = [
@@ -786,5 +953,6 @@ abstract final class SceneMigrations {
     V3ToV4(),
     V4ToV5(),
     V5ToV6(),
+    V6ToV7(),
   ];
 }

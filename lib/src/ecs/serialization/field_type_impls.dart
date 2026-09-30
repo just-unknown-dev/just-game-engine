@@ -6,6 +6,7 @@ import 'package:flutter/painting.dart';
 import 'package:just_dart/just_dart.dart';
 
 import '../components/components.dart';
+import '../ecs.dart' show EntityTarget, EntityTargetKind, TagNames;
 import 'field_type.dart';
 
 double _toDouble(Object? v) => v is num ? v.toDouble() : 0.0;
@@ -84,6 +85,80 @@ class EntityRefFieldType extends FieldType<String> {
   Object? encode(String value) => value;
   @override
   Object? decode(Object? json, FieldConstraints c) => json;
+}
+
+/// A tag, from the project's tag list. Stored as text; the editor offers the
+/// tags the project knows and a way to make a new one.
+class TagRefFieldType extends FieldType<String> {
+  const TagRefFieldType();
+  @override
+  String get id => 'tagRef';
+  @override
+  Object? encode(String value) => value;
+  @override
+  Object? decode(Object? json, FieldConstraints c) => json;
+}
+
+/// The id of a spawner the game registers, as a spawn point names it.
+/// Stored as text; the editor offers the spawners it was given.
+class SpawnerRefFieldType extends FieldType<String> {
+  const SpawnerRefFieldType();
+  @override
+  String get id => 'spawnerRef';
+  @override
+  Object? encode(String value) => value;
+  @override
+  Object? decode(Object? json, FieldConstraints c) => json;
+}
+
+/// Several tags: a list of names, blanks and repeats dropped. What a
+/// [TagComponent] saves.
+class TagListFieldType extends FieldType<List<String>> {
+  const TagListFieldType();
+  @override
+  String get id => 'tagList';
+  @override
+  Object? encode(List<String> value) => [...TagNames.normalize(value)];
+  @override
+  Object? decode(Object? json, FieldConstraints c) {
+    final names = switch (json) {
+      String() => [json],
+      List() => json.whereType<String>(),
+      _ => null,
+    };
+    return names == null ? json : [...TagNames.normalize(names)];
+  }
+}
+
+/// Who a component means: an [EntityTarget] — the entity itself, one by
+/// name, or entities by tag. Saved as `'self'`, `{'name': …}`, `{'tag': …}`
+/// or null for nobody.
+///
+/// [allowSelf] is presentation: whether an editor offers "Self". A camera
+/// following itself means nothing; a timeline animating its own entity is
+/// the usual case.
+class EntityTargetFieldType extends FieldType<EntityTarget> {
+  const EntityTargetFieldType({this.allowSelf = false});
+
+  final bool allowSelf;
+
+  /// The kinds an editor offers.
+  List<EntityTargetKind> get kinds => [
+    if (allowSelf) EntityTargetKind.self,
+    EntityTargetKind.name,
+    EntityTargetKind.tag,
+  ];
+
+  @override
+  String get id => 'entityTarget';
+  @override
+  Object? encode(EntityTarget value) => value.toJson();
+  @override
+  Object? decode(Object? json, FieldConstraints c) =>
+      EntityTarget.fromJson(json);
+  @override
+  Object? decodeAny(Object? json, FieldConstraints constraints) =>
+      EntityTarget.fromJson(json);
 }
 
 /// An enum stored by name and parsed back with [FieldConstraints.enumParser].

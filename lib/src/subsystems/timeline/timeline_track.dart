@@ -3,66 +3,34 @@
 library;
 
 import '../../ecs/ecs.dart';
-import '../../ecs/components/components.dart' show TagComponent;
 import '../../ecs/serialization/component_definition.dart' show SchemaField;
 import 'timeline_asset.dart';
 import 'timeline_player.dart';
 
-/// Who a track acts on.
-enum TrackBindingKind {
-  /// The entity holding the player — what makes a timeline reusable.
-  self,
-
-  /// The active entity with this name.
-  name,
-
-  /// The first active entity with this tag.
-  tag,
-}
+/// Who a track acts on: [EntityTargetKind], by its timeline name.
+typedef TrackBindingKind = EntityTargetKind;
 
 /// Who a track acts on, looked up when the timeline plays — never an id, so
 /// a timeline asset fits any scene that has the names it asks for.
-class TrackBinding {
-  const TrackBinding.self() : kind = TrackBindingKind.self, value = '';
-  const TrackBinding.name(this.value) : kind = TrackBindingKind.name;
-  const TrackBinding.tag(this.value) : kind = TrackBindingKind.tag;
+///
+/// An [EntityTarget] whose default is the timeline's own entity rather than
+/// nobody: a track with no binding animates whoever plays it.
+class TrackBinding extends EntityTarget {
+  const TrackBinding.self() : super.self();
+  const TrackBinding.name(super.value) : super.name();
+  const TrackBinding.tag(super.value) : super.tag();
 
   static const TrackBinding owner = TrackBinding.self();
 
-  final TrackBindingKind kind;
-  final String value;
-
-  bool get isSelf => kind == TrackBindingKind.self;
-
-  /// The entity this means for a timeline played by [owner], or null.
-  /// Entities switched off are passed over unless [includeInactive].
-  Entity? resolve(World world, Entity? owner, {bool includeInactive = false}) {
-    switch (kind) {
-      case TrackBindingKind.self:
-        return owner;
-      case TrackBindingKind.name:
-        final found = world.findEntityByName(value);
-        return found != null && (includeInactive || found.isActive)
-            ? found
-            : null;
-      case TrackBindingKind.tag:
-        for (final entity in world.query([TagComponent])) {
-          if ((includeInactive || entity.isActive) &&
-              entity.getComponent<TagComponent>()!.tag == value) {
-            return entity;
-          }
-        }
-        return null;
-    }
-  }
-
-  /// What a person reads: `Self`, `Door`, `#enemy`.
-  String get label => switch (kind) {
-    TrackBindingKind.self => 'Self',
-    TrackBindingKind.name => value,
-    TrackBindingKind.tag => '#$value',
+  /// [target] as a binding; nobody becomes the timeline's own entity.
+  static TrackBinding of(EntityTarget target) => switch (target.kind) {
+    _ when target.isNone => owner,
+    EntityTargetKind.self => owner,
+    EntityTargetKind.name => TrackBinding.name(target.value),
+    EntityTargetKind.tag => TrackBinding.tag(target.value),
   };
 
+  @override
   Object toJson() => switch (kind) {
     TrackBindingKind.self => 'self',
     TrackBindingKind.name => {'name': value},
@@ -76,13 +44,6 @@ class TrackBinding {
     }
     return owner;
   }
-
-  @override
-  bool operator ==(Object other) =>
-      other is TrackBinding && other.kind == kind && other.value == value;
-
-  @override
-  int get hashCode => Object.hash(kind, value);
 }
 
 /// What a running track can reach: the world, who is playing the timeline,

@@ -692,17 +692,26 @@ abstract final class CoreDefinitions {
     hints: const ComponentHints(
       name: 'Spawn Point',
       group: 'Gameplay',
-      description: 'Where a spawner places an entity, by tag.',
+      description: 'Where the game creates something when the level starts.',
       icon: Icons.person_pin_circle_rounded,
       accentColor: Color(0xFFFFB74D),
-      fields: {'tag': FieldHint(label: 'Tag')},
+      fields: {
+        'spawner': FieldHint(
+          label: 'Spawns',
+          description:
+              'What is created here, from the spawners the game '
+              'registers.',
+        ),
+      },
     ),
     create: SpawnComponent.new,
+    // Saved as `tag` until scene format 7.
     fields: [
-      _s(
-        'tag',
-        (c) => (c as SpawnComponent).tag,
-        (c, v) => (c as SpawnComponent).tag = v,
+      SchemaField(
+        name: 'spawner',
+        kind: FieldTypes.spawnerRef,
+        read: (c) => (c as SpawnComponent).spawner,
+        write: (c, v) => (c as SpawnComponent).spawner = v as String? ?? '',
       ),
     ],
   );
@@ -712,17 +721,23 @@ abstract final class CoreDefinitions {
     hints: const ComponentHints(
       name: 'Tag',
       group: 'Gameplay',
-      description: 'A label systems query by.',
+      description:
+          'Labels cameras, triggers and systems find this entity by. An '
+          'entity can carry several.',
       icon: Icons.label,
       accentColor: Color(0xFF66BB6A),
-      fields: {'tag': FieldHint(label: 'Tag')},
+      fields: {'tags': FieldHint(label: 'Tags')},
     ),
-    create: () => TagComponent(''),
+    create: TagComponent.new,
+    // Saved as one `tag` until scene format 7.
     fields: [
-      _s(
-        'tag',
-        (c) => (c as TagComponent).tag,
-        (c, v) => (c as TagComponent).tag = v,
+      SchemaField(
+        name: 'tags',
+        kind: FieldTypes.tagList,
+        read: (c) => (c as TagComponent).tags.toList(),
+        write: (c, v) => (c as TagComponent).tags = [
+          for (final t in v as List? ?? const []) '$t',
+        ],
       ),
     ],
   );

@@ -23,3 +23,5 @@ part 'base/world.dart';
 part 'base/command_buffer.dart';
 part 'base/event_bus.dart';
 part 'base/entity_prefab.dart';
+part 'base/tags.dart';
+part 'base/entity_target.dart';

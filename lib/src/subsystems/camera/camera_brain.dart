@@ -317,7 +317,7 @@ class CameraBrain {
   ) {
     final transform = camera.getComponent<TransformComponent>()!;
     final target = vcam.hasTarget
-        ? targets.resolve(name: vcam.followName, tag: vcam.followTag)
+        ? targets.resolveTarget(vcam.follow, owner: camera)
         : null;
     final context = CameraStageContext(
       brain: this,

@@ -5,7 +5,7 @@ import 'dart:math' as math;
 
 import '../../../ecs/ecs.dart';
 import '../../../ecs/components/core/transform_component.dart';
-import '../../../ecs/components/others/tag_component.dart';
+import '../../../ecs/serialization/tag_library.dart' show EngineTags;
 import '../../../ecs/systems/system_priorities.dart';
 import '../dialogue_manager.dart';
 import 'dialogue_component.dart';
@@ -28,11 +28,11 @@ import 'dialogue_component.dart';
 /// world.addSystem(DialogueSystem(manager: narrative, playerTag: 'player'));
 /// ```
 ///
-/// The system finds a "player" entity by querying for [TagComponent] with
-/// [playerTag] (`'player'` by default).  If none is found, proximity features
+/// The system finds a "player" entity by its tag, [playerTag] (`'player'`
+/// by default).  If none is found, proximity features
 /// are skipped (dialogue can still be triggered from game code).
 class DialogueSystem extends System {
-  DialogueSystem({required this.manager, this.playerTag = 'player'});
+  DialogueSystem({required this.manager, this.playerTag = EngineTags.player});
 
   /// The [DialogueManager] that owns all runners.
   final DialogueManager manager;
@@ -114,13 +114,10 @@ class DialogueSystem extends System {
   /// Returns the world-space position of the first entity tagged [playerTag],
   /// or `(null, null)` if none is found.
   (double?, double?) _playerPosition() {
-    final candidates = world
-        .query([TagComponent])
-        .where((e) => e.getComponent<TagComponent>()?.tag == playerTag);
+    final player = world.findTagged(playerTag);
+    if (player == null) return (null, null);
 
-    if (candidates.isEmpty) return (null, null);
-
-    final tf = candidates.first.getComponent<TransformComponent>();
+    final tf = player.getComponent<TransformComponent>();
     return tf != null ? (tf.position.x, tf.position.y) : (null, null);
   }
 }

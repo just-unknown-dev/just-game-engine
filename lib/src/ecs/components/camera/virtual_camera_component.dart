@@ -23,15 +23,16 @@ enum CameraStandbyUpdate {
 /// is where the shot sits when nothing moves it; the stage components on the
 /// same entity — framing, confiner, noise — are what move it.
 ///
-/// The target is named rather than referenced, by entity name or by tag, and
-/// looked up each frame. That is what lets a level's camera follow a player
-/// who does not exist until the game spawns one.
+/// The target is an [EntityTarget] — an entity name or a tag — looked up
+/// each frame. That is what lets a level's camera follow a player who does
+/// not exist until the game spawns one.
 class VirtualCameraComponent extends Component {
   VirtualCameraComponent({
     this.priority = 10,
     this.enabled = true,
-    this.followName = '',
-    this.followTag = '',
+    EntityTarget follow = EntityTarget.none,
+    @Deprecated('Use follow: EntityTarget.name(…).') String? followName,
+    @Deprecated('Use follow: EntityTarget.tag(…).') String? followTag,
     this.zoom = 1.0,
     this.dutch = 0.0,
     this.standbyUpdate = CameraStandbyUpdate.never,
@@ -39,7 +40,9 @@ class VirtualCameraComponent extends Component {
     this.fieldOfView = math.pi / 3,
     this.nearClip = -10000,
     this.farClip = 10000,
-  });
+  }) : follow = followName != null || followTag != null
+           ? EntityTarget.fromNameOrTag(followName ?? '', followTag ?? '')
+           : follow;
 
   /// Higher wins. Between equals, the one activated most recently.
   int priority;
@@ -47,11 +50,22 @@ class VirtualCameraComponent extends Component {
   /// A disabled camera is never live and never evaluated.
   bool enabled;
 
-  /// Name of the entity to follow. Tried before [followTag].
-  String followName;
+  /// Who it follows: an entity by name, or the first entity with a tag.
+  EntityTarget follow;
 
-  /// `TagComponent.tag` of the entity to follow.
-  String followTag;
+  /// The name [follow] names, or empty.
+  @Deprecated('Use follow.')
+  String get followName => follow.isName ? follow.value : '';
+
+  @Deprecated('Use follow = EntityTarget.name(…).')
+  set followName(String value) => follow = follow.afterSettingName(value);
+
+  /// The tag [follow] names, or empty.
+  @Deprecated('Use follow.')
+  String get followTag => follow.isTag ? follow.value : '';
+
+  @Deprecated('Use follow = EntityTarget.tag(…).')
+  set followTag(String value) => follow = follow.afterSettingTag(value);
 
   /// The lens: `1` = one world unit per pixel, larger is closer.
   double zoom;
@@ -87,7 +101,7 @@ class VirtualCameraComponent extends Component {
     ),
   };
 
-  bool get hasTarget => followName.isNotEmpty || followTag.isNotEmpty;
+  bool get hasTarget => !follow.isNone;
 
   @override
   String toString() => 'VirtualCamera(priority: $priority, zoom: $zoom)';

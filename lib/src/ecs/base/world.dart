@@ -52,6 +52,9 @@ class World {
   /// Event bus for decoupled inter-system communication.
   final EventBus events = EventBus();
 
+  /// Tag → entities, for [findTagged] and [allTagged].
+  late final _TagIndex _tagIndex = _TagIndex(this);
+
   // ── Archetype storage ───────────────────────────────────────────────────
   final Map<String, Archetype> _archetypes = {};
 
@@ -140,6 +143,7 @@ class World {
     // Lifecycle callback.
     component.onAttach(entity.id);
 
+    if (component is TagComponent) _tagIndex.markDirty();
     _invalidateQueryCacheFor(type);
   }
 
@@ -163,6 +167,7 @@ class World {
       entity._archetypeRow = row;
     }
 
+    if (removed is TagComponent) _tagIndex.markDirty();
     _invalidateQueryCacheFor(T);
   }
 
@@ -187,6 +192,7 @@ class World {
       entity._archetypeRow = row;
     }
 
+    if (removed is TagComponent) _tagIndex.markDirty();
     _invalidateQueryCacheFor(type);
   }
 
@@ -255,6 +261,7 @@ class World {
       for (final c in components) {
         c.onAttach(entity.id);
       }
+      if (compMap.containsKey(TagComponent)) _tagIndex.markDirty();
     }
 
     _invalidateQueryCache();
@@ -264,6 +271,7 @@ class World {
   /// Destroy an entity
   void destroyEntity(Entity entity) {
     entity.isActive = false;
+    if (entity.hasComponent<TagComponent>()) _tagIndex.markDirty();
 
     // Remove from archetype storage.
     if (entity._archetype != null) {
@@ -299,6 +307,7 @@ class World {
     _archetypes.clear();
     _nextEntityId = 0;
     _generations.clear();
+    _tagIndex.markDirty();
     _invalidateQueryCache();
   }
 
@@ -453,6 +462,33 @@ class World {
     return _entities.where((e) => e.name == name).firstOrNull;
   }
 
+  /// The oldest entity tagged [tag], or null. Entities switched off are
+  /// passed over unless [includeInactive].
+  ///
+  /// Backed by an index, so it costs a map lookup rather than a scan.
+  Entity? findTagged(String tag, {bool includeInactive = false}) {
+    final tagged = _tagIndex.byTag[tag];
+    if (tagged == null) return null;
+    for (final entity in tagged) {
+      if (includeInactive || entity.isActive) return entity;
+    }
+    return null;
+  }
+
+  /// Every entity tagged [tag], oldest first. Entities switched off are
+  /// left out unless [includeInactive].
+  List<Entity> allTagged(String tag, {bool includeInactive = false}) {
+    final tagged = _tagIndex.byTag[tag];
+    if (tagged == null) return const [];
+    return [
+      for (final entity in tagged)
+        if (includeInactive || entity.isActive) entity,
+    ];
+  }
+
+  /// Every tag some entity in this world carries.
+  Set<String> get tagsInUse => _tagIndex.byTag.keys.toSet();
+
   /// Get entity by ID (O(1) lookup).
   Entity? getEntity(EntityId id) {
     return _entityMap[id];
@@ -485,6 +521,7 @@ class World {
     _queryCache.clear();
     _queryCacheTypes.clear();
     _generations.clear();
+    _tagIndex.markDirty();
     events.clear();
     _initialized = false;
     debugPrint('ECS World disposed');

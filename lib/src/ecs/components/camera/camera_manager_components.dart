@@ -23,16 +23,34 @@ class CameraStateComponent extends Component {
 /// Manager: shows the child mapped to the current state of another entity.
 class CameraStateDrivenComponent extends Component {
   CameraStateDrivenComponent({
-    this.sourceName = '',
-    this.sourceTag = 'player',
+    EntityTarget source = const EntityTarget.tag('player'),
+    @Deprecated('Use source: EntityTarget.name(…).') String? sourceName,
+    @Deprecated('Use source: EntityTarget.tag(…).') String? sourceTag,
     Map<String, String>? states,
     this.defaultChild = '',
     this.blend = 0.5,
-  }) : states = states ?? {};
+  }) : source = sourceName != null || sourceTag != null
+           ? EntityTarget.fromNameOrTag(sourceName ?? '', sourceTag ?? '')
+           : source,
+       states = states ?? {};
 
-  /// The entity carrying the [CameraStateComponent]: by name, then by tag.
-  String sourceName;
-  String sourceTag;
+  /// The entity carrying the [CameraStateComponent]: one by name, or the
+  /// first with a tag.
+  EntityTarget source;
+
+  /// The name [source] names, or empty.
+  @Deprecated('Use source.')
+  String get sourceName => source.isName ? source.value : '';
+
+  /// The tag [source] names, or empty.
+  @Deprecated('Use source.')
+  String get sourceTag => source.isTag ? source.value : '';
+
+  @Deprecated('Use source = EntityTarget.name(…).')
+  set sourceName(String value) => source = source.afterSettingName(value);
+
+  @Deprecated('Use source = EntityTarget.tag(…).')
+  set sourceTag(String value) => source = source.afterSettingTag(value);
 
   /// State → name of the child camera to show.
   Map<String, String> states;

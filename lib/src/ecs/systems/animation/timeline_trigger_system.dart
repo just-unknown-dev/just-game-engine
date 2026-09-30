@@ -9,6 +9,9 @@ import '../system_priorities.dart';
 
 /// Runs every [TimelineTriggerComponent]: watches its target cross the
 /// rectangle's edge and tells the player what to do.
+///
+/// A target that names a tag is any entity with it: in co-op the first
+/// player in sets it off, and it counts as left once the last one is out.
 class TimelineTriggerSystem extends System {
   // Just before the timelines, so a timeline a trigger starts moves this
   // frame.
@@ -69,18 +72,12 @@ class TimelineTriggerSystem extends System {
   }
 
   bool _isInside(Entity entity, TimelineTriggerComponent trigger) {
-    Entity? target;
-    if (trigger.targetName.isNotEmpty) {
-      target = TrackBinding.name(trigger.targetName).resolve(world, entity);
-    }
-    if (target == null && trigger.targetTag.isNotEmpty) {
-      target = TrackBinding.tag(trigger.targetTag).resolve(world, entity);
-    }
-    final at = target?.getComponent<TransformComponent>()?.position;
     final centre = entity.getComponent<TransformComponent>()!.position;
-    if (at == null) return false;
-    return trigger
-        .regionAt(Offset(centre.x, centre.y))
-        .contains(Offset(at.x, at.y));
+    final region = trigger.regionAt(Offset(centre.x, centre.y));
+    for (final target in trigger.target.resolveAll(world, entity)) {
+      final at = target.getComponent<TransformComponent>()?.position;
+      if (at != null && region.contains(Offset(at.x, at.y))) return true;
+    }
+    return false;
   }
 }

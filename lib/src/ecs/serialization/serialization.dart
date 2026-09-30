@@ -16,3 +16,4 @@ export 'field_value_codec.dart';
 export 'scene_format.dart';
 export 'scene_loader.dart';
 export 'scene_migrations.dart';
+export 'tag_library.dart';

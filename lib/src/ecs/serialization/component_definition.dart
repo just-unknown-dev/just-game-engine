@@ -106,6 +106,7 @@ class FieldHint {
     this.unit,
     this.fileExtensions,
     this.itemTemplate,
+    this.itemKinds,
     this.dimensions = Dimensions.both,
     this.channels2D,
   });
@@ -131,6 +132,11 @@ class FieldHint {
   /// entry. An editor's "Add" copies it, so a new item starts with the right
   /// shape and types. Null leaves the editor to copy the last item.
   final Object? itemTemplate;
+
+  /// For a list of objects: the [FieldType] of an item's key whose value is
+  /// more than plain text, a number or a switch — a target, a tag — so an
+  /// editor offers the right picker for it.
+  final Map<String, FieldType>? itemKinds;
 
   /// Which scene modes the field is shown in — a camera's field of view only
   /// in 3-D, say. It is saved either way.

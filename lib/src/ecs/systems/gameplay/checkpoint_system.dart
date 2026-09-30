@@ -7,6 +7,7 @@ import '../../../interfaces/interfaces.dart';
 
 import '../../ecs.dart';
 import '../../components/components.dart';
+import '../../serialization/tag_library.dart' show EngineTags;
 import '../system_priorities.dart';
 import 'package:just_dart/just_dart.dart';
 import 'checkpoint_event.dart';
@@ -56,7 +57,7 @@ class CheckpointSystem extends System {
 
   /// Creates a [CheckpointSystem] that looks for player entities tagged with
   /// [playerTag].
-  CheckpointSystem({this.playerTag = 'player', this.camera});
+  CheckpointSystem({this.playerTag = EngineTags.player, this.camera});
 
   /// Camera for drawing checkpoint radii in debug builds — the same one the
   /// `RenderSystem` uses. Without it they are drawn at their world
@@ -66,12 +67,7 @@ class CheckpointSystem extends System {
   @override
   void update(double deltaTime) {
     // Collect player entities once per frame.
-    final players = world.entities
-        .where((e) {
-          final tag = e.getComponent<TagComponent>();
-          return tag != null && tag.tag == playerTag;
-        })
-        .toList(growable: false);
+    final players = world.allTagged(playerTag);
 
     if (players.isEmpty) return;
 

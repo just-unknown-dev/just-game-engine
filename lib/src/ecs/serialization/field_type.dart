@@ -84,6 +84,22 @@ abstract final class FieldTypes {
   /// when it is needed; the editor offers the scene's entities.
   static const entityRef = EntityRefFieldType();
 
+  /// A tag from the project's tag list; the editor offers the list.
+  static const tagRef = TagRefFieldType();
+
+  /// Several tags, as an entity's TagComponent carries them.
+  static const tagList = TagListFieldType();
+
+  /// A spawner the game registers, by id; the editor offers them.
+  static const spawnerRef = SpawnerRefFieldType();
+
+  /// Who a component means — an entity by name, or entities by tag. See
+  /// [EntityTargetFieldType].
+  static const target = EntityTargetFieldType();
+
+  /// [target], also offering the component's own entity.
+  static const targetOrSelf = EntityTargetFieldType(allowSelf: true);
+
   /// An enum stored by name, parsed back with [FieldConstraints.enumParser].
   /// Prefer [EnumFieldType], which needs no parser and knows its values.
   static const enumeration = EnumerationFieldType();
@@ -125,6 +141,10 @@ abstract final class FieldTypes {
     text,
     assetRef,
     entityRef,
+    tagRef,
+    tagList,
+    spawnerRef,
+    target,
     enumeration,
     list,
     map,

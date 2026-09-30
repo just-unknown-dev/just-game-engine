@@ -31,7 +31,7 @@ abstract final class TimelineDefinitions {
       accentColor: _accent,
       fieldGroups: {
         'Area': ['width', 'height'],
-        'Set off by': ['targetName', 'targetTag'],
+        'Set off by': ['target'],
         'Does': ['playerName', 'onEnter', 'onExit', 'oneShot'],
       },
       fieldRows: [
@@ -46,8 +46,10 @@ abstract final class TimelineDefinitions {
           label: 'Height',
           scrub: ScrubHint(step: 32, fractionDigits: 0),
         ),
-        'targetName': FieldHint(label: 'Entity'),
-        'targetTag': FieldHint(label: 'Tag'),
+        'target': FieldHint(
+          label: 'Target',
+          description: 'An entity by name, or any entity with a tag.',
+        ),
         'playerName': FieldHint(
           label: 'Player',
           description: 'Empty: the Timeline Player on this entity.',
@@ -77,18 +79,11 @@ abstract final class TimelineDefinitions {
         min: 1,
       ),
       SchemaField(
-        name: 'targetName',
-        kind: FieldTypes.entityRef,
-        read: (c) => (c as TimelineTriggerComponent).targetName,
-        write: (c, v) =>
-            (c as TimelineTriggerComponent).targetName = v as String? ?? '',
-      ),
-      SchemaField(
-        name: 'targetTag',
-        kind: FieldTypes.text,
-        read: (c) => (c as TimelineTriggerComponent).targetTag,
-        write: (c, v) =>
-            (c as TimelineTriggerComponent).targetTag = v as String? ?? '',
+        name: 'target',
+        kind: FieldTypes.target,
+        read: (c) => (c as TimelineTriggerComponent).target,
+        write: (c, v) => (c as TimelineTriggerComponent).target =
+            v as EntityTarget? ?? EntityTarget.none,
       ),
       SchemaField(
         name: 'playerName',

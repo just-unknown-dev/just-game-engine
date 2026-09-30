@@ -17,9 +17,9 @@ class StateDrivenManager extends CameraManager<CameraStateDrivenComponent> {
     CameraManagerContext context,
     CameraStateDrivenComponent driven,
   ) {
-    final source = context.brain.targets.resolve(
-      name: driven.sourceName,
-      tag: driven.sourceTag,
+    final source = context.brain.targets.resolveTarget(
+      driven.source,
+      owner: context.entity,
     );
     final state = source?.getComponent<CameraStateComponent>()?.state;
     final child =

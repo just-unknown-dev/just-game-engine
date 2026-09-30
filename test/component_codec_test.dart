@@ -44,8 +44,7 @@ void main() {
       VirtualCameraComponent(
         priority: 20,
         enabled: false,
-        followName: 'Player',
-        followTag: 'player',
+        follow: const EntityTarget.tag('player'),
         zoom: 1.5,
         dutch: 0.25,
         standbyUpdate: CameraStandbyUpdate.always,
@@ -53,8 +52,7 @@ void main() {
     );
     expect(back.priority, 20);
     expect(back.enabled, isFalse);
-    expect(back.followName, 'Player');
-    expect(back.followTag, 'player');
+    expect(back.follow, const EntityTarget.tag('player'));
     expect(back.zoom, 1.5);
     expect(back.dutch, 0.25);
     expect(back.standbyUpdate, CameraStandbyUpdate.always);

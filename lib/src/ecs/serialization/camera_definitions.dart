@@ -67,6 +67,17 @@ abstract final class CameraDefinitions {
     write: (c, v) => write(c as T, v as String? ?? ''),
   );
 
+  static SchemaField _t<T extends Component>(
+    String name,
+    EntityTarget Function(T) read,
+    void Function(T, EntityTarget) write,
+  ) => SchemaField(
+    name: name,
+    kind: FieldTypes.target,
+    read: (c) => read(c as T),
+    write: (c, v) => write(c as T, v as EntityTarget? ?? EntityTarget.none),
+  );
+
   static const _fraction = ScrubHint(step: 0.01, fractionDigits: 2);
   static const _seconds = ScrubHint(step: 0.05, fractionDigits: 2);
 
@@ -81,7 +92,7 @@ abstract final class CameraDefinitions {
       accentColor: _accent,
       fieldGroups: {
         'Shot': ['priority', 'enabled', 'standbyUpdate'],
-        'Follow': ['followName', 'followTag'],
+        'Follow': ['follow'],
         'Lens': [
           'zoom',
           'dutch',
@@ -98,8 +109,10 @@ abstract final class CameraDefinitions {
         ),
         'enabled': FieldHint(label: 'Enabled'),
         'standbyUpdate': FieldHint(label: 'Standby'),
-        'followName': FieldHint(label: 'Follow'),
-        'followTag': FieldHint(label: 'Follow tag'),
+        'follow': FieldHint(
+          label: 'Follow',
+          description: 'An entity by name, or the first entity with a tag.',
+        ),
         'zoom': FieldHint(
           label: 'Zoom',
           scrub: ScrubHint(step: 0.05, fractionDigits: 2),
@@ -156,16 +169,10 @@ abstract final class CameraDefinitions {
         write: (c, v) => (c as VirtualCameraComponent).standbyUpdate =
             v as CameraStandbyUpdate,
       ),
-      _s<VirtualCameraComponent>(
-        'followName',
-        (c) => c.followName,
-        (c, v) => c.followName = v,
-        kind: FieldTypes.entityRef,
-      ),
-      _s<VirtualCameraComponent>(
-        'followTag',
-        (c) => c.followTag,
-        (c, v) => c.followTag = v,
+      _t<VirtualCameraComponent>(
+        'follow',
+        (c) => c.follow,
+        (c, v) => c.follow = v,
       ),
       _d<VirtualCameraComponent>(
         'zoom',
@@ -558,8 +565,15 @@ abstract final class CameraDefinitions {
       fields: {
         'members': FieldHint(
           label: 'Members',
-          description: 'Who the group keeps in shot, by entity name or tag.',
-          itemTemplate: {'name': '', 'tag': '', 'weight': 1.0, 'radius': 0.0},
+          description:
+              'Who the group keeps in shot: an entity by name, or every '
+              'entity with a tag.',
+          itemTemplate: {
+            'target': {'tag': 'player'},
+            'weight': 1.0,
+            'radius': 0.0,
+          },
+          itemKinds: {'target': FieldTypes.target},
         ),
       },
     ),
@@ -640,7 +654,7 @@ abstract final class CameraDefinitions {
       accentColor: _accent,
       fieldGroups: const {
         'Area': ['width', 'height'],
-        'Set off by': ['targetName', 'targetTag'],
+        'Set off by': ['target'],
         'Switches': ['cameraName', 'mode', 'amount', 'oneShot'],
       },
       fieldRows: const [
@@ -655,8 +669,10 @@ abstract final class CameraDefinitions {
           label: 'Height',
           scrub: ScrubHint(step: 32, fractionDigits: 0),
         ),
-        'targetName': const FieldHint(label: 'Entity'),
-        'targetTag': const FieldHint(label: 'Tag'),
+        'target': const FieldHint(
+          label: 'Target',
+          description: 'An entity by name, or any entity with a tag.',
+        ),
         'cameraName': const FieldHint(
           label: 'Camera',
           description: 'Empty: the virtual camera on this entity.',
@@ -688,16 +704,10 @@ abstract final class CameraDefinitions {
         (c, v) => c.height = v,
         min: 1,
       ),
-      _s<CameraTriggerComponent>(
-        'targetName',
-        (c) => c.targetName,
-        (c, v) => c.targetName = v,
-        kind: FieldTypes.entityRef,
-      ),
-      _s<CameraTriggerComponent>(
-        'targetTag',
-        (c) => c.targetTag,
-        (c, v) => c.targetTag = v,
+      _t<CameraTriggerComponent>(
+        'target',
+        (c) => c.target,
+        (c, v) => c.target = v,
       ),
       _s<CameraTriggerComponent>(
         'cameraName',
@@ -799,8 +809,10 @@ abstract final class CameraDefinitions {
       icon: Icons.account_tree_outlined,
       accentColor: _accent,
       fields: {
-        'sourceName': FieldHint(label: 'State of'),
-        'sourceTag': FieldHint(label: 'State of tag'),
+        'source': FieldHint(
+          label: 'State of',
+          description: 'An entity by name, or the first entity with a tag.',
+        ),
         'states': FieldHint(
           label: 'States',
           description: 'State → the child camera to show for it.',
@@ -812,16 +824,10 @@ abstract final class CameraDefinitions {
     ),
     create: CameraStateDrivenComponent.new,
     fields: [
-      _s<CameraStateDrivenComponent>(
-        'sourceName',
-        (c) => c.sourceName,
-        (c, v) => c.sourceName = v,
-        kind: FieldTypes.entityRef,
-      ),
-      _s<CameraStateDrivenComponent>(
-        'sourceTag',
-        (c) => c.sourceTag,
-        (c, v) => c.sourceTag = v,
+      _t<CameraStateDrivenComponent>(
+        'source',
+        (c) => c.source,
+        (c, v) => c.source = v,
       ),
       SchemaField(
         name: 'states',

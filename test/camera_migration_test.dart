@@ -79,7 +79,8 @@ void main() {
     final camera = _named(out, 'MainCamera');
     expect(_fields(camera, 'CameraComponent'), isNull);
     final vcam = _fields(camera, 'VirtualCameraComponent')!;
-    expect(vcam['followName'], 'Hero');
+    // By v7 the name is a target.
+    expect(vcam['follow'], {'name': 'Hero'});
     expect(vcam['zoom'], 2.0);
 
     // 128 world units of a 1280-wide view at 2× zoom is a fifth of it.
@@ -181,7 +182,9 @@ void main() {
       'y': 360.0,
       'z': 0.0,
     });
-    expect(_fields(added, 'VirtualCameraComponent')!['followName'], 'Hero');
+    expect(_fields(added, 'VirtualCameraComponent')!['follow'], {
+      'name': 'Hero',
+    });
   });
 
   test('the lowest-priority enabled follow is the one that was followed', () {
@@ -208,8 +211,8 @@ void main() {
       _fields(
         _named(out, 'MainCamera'),
         'VirtualCameraComponent',
-      )!['followName'],
-      'First',
+      )!['follow'],
+      {'name': 'First'},
     );
   });
 
