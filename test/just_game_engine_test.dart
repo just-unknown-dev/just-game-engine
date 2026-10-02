@@ -1,19 +1,15 @@
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
-import 'package:just_game_engine/src/subsystems/animation/animation_system.dart'
-    as anim;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUp(() => Engine.resetInstance());
-
   group('Core Engine Tests', () {
     test('Engine initialization', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       expect(engine.isInitialized, false);
       expect(engine.isRunning, false);
 
@@ -24,6 +20,7 @@ void main() {
 
     test('Engine lifecycle', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       engine.start();
@@ -42,28 +39,34 @@ void main() {
 
     test('Engine subsystems are initialized', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       expect(engine.rendering, isNotNull);
       expect(engine.physics, isNotNull);
       expect(engine.input, isNotNull);
-      expect(engine.animation, isNotNull);
-      expect(engine.sceneEditor, isNotNull);
       expect(engine.world, isNotNull);
       expect(engine.assets, isNotNull);
       expect(engine.audio, isNotNull);
     });
 
-    test('Engine singleton instance', () {
-      final engine1 = Engine.instance;
-      final engine2 = Engine.instance;
-      expect(engine1, same(engine2));
+    test('Two engines are separate', () async {
+      final engine1 = Engine();
+      final engine2 = Engine();
+      addTearDown(engine1.dispose);
+      addTearDown(engine2.dispose);
+      await engine1.initialize();
+      await engine2.initialize();
+      expect(engine1.world, isNot(same(engine2.world)));
+      expect(engine1.world.context, same(engine1.context));
+      expect(engine2.world.context, same(engine2.context));
     });
   });
 
   group('Rendering Engine Tests', () {
     test('Add and remove renderables', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final circle = CircleRenderable(
@@ -81,6 +84,7 @@ void main() {
 
     test('Layer sorting', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final obj1 = CircleRenderable(
@@ -111,6 +115,7 @@ void main() {
 
     test('Camera transformations', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final camera = engine.rendering.camera;
@@ -125,6 +130,7 @@ void main() {
 
     test('Camera zoom', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final camera = engine.rendering.camera;
@@ -139,6 +145,7 @@ void main() {
 
     test('Visibility filtering', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final visible = CircleRenderable(
@@ -163,208 +170,10 @@ void main() {
     });
   });
 
-  group('Animation System Tests', () {
-    test('PositionTween animation', () async {
-      final engine = Engine();
-      await engine.initialize();
-
-      final target = CircleRenderable(
-        radius: 10,
-        fillColor: Colors.blue,
-        position: Vector3(0, 0, 0),
-      );
-
-      final animation = anim.PositionTween(
-        target: target,
-        start: Vector3(0, 0, 0),
-        end: Vector3(100, 100, 0),
-        duration: 1.0,
-      );
-
-      animation.play();
-      expect(animation.isPaused, false);
-
-      // Simulate halfway through animation
-      animation.update(0.5);
-      expect(animation.normalizedTime, closeTo(0.5, 0.01));
-    });
-
-    test('RotationTween animation', () async {
-      final engine = Engine();
-      await engine.initialize();
-
-      final target = CircleRenderable(radius: 10, fillColor: Colors.blue);
-
-      final animation = anim.RotationTween(
-        target: target,
-        start: 0,
-        end: math.pi * 2,
-        duration: 1.0,
-      );
-
-      animation.play();
-      animation.update(1.0);
-      expect(animation.isComplete, true);
-      expect(target.rotation, closeTo(math.pi * 2, 0.01));
-    });
-
-    test('ScaleTween animation', () async {
-      final engine = Engine();
-      await engine.initialize();
-
-      final target = CircleRenderable(
-        radius: 10,
-        fillColor: Colors.blue,
-        scale: Vector3(1.0, 1.0, 1),
-      );
-
-      final animation = anim.ScaleTween(
-        target: target,
-        start: 1.0,
-        end: 2.0,
-        duration: 1.0,
-      );
-
-      animation.play();
-      animation.update(1.0);
-      expect(target.scale.x, closeTo(2.0, 0.01));
-      expect(target.scale.y, closeTo(2.0, 0.01));
-      expect(target.scale.z, closeTo(2.0, 0.01));
-    });
-
-    test('OpacityTween animation', () async {
-      final engine = Engine();
-      await engine.initialize();
-
-      final target = CircleRenderable(
-        radius: 10,
-        fillColor: Colors.blue,
-        opacity: 1.0,
-      );
-
-      final animation = anim.OpacityTween(
-        target: target,
-        start: 1.0,
-        end: 0.0,
-        duration: 1.0,
-      );
-
-      animation.play();
-      animation.update(1.0);
-      expect(target.opacity, closeTo(0.0, 0.01));
-    });
-
-    test('Animation loop', () async {
-      final target = CircleRenderable(radius: 10, fillColor: Colors.blue);
-
-      final animation = anim.RotationTween(
-        target: target,
-        start: 0,
-        end: math.pi * 2,
-        duration: 1.0,
-        loop: true,
-      );
-
-      animation.play();
-      animation.update(1.5);
-      expect(animation.isComplete, false);
-      expect(animation.currentTime, closeTo(0.5, 0.01));
-    });
-
-    test('Animation speed control', () async {
-      final target = CircleRenderable(radius: 10, fillColor: Colors.blue);
-
-      final animation = anim.RotationTween(
-        target: target,
-        start: 0,
-        end: math.pi * 2,
-        duration: 1.0,
-      );
-
-      animation.speed = 2.0;
-      animation.play();
-      animation.update(0.5);
-      expect(animation.currentTime, closeTo(1.0, 0.01));
-    });
-
-    test('AnimationSequence', () async {
-      final target = CircleRenderable(radius: 10, fillColor: Colors.blue);
-
-      final anim1 = anim.RotationTween(
-        target: target,
-        start: 0,
-        end: math.pi,
-        duration: 1.0,
-      );
-
-      final anim2 = anim.ScaleTween(
-        target: target,
-        start: 1.0,
-        end: 2.0,
-        duration: 1.0,
-      );
-
-      final sequence = anim.AnimationSequence(animations: [anim1, anim2]);
-
-      sequence.play();
-      expect(sequence.duration, 2.0);
-    });
-
-    test('AnimationGroup parallel execution', () async {
-      final target = CircleRenderable(radius: 10, fillColor: Colors.blue);
-
-      final anim1 = anim.RotationTween(
-        target: target,
-        start: 0,
-        end: math.pi,
-        duration: 1.0,
-      );
-
-      final anim2 = anim.ScaleTween(
-        target: target,
-        start: 1.0,
-        end: 2.0,
-        duration: 0.5,
-      );
-
-      final group = anim.AnimationGroup(animations: [anim1, anim2]);
-
-      expect(group.duration, 1.0); // Max of both durations
-    });
-
-    test('Sprite animation frame cycling', () async {
-      final sprite = Sprite();
-      final frames = [
-        const Rect.fromLTWH(0, 0, 64, 64),
-        const Rect.fromLTWH(64, 0, 64, 64),
-        const Rect.fromLTWH(128, 0, 64, 64),
-        const Rect.fromLTWH(192, 0, 64, 64),
-      ];
-
-      final animation = anim.SpriteAnimation(
-        sprite: sprite,
-        frames: frames,
-        duration: 1.0,
-      );
-
-      animation.play();
-
-      // At start
-      expect(animation.currentFrame, 0);
-
-      // At 25%
-      animation.update(0.25);
-      expect(animation.currentFrame, 1);
-
-      // At 50%
-      animation.update(0.25);
-      expect(animation.currentFrame, 2);
-    });
-  });
-
   group('Physics Engine Tests', () {
     test('Add and remove physics bodies', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final body = PhysicsBody(position: Vector2(0, 0), shape: CircleShape(30));
@@ -378,6 +187,7 @@ void main() {
 
     test('Physics body velocity integration', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final body = PhysicsBody(
@@ -404,6 +214,7 @@ void main() {
 
     test('Collision detection', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final body1 = PhysicsBody(
@@ -441,6 +252,7 @@ void main() {
 
     test('Gravity simulation', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final body = PhysicsBody(
@@ -520,101 +332,10 @@ void main() {
     });
   });
 
-  group('Scene Graph Tests', () {
-    test('Create scene', () async {
-      final engine = Engine();
-      await engine.initialize();
-
-      final scene = engine.sceneEditor.createScene('TestScene');
-      expect(scene, isNotNull);
-      expect(scene.name, 'TestScene');
-    });
-
-    test('Add node to scene', () async {
-      final engine = Engine();
-      await engine.initialize();
-
-      final scene = engine.sceneEditor.createScene('TestScene');
-      final node = SceneNode('TestNode');
-
-      scene.addNode(node);
-      expect(scene.findNode('TestNode'), same(node));
-    });
-
-    test('Parent-child hierarchy', () {
-      final parent = SceneNode('Parent');
-      final child = SceneNode('Child');
-
-      parent.addChild(child);
-
-      expect(child.parent, same(parent));
-      expect(parent.children, contains(child));
-    });
-
-    test('Transform propagation', () {
-      final parent = SceneNode('Parent')..localPosition = const Offset(100, 0);
-      final child = SceneNode('Child')..localPosition = const Offset(50, 0);
-
-      parent.addChild(child);
-      // Transform propagation happens automatically in scene graph
-
-      expect(child.worldPosition.dx, closeTo(150, 0.01));
-    });
-
-    test('Find node by name', () async {
-      final engine = Engine();
-      await engine.initialize();
-
-      final scene = engine.sceneEditor.createScene('TestScene');
-      final node = SceneNode('TargetNode');
-      scene.addNode(node);
-
-      final found = scene.findNode('TargetNode');
-      expect(found, same(node));
-    });
-
-    test('saveScene/loadSceneFromFile round-trips the full node hierarchy', () {
-      final editor = SceneEditor();
-      editor.initialize();
-
-      final scene = editor.createScene('SaveTest');
-      final nodeA = SceneNode('NodeA')
-        ..localPosition = const Offset(10, 20)
-        ..localRotation = 0.5
-        ..localScale = 2.0;
-      final nodeB = SceneNode('NodeB')..localPosition = const Offset(3, 4);
-      nodeA.addChild(nodeB);
-      scene.addNode(nodeA);
-
-      // Use a temp file in the system temp directory.
-      final path = '${Directory.systemTemp.path}/just_engine_scene_test.json';
-
-      editor.saveScene(path);
-      expect(File(path).existsSync(), isTrue);
-
-      // Load into a fresh editor instance.
-      final editor2 = SceneEditor();
-      editor2.initialize();
-      final loaded = editor2.loadSceneFromFile(path);
-
-      expect(loaded.name, 'SaveTest');
-      final loadedA = loaded.findNode('NodeA')!;
-      expect(loadedA.localPosition, const Offset(10, 20));
-      expect(loadedA.localRotation, closeTo(0.5, 1e-9));
-      expect(loadedA.localScale, closeTo(2.0, 1e-9));
-
-      final loadedB = loaded.findNode('NodeB')!;
-      expect(loadedB.parent, same(loadedA));
-      expect(loadedB.localPosition, const Offset(3, 4));
-
-      // Clean up.
-      File(path).deleteSync();
-    });
-  });
-
   group('Entity-Component System Tests', () {
     test('Create entity', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final entity = engine.world.createEntity(name: 'TestEntity');
@@ -624,6 +345,7 @@ void main() {
 
     test('Add components to entity', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final entity = engine.world.createEntity();
@@ -636,6 +358,7 @@ void main() {
 
     test('Remove component from entity', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final entity = engine.world.createEntity();
@@ -648,6 +371,7 @@ void main() {
 
     test('Query entities by component', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final entity1 = engine.world.createEntity();
@@ -668,6 +392,7 @@ void main() {
 
     test('Destroy entity', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final entity = engine.world.createEntity(name: 'ToDestroy');
@@ -678,6 +403,7 @@ void main() {
 
     test('Add system to world', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final system = MovementSystem();
@@ -707,6 +433,7 @@ void main() {
   group('Input System Tests', () {
     test('InputService initialization', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       expect(engine.input, isNotNull);
@@ -721,6 +448,7 @@ void main() {
 
     test('Mouse state management', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       expect(engine.input.mouse.control('position')!.read(), Offset.zero);
@@ -728,6 +456,7 @@ void main() {
 
     test('Touch state management', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       expect(engine.input.touchscreen.touches, isEmpty);

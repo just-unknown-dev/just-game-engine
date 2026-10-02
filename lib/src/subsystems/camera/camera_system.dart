@@ -1,7 +1,8 @@
 /// Camera System
 ///
-/// The output camera — what everything renders through — and the brain that
-/// decides what it shows.
+/// The output camera — what everything renders through. The brain that
+/// decides what it shows, and the `CameraSystem` that owns both, are in
+/// `lib/src/ecs/systems/camera/`.
 library;
 
 import 'dart:math' as math;
@@ -11,9 +12,8 @@ import 'package:just_dart/just_dart.dart';
 
 import '../../interfaces/game_camera.dart';
 import '../../interfaces/view_volume.dart';
-import 'camera_brain.dart';
 import 'camera_effects.dart';
-import 'camera_lens.dart';
+import '../../interfaces/camera_lens.dart';
 import 'camera_state.dart';
 
 // ─── Camera ──────────────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ import 'camera_state.dart';
 /// It holds a position, a zoom and a roll, turns them into a canvas
 /// transform, converts between screen and world, and carries the post
 /// effects. It does **not** decide where to look. Shots are virtual cameras —
-/// entities with a `VirtualCameraComponent` — and the [CameraBrain] picks one,
+/// entities with a `VirtualCameraComponent` — and the `CameraBrain` picks one,
 /// blends to it and writes the result here every frame.
 ///
 /// A game with no virtual cameras can still move this by hand: with nothing
@@ -43,9 +43,11 @@ import 'camera_state.dart';
 /// roll negated, because [rotation] turns the *view*, the opposite of
 /// turning the camera.
 class Camera implements GameCamera {
+  /// A [zoom] of zero, a negative one or one that is not a number starts
+  /// at [minZoom] instead — see [zoom].
   Camera({
     this.position = Offset.zero,
-    this.zoom = 1.0,
+    double zoom = 1.0,
     this.rotation = 0.0,
     this.viewportSize = Size.zero,
     this.minZoom = 0.1,
@@ -54,13 +56,35 @@ class Camera implements GameCamera {
     this.pitch = 0.0,
     this.yaw = 0.0,
     this.lens = const CameraLens(),
-  });
+  }) {
+    this.zoom = zoom;
+  }
 
   @override
   Offset position;
 
+  /// The smallest zoom the camera ever holds, whatever it is told: a zoom
+  /// of 0 would divide every world size on screen by zero.
+  static const double minSafeZoom = 1e-4;
+
+  double _zoom = 1.0;
+
   /// Zoom level (`1.0` = normal, `>1` = zoom-in, `<1` = zoom-out).
-  double zoom;
+  ///
+  /// Always positive and finite. Setting it directly is not limited to
+  /// [minZoom]..[maxZoom] (use [setZoom] for that), but a value at or below
+  /// zero, or not a number, becomes [minZoom] (at least [minSafeZoom]), and
+  /// an infinite one becomes [maxZoom].
+  double get zoom => _zoom;
+  set zoom(double value) {
+    if (value.isFinite && value > 0) {
+      _zoom = value;
+    } else if (value == double.infinity && maxZoom.isFinite && maxZoom > 0) {
+      _zoom = maxZoom;
+    } else {
+      _zoom = minZoom.isFinite && minZoom > minSafeZoom ? minZoom : minSafeZoom;
+    }
+  }
 
   /// Rotation in radians.
   double rotation;
@@ -68,7 +92,13 @@ class Camera implements GameCamera {
   @override
   Size viewportSize;
 
+  /// The lowest zoom [setZoom], [zoomBy], [zoomToPoint] and [apply] allow,
+  /// and what a zero, negative or NaN [zoom] becomes (see [zoom]). `0.1`
+  /// by default.
   double minZoom;
+
+  /// The highest zoom [setZoom], [zoomBy], [zoomToPoint] and [apply] allow,
+  /// and what an infinite [zoom] becomes (see [zoom]). `10` by default.
   double maxZoom;
 
   /// Depth of the camera — its world z. 0 for a 2-D camera.
@@ -117,6 +147,8 @@ class Camera implements GameCamera {
 
   // ── Direct control ────────────────────────────────────────────────────
 
+  /// Centres the view on [newPosition], in world units. A brain driving
+  /// this camera overwrites it every frame while it has a virtual camera.
   void setPosition(Offset newPosition) => position = newPosition;
 
   /// Set the camera zoom, clamped to [[minZoom], [maxZoom]].
@@ -137,9 +169,9 @@ class Camera implements GameCamera {
   /// newPos = worldPoint − (worldPoint − position) × (currentZoom / newZoom)
   /// ```
   void zoomToPoint(Offset worldPoint, double targetZoom) {
-    final newZoom = targetZoom.clamp(minZoom, maxZoom);
-    position = worldPoint - (worldPoint - position) * (zoom / newZoom);
-    zoom = newZoom;
+    final previous = zoom;
+    zoom = targetZoom.clamp(minZoom, maxZoom);
+    position = worldPoint - (worldPoint - position) * (previous / zoom);
   }
 
   // ── Transform ─────────────────────────────────────────────────────────
@@ -186,16 +218,23 @@ class Camera implements GameCamera {
   /// Camera space → the engine's clip space (x, y in −1..1 with y down,
   /// depth 0..1). An orthographic lens sees [viewportSize] / [zoom] world
   /// units; a perspective one its field of view.
+  ///
+  /// Built from the lens's safe values ([CameraLens.safeNear] and the rest),
+  /// so a lens that cannot project still gives a finite matrix.
   @override
   void projectionMatrixInto(Matrix4 out) {
     final w = viewportSize.width > 0 ? viewportSize.width : 1.0;
     final h = viewportSize.height > 0 ? viewportSize.height : 1.0;
     if (lens.isOrthographic) {
-      final k = zoom > 0 ? zoom : 1.0;
-      final hw = w / (2 * k), hh = h / (2 * k);
-      out.setOrthographicYDown(-hw, hw, -hh, hh, lens.near, lens.far);
+      final hw = w / (2 * zoom), hh = h / (2 * zoom);
+      out.setOrthographicYDown(-hw, hw, -hh, hh, lens.safeNear, lens.safeFar);
     } else {
-      out.setPerspectiveYDown(lens.fieldOfView, w / h, lens.near, lens.far);
+      out.setPerspectiveYDown(
+        lens.safeFieldOfView,
+        w / h,
+        lens.safeNear,
+        lens.safeFar,
+      );
     }
   }
 
@@ -364,13 +403,19 @@ class Camera implements GameCamera {
     return Rect.fromLTRB(l!, t!, r!, b!);
   }
 
+  /// Whether the world point [point] lies inside [getVisibleBounds].
   bool isVisible(Offset point) => getVisibleBounds().contains(point);
 
+  /// Whether the world rectangle [rect] overlaps [getVisibleBounds]. A null
+  /// [rect] — nothing known about its size — counts as visible.
   bool isRectVisible(Rect? rect) {
     if (rect == null) return true;
     return getVisibleBounds().overlaps(rect);
   }
 
+  /// Back to the origin at zoom 1 with no roll, depth, pitch or yaw, the
+  /// default [lens], and every effect removed. [minZoom], [maxZoom] and
+  /// [viewportSize] are kept.
   void reset() {
     position = Offset.zero;
     zoom = 1.0;
@@ -380,38 +425,5 @@ class Camera implements GameCamera {
     yaw = 0.0;
     lens = const CameraLens();
     effectManager.clearEffects();
-  }
-}
-
-// ─── CameraSystem ─────────────────────────────────────────────────────────────
-
-/// Owns the output [mainCamera] and the [brain] that drives it.
-///
-/// The brain is evaluated by `CameraBrainSystem`, inside the ECS frame, so
-/// it sees this frame's positions; this system's own update only advances
-/// the post effects.
-class CameraSystem {
-  late Camera mainCamera;
-  late CameraBrain brain;
-  bool _initialized = false;
-
-  bool get isInitialized => _initialized;
-
-  void initialize() {
-    if (_initialized) return;
-    mainCamera = Camera(position: Offset.zero, zoom: 1.0);
-    brain = CameraBrain(mainCamera);
-    _initialized = true;
-    debugPrint('Camera System initialized');
-  }
-
-  void update(double deltaTime) {
-    if (!_initialized || deltaTime <= 0) return;
-    mainCamera.effectManager.update(deltaTime);
-  }
-
-  void dispose() {
-    if (_initialized) brain.reset();
-    _initialized = false;
   }
 }

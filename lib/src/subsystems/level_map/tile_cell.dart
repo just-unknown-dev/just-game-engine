@@ -8,11 +8,16 @@ library;
 /// Tiled's staggered column/row on a staggered or hexagonal one. See
 /// `MapGeometry`.
 class TileCoord {
+  /// The cell at ([x], [y]).
   const TileCoord(this.x, this.y);
 
+  /// The first coordinate, in cells: the column on an orthogonal map.
   final int x;
+
+  /// The second coordinate, in cells: the row on an orthogonal map.
   final int y;
 
+  /// The two added coordinate by coordinate: a cell moved by an offset.
   TileCoord operator +(TileCoord other) => TileCoord(x + other.x, y + other.y);
 
   @override
@@ -107,9 +112,17 @@ abstract final class TileCell {
   /// [cell] without any flags: the same tile, unturned.
   static int bare(int cell) => cell & tileMask;
 
+  /// Whether [cell] has [flipH]: mirrored left to right.
   static bool isFlippedH(int cell) => (cell & flipH) != 0;
+
+  /// Whether [cell] has [flipV]: mirrored top to bottom.
   static bool isFlippedV(int cell) => (cell & flipV) != 0;
+
+  /// Whether [cell] has [flipD]: mirrored across the diagonal — on a
+  /// hexagonal map, turned 60°.
   static bool isFlippedD(int cell) => (cell & flipD) != 0;
+
+  /// Whether [cell] has [rotate120]: on a hexagonal map, turned 120°.
   static bool isRotated120(int cell) => (cell & rotate120) != 0;
 
   // Rotating a square tile by a quarter turn, as a mapping of its three
@@ -165,7 +178,7 @@ abstract final class TileCell {
   ];
 
   /// How to draw [cell]'s tile: mirror it left to right when [mirrored],
-  /// then turn it clockwise by [radians] about its centre. [sideways] says
+  /// then turn it clockwise by [radians] about its centre. `sideways` says
   /// the turned tile is as wide as it was tall (square tiles on their side).
   ///
   /// Tiled's three mirror flags make eight ways a square tile can face;
@@ -204,15 +217,67 @@ abstract final class TileCell {
     if (isEmpty(cell)) return cell;
     var turn = (isFlippedD(cell) ? 1 : 0) + (isRotated120(cell) ? 2 : 0);
     var flags = flagsOf(cell) & (flipH | flipV);
+    // `%` is never negative here, so neither is the turn.
     turn += steps % 6;
     while (turn >= 3) {
       turn -= 3;
       flags ^= flipH | flipV;
     }
-    if (turn < 0) turn += 3;
     return withFlags(
       cell,
       flags | (turn & 1 != 0 ? flipD : 0) | (turn & 2 != 0 ? rotate120 : 0),
+    );
+  }
+
+  /// [cell] on a hexagonal map mirrored left to right on screen, however
+  /// it is turned.
+  ///
+  /// Not [mirroredH]: a hexagonal tile is drawn mirrored, then turned by
+  /// its 60° and 120° flags ([drawTransform]), and mirroring a turned tile
+  /// turns it the other way — a tile at 60° mirrored is a mirrored tile at
+  /// 300°. Only at 0° and 180° is it the same as toggling the flag.
+  static int mirroredHexH(int cell) {
+    if (isEmpty(cell)) return cell;
+    final (mirrored, sixths) = _hexTurn(cell);
+    return _withHexTurn(cell, !mirrored, -sixths);
+  }
+
+  /// [cell] on a hexagonal map mirrored top to bottom on screen, however
+  /// it is turned: mirrored left to right and turned half round, so a tile
+  /// at 60° mirrored is a mirrored tile at 120°.
+  static int mirroredHexV(int cell) {
+    if (isEmpty(cell)) return cell;
+    final (mirrored, sixths) = _hexTurn(cell);
+    return _withHexTurn(cell, !mirrored, 3 - sixths);
+  }
+
+  /// How [drawTransform] draws a hexagonal [cell]: mirrored or not, then
+  /// turned this many sixths clockwise.
+  static (bool, int) _hexTurn(int cell) {
+    final v = isFlippedV(cell);
+    final sixths =
+        (isFlippedD(cell) ? 1 : 0) + (isRotated120(cell) ? 2 : 0) + (v ? 3 : 0);
+    return (isFlippedH(cell) != v, sixths);
+  }
+
+  /// [cell] with flags that draw it [mirrored] and turned [sixths] sixths
+  /// clockwise, in the form [rotatedHex] keeps: 0°, 60° or 120°, plus both
+  /// mirrors for another 180°.
+  static int _withHexTurn(int cell, bool mirrored, int sixths) {
+    var turn = sixths % 6;
+    var half = false;
+    if (turn >= 3) {
+      turn -= 3;
+      half = true;
+    }
+    // Both mirrors are a half turn; the vertical one alone also mirrors.
+    final h = mirrored != half;
+    return withFlags(
+      cell,
+      (h ? flipH : 0) |
+          (half ? flipV : 0) |
+          (turn & 1 != 0 ? flipD : 0) |
+          (turn & 2 != 0 ? rotate120 : 0),
     );
   }
 }

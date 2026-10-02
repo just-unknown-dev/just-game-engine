@@ -9,17 +9,17 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
+/// The engine's own definitions, fresh for this file.
+final _coreDefinitions = ComponentDefinitionRegistry.core();
 T roundTrip<T extends Component>(T component) {
-  final json = ComponentCodecRegistry.instance.encode(component);
+  final json = _coreDefinitions.encode(component);
   expect(json, isNotNull, reason: '$T has no codec');
-  final back = ComponentCodecRegistry.instance.decode(json!);
+  final back = _coreDefinitions.decode(json!);
   expect(back, isA<T>());
   return back! as T;
 }
 
 void main() {
-  setUpAll(registerCoreCodecs);
-
   test('PhysicsBodyComponent keeps its body type and rotation lock', () {
     final back = roundTrip(
       PhysicsBodyComponent(
@@ -96,13 +96,11 @@ void main() {
   });
 
   test('TransformComponent keeps 3D rotation, and 2D saves stay unchanged', () {
-    final tilted = roundTrip(
-      TransformComponent(euler: Vector3(0.3, -0.2, 0)),
-    );
+    final tilted = roundTrip(TransformComponent(euler: Vector3(0.3, -0.2, 0)));
     expect(tilted.eulerX, closeTo(0.3, 1e-9));
     expect(tilted.eulerY, closeTo(-0.2, 1e-9));
 
-    final flat = ComponentCodecRegistry.instance.encode(TransformComponent())!;
+    final flat = _coreDefinitions.encode(TransformComponent())!;
     expect(flat.keys, isNot(contains('rotationX')));
   });
 
@@ -114,7 +112,7 @@ void main() {
 
   test('a save from before these fields existed loads as it always did', () {
     final old =
-        ComponentCodecRegistry.instance.decode({
+        _coreDefinitions.decode({
               'type': 'PhysicsBodyComponent',
               'shape': {'kind': 'rectangle', 'width': 32.0, 'height': 48.0},
               'mass': 1.0,
@@ -155,9 +153,6 @@ void main() {
       'WheelJointComponent',
       'SimpleMovementComponent',
     };
-    expect(
-      ComponentCodecRegistry.instance.types.toSet(),
-      containsAll(expected),
-    );
+    expect(_coreDefinitions.types.toSet(), containsAll(expected));
   });
 }

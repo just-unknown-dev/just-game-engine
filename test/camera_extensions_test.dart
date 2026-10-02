@@ -5,6 +5,8 @@ import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
+/// The engine's own definitions, fresh for this file.
+final _coreDefinitions = ComponentDefinitionRegistry.core();
 const _view = Size(800, 600);
 const _dt = 1 / 60;
 
@@ -16,10 +18,7 @@ class _KitBounds extends Component implements CameraBoundsSource {
 }
 
 T _roundTrip<T extends Component>(T component) =>
-    ComponentCodecRegistry.instance.decode(
-          ComponentCodecRegistry.instance.encode(component)!,
-        )
-        as T;
+    _coreDefinitions.decode(_coreDefinitions.encode(component)!) as T;
 
 void main() {
   late World world;
@@ -237,9 +236,6 @@ void main() {
   });
 
   test('every extension component is saved and restored', () {
-    ComponentCodecRegistry.instance.clear();
-    registerCoreCodecs();
-
     final confiner = _roundTrip(
       CameraConfinerComponent(boundsName: 'Level', damping: 0.4),
     );

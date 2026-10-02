@@ -12,8 +12,11 @@ import '../../../ecs/ecs.dart';
 /// A named state a state-driven camera can read: `'grounded'`, `'falling'`,
 /// `'boss'`. The game writes it; the camera follows it.
 class CameraStateComponent extends Component {
+  /// A state holder starting at [state]; empty — no state — by default.
   CameraStateComponent({this.state = ''});
 
+  /// The current state's name, matched exactly against the keys of
+  /// [CameraStateDrivenComponent.states]. Write it whenever it changes.
   String state;
 
   @override
@@ -22,35 +25,19 @@ class CameraStateComponent extends Component {
 
 /// Manager: shows the child mapped to the current state of another entity.
 class CameraStateDrivenComponent extends Component {
+  /// Reads the first entity tagged `player` by default, with no states
+  /// mapped yet and half-second blends. With neither a mapped nor a
+  /// [defaultChild] camera to show, the first child is shown.
   CameraStateDrivenComponent({
-    EntityTarget source = const EntityTarget.tag('player'),
-    @Deprecated('Use source: EntityTarget.name(…).') String? sourceName,
-    @Deprecated('Use source: EntityTarget.tag(…).') String? sourceTag,
+    this.source = const EntityTarget.tag('player'),
     Map<String, String>? states,
     this.defaultChild = '',
     this.blend = 0.5,
-  }) : source = sourceName != null || sourceTag != null
-           ? EntityTarget.fromNameOrTag(sourceName ?? '', sourceTag ?? '')
-           : source,
-       states = states ?? {};
+  }) : states = states ?? {};
 
   /// The entity carrying the [CameraStateComponent]: one by name, or the
   /// first with a tag.
   EntityTarget source;
-
-  /// The name [source] names, or empty.
-  @Deprecated('Use source.')
-  String get sourceName => source.isName ? source.value : '';
-
-  /// The tag [source] names, or empty.
-  @Deprecated('Use source.')
-  String get sourceTag => source.isTag ? source.value : '';
-
-  @Deprecated('Use source = EntityTarget.name(…).')
-  set sourceName(String value) => source = source.afterSettingName(value);
-
-  @Deprecated('Use source = EntityTarget.tag(…).')
-  set sourceTag(String value) => source = source.afterSettingTag(value);
 
   /// State → name of the child camera to show.
   Map<String, String> states;
@@ -67,8 +54,12 @@ class CameraStateDrivenComponent extends Component {
 
 /// One shot of a blend list.
 class CameraBlendStep {
+  /// A step showing [child] for a one-second hold after a half-second
+  /// blend, unless told otherwise.
   CameraBlendStep({this.child = '', this.hold = 1.0, this.blend = 0.5});
 
+  /// Reads the `{child, hold, blend}` map [toJson] writes. A missing key
+  /// takes the constructor's default; a value of the wrong type throws.
   factory CameraBlendStep.fromJson(Map<Object?, Object?> json) =>
       CameraBlendStep(
         child: json['child'] as String? ?? '',
@@ -85,6 +76,7 @@ class CameraBlendStep {
   /// Seconds to blend in from the previous shot. The first step cuts.
   double blend;
 
+  /// This step as a JSON map with the keys `child`, `hold` and `blend`.
   Map<String, dynamic> toJson() => {
     'child': child,
     'hold': hold,
@@ -94,12 +86,17 @@ class CameraBlendStep {
 
 /// Manager: plays its children as a sequence of shots — a cutscene.
 ///
-/// It starts over each time it goes live, so a cutscene is triggered by
-/// raising this camera's priority and ends by lowering it.
+/// It starts over each time it goes live — whatever its
+/// `VirtualCameraComponent.standbyUpdate` — so a cutscene is triggered by
+/// raising this camera's priority and ends by lowering it. As a child of
+/// another manager it is never live itself: it starts over when it comes
+/// back after sitting out a frame.
 class CameraBlendListComponent extends Component {
+  /// A list playing [steps] (none when null) once through, unless [loop].
   CameraBlendListComponent({List<CameraBlendStep>? steps, this.loop = false})
     : steps = steps ?? [];
 
+  /// The shots, in playing order. Empty, the manager shows its own shot.
   List<CameraBlendStep> steps;
 
   /// Back to the first shot after the last; otherwise the last is held.
@@ -111,6 +108,9 @@ class CameraBlendListComponent extends Component {
 
 /// Manager: a weighted mix of its children, all at once.
 class CameraMixerComponent extends Component {
+  /// A mixer over [weights] (none when null). A child with no weight, or
+  /// one of zero or less, is left out; with no child weighted, the manager
+  /// shows its own shot.
   CameraMixerComponent({Map<String, double>? weights})
     : weights = weights ?? {};
 
@@ -123,6 +123,9 @@ class CameraMixerComponent extends Component {
 
 /// Body: a camera that rides a path.
 class CameraDollyComponent extends Component {
+  /// An open track through [waypoints] (none when null) that follows the
+  /// target, easing over 0.4 seconds. Fewer than two points, or a track of
+  /// no length, leaves the camera where it is.
   CameraDollyComponent({
     List<Offset>? waypoints,
     this.closed = false,

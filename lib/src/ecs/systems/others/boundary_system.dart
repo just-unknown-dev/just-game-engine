@@ -4,10 +4,23 @@ import 'package:flutter/material.dart';
 
 import '../../ecs.dart';
 import '../../components/components.dart';
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 
 /// Boundary behavior options
-enum BoundaryBehavior { clamp, bounce, wrap, destroy }
+enum BoundaryBehavior {
+  /// Held at the edge: the position is clamped into the bounds.
+  clamp,
+
+  /// Clamped to the edge it crossed, with the velocity on that axis
+  /// reversed. An entity without a [VelocityComponent] is left alone.
+  bounce,
+
+  /// Moved to the opposite edge on crossing one.
+  wrap,
+
+  /// Destroyed, through the world's command buffer, once outside.
+  destroy,
+}
 
 /// Boundary system - Keeps entities within bounds
 class BoundarySystem extends System {
@@ -20,6 +33,8 @@ class BoundarySystem extends System {
   /// What to do when hitting boundary
   BoundaryBehavior behavior;
 
+  /// Keeps every entity with a transform — all of them, not only chosen
+  /// ones — within [bounds] by [behavior], clamping by default.
   BoundarySystem({
     required this.bounds,
     this.behavior = BoundaryBehavior.clamp,

@@ -8,10 +8,18 @@ import '../../ecs.dart';
 enum TimelineWrapChoice {
   /// Whatever the timeline itself says.
   fromTimeline,
+
+  /// Plays once and stops, whatever the timeline says.
   once,
+
+  /// Starts over at the end, whatever the timeline says.
   loop,
+
+  /// Runs back and forth, whatever the timeline says.
   pingPong;
 
+  /// The wrap this choice imposes on the playback; null for [fromTimeline],
+  /// which leaves the timeline's own.
   TimelineWrap? get wrap => switch (this) {
     fromTimeline => null,
     once => TimelineWrap.once,
@@ -27,6 +35,9 @@ enum TimelineWrapChoice {
 /// Tracks bound to "self" act on the entity holding this component, which is
 /// what lets one asset animate many entities.
 class TimelinePlayerComponent extends Component {
+  /// A player of the asset at [timelinePath] — or of [inline] while the path
+  /// is empty — that waits to be started, at normal [speed], with the
+  /// timeline's own [wrap], over the whole timeline.
   TimelinePlayerComponent({
     this.timelinePath = '',
     this.inline,
@@ -49,9 +60,12 @@ class TimelinePlayerComponent extends Component {
 
   /// 1 is as authored; negative plays backwards.
   double speed;
+
+  /// What happens at the end: the timeline's own wrap, or one imposed on
+  /// it. Copied to the playback every frame.
   TimelineWrapChoice wrap;
 
-  /// A `TimelineSignals` name that starts this player.
+  /// A signal name (`context.signals`) that starts this player.
   String listenSignal;
 
   /// Play only part of the timeline: from here, in seconds. Zero starts at
@@ -81,10 +95,16 @@ class TimelinePlayerComponent extends Component {
   /// it while it previews the timeline with a playback of its own.
   bool suspended = false;
 
+  /// Whether [playOnStart] has had its turn: set by the system when it makes
+  /// the first playback (and by [playTimeline]), cleared by [reset].
   bool initialized = false;
   void Function(TimelinePlayback playback)? _pending;
 
+  /// Whether the timeline is running; false before it has loaded.
   bool get isPlaying => playback?.isPlaying ?? false;
+
+  /// Whether a timeline that wraps `once` has reached its end (its start,
+  /// playing backwards); false before it has loaded.
   bool get isFinished => playback?.isFinished ?? false;
 
   /// Seconds from the start; 0 before the timeline has loaded.
@@ -95,9 +115,18 @@ class TimelinePlayerComponent extends Component {
 
   // A timeline loads asynchronously, so what is asked before then is kept
   // and done the moment it arrives.
+  //
+  // The playback's speed is only brought in line with [speed] when the
+  // system next runs; whoever just set [speed] (a trigger, say) means it
+  // for this action already, so it is copied first.
   void _do(void Function(TimelinePlayback playback) action) {
     final running = playback;
-    running == null ? _pending = action : action(running);
+    if (running == null) {
+      _pending = action;
+      return;
+    }
+    running.speed = speed;
+    action(running);
   }
 
   /// Plays from where it is — or from the start, once finished.
@@ -132,15 +161,28 @@ class TimelinePlayerComponent extends Component {
     _pending = (p) => p.play(from: p.speed < 0 ? p.duration : 0);
   }
 
-  /// Plays back towards the start from where it is.
+  /// Plays back towards the start from where it is — from the end when it
+  /// is at the start.
   void reverse() => _do((p) {
     speed = -speed.abs();
     p.speed = speed;
-    p.play(from: p.isFinished || p.time <= 0 ? p.duration : null);
+    // A timeline that finished at its end turns round there; one sitting
+    // at its start has nowhere to go back to but the end.
+    p.play(from: p.time <= p.rangeStart ? p.rangeEnd : null);
   });
 
+  /// Holds the playhead where it is; [play] carries on from there. Asked
+  /// before the timeline has loaded, it is done when it arrives (like the
+  /// other controls, only the last one asked is kept).
   void pause() => _do((p) => p.pause());
+
+  /// Stops and rewinds to the start of the play range ([from]). What the
+  /// timeline animated stays where it is.
   void stop() => _do((p) => p.stop());
+
+  /// Jumps to [time], in seconds from the timeline's start, clamped to the
+  /// play range, and shows it. Events in between do not fire; playing or
+  /// paused stays as it was.
   void seek(double time) => _do((p) => p.seek(time));
 
   /// Called by the system when [playback] has just been set.

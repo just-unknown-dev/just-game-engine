@@ -10,7 +10,16 @@ import '../map_geometry.dart';
 import '../tileset_data.dart';
 
 /// What a terrain brush stroke touches: a corner, an edge, or a whole cell.
-enum WangFeatureKind { corner, edge, cell }
+enum WangFeatureKind {
+  /// A corner, where four cells meet.
+  corner,
+
+  /// An edge, between two cells.
+  edge,
+
+  /// A whole cell: every corner and edge of it the set uses.
+  cell,
+}
 
 /// One place a terrain brush paints, on the map's lattice (see
 /// [MapGeometry.toLattice]).
@@ -18,17 +27,29 @@ enum WangFeatureKind { corner, edge, cell }
 /// A corner is named by the cell it is the top-left corner of; an edge by
 /// the cell it is the top ([horizontal]) or left edge of.
 class WangTarget {
+  /// The top-left corner of lattice cell [at].
   const WangTarget.corner(this.at)
     : kind = WangFeatureKind.corner,
       horizontal = false;
+
+  /// The top edge of lattice cell [at] when [horizontal], else its left
+  /// edge.
   const WangTarget.edge(this.at, {required this.horizontal})
     : kind = WangFeatureKind.edge;
+
+  /// The whole of lattice cell [at].
   const WangTarget.cell(this.at)
     : kind = WangFeatureKind.cell,
       horizontal = false;
 
+  /// Whether it is a corner, an edge or a whole cell.
   final WangFeatureKind kind;
+
+  /// The lattice cell that names it.
   final TileCoord at;
+
+  /// For an edge, whether it is [at]'s top edge rather than its left one;
+  /// false for a corner or a cell.
   final bool horizontal;
 
   @override
@@ -44,6 +65,8 @@ class WangTarget {
 
 /// The result of a terrain stroke.
 class WangResult {
+  /// A stroke's [changes], and the cells it could only match roughly
+  /// ([unmatched]).
   const WangResult(this.changes, this.unmatched);
 
   /// New cell values, by map cell.
@@ -78,6 +101,10 @@ class _Candidate {
 /// eight-slot Wang ids do not describe six-sided cells; the filler refuses
 /// them.
 class WangFiller {
+  /// A filler painting [set], of [tileset], which the map holds in [slot],
+  /// on [geometry]. [random] picks among equally good tiles — a new
+  /// `Random` when null; pass a seeded one for repeatable strokes. Throws
+  /// an [UnsupportedError] for a hexagonal map.
   WangFiller({
     required this.set,
     required this.tileset,
@@ -102,6 +129,7 @@ class WangFiller {
   /// The map's slot for [tileset].
   final int slot;
 
+  /// The map's grid: painting works on its square lattice.
   final MapGeometry geometry;
   final math.Random _random;
 

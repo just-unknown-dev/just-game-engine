@@ -35,7 +35,10 @@ import 'yarn_tokenizer.dart';
 class YarnParser {
   /// Parses [source] and returns a [DialogueGraph] with the given [id].
   ///
-  /// Throws [YarnParseException] on malformed input.
+  /// Throws a [YarnParseException], with the line it is on, on malformed
+  /// input: a node with no `title:`, two nodes with the same title, an
+  /// `<<if>>` with no `<<endif>>` before its node ends, or an
+  /// `<<elseif>>`, `<<else>>` or `<<endif>>` with no `<<if>>`.
   static DialogueGraph parse(String source, {required String id}) {
     final tokens = YarnTokenizer.tokenize(source);
     final nodes = <String, DialogueNode>{};
@@ -54,8 +57,15 @@ class YarnParser {
       if (tok.type == TokenType.header || tok.type == TokenType.contentStart) {
         final result = _parseNode(tokens, cursor);
         cursor = result.cursor;
-        if (result.node != null) {
-          nodes[result.node!.title] = result.node!;
+        final node = result.node;
+        if (node != null) {
+          if (nodes.containsKey(node.title)) {
+            throw YarnParseException(
+              'Two nodes are titled "${node.title}"',
+              lineNumber: tok.lineNumber,
+            );
+          }
+          nodes[node.title] = node;
         }
       } else {
         cursor++;
@@ -105,14 +115,21 @@ class YarnParser {
 
     final title = headers['title'];
     if (title == null || title.isEmpty) {
-      // Skip malformed node
-      return _NodeResult(cursor: cursor, node: null);
+      throw YarnParseException(
+        'A node has no "title:" header',
+        lineNumber: tokens[start].lineNumber,
+      );
     }
 
     final metadata = Map<String, String>.from(headers)..remove('title');
 
     // -- Content block --
-    final stmtResult = _parseStatements(tokens, cursor, baseIndent: 0);
+    final stmtResult = _parseStatements(
+      tokens,
+      cursor,
+      baseIndent: 0,
+      depth: 0,
+    );
     cursor = stmtResult.cursor;
 
     // Consume '==='
@@ -139,13 +156,15 @@ class YarnParser {
   ///
   /// * [baseIndent] – stop if a non-blank token has strictly lower indent
   ///   (used for choice bodies).
-  /// * [stopAtElseOrEndIf] – stop at `<<elseif>>`, `<<else>>`, or `<<endif>>`
-  ///   without consuming the token (used for if-block branches).
+  /// * [depth] – how many `<<if>>` blocks the statements sit in. Inside one,
+  ///   an `<<elseif>>`, `<<else>>` or `<<endif>>` stops the list without
+  ///   being consumed, for the enclosing block to read; at 0 it has no
+  ///   `<<if>>` and throws.
   static _StmtListResult _parseStatements(
     List<YarnToken> tokens,
     int start, {
     required int baseIndent,
-    bool stopAtElseOrEndIf = false,
+    required int depth,
   }) {
     int cursor = start;
     final statements = <DialogueStatement>[];
@@ -161,13 +180,18 @@ class YarnParser {
       // Hard stops
       if (tok.type == TokenType.nodeEnd) break;
 
-      if (stopAtElseOrEndIf &&
-          (tok.type == TokenType.commandElseIf ||
-              tok.type == TokenType.commandElse ||
-              tok.type == TokenType.commandEndIf)) {
+      if (tok.type == TokenType.commandElseIf ||
+          tok.type == TokenType.commandElse ||
+          tok.type == TokenType.commandEndIf) {
+        if (depth == 0) {
+          throw YarnParseException(
+            '<<${_commandName(tok.type)}>> without <<if>>',
+            lineNumber: tok.lineNumber,
+          );
+        }
+        // The enclosing <<if>> takes it from here.
         break;
       }
-      if (tok.type == TokenType.commandEndIf) break;
 
       // Indent-based stop for choice bodies
       if (tok.indentLevel < baseIndent) break;
@@ -182,12 +206,13 @@ class YarnParser {
             tokens,
             cursor,
             choiceIndent: tok.indentLevel,
+            depth: depth,
           );
           cursor = choiceResult.cursor;
           statements.add(ChoiceSetStatement(choices: choiceResult.choices));
 
         case TokenType.commandIf:
-          final ifResult = _parseConditional(tokens, cursor);
+          final ifResult = _parseConditional(tokens, cursor, depth: depth);
           cursor = ifResult.cursor;
           statements.add(ifResult.statement);
 
@@ -228,6 +253,7 @@ class YarnParser {
     List<YarnToken> tokens,
     int start, {
     required int choiceIndent,
+    required int depth,
   }) {
     int cursor = start;
     final choices = <ChoiceOption>[];
@@ -258,6 +284,7 @@ class YarnParser {
         tokens,
         cursor,
         baseIndent: choiceIndent + 1,
+        depth: depth,
       );
       cursor = bodyResult.cursor;
 
@@ -282,10 +309,12 @@ class YarnParser {
 
   static _ConditionalResult _parseConditional(
     List<YarnToken> tokens,
-    int start,
-  ) {
+    int start, {
+    required int depth,
+  }) {
     int cursor = start;
     final branches = <ConditionalBranch>[];
+    var closed = false;
 
     // <<if condition>>
     final ifTok = tokens[cursor++];
@@ -293,7 +322,7 @@ class YarnParser {
       tokens,
       cursor,
       baseIndent: 0,
-      stopAtElseOrEndIf: true,
+      depth: depth + 1,
     );
     cursor = ifBody.cursor;
     branches.add(
@@ -305,6 +334,7 @@ class YarnParser {
       final tok = tokens[cursor];
       if (tok.type == TokenType.commandEndIf) {
         cursor++;
+        closed = true;
         break;
       }
       if (tok.type == TokenType.commandElseIf) {
@@ -313,7 +343,7 @@ class YarnParser {
           tokens,
           cursor,
           baseIndent: 0,
-          stopAtElseOrEndIf: true,
+          depth: depth + 1,
         );
         cursor = body.cursor;
         branches.add(
@@ -325,7 +355,7 @@ class YarnParser {
           tokens,
           cursor,
           baseIndent: 0,
-          stopAtElseOrEndIf: true,
+          depth: depth + 1,
         );
         cursor = body.cursor;
         branches.add(ConditionalBranch(condition: null, body: body.statements));
@@ -334,6 +364,12 @@ class YarnParser {
       } else {
         break;
       }
+    }
+    if (!closed) {
+      throw YarnParseException(
+        '<<if>> without <<endif>>',
+        lineNumber: ifTok.lineNumber,
+      );
     }
 
     return _ConditionalResult(
@@ -444,6 +480,12 @@ class YarnParser {
     return (text, tags);
   }
 
+  static String _commandName(TokenType type) => switch (type) {
+    TokenType.commandElseIf => 'elseif',
+    TokenType.commandElse => 'else',
+    _ => 'endif',
+  };
+
   static int _lastHashOutsideBraces(String text) {
     int depth = 0;
     for (int i = text.length - 1; i >= 0; i--) {
@@ -462,9 +504,15 @@ class YarnParser {
 
 /// Thrown when a Yarn Spinner source string cannot be parsed.
 class YarnParseException implements Exception {
+  /// A failure described by [message], at source line [lineNumber] when
+  /// known; [toString] prints both.
   const YarnParseException(this.message, {this.lineNumber});
 
+  /// What is wrong with the source.
   final String message;
+
+  /// The 1-based source line the failure is on, or null when it is not
+  /// tied to one line.
   final int? lineNumber;
 
   @override

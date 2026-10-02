@@ -8,8 +8,6 @@ const _dt = 1 / 60;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUpAll(registerCoreCodecs);
-
   late World world;
   setUp(() => world = World());
 
@@ -139,10 +137,8 @@ void main() {
 
     test('a sound starts once as time passes it; a preview stays quiet', () {
       final heard = <String>[];
-      final previous = TimelineAudio.play;
-      TimelineAudio.play = (context, at, cue) =>
+      world.context.timelineAudio = (context, at, cue) =>
           heard.add('${at.name}:${cue.value}@${cue.amount}');
-      addTearDown(() => TimelineAudio.play = previous);
 
       final door = world.createEntity(name: 'Door');
       final asset = TimelineAsset(
@@ -172,7 +168,7 @@ void main() {
       expect(heard, isEmpty);
 
       // The default asks the engine's audio system through a component.
-      TimelineAudio.play = TimelineAudio.viaComponent;
+      world.context.timelineAudio = TimelineAudio.viaComponent;
       playing(asset, world.createEntity()).update(0.1);
       expect(door.getComponent<AudioPlayComponent>()!.clipPath, 'creak.wav');
     });
@@ -399,10 +395,10 @@ void main() {
     test('a signal starts whoever listens — from code or from a timeline', () {
       player.listenSignal = 'open_sesame';
       world.update(_dt);
-      TimelineSignals.emit('something_else');
+      world.context.signals.emit('something_else');
       world.update(0.5);
       expect(y(), 0);
-      TimelineSignals.emit('open_sesame');
+      world.context.signals.emit('open_sesame');
       world.update(0.5);
       expect(y(), closeTo(-32, 1e-6));
 

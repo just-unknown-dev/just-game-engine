@@ -29,10 +29,12 @@
 library;
 
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:just_memory/just_memory.dart';
 import '../rendering/impl/renderable.dart';
+import '../rendering/shader_filter_support.dart';
 import 'package:just_dart/just_dart.dart';
 
 part 'particle_data.dart';

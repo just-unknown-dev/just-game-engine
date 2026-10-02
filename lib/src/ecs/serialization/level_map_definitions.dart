@@ -3,14 +3,19 @@ library;
 
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
-import '../../core/dimensions.dart';
+import '../../foundation/dimensions.dart';
 
 import '../../subsystems/level_map/level_map_data.dart';
 import '../components/level_map/level_map_component.dart';
 import 'component_definition.dart';
 import 'field_type.dart';
 
+/// The level-map subsystem's component definitions: one, for
+/// [LevelMapComponent].
 abstract final class LevelMapDefinitions {
+  /// Definition of [LevelMapComponent], saved as `LevelMapComponent` (and
+  /// read from the older `TileMapComponent`): the map file path, or the map
+  /// itself kept inline.
   static final levelMap = ComponentDefinition<LevelMapComponent>(
     type: 'LevelMapComponent',
     // Saved as a tile map before the rename.
@@ -58,5 +63,6 @@ abstract final class LevelMapDefinitions {
     ],
   );
 
+  /// Every definition above: [levelMap].
   static List<ComponentDefinition> get all => [levelMap];
 }

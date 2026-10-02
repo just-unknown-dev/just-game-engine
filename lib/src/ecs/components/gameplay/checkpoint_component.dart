@@ -6,7 +6,7 @@ import 'package:just_dart/just_dart.dart';
 /// Marks an entity as a checkpoint / respawn point.
 ///
 /// Attach this to a trigger-zone entity.  The [CheckpointSystem] scans all
-/// player entities (tagged with the [playerTag]) and activates the nearest
+/// player entities (tagged with the `playerTag`) and activates the nearest
 /// checkpoint the player overlaps.
 ///
 /// Usage:

@@ -1,0 +1,23 @@
+{
+  "format": 1,
+  "orientation": "orthogonal",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "tilesets": [
+    "assets/tilesets/grassland.tileset.json",
+    "builtin:basic_shapes.tileset.json"
+  ],
+  "nextLayerId": 2,
+  "layers": [
+    {
+      "id": 1,
+      "name": "Ground",
+      "layerId": "main",
+      "layer": 0,
+      "collides": true,
+      "cells": {
+        "0,0": "eJxjYFBgYIBjcgCl+kfBKBgFAwUA554AwQ=="
+      }
+    }
+  ]
+}

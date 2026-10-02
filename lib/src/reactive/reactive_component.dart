@@ -5,8 +5,6 @@ import 'dart:ui' show VoidCallback;
 import 'package:just_signals/just_signals.dart';
 
 import '../ecs/ecs.dart';
-import '../ecs/components/components.dart';
-import 'package:just_dart/just_dart.dart';
 
 /// A mixin for components that want built-in change notification.
 ///
@@ -98,113 +96,5 @@ mixin ReactiveComponent on Component {
     }
     _propertySignals.clear();
     _changeListeners.clear();
-  }
-}
-
-/// A reactive transform component with built-in signals.
-class ReactiveTransformComponent extends TransformComponent
-    with ReactiveComponent {
-  ReactiveTransformComponent({
-    super.position,
-    super.angle,
-    super.euler,
-    super.scale,
-  });
-
-  @override
-  set position(Vector3 value) {
-    super.position = value;
-    notifyChange('position');
-  }
-
-  @override
-  set angle(double value) {
-    if (super.angle != value) {
-      super.angle = value;
-      notifyChange('angle');
-    }
-  }
-
-  @override
-  set scale(Vector3 value) {
-    super.scale = value;
-    notifyChange('scale');
-  }
-
-  @override
-  void translate(Vector3 delta) {
-    super.translate(delta);
-    notifyChange('position');
-  }
-
-  @override
-  void rotate(double delta) {
-    super.rotate(delta);
-    notifyChange('angle');
-  }
-}
-
-/// A reactive velocity component with built-in signals.
-class ReactiveVelocityComponent extends VelocityComponent
-    with ReactiveComponent {
-  ReactiveVelocityComponent({super.velocity, super.maxSpeed});
-
-  @override
-  set velocity(Vector3 value) {
-    super.velocity = value;
-    notifyChange('velocity');
-  }
-
-  @override
-  set maxSpeed(double value) {
-    if (super.maxSpeed != value) {
-      super.maxSpeed = value;
-      notifyChange('maxSpeed');
-    }
-  }
-}
-
-/// A reactive health component with built-in signals.
-class ReactiveHealthComponent extends HealthComponent with ReactiveComponent {
-  ReactiveHealthComponent({
-    super.health,
-    required super.maxHealth,
-    super.isInvulnerable,
-  });
-
-  @override
-  set health(double value) {
-    if (super.health != value) {
-      super.health = value;
-      notifyChange('health');
-    }
-  }
-
-  @override
-  set maxHealth(double value) {
-    if (super.maxHealth != value) {
-      super.maxHealth = value;
-      notifyChange('maxHealth');
-    }
-  }
-
-  @override
-  set isInvulnerable(bool value) {
-    if (super.isInvulnerable != value) {
-      super.isInvulnerable = value;
-      notifyChange('isInvulnerable');
-    }
-  }
-
-  @override
-  void damage(double amount) {
-    super.damage(amount);
-    notifyChange('health');
-  }
-
-  @override
-  void heal(double amount) {
-    super.heal(amount);
-    notifyChange('health');
   }
 }

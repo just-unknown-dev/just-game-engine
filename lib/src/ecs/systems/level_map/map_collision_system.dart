@@ -7,14 +7,13 @@ import 'package:just_dart/just_dart.dart' show Vector3;
 import 'package:just_physics_engine/just_physics_engine.dart';
 
 import '../../../subsystems/level_map/collision/tile_collision_builder.dart';
-import '../../../subsystems/level_map/collision/map_collision_kinds.dart';
 import '../../../subsystems/level_map/tile_cell.dart';
 import '../../../subsystems/level_map/level_map_data.dart';
 import '../../../subsystems/level_map/level_map_runtime.dart';
 import '../../../subsystems/level_map/tile_properties.dart';
 import '../../components/components.dart';
 import '../../ecs.dart';
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 
 /// Gives every map layer marked *collides* the static bodies its tiles'
 /// collision shapes describe.
@@ -26,7 +25,9 @@ import '../system_priorities.dart';
 ///
 /// A layer's bodies are rebuilt, at most once a frame, whenever its cells,
 /// settings or tilesets change, or the map moves. Runs before physics, so a
-/// change is in this frame's step.
+/// change is in this frame's step. A map with no runtime — its source
+/// cleared, a file that would not load, a reload in progress — has no
+/// bodies.
 ///
 /// An editor switches this system off while a level is being authored —
 /// the scene is what is edited, not bodies built from it — and calls
@@ -57,7 +58,14 @@ class MapCollisionSystem extends System {
       live.add(entity.id);
       final c = entity.getComponent<LevelMapComponent>()!;
       final rt = c.runtime;
-      if (rt == null || !rt.tilesetsReady) continue;
+      if (rt == null) {
+        // No map — its source cleared, or a file that will not load: its
+        // bodies go with it rather than collide invisibly.
+        _removeMap(entity.id);
+        continue;
+      }
+      // Tilesets still loading: what was built stays until they arrive.
+      if (!rt.tilesetsReady) continue;
       _syncMap(entity, rt);
     }
     for (final id in _bodies.keys.toList()) {
@@ -116,6 +124,7 @@ class MapCollisionSystem extends System {
       geometry: rt.geometry,
       tilesetAt: rt.tilesetAt,
       offset: Offset(layer.offsetX, layer.offsetY),
+      kinds: world.context.collisionKinds,
     );
     return [
       for (final spec in specs)
@@ -132,7 +141,7 @@ class MapCollisionSystem extends System {
     MapBodySpec spec,
     TileProperties properties,
   ) {
-    final kind = MapCollisionKinds.resolve(spec.kind);
+    final kind = world.context.collisionKinds.resolve(spec.kind);
     final at = origin + spec.center;
     final body = world.createEntityWithComponents([
       TransformComponent(position: Vector3(at.dx, at.dy, 0)),
@@ -140,7 +149,7 @@ class MapCollisionSystem extends System {
         shape: spec.isBox
             ? RectangleShape(spec.size!.width, spec.size!.height)
             : PolygonShape([...spec.polygon!]),
-        isStatic: true,
+        bodyType: BodyType.static,
         isOneWay: kind.oneWay,
         isSensor: kind.sensor,
         fixedRotation: true,

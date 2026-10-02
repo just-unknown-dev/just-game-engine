@@ -17,6 +17,8 @@ class EffectContext {
   /// guarantee.
   final int currentTick;
 
+  /// The context for advancing [entity]'s effects to [currentTick]; the
+  /// effect system makes one for each entity with effects, every tick.
   const EffectContext({required this.entity, required this.currentTick});
 
   /// Retrieve component [T] from the owning entity, or `null` if absent.

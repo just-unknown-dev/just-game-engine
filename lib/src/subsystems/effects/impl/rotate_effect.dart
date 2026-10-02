@@ -1,6 +1,6 @@
 part of '../effect_system.dart';
 
-/// Animates an entity's [TransformComponent.rotation] from its captured
+/// Animates an entity's [TransformComponent.angle] from its captured
 /// start to [to] (radians) over [durationTicks] ticks.
 ///
 /// Applies an **additive delta** each tick. Positive values rotate clockwise
@@ -12,7 +12,7 @@ part of '../effect_system.dart';
 /// ```
 class RotateEffect extends DeterministicEffect {
   /// Explicit start angle in radians. When `null` the entity's current
-  /// [TransformComponent.rotation] is captured on the first tick.
+  /// [TransformComponent.angle] is captured on the first tick.
   final double? from;
 
   /// Target rotation in radians.
@@ -23,6 +23,9 @@ class RotateEffect extends DeterministicEffect {
 
   double? _capturedFrom;
 
+  /// Turns to [to] radians over [durationTicks] ticks (30 by default),
+  /// along [easing] (linear by default), starting from [from] or, when that
+  /// is null, from the entity's angle on the first tick.
   RotateEffect({
     required this.to,
     this.from,
@@ -44,8 +47,8 @@ class RotateEffect extends DeterministicEffect {
     if (effectiveFrom == null) return;
 
     final totalDelta = to - effectiveFrom;
-    final prevEased = EffectEasings.resolve(easing, tAt(prevElapsed));
-    final currEased = EffectEasings.resolve(easing, tAt(currElapsed));
+    final prevEased = easing.transform(tAt(prevElapsed));
+    final currEased = easing.transform(tAt(currElapsed));
     transform.angle += totalDelta * (currEased - prevEased);
   }
 

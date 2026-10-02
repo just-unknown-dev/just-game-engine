@@ -114,12 +114,13 @@ void main() {
   );
 
   test('a kit can add a rule for its own v0 shape', () {
-    V0ToV1.perType['KitThing'] = (c) {
+    final hooks = MigrationHooks();
+    hooks.v0Components['KitThing'] = (c) {
       (c['fields'] as Map)['renamed'] = (c['fields'] as Map).remove('old');
       return c;
     };
-    addTearDown(() => V0ToV1.perType.remove('KitThing'));
     final out = SceneFormat.migrate(
+      hooks: hooks,
       scene([
         {'type': 'KitThing', 'old': 1},
       ]),

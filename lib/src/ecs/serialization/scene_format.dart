@@ -1,6 +1,11 @@
 library;
 
+import 'migration_hooks.dart';
 import 'scene_migrations.dart';
+import '../../foundation/unsupported_format_version.dart';
+
+export 'migration_hooks.dart';
+export '../../foundation/unsupported_format_version.dart';
 
 /// The saved scene format's version, and how older files are brought up to
 /// date.
@@ -15,29 +20,56 @@ import 'scene_migrations.dart';
 /// is written in the current format the next time it is saved.
 abstract final class SceneFormat {
   /// The version this engine writes.
-  static const int current = 7;
+  static const int current = 8;
 
   /// The version [json] declares; 0 when it declares none.
   static int versionOf(Map<String, dynamic> json) =>
       (json['version'] as num?)?.toInt() ?? 0;
 
-  /// [json] brought up to [current], applying each [SceneMigration] in turn.
-  /// Returns the input unchanged if it is already current. Never mutates the
-  /// input.
-  static Map<String, dynamic> migrate(Map<String, dynamic> json) {
-    var version = versionOf(json);
-    if (version >= current) return json;
+  /// [json] brought up to [current], applying each [SceneMigration] in turn
+  /// with the packages' rules in [hooks] (none when null — only the engine's
+  /// own). Returns the input unchanged if it is already current. Never
+  /// mutates the input.
+  ///
+  /// Throws [UnsupportedFormatVersionException] for a scene saved by a newer
+  /// engine (a version above [current]) rather than reading it as though it
+  /// were this one's.
+  static Map<String, dynamic> migrate(
+    Map<String, dynamic> json, {
+    MigrationHooks? hooks,
+  }) => migrateWithReport(json, hooks: hooks).scene;
+
+  /// [migrate], and what the migration found: entities that need an atlas
+  /// exported, and the notes a person may want to read.
+  static MigrationResult migrateWithReport(
+    Map<String, dynamic> json, {
+    MigrationHooks? hooks,
+  }) {
+    final from = versionOf(json);
+    var version = from;
+    if (version > current) {
+      throw UnsupportedFormatVersionException('scene', version, current);
+    }
+    if (version == current) {
+      return MigrationResult(scene: json, fromVersion: from);
+    }
+    final run = MigrationRun(hooks ?? MigrationHooks.none);
     var out = json;
     for (final step in SceneMigrations.chain) {
       if (step.from != version) continue;
-      out = step.apply(_deepCopy(out));
+      out = step.apply(_deepCopy(out), run);
       version = step.from + 1;
       out['version'] = version;
     }
     if (version != current) {
       throw StateError('No migration from scene format v$version to v$current');
     }
-    return out;
+    return MigrationResult(
+      scene: out,
+      fromVersion: from,
+      needsAtlas: List.unmodifiable(run.needsAtlas),
+      notes: List.unmodifiable(run.notes),
+    );
   }
 
   // Typed as a JSON decoder would type them, so a migrated scene casts the

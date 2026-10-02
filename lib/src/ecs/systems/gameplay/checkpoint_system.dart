@@ -8,7 +8,7 @@ import '../../../interfaces/interfaces.dart';
 import '../../ecs.dart';
 import '../../components/components.dart';
 import '../../serialization/tag_library.dart' show EngineTags;
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 import 'package:just_dart/just_dart.dart';
 import 'checkpoint_event.dart';
 
@@ -53,6 +53,10 @@ class CheckpointSystem extends System {
   /// Last activated respawn position (world-space).  Defaults to zero
   /// until the player touches a checkpoint.
   Vector3 _currentRespawnPoint = Vector3.zero();
+
+  /// Where [respawn] sends the player, in world space: the last activated
+  /// checkpoint's respawn position, or the one given to [setRespawnPoint];
+  /// zero until either. The stored vector itself, not a copy.
   Vector3 get currentRespawnPoint => _currentRespawnPoint;
 
   /// Creates a [CheckpointSystem] that looks for player entities tagged with
@@ -79,7 +83,11 @@ class CheckpointSystem extends System {
       final cpPos = cpTransform.position;
 
       for (final player in players) {
-        final playerTransform = player.getComponent<TransformComponent>()!;
+        // A player-tagged entity with no position — a controller or a HUD
+        // record carrying the tag — can reach no checkpoint. Asserting one
+        // threw here every frame, aborting the rest of World.update.
+        final playerTransform = player.getComponent<TransformComponent>();
+        if (playerTransform == null) continue;
         final dx = playerTransform.position.x - cpPos.x;
         final dy = playerTransform.position.y - cpPos.y;
         final distSq = dx * dx + dy * dy;
@@ -101,8 +109,9 @@ class CheckpointSystem extends System {
     });
   }
 
-  /// Immediately teleport [playerEntity] to [_currentRespawnPoint] and fires
-  /// a [PlayerRespawnEvent].  Call this when the player dies.
+  /// Fires a [PlayerRespawnEvent] asking for [playerEntity] to be moved to
+  /// [currentRespawnPoint]; a listener does the moving (see the class
+  /// example). Call this when the player dies.
   void respawn(Entity playerEntity) {
     world.events.fire(
       PlayerRespawnEvent(

@@ -11,6 +11,8 @@ import '../../ecs.dart';
 /// the kind (`hazard`), the class, the cells, and through the map their
 /// properties. Runtime only; the body is rebuilt, never saved.
 class MapBodyComponent extends Component {
+  /// The mark of a body built from [cells] of layer [layerId] of the map on
+  /// entity [mapEntityId], with collision [kind] and the tiles' [className].
   MapBodyComponent({
     required this.mapEntityId,
     required this.layerId,

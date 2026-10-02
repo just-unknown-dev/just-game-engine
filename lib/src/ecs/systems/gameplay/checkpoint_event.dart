@@ -15,6 +15,8 @@ class CheckpointActivatedEvent extends GameEvent {
   /// World-space respawn position stored by the checkpoint.
   final Vector3 respawnPosition;
 
+  /// [playerEntity] has activated [checkpointEntity], which respawns at
+  /// [respawnPosition].
   CheckpointActivatedEvent({
     required this.checkpointEntity,
     required this.playerEntity,
@@ -31,6 +33,7 @@ class PlayerRespawnEvent extends GameEvent {
   /// World-space position the player should be moved to.
   final Vector3 respawnPosition;
 
+  /// A request to move [playerEntity] to [respawnPosition].
   PlayerRespawnEvent({
     required this.playerEntity,
     required this.respawnPosition,

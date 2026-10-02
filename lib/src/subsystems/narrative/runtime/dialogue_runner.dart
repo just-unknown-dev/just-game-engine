@@ -23,10 +23,10 @@ import 'expression_evaluator.dart';
 ///
 /// **Lifecycle**
 /// 1. Call [start] with a node title — the runner begins executing.
-/// 2. Listen to [signals.currentLine] and [signals.choices].
+/// 2. Listen to `signals.currentLine` and `signals.choices`.
 /// 3. Call [advance] after the player reads a line.
 /// 4. Call [selectChoice] when the player picks an option.
-/// 5. The runner fires [signals.isDialogueActive] = `false` when finished.
+/// 5. The runner fires `signals.isDialogueActive` = `false` when finished.
 ///
 /// ```dart
 /// final runner = DialogueRunner(
@@ -49,6 +49,10 @@ import 'expression_evaluator.dart';
 /// await runner.start('Start');
 /// ```
 class DialogueRunner {
+  /// An idle runner for [graph]; nothing runs until [start]. It reports
+  /// through [signals] — a fresh [NarrativeSignals] when null — and shows
+  /// text untranslated when [localizer] is null.
+  /// `DialogueManager.createRunner` wires these from the manager.
   DialogueRunner({
     required this.graph,
     required this.variables,
@@ -65,9 +69,17 @@ class DialogueRunner {
 
   // ---- Configuration -------------------------------------------------------
 
+  /// The dialogue this runner plays; [start] names one of its nodes.
   final DialogueGraph graph;
+
+  /// Where `$name` variables are read from, and where `<<set>>` writes.
   final DialogueVariableStore variables;
+
+  /// The `[name]` predicates that conditions may call.
   final DialogueConditionRegistry conditions;
+
+  /// The handlers run for custom `<<name args>>` commands; one not
+  /// registered here is skipped.
   final DialogueCommandRegistry commands;
 
   /// Optional localizer — when provided, `#line:key` tags are resolved to
@@ -135,7 +147,7 @@ class DialogueRunner {
 
   /// Selects a player choice by zero-based [index].
   ///
-  /// Only has effect when [signals.hasChoices] is `true`.
+  /// Only has effect when `signals.hasChoices` is `true`.
   void selectChoice(int index) {
     if (_choiceCompleter != null && !_choiceCompleter!.isCompleted) {
       _choiceCompleter!.complete(index);

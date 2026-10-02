@@ -13,6 +13,7 @@ import '../ecs.dart';
 /// editor and the game share one codec per type, so they cannot disagree
 /// about what a saved level means.
 abstract class ComponentCodec<T extends Component> {
+  /// Const constructor so subclasses can be const.
   const ComponentCodec();
 
   /// The `type` string written to JSON. Stable: changing it orphans every
@@ -47,6 +48,8 @@ abstract class ComponentCodec<T extends Component> {
 /// levels used to lose platforms, hazards and checkpoints without a single
 /// error: the entity loaded, looked right, and did nothing.
 class UnknownComponentTypeException implements Exception {
+  /// The failure to read a component saved as [type], on the entity called
+  /// [entityName] when that is known.
   UnknownComponentTypeException(this.type, {this.entityName});
 
   /// The unrecognised `type` string.
@@ -59,6 +62,7 @@ class UnknownComponentTypeException implements Exception {
   String toString() =>
       'UnknownComponentTypeException: no codec registered for "$type"'
       '${entityName == null ? '' : ' (on entity "$entityName")'}. '
-      'Register one with ComponentCodecRegistry.instance.register, or call '
-      'the owning package\'s registerCodecs() before loading.';
+      'Install the owning package\'s extension into world.context '
+      '(EngineConfig(extensions: [...]) or context.install(...)), or '
+      'register a definition with world.context.definitions.register.';
 }

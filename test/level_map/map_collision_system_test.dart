@@ -33,9 +33,9 @@ TilesetData _tileset() =>
 /// A world with physics and the tile systems, and a map whose `Ground`
 /// layer collides.
 (World, Entity, MapLayerData) _world() {
-  TileAssets.putTileset('test/t.tileset.json', _tileset());
-  _physics = PhysicsEngine.pureDart()..initialize();
   final world = World()..initialize();
+  world.context.tiles.putTileset('test/t.tileset.json', _tileset());
+  _physics = PhysicsEngine.pureDart()..initialize();
   addTearDown(() {
     world.dispose();
     _physics.dispose();
@@ -72,8 +72,6 @@ void _run(World world, {int frames = 90}) {
 }
 
 void main() {
-  setUp(TileAssets.clear);
-
   test('a body lands on solid tiles and is grounded on flat ground', () {
     final (world, _, ground) = _world();
     for (var x = 0; x < 8; x++) {
@@ -197,7 +195,8 @@ void main() {
   });
 
   test('a registered kind decorates its bodies', () {
-    MapCollisionKinds.register(
+    final (world, _, ground) = _world();
+    world.context.collisionKinds.register(
       MapCollisionKind(
         id: 'test.lava',
         label: 'Lava',
@@ -207,12 +206,10 @@ void main() {
         ),
       ),
     );
-    addTearDown(MapCollisionKinds.reset);
     final ts = _tileset()
       ..tileOrNew(3).collision = TileCollision.full(16, 16, kind: 'test.lava');
     ts.tile(3)!.properties.set('heat', 9, TilePropertyType.int);
-    final (world, _, ground) = _world();
-    TileAssets.putTileset('test/t.tileset.json', ts);
+    world.context.tiles.putTileset('test/t.tileset.json', ts);
     ground.cells.setCell(0, 0, TileCell.make(0, 3));
     _run(world, frames: 2);
 

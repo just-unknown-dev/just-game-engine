@@ -1,15 +1,21 @@
 /// Versions of the timeline file format, and the steps between them.
 library;
 
+import '../../ecs/serialization/migration_hooks.dart';
+import '../../foundation/unsupported_format_version.dart';
+
 /// One step of the timeline-format migration chain: from version [from] to
 /// [from] + 1.
 abstract class TimelineMigration {
+  /// Const constructor so subclasses can be const.
   const TimelineMigration();
 
+  /// The version this step reads; it writes [from] + 1.
   int get from;
 
-  /// Rewrites [json] (a private copy) in place and returns it.
-  Map<String, dynamic> apply(Map<String, dynamic> json);
+  /// Rewrites [json] (a private copy) in place and returns it; [run] holds
+  /// the packages' rules.
+  Map<String, dynamic> apply(Map<String, dynamic> json, MigrationRun run);
 }
 
 /// Rewrites one track of a version-1 timeline for version 2. Returns the
@@ -34,18 +40,35 @@ abstract final class TimelineFormat {
   static int versionOf(Map<String, dynamic> json) =>
       (json['formatVersion'] as num?)?.toInt() ?? 1;
 
-  /// [json] brought up to [current] — a new map; [json] is never changed.
-  /// A file newer than this engine is returned as it is.
-  static Map<String, dynamic> migrate(Map<String, dynamic> json) {
+  /// [json] brought up to [current] — a new map; [json] is never changed —
+  /// with the packages' rules in [hooks] (none when null). One already at
+  /// [current] is returned as it is.
+  ///
+  /// Throws a [FormatException] for a file newer than this engine (see
+  /// [ensureSupported]).
+  static Map<String, dynamic> migrate(
+    Map<String, dynamic> json, {
+    MigrationHooks? hooks,
+  }) {
     final version = versionOf(json);
+    ensureSupported(version);
     if (version >= current) return json;
+    final run = MigrationRun(hooks ?? MigrationHooks.none);
     var out = _deepCopy(json);
     for (final step in chain) {
       if (step.from < version) continue;
-      out = step.apply(out);
+      out = step.apply(out, run);
       out['formatVersion'] = step.from + 1;
     }
     return out;
+  }
+
+  /// Throws an [UnsupportedFormatVersionException] when [version] is newer
+  /// than [current]: this engine cannot know what the newer format added,
+  /// and saving what it did understand would quietly drop the rest.
+  static void ensureSupported(int version) {
+    if (version <= current) return;
+    throw UnsupportedFormatVersionException('timeline', version, current);
   }
 
   static Map<String, dynamic> _deepCopy(Map<String, dynamic> json) =>
@@ -72,18 +95,18 @@ abstract final class TimelineFormat {
 /// things are — so a track keying `ParentComponent.localOffset` or
 /// `.localRotation` has nothing to key and is dropped.
 ///
-/// A package with its own renamed fields adds rules to [perTrack].
+/// A package with its own renamed fields adds rules to
+/// [MigrationHooks.perTrack].
 class TimelineV1ToV2 extends TimelineMigration {
+  /// The step; it has no settings, and [TimelineFormat.chain] holds it.
   const TimelineV1ToV2();
 
   @override
   int get from => 1;
 
-  /// Track-level rules a package adds, run after the built-in ones.
-  static final List<TrackMigration> perTrack = [];
-
   @override
-  Map<String, dynamic> apply(Map<String, dynamic> json) {
+  Map<String, dynamic> apply(Map<String, dynamic> json, MigrationRun run) {
+    final perTrack = run.hooks.perTrack;
     final tracks = json['tracks'];
     if (tracks is! List) return json;
     final out = <Object?>[];

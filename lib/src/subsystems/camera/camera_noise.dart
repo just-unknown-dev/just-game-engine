@@ -7,6 +7,8 @@ import 'package:flutter/painting.dart' show Offset;
 
 /// One layer of noise: how fast and how far.
 class NoiseOctave {
+  /// A layer at [frequency] cycles per second, swinging up to [amplitude]
+  /// either way.
   const NoiseOctave(this.frequency, this.amplitude);
 
   /// Cycles per second.
@@ -21,9 +23,16 @@ class NoiseOctave {
 /// Position amplitudes are in **screen pixels**, so a shot feels equally
 /// handheld at any zoom.
 class CameraNoiseProfile {
+  /// A profile moving the view by [position] and rolling it by [rotation];
+  /// no roll unless given.
   const CameraNoiseProfile({required this.position, this.rotation = const []});
 
+  /// The layers summed for the view's offset, amplitudes in screen pixels.
+  /// x and y read the same layers with different seeds, so they wander
+  /// independently.
   final List<NoiseOctave> position;
+
+  /// The layers summed for the view's roll, amplitudes in radians.
   final List<NoiseOctave> rotation;
 
   /// Screen-pixel offset at [time] seconds.
@@ -47,7 +56,7 @@ class CameraNoiseProfile {
     return total;
   }
 
-  /// Smooth value noise in [-1, 1]: the same [seed] and [t] always give the
+  /// Smooth value noise in `[-1, 1]`: the same [seed] and [t] always give the
   /// same answer, on every platform, so a shot looks the same each run.
   static double noise(int seed, double t) {
     final i = t.floorToDouble();
@@ -68,13 +77,21 @@ class CameraNoiseProfile {
 
 /// The noise recipes a [CameraNoiseProfile] can be picked from by name.
 enum CameraNoisePreset {
+  /// A slow, light sway: at most about 4 screen pixels, under a cycle a
+  /// second, with a trace of roll.
   handheldMild,
+
+  /// An ordinary handheld drift: at most about 9 screen pixels.
   handheldNormal,
+
+  /// A restless handheld camera: at most about 19 screen pixels, with a
+  /// visible roll.
   handheldStrong,
 
   /// Fast and tight: an engine running, a rumbling floor.
   shake;
 
+  /// The layers of noise this preset stands for.
   CameraNoiseProfile get profile => switch (this) {
     handheldMild => const CameraNoiseProfile(
       position: [NoiseOctave(0.35, 3), NoiseOctave(0.9, 1)],

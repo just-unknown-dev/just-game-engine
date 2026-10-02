@@ -8,10 +8,13 @@ import 'dart:collection';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'render_hook_chain.dart';
-import 'render_view.dart';
+import 'render_stats.dart';
+import 'frame_view.dart';
 import 'scene_renderer.dart';
 import 'impl/renderable.dart';
 import 'impl/sprite_batch.dart';
+import 'impl/sprite_batching.dart';
+import 'shader_filter_support.dart';
 import '../post_processing/post_process_pass.dart';
 import '../particles/particles.dart';
 import '../camera/camera_system.dart';
@@ -19,16 +22,19 @@ import '../../interfaces/rendering_interfaces.dart';
 import 'package:just_dart/just_dart.dart';
 
 export 'impl/renderable.dart';
-export 'impl/game_widget.dart';
 export 'impl/sprite_batch.dart';
-export 'render_view.dart';
+export 'frame_view.dart';
 export 'scene_renderer.dart';
+export 'render_stats.dart';
 
 /// Main rendering engine class responsible for graphics rendering
 ///
 /// This class manages the rendering pipeline, camera, and all renderable objects.
 /// It uses Flutter's Canvas API for 2D rendering.
-class RenderingEngine {
+///
+/// It is also a [RenderStatsSink]: the ECS world's `RenderSystem` reports
+/// what it draws here, so [stats] count the whole frame.
+class RenderingEngine implements RenderStatsSink {
   /// List of all renderable objects
   final List<Renderable> _renderables = [];
 
@@ -87,9 +93,13 @@ class RenderingEngine {
     if (hook != null) backgroundHooks.add(hook);
   }
 
+  /// The hook last assigned through the setter, for callers that still read
+  /// it back.
   @Deprecated('Use overlayHooks.add / remove')
   RenderHook? get onRenderOverlay => _legacyOverlay;
 
+  /// Assigning replaces only the hook this setter previously added; hooks
+  /// added through [overlayHooks] directly are untouched.
   @Deprecated('Use overlayHooks.add / remove')
   set onRenderOverlay(RenderHook? hook) {
     if (_legacyOverlay != null) overlayHooks.remove(_legacyOverlay!);
@@ -105,8 +115,7 @@ class RenderingEngine {
   final List<SceneRenderer> _sceneRenderers = [];
 
   /// The registered [SceneRenderer]s, in draw order.
-  List<SceneRenderer> get sceneRenderers =>
-      List.unmodifiable(_sceneRenderers);
+  List<SceneRenderer> get sceneRenderers => List.unmodifiable(_sceneRenderers);
 
   /// Adds [renderer] to the frame (see [SceneRenderer] for where it draws).
   void addSceneRenderer(SceneRenderer renderer) {
@@ -120,12 +129,12 @@ class RenderingEngine {
   bool removeSceneRenderer(SceneRenderer renderer) =>
       _sceneRenderers.remove(renderer);
 
-  final RenderView _view = RenderView();
+  final FrameView _view = FrameView();
   bool _viewStale = true;
 
   /// The camera of the frame being drawn, as matrices — filled at most once
   /// a frame, and only when read, so a 2-D game pays nothing for it.
-  RenderView get view {
+  FrameView get view {
     if (_viewStale) {
       _view.update(camera, camera.viewportSize);
       _viewStale = false;
@@ -134,12 +143,25 @@ class RenderingEngine {
   }
 
   /// Optional factory for creating [SpriteBatchRenderer] instances.
-  /// Defaults to the built-in [SpriteBatch] implementation.
+  /// Defaults to the built-in [SpriteBatch] implementation. A [SpriteBatch]
+  /// it returns is set to the filter quality of the sprites it batches.
   SpriteBatchFactory spriteBatchFactory = (ui.Image atlas) =>
       SpriteBatch(atlas);
 
-  /// Cached sprite-batch renderers keyed by atlas identity hash.
-  final Map<int, SpriteBatchRenderer> _batchCache = {};
+  /// Sprite batches by atlas image (the object, not a hash of it) and filter
+  /// quality; one a frame does not use is dropped at its end.
+  final SpriteBatchCache _batchCache = SpriteBatchCache();
+
+  /// Batches holding sprites not drawn yet, in the order first used.
+  final List<SpriteBatchRenderer> _pendingBatches = [];
+
+  /// Reused to work out how each sprite is batched.
+  final SpriteBatchPlan _plan = SpriteBatchPlan();
+
+  /// How many sprite batches are kept — one per image and filter quality
+  /// drawn in the last frame. For tests.
+  @visibleForTesting
+  int get debugSpriteBatchCount => _batchCache.length;
 
   /// Spatial index for fast viewport culling.
   ///
@@ -147,7 +169,17 @@ class RenderingEngine {
   /// [_spatialThreshold] renderables, the quadtree is rebuilt each frame and
   /// used to query only those renderables overlapping the camera viewport.
   /// For smaller scenes the O(n) scan is faster due to lower overhead.
-  bool useSpatialIndex = true;
+  @Deprecated(
+    'Only renderables added with addRenderable are culled by it. Use '
+    'RenderSystem(cullOffscreen: true) for entities. Removed in 3.0.',
+  )
+  bool get useSpatialIndex => _useSpatialIndex;
+  @Deprecated(
+    'Only renderables added with addRenderable are culled by it. Use '
+    'RenderSystem(cullOffscreen: true) for entities. Removed in 3.0.',
+  )
+  set useSpatialIndex(bool value) => _useSpatialIndex = value;
+  bool _useSpatialIndex = true;
   static const int _spatialThreshold = 200;
   Quadtree<Renderable>? _quadtree;
   final List<Renderable> _quadtreeResults = [];
@@ -164,6 +196,26 @@ class RenderingEngine {
   int _lastCulledCount = 0;
   int _lastBatchedSpriteCount = 0;
   bool _lastUsedSpatialIndex = false;
+
+  // What other drawers reported this frame ([addFrameStats]).
+  int _reportedDrawCalls = 0;
+  int _reportedRendered = 0;
+  int _reportedCulled = 0;
+  int _reportedBatchedSprites = 0;
+
+  @override
+  void addFrameStats({
+    int drawCalls = 0,
+    int renderedObjects = 0,
+    int culledObjects = 0,
+    int batchedSprites = 0,
+  }) {
+    _reportedDrawCalls += drawCalls;
+    _reportedRendered += renderedObjects;
+    _reportedCulled += culledObjects;
+    _reportedBatchedSprites += batchedSprites;
+  }
+
   int _spatialRebuildCount = 0;
   bool _spatialReusedLastFrame = false;
 
@@ -219,6 +271,24 @@ class RenderingEngine {
     }
   }
 
+  /// The registered post-process passes, innermost ([PostProcessPass.passOrder]
+  /// lowest) first — the order they are applied in.
+  List<PostProcessPass> get postProcessPasses {
+    _sortPasses();
+    return List.unmodifiable(_sortedPasses);
+  }
+
+  /// Sorts the passes by order when one was added or removed, or a pass's
+  /// order changed since.
+  void _sortPasses() {
+    if (!_passListDirty && _passesInOrder()) return;
+    _sortedPasses
+      ..clear()
+      ..addAll(_postProcessPasses)
+      ..sort((a, b) => a.passOrder.compareTo(b.passOrder));
+    _passListDirty = false;
+  }
+
   // ── Cached Paint objects (avoid per-frame allocation) ──────────────────
   final Paint _backgroundPaint = Paint();
   final Paint _debugBoundsPaint = Paint()
@@ -241,6 +311,10 @@ class RenderingEngine {
   bool get isInitialized => _initialized;
 
   /// Get all renderables (sorted by layer then zOrder)
+  @Deprecated(
+    'Lists only renderables added with addRenderable. Query the world for '
+    'RenderableComponent instead. Removed in 3.0.',
+  )
   List<Renderable> get renderables {
     final sorted = List<Renderable>.from(_renderables);
     sorted.sort((a, b) {
@@ -270,19 +344,28 @@ class RenderingEngine {
   ///
   /// Completed emitters (no more emissions + no live particles) are removed
   /// automatically during [updateManagedEmitters].
+  @Deprecated(
+    'Add a ParticleEmitterComponent (removeEntityWhenComplete: true) to '
+    'an entity; ParticleSystemECS updates it and RenderSystem draws it. '
+    'Removed in 3.0.',
+  )
   void addManagedEmitter(ParticleEmitter emitter) {
     if (!_managedEmitters.contains(emitter)) {
       _managedEmitters.add(emitter);
-      addRenderable(emitter);
+      _addRenderable(emitter);
     }
   }
 
   /// Unregister a [ParticleEmitter] that was previously added via
   /// [addManagedEmitter], stopping its automatic update and removing it from
   /// rendering.
+  @Deprecated(
+    'Destroy the entity holding the ParticleEmitterComponent, or remove the '
+    'component. Removed in 3.0.',
+  )
   void removeManagedEmitter(ParticleEmitter emitter) {
     if (_managedEmitters.remove(emitter)) {
-      removeRenderable(emitter);
+      _removeRenderable(emitter);
     }
   }
 
@@ -290,6 +373,10 @@ class RenderingEngine {
   ///
   /// Called automatically by the engine's update loop.  Completed emitters
   /// are removed from the list and unregistered from rendering.
+  @Deprecated(
+    'Emitters on entities (ParticleEmitterComponent) are updated by '
+    'ParticleSystemECS. Removed in 3.0.',
+  )
   void updateManagedEmitters(double deltaTime) {
     // Iterate backwards so index removal is safe
     for (int i = _managedEmitters.length - 1; i >= 0; i--) {
@@ -297,7 +384,7 @@ class RenderingEngine {
       emitter.update(deltaTime);
       if (emitter.isComplete) {
         _managedEmitters.removeAt(i);
-        removeRenderable(emitter);
+        _removeRenderable(emitter);
       }
     }
   }
@@ -305,7 +392,13 @@ class RenderingEngine {
   /// Add a renderable object to the scene
   ///
   /// [renderable] - The object to render
-  void addRenderable(Renderable renderable) {
+  @Deprecated(
+    'Add a RenderableComponent holding the renderable to an entity; '
+    'RenderSystem draws it. Removed in 3.0.',
+  )
+  void addRenderable(Renderable renderable) => _addRenderable(renderable);
+
+  void _addRenderable(Renderable renderable) {
     if (_renderableSet.add(renderable)) {
       _renderables.add(renderable);
       _trackRenderable(renderable);
@@ -317,11 +410,20 @@ class RenderingEngine {
   /// Remove a renderable object from the scene
   ///
   /// [renderable] - The object to remove
-  void removeRenderable(Renderable renderable) {
+  @Deprecated(
+    'Destroy the entity holding the RenderableComponent, or remove the '
+    'component. Removed in 3.0.',
+  )
+  void removeRenderable(Renderable renderable) => _removeRenderable(renderable);
+
+  void _removeRenderable(Renderable renderable) {
     if (_renderableSet.remove(renderable)) {
       _renderables.remove(renderable);
-      _untrackRenderable(renderable);
+      // Out of the layer it was filed under before the tracking goes: a
+      // renderable moved to another layer since the last frame is still in
+      // its old one, and used to stay there — drawn — after removal.
       _removeFromLayer(renderable);
+      _untrackRenderable(renderable);
       _spatialIndexDirty = true;
     }
   }
@@ -334,9 +436,13 @@ class RenderingEngine {
     _layersDirty = true;
   }
 
-  /// Remove a renderable from its layer
+  /// Remove a renderable from the layer it is filed under
   void _removeFromLayer(Renderable renderable) {
-    _layers[renderable.layer]?.remove(renderable);
+    final filed = _trackedLayers[renderable] ?? renderable.layer;
+    _layers[filed]?.remove(renderable);
+    if (filed != renderable.layer) {
+      _layers[renderable.layer]?.remove(renderable);
+    }
     _layersDirty = true;
   }
 
@@ -353,11 +459,19 @@ class RenderingEngine {
   }
 
   /// Mark layer sorting as dirty after direct renderable mutation.
+  @Deprecated(
+    'Only for renderables added with addRenderable; RenderSystem sorts '
+    'and culls entities itself. Removed in 3.0.',
+  )
   void markLayerOrderDirty() {
     _layersDirty = true;
   }
 
   /// Mark the spatial index as dirty after direct transform mutation.
+  @Deprecated(
+    'Only for renderables added with addRenderable; RenderSystem sorts '
+    'and culls entities itself. Removed in 3.0.',
+  )
   void markSpatialIndexDirty() {
     _spatialIndexDirty = true;
   }
@@ -381,6 +495,8 @@ class RenderingEngine {
     _postProcessPassSet.clear();
     _sortedPasses.clear();
     _passListDirty = false;
+    _batchCache.clear();
+    _pendingBatches.clear();
   }
 
   void _refreshRenderableTracking() {
@@ -419,24 +535,38 @@ class RenderingEngine {
     _sortedLayerLists.removeWhere((k, _) => !_layers.containsKey(k));
   }
 
-  void _refreshSpatialIndex(Rect visibleRect) {
-    var sceneBounds = Rect.fromLTRB(
-      visibleRect.left - visibleRect.width,
-      visibleRect.top - visibleRect.height,
-      visibleRect.right + visibleRect.width,
-      visibleRect.bottom + visibleRect.height,
-    );
-    var boundsChanged = _spatialIndexDirty || _quadtree == null;
-
+  /// Brings every renderable's bounds up to date, and the quadtree with
+  /// them; true when the tree can answer this frame.
+  ///
+  /// While anything moves the tree is not rebuilt — that cost a rebuild
+  /// every frame of any game with something moving — and the frame tests
+  /// each renderable's bounds against the view instead, which is no dearer
+  /// than the bounds pass itself. Once everything is still the tree is
+  /// built again and reused until something moves or leaves it.
+  bool _refreshSpatialIndex(Rect visibleRect) {
+    var moved = false;
+    var left = visibleRect.left - visibleRect.width;
+    var top = visibleRect.top - visibleRect.height;
+    var right = visibleRect.right + visibleRect.width;
+    var bottom = visibleRect.bottom + visibleRect.height;
     for (final renderable in _renderables) {
-      final currentBounds = renderable.getBounds();
-      if (_boundsCache[renderable] != currentBounds) {
-        _boundsCache[renderable] = currentBounds;
-        boundsChanged = true;
+      final bounds = renderable.getBounds();
+      if (_boundsCache[renderable] != bounds) {
+        _boundsCache[renderable] = bounds;
+        moved = true;
       }
-      if (currentBounds != null) {
-        sceneBounds = sceneBounds.expandToInclude(currentBounds);
+      if (bounds != null) {
+        if (bounds.left < left) left = bounds.left;
+        if (bounds.top < top) top = bounds.top;
+        if (bounds.right > right) right = bounds.right;
+        if (bounds.bottom > bottom) bottom = bounds.bottom;
       }
+    }
+
+    if (moved) {
+      _spatialIndexDirty = true;
+      _spatialReusedLastFrame = false;
+      return false;
     }
 
     final treeCoversVisibleRect =
@@ -444,12 +574,12 @@ class RenderingEngine {
         _spatialIndexBounds!.contains(visibleRect.topLeft) &&
         _spatialIndexBounds!.contains(visibleRect.bottomRight);
 
-    final needsRebuild = boundsChanged || !treeCoversVisibleRect;
-    if (!needsRebuild) {
+    if (!_spatialIndexDirty && _quadtree != null && treeCoversVisibleRect) {
       _spatialReusedLastFrame = true;
-      return;
+      return true;
     }
 
+    final sceneBounds = Rect.fromLTRB(left, top, right, bottom);
     _quadtree = Quadtree<Renderable>(bounds: sceneBounds);
     for (final entry in _boundsCache.entries) {
       _quadtree!.insert(entry.key, entry.value);
@@ -458,6 +588,30 @@ class RenderingEngine {
     _spatialIndexDirty = false;
     _spatialReusedLastFrame = false;
     _spatialRebuildCount++;
+    return true;
+  }
+
+  /// Draws every sprite batched so far; returns how many draw calls that
+  /// was.
+  int _flushPending(Canvas canvas) {
+    final n = _pendingBatches.length;
+    if (n == 0) return 0;
+    for (final batch in _pendingBatches) {
+      batch.flush(canvas);
+    }
+    _pendingBatches.clear();
+    return n;
+  }
+
+  /// Whether the post-process pass order still holds — a pass's
+  /// [PostProcessPass.passOrder] can change after it was sorted.
+  bool _passesInOrder() {
+    for (var i = 1; i < _sortedPasses.length; i++) {
+      if (_sortedPasses[i - 1].passOrder > _sortedPasses[i].passOrder) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// Render a frame
@@ -488,6 +642,11 @@ class RenderingEngine {
     var renderedCount = 0;
     var culledCount = 0;
     var batchedSpriteCount = 0;
+    // Counts reported outside a frame belong to none.
+    _reportedDrawCalls = 0;
+    _reportedRendered = 0;
+    _reportedCulled = 0;
+    _reportedBatchedSprites = 0;
 
     // Update camera viewport
     camera.viewportSize = size;
@@ -511,14 +670,12 @@ class RenderingEngine {
     // Each active pass wraps the scene+overlay in a saveLayer so Flutter's
     // compositor applies the FragmentShader when restoring the layer.
     int activePasses = 0;
-    if (_postProcessPasses.isNotEmpty) {
-      if (_passListDirty) {
-        _sortedPasses
-          ..clear()
-          ..addAll(_postProcessPasses)
-          ..sort((a, b) => a.passOrder.compareTo(b.passOrder));
-        _passListDirty = false;
-      }
+    // Where shaders cannot filter layers (the web, Skia) the passes are
+    // skipped rather than thrown on; see ShaderFilterSupport.
+    if (_postProcessPasses.isNotEmpty &&
+        _postProcessPasses.any((p) => p.enabled) &&
+        ShaderFilterSupport.check('Post-process passes')) {
+      _sortPasses();
       _fullscreenRect = Rect.fromLTWH(0, 0, size.width, size.height);
       // Push from outermost (highest passOrder) to innermost (lowest)
       // so the LIFO restore order applies shaders innermost-first.
@@ -559,19 +716,28 @@ class RenderingEngine {
 
     // Build spatial index when the scene is large enough to benefit.
     final visibleRect = camera.getVisibleBounds();
-    final useTree = useSpatialIndex && _renderables.length > _spatialThreshold;
+    final useTree = _useSpatialIndex && _renderables.length > _spatialThreshold;
 
     _lastUsedSpatialIndex = useTree;
+    _batchCache
+      ..factory = spriteBatchFactory
+      ..beginFrame();
 
     Set<Renderable>? spatialVisible;
+    var linearFromCache = false;
     if (useTree) {
-      _refreshSpatialIndex(visibleRect);
-      _quadtreeResults.clear();
-      _quadtree?.queryRect(visibleRect, _quadtreeResults);
-      _spatialVisibleSet
-        ..clear()
-        ..addAll(_quadtreeResults);
-      spatialVisible = _spatialVisibleSet;
+      if (_refreshSpatialIndex(visibleRect)) {
+        _quadtreeResults.clear();
+        _quadtree?.queryRect(visibleRect, _quadtreeResults);
+        _spatialVisibleSet
+          ..clear()
+          ..addAll(_quadtreeResults);
+        spatialVisible = _spatialVisibleSet;
+      } else {
+        // Something moved: test the bounds just gathered, tree untouched.
+        linearFromCache = true;
+        _lastUsedSpatialIndex = false;
+      }
     } else {
       _spatialReusedLastFrame = false;
     }
@@ -584,15 +750,14 @@ class RenderingEngine {
         ..sort();
       _layersDirty = false;
     }
-    // Track which batches were used per layer for flushing
-    final activeBatches = <SpriteBatchRenderer>[];
-    final activeBatchSet = <SpriteBatchRenderer>{};
-
+    // Sprites batch in draw order: a batch is drawn before anything that
+    // is not batched, when the zOrder changes, and at the end of the layer,
+    // so a plain renderable between two sprites stays between them. (Batches
+    // used to be drawn only after the whole layer, over everything in it.)
     for (final layerIndex in _sortedLayerKeys) {
       final layer = _sortedLayerLists[layerIndex];
       if (layer == null) continue;
-      activeBatches.clear();
-      activeBatchSet.clear();
+      var batchZ = 0;
 
       for (final renderable in layer) {
         if (!renderable.visible) {
@@ -600,66 +765,50 @@ class RenderingEngine {
           continue;
         }
 
-        // Spatial culling: use quadtree result when available, else AABB test.
+        // Spatial culling: use quadtree result when available, else AABB
+        // test. The tree holds only renderables with bounds; one without is
+        // always drawn.
         if (spatialVisible != null) {
-          if (!spatialVisible.contains(renderable)) {
+          if (!spatialVisible.contains(renderable) &&
+              _boundsCache[renderable] != null) {
             culledCount++;
             continue;
           }
-        } else if (!camera.isRectVisible(renderable.getBounds())) {
+        } else if (!camera.isRectVisible(
+          linearFromCache ? _boundsCache[renderable] : renderable.getBounds(),
+        )) {
           culledCount++;
           continue;
         }
 
         // Attempt to batch BatchableSprite renderables
-        if (renderable is BatchableSprite) {
-          final batchable = renderable as BatchableSprite;
-          final atlas = batchable.batchImage;
-          if (atlas != null) {
-            final key = identityHashCode(atlas);
-            final batch = _batchCache[key] ??= spriteBatchFactory(atlas);
-            if (activeBatchSet.add(batch)) {
-              activeBatches.add(batch);
-            }
-
-            final src =
-                batchable.batchSourceRect ??
-                Rect.fromLTWH(
-                  0,
-                  0,
-                  atlas.width.toDouble(),
-                  atlas.height.toDouble(),
-                );
-            batch.add(
-              sourceRect: src,
-              position: renderable.position.toOffset(),
-              rotation: renderable.rotation,
-              scale: (renderable.scale.x + renderable.scale.y) / 2,
-              color: (renderable.tint ?? Colors.white).withValues(
-                alpha: renderable.opacity,
-              ),
-            );
-
-            renderedCount++;
-            batchedSpriteCount++;
-            if (debugMode) _renderDebug(canvas, renderable);
-            continue;
+        if (renderable is BatchableSprite && _plan.plan(renderable)) {
+          if (_pendingBatches.isNotEmpty && renderable.zOrder != batchZ) {
+            drawCalls += _flushPending(canvas);
           }
+          batchZ = renderable.zOrder;
+          final batch = _batchCache.batchFor(_plan.image!, _plan.quality);
+          if (!_pendingBatches.contains(batch)) _pendingBatches.add(batch);
+          _plan.addTo(batch);
+
+          renderedCount++;
+          batchedSpriteCount++;
+          if (debugMode) _renderDebug(canvas, renderable);
+          continue;
         }
 
-        // Fallback: individual draw call
+        // Fallback: individual draw call, over what was batched before it.
+        drawCalls += _flushPending(canvas);
         renderable.render(canvas, size);
         drawCalls++;
         renderedCount++;
         if (debugMode) _renderDebug(canvas, renderable);
       }
 
-      // Flush all batches used in this layer
-      for (final batch in activeBatches) {
-        batch.flush(canvas);
-      }
-      drawCalls += activeBatches.length;
+      // Flush what is still batched in this layer.
+      drawCalls += _flushPending(canvas);
     }
+    _batchCache.endFrame();
 
     // Restore canvas state (end of subsystem camera context)
     canvas.restore();
@@ -688,10 +837,11 @@ class RenderingEngine {
 
     _renderStopwatch.stop();
     _lastRenderTimeMs = _renderStopwatch.elapsedMicroseconds / 1000.0;
-    _lastDrawCallCount = drawCalls;
-    _lastRenderedCount = renderedCount;
-    _lastCulledCount = culledCount;
-    _lastBatchedSpriteCount = batchedSpriteCount;
+    // The ECS world's drawing, reported by its RenderSystem, counts too.
+    _lastDrawCallCount = drawCalls + _reportedDrawCalls;
+    _lastRenderedCount = renderedCount + _reportedRendered;
+    _lastCulledCount = culledCount + _reportedCulled;
+    _lastBatchedSpriteCount = batchedSpriteCount + _reportedBatchedSprites;
   }
 
   /// Render debug information for a renderable
@@ -735,12 +885,34 @@ class RenderingEngine {
   }
 
   /// Get the number of renderables
+  @Deprecated(
+    'Counts only renderables added with addRenderable; query the world '
+    'for RenderableComponent instead. Removed in 3.0.',
+  )
   int get renderableCount => _renderables.length;
 
   /// Get the number of layers
+  @Deprecated(
+    'Counts only renderables added with addRenderable; query the world '
+    'for RenderableComponent instead. Removed in 3.0.',
+  )
   int get layerCount => _layers.length;
 
   /// Lightweight rendering diagnostics from the last frame.
+  ///
+  /// The counts are the whole frame's — the renderables added here and
+  /// whatever reported into [addFrameStats] while the frame was drawn, the
+  /// ECS world's `RenderSystem` among them (when made with this engine as
+  /// its `statsSink`, as the default systems are):
+  ///
+  /// * `drawCalls` — canvas draws: the background clear, each thing drawn
+  ///   by itself, and each batch (of sprites, or of shapes) as one;
+  /// * `renderedObjects` — things drawn, a batched sprite or shape as one;
+  /// * `culledObjects` — things skipped as hidden or off screen;
+  /// * `batchedSprites` — sprites drawn in batches.
+  ///
+  /// `renderables` and `layers` count only renderables added with
+  /// [addRenderable]; `lastRenderMs` times the whole of [render].
   Map<String, dynamic> get stats => {
     'renderables': _renderables.length,
     'layers': _layers.length,

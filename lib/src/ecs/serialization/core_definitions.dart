@@ -2,26 +2,27 @@ library;
 
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
-import '../../core/dimensions.dart';
+import '../../foundation/dimensions.dart';
 import 'package:just_dart/just_dart.dart';
 import 'package:just_physics_engine/just_physics_engine.dart';
 
 import '../components/components.dart';
+import '../systems/physics/collider_geometry.dart';
 import '../ecs.dart';
 import 'camera_definitions.dart';
 import 'timeline_definitions.dart';
 import 'component_definition.dart';
+import 'component_presentation.dart';
 import 'field_type.dart';
 import 'level_map_definitions.dart';
 
 /// Definitions for the core components whose save format predates
 /// definitions, one per built-in component.
-/// today.
 ///
-/// Field names are the legacy JSON keys, so migrating a file is a matter of
-/// hoisting each component's keys under `fields` (and reshaping the two
-/// vector-valued ones). Until the format flips, these drive the inspector,
-/// sizing and drawing and are the wire format.
+/// Field names are the legacy JSON keys, so migrating an old file was a
+/// matter of hoisting each component's keys under `fields` (and reshaping
+/// the two vector-valued ones) — what `V0ToV1` does. These drive the
+/// inspector, sizing and drawing, and are the save format.
 abstract final class CoreDefinitions {
   static SchemaField _d(
     String name,
@@ -93,6 +94,9 @@ abstract final class CoreDefinitions {
     write: (c, v) => write(c, v as ShapePaintStyle),
   );
 
+  /// Definition of [TransformComponent], saved as `TransformComponent`:
+  /// `position`, `rotation` (Euler angles in radians) and `scale`. It
+  /// cannot be removed in the inspector.
   static final transform = ComponentDefinition<TransformComponent>(
     type: 'TransformComponent',
     hints: const ComponentHints(
@@ -125,6 +129,10 @@ abstract final class CoreDefinitions {
       },
     ),
     create: TransformComponent.new,
+    // A loaded transform has not moved yet: its previous pose is the one
+    // just read. Left at the origin, render interpolation would draw a
+    // physics body sliding in from (0, 0) until its first physics step.
+    afterDecode: (c) => (c as TransformComponent).capturePrevious(),
     fields: [
       SchemaField(
         name: 'position',
@@ -179,6 +187,8 @@ abstract final class CoreDefinitions {
     ),
   ];
 
+  /// Definition of [RectangleComponent], saved as `RectangleComponent`; a
+  /// new one is 64 × 64. 2-D only.
   static final rectangle = ComponentDefinition<RectangleComponent>(
     type: 'RectangleComponent',
     hints: const ComponentHints(
@@ -239,6 +249,8 @@ abstract final class CoreDefinitions {
     extent: const _RectangleExtent(),
   );
 
+  /// Definition of [CircleComponent], saved as `CircleComponent`; a new one
+  /// has radius 32. 2-D only.
   static final circle = ComponentDefinition<CircleComponent>(
     type: 'CircleComponent',
     hints: const ComponentHints(
@@ -282,6 +294,8 @@ abstract final class CoreDefinitions {
     extent: const _CircleExtent(),
   );
 
+  /// Definition of [CapsuleComponent], saved as `CapsuleComponent`; a new
+  /// one is 32 wide, 64 high. 2-D only.
   static final capsule = ComponentDefinition<CapsuleComponent>(
     type: 'CapsuleComponent',
     hints: const ComponentHints(
@@ -332,6 +346,7 @@ abstract final class CoreDefinitions {
     extent: const _CapsuleExtent(),
   );
 
+  /// Definition of [VelocityComponent], saved as `VelocityComponent`.
   static final velocity = ComponentDefinition<VelocityComponent>(
     type: 'VelocityComponent',
     hints: const ComponentHints(
@@ -373,6 +388,8 @@ abstract final class CoreDefinitions {
     ],
   );
 
+  /// Definition of [HealthComponent], saved as `HealthComponent`; a new one
+  /// has 100 max health.
   static final health = ComponentDefinition<HealthComponent>(
     type: 'HealthComponent',
     hints: const ComponentHints(
@@ -419,6 +436,8 @@ abstract final class CoreDefinitions {
     ],
   );
 
+  /// Definition of [LifetimeComponent], saved as `LifetimeComponent`; a new
+  /// one lasts 3 seconds.
   static final lifetime = ComponentDefinition<LifetimeComponent>(
     type: 'LifetimeComponent',
     hints: const ComponentHints(
@@ -447,6 +466,8 @@ abstract final class CoreDefinitions {
     ],
   );
 
+  /// Definition of [SpriteComponent], saved as `SpriteComponent`. 2-D
+  /// only.
   static final sprite = ComponentDefinition<SpriteComponent>(
     type: 'SpriteComponent',
     hints: const ComponentHints(
@@ -522,69 +543,179 @@ abstract final class CoreDefinitions {
     extent: const _SpriteExtent(),
   );
 
+  /// Definition of [PhysicsBodyComponent], saved as `PhysicsBodyComponent`;
+  /// a new one is a dynamic body with a 64 × 64 rectangle shape. 2-D only.
   static final physicsBody = ComponentDefinition<PhysicsBodyComponent>(
     type: 'PhysicsBodyComponent',
-    hints: const ComponentHints(
+    hints: ComponentHints(
       dimensions: Dimensions.twoD,
       name: 'Physics Body',
       group: 'Physics',
-      description: 'Rigid body with a selectable collision shape.',
+      description:
+          'Takes part in the physics simulation: how it moves, what it is '
+          'made of and what it collides with.',
       icon: Icons.category_outlined,
-      accentColor: Color(0xFFFF7043),
-      fieldGroups: {
-        'Shape': ['shape'],
-        'Body': [
-          'bodyType',
-          'isStatic',
-          'isSensor',
-          'isOneWay',
-          'oneWayDirection',
+      accentColor: const Color(0xFFFF7043),
+      fieldGroups: const {
+        'Body': ['bodyType', 'isSensor', 'isOneWay', 'oneWayDirection'],
+        'Shape': ['shape', 'offset'],
+        'Material': ['friction', 'restitution'],
+        'Motion': [
           'mass',
-          'drag',
-          'restitution',
           'gravityScale',
+          'drag',
+          'angularDamping',
           'fixedRotation',
+          'initialVelocity',
+          'initialAngularVelocity',
         ],
-        'Collision': ['categoryBits', 'maskBits', 'groupIndex'],
+        'Collision': ['layer', 'collidesWith'],
+        'Advanced': ['isBullet', 'canSleep', 'groupIndex'],
         'Debug': ['showDebugOutline'],
       },
+      foldedGroups: const {'Advanced'},
       fields: {
-        'shape': FieldHint(label: 'Shape'),
-        'bodyType': FieldHint(label: 'Body type'),
-        'isStatic': FieldHint(label: 'Static'),
-        'isSensor': FieldHint(label: 'Sensor'),
-        'isOneWay': FieldHint(label: 'One-way'),
-        'oneWayDirection': FieldHint(label: 'One-way dir'),
-        'mass': FieldHint(
-          label: 'Mass',
-          scrub: ScrubHint(step: 0.1, fractionDigits: 2),
+        'bodyType': const FieldHint(
+          label: 'Body type',
+          description:
+              'Static never moves: floors and walls. Kinematic moves only as '
+              'its velocity says and cannot be pushed: moving platforms. '
+              'Dynamic is fully simulated: it falls, bounces and is pushed.',
         ),
-        'drag': FieldHint(
-          label: 'Drag',
-          scrub: ScrubHint(step: 0.05, fractionDigits: 2),
+        'isSensor': const FieldHint(
+          label: 'Sensor',
+          description:
+              'Reports what overlaps it and stops nothing: triggers, pickups, '
+              'zones.',
+        ),
+        'isOneWay': FieldHint(
+          label: 'One-way',
+          description:
+              'Solid from one side only: a platform jumped up through from '
+              'below.',
+          visibleWhen: (c) => !(c as PhysicsBodyComponent).isSensor,
+        ),
+        'oneWayDirection': FieldHint(
+          label: 'Solid from',
+          description: 'The side a one-way body stops things from.',
+          visibleWhen: (c) {
+            final b = c as PhysicsBodyComponent;
+            return b.isOneWay && !b.isSensor;
+          },
+        ),
+        'shape': const FieldHint(label: 'Shape'),
+        'offset': const FieldHint(
+          label: 'Offset',
+          description:
+              "Moves the collider off the entity's origin — a feet box "
+              'under a tall sprite. Scaled and turned with the entity.',
+        ),
+        'friction': FieldHint(
+          label: 'Friction',
+          description:
+              'How much it holds back what slides along it: 0 is ice, 1 is '
+              'rubber. A contact uses both bodies\' friction together.',
+          slider: true,
+          scrub: const ScrubHint(step: 0.05, fractionDigits: 2),
+          visibleWhen: (c) => !(c as PhysicsBodyComponent).isSensor,
         ),
         'restitution': FieldHint(
-          label: 'Rest.',
-          scrub: ScrubHint(step: 0.05, fractionDigits: 2),
+          label: 'Bounciness',
+          description:
+              'How much speed a hit gives back: 0 stops dead, 1 bounces back '
+              'as fast as it came. A contact bounces as much as the less '
+              'bouncy of its two bodies.',
+          slider: true,
+          scrub: const ScrubHint(step: 0.05, fractionDigits: 2),
+          visibleWhen: (c) => !(c as PhysicsBodyComponent).isSensor,
+        ),
+        'mass': FieldHint(
+          label: 'Mass',
+          description:
+              'How heavy it is: how hard it pushes, and how hard it is to '
+              'push.',
+          scrub: const ScrubHint(step: 0.1, fractionDigits: 2, suffix: 'kg'),
+          visibleWhen: (c) => (c as PhysicsBodyComponent).isDynamic,
         ),
         'gravityScale': FieldHint(
           label: 'Gravity scale',
-          scrub: ScrubHint(step: 0.05, fractionDigits: 2),
+          description: 'Gravity on it, times this: 0 floats, 2 falls hard.',
+          scrub: const ScrubHint(step: 0.05, fractionDigits: 2, suffix: '×'),
+          visibleWhen: (c) => (c as PhysicsBodyComponent).isDynamic,
         ),
-        'fixedRotation': FieldHint(label: 'Fixed rotation'),
-        'categoryBits': FieldHint(
-          label: 'Category',
+        'drag': FieldHint(
+          label: 'Linear damping',
+          description:
+              'How much of its speed it loses on its own each second, as air '
+              'resistance would: 0 none, 1 about two thirds.',
+          scrub: const ScrubHint(step: 0.05, fractionDigits: 2, suffix: '/s'),
+          visibleWhen: (c) => (c as PhysicsBodyComponent).isDynamic,
+        ),
+        'angularDamping': FieldHint(
+          label: 'Angular damping',
+          description: 'As linear damping, for its spin.',
+          scrub: const ScrubHint(step: 0.05, fractionDigits: 2, suffix: '/s'),
+          visibleWhen: (c) => (c as PhysicsBodyComponent).isDynamic,
+        ),
+        'fixedRotation': FieldHint(
+          label: 'Fixed rotation',
+          description:
+              'Never turned by what it hits: a character that slides along '
+              'scenery instead of tipping over.',
+          visibleWhen: (c) => !(c as PhysicsBodyComponent).isStatic,
+        ),
+        'initialVelocity': FieldHint(
+          label: 'Start velocity',
+          description:
+              'The velocity it starts with, in pixels per second: a thrown '
+              'crate, a platform already on its way.',
+          visibleWhen: (c) => !(c as PhysicsBodyComponent).isStatic,
+        ),
+        'initialAngularVelocity': FieldHint(
+          label: 'Start spin',
+          description: 'The spin it starts with, in degrees per second.',
+          unit: AngleUnit.degrees,
+          scrub: const ScrubHint(step: 5, fractionDigits: 0, suffix: '°/s'),
+          visibleWhen: (c) => !(c as PhysicsBodyComponent).isStatic,
+        ),
+        'layer': const FieldHint(
+          label: 'Layer',
+          description:
+              'The collision layer it is on. Layers are named, and which '
+              'collide chosen, in the Physics Layers dock.',
+        ),
+        'collidesWith': const FieldHint(
+          label: 'Collides with',
+          description:
+              "The layers it collides with: as the project's grid says for "
+              'its layer, unless chosen here. Two bodies collide only if each '
+              "collides with the other's layer.",
+        ),
+        'isBullet': FieldHint(
+          label: 'Continuous',
+          description:
+              'Sweeps a small, fast body along its path each step, so it '
+              'cannot pass through a thin wall. Costs more.',
+          visibleWhen: (c) => (c as PhysicsBodyComponent).isDynamic,
+        ),
+        'canSleep': FieldHint(
+          label: 'Can sleep',
+          description:
+              'Lets it stop being simulated while it rests, until something '
+              'touches it. Off keeps it awake, at a cost.',
+          visibleWhen: (c) => !(c as PhysicsBodyComponent).isStatic,
+        ),
+        'groupIndex': const FieldHint(
+          label: 'Group',
+          description:
+              'Bodies in the same positive group always collide; in the same '
+              'negative group never do. 0 leaves it to the layers.',
           scrub: ScrubHint(integer: true),
         ),
-        'maskBits': FieldHint(
-          label: 'Mask Bits',
-          scrub: ScrubHint(integer: true),
+        'showDebugOutline': const FieldHint(
+          label: 'Show outline',
+          description: 'Draws the collider while the game runs in debug.',
         ),
-        'groupIndex': FieldHint(
-          label: 'Group Index',
-          scrub: ScrubHint(integer: true),
-        ),
-        'showDebugOutline': FieldHint(label: 'Show Outline'),
       },
     ),
     create: () => PhysicsBodyComponent(shape: RectangleShape(64, 64)),
@@ -597,11 +728,54 @@ abstract final class CoreDefinitions {
           if (v is CollisionShape) (c as PhysicsBodyComponent).shape = v;
         },
       ),
+      _o(
+        'offset',
+        (c) => (c as PhysicsBodyComponent).offset,
+        (c, v) => (c as PhysicsBodyComponent).offset = v,
+      ),
+      SchemaField(
+        name: 'bodyType',
+        kind: const EnumFieldType(
+          BodyType.values,
+          fallback: BodyType.dynamic,
+          id: 'enum.bodyType',
+        ),
+        read: (c) => (c as PhysicsBodyComponent).bodyType,
+        write: (c, v) => (c as PhysicsBodyComponent).bodyType = v as BodyType,
+      ),
+      _b(
+        'isSensor',
+        (c) => (c as PhysicsBodyComponent).isSensor,
+        (c, v) => (c as PhysicsBodyComponent).isSensor = v,
+      ),
+      _b(
+        'isOneWay',
+        (c) => (c as PhysicsBodyComponent).isOneWay,
+        (c, v) => (c as PhysicsBodyComponent).isOneWay = v,
+      ),
+      SchemaField(
+        name: 'oneWayDirection',
+        kind: const EnumFieldType(
+          OneWayDirection.values,
+          fallback: OneWayDirection.fromAbove,
+          id: 'enum.oneWayDirection',
+        ),
+        read: (c) => (c as PhysicsBodyComponent).oneWayDirection,
+        write: (c, v) =>
+            (c as PhysicsBodyComponent).oneWayDirection = v as OneWayDirection,
+      ),
       _d(
         'mass',
         (c) => (c as PhysicsBodyComponent).mass,
         (c, v) => (c as PhysicsBodyComponent).mass = v,
+        min: 0.01,
+      ),
+      _d(
+        'friction',
+        (c) => (c as PhysicsBodyComponent).friction,
+        (c, v) => (c as PhysicsBodyComponent).friction = v,
         min: 0,
+        max: 1,
       ),
       _d(
         'restitution',
@@ -615,32 +789,57 @@ abstract final class CoreDefinitions {
         (c) => (c as PhysicsBodyComponent).drag,
         (c, v) => (c as PhysicsBodyComponent).drag = v,
         min: 0,
-        max: 1,
+      ),
+      _d(
+        'angularDamping',
+        (c) => (c as PhysicsBodyComponent).angularDamping,
+        (c, v) => (c as PhysicsBodyComponent).angularDamping = v,
+        min: 0,
+      ),
+      _d(
+        'gravityScale',
+        (c) => (c as PhysicsBodyComponent).gravityScale,
+        (c, v) => (c as PhysicsBodyComponent).gravityScale = v,
       ),
       _b(
-        'isStatic',
-        (c) => (c as PhysicsBodyComponent).isStatic,
-        (c, v) => (c as PhysicsBodyComponent).isStatic = v,
+        'fixedRotation',
+        (c) => (c as PhysicsBodyComponent).fixedRotation,
+        (c, v) => (c as PhysicsBodyComponent).fixedRotation = v,
+      ),
+      _o(
+        'initialVelocity',
+        (c) => (c as PhysicsBodyComponent).initialVelocity,
+        (c, v) => (c as PhysicsBodyComponent).initialVelocity = v,
+      ),
+      _d(
+        'initialAngularVelocity',
+        (c) => (c as PhysicsBodyComponent).initialAngularVelocity,
+        (c, v) => (c as PhysicsBodyComponent).initialAngularVelocity = v,
+      ),
+      SchemaField(
+        name: 'layer',
+        kind: FieldTypes.physicsLayer,
+        read: (c) => (c as PhysicsBodyComponent).layer,
+        write: (c, v) =>
+            (c as PhysicsBodyComponent).layer = (v as num).toInt().clamp(0, 15),
+      ),
+      SchemaField(
+        name: 'collidesWith',
+        kind: FieldTypes.physicsLayerMask,
+        read: (c) => (c as PhysicsBodyComponent).collidesWith,
+        write: (c, v) => (c as PhysicsBodyComponent).collidesWith = v == null
+            ? null
+            : (v as num).toInt() & 0xFFFF,
       ),
       _b(
-        'isOneWay',
-        (c) => (c as PhysicsBodyComponent).isOneWay,
-        (c, v) => (c as PhysicsBodyComponent).isOneWay = v,
+        'isBullet',
+        (c) => (c as PhysicsBodyComponent).isBullet,
+        (c, v) => (c as PhysicsBodyComponent).isBullet = v,
       ),
       _b(
-        'isSensor',
-        (c) => (c as PhysicsBodyComponent).isSensor,
-        (c, v) => (c as PhysicsBodyComponent).isSensor = v,
-      ),
-      _i(
-        'categoryBits',
-        (c) => (c as PhysicsBodyComponent).categoryBits,
-        (c, v) => (c as PhysicsBodyComponent).categoryBits = v,
-      ),
-      _i(
-        'maskBits',
-        (c) => (c as PhysicsBodyComponent).maskBits,
-        (c, v) => (c as PhysicsBodyComponent).maskBits = v,
+        'canSleep',
+        (c) => (c as PhysicsBodyComponent).canSleep,
+        (c, v) => (c as PhysicsBodyComponent).canSleep = v,
       ),
       _i(
         'groupIndex',
@@ -652,41 +851,12 @@ abstract final class CoreDefinitions {
         (c) => (c as PhysicsBodyComponent).showDebugOutline,
         (c, v) => (c as PhysicsBodyComponent).showDebugOutline = v,
       ),
-      SchemaField(
-        name: 'bodyType',
-        kind: const EnumFieldType(
-          BodyType.values,
-          fallback: BodyType.dynamic,
-          id: 'enum.bodyType',
-        ),
-        read: (c) => (c as PhysicsBodyComponent).bodyType,
-        write: (c, v) => (c as PhysicsBodyComponent).bodyType = v as BodyType,
-      ),
-      _b(
-        'fixedRotation',
-        (c) => (c as PhysicsBodyComponent).fixedRotation,
-        (c, v) => (c as PhysicsBodyComponent).fixedRotation = v,
-      ),
-      _d(
-        'gravityScale',
-        (c) => (c as PhysicsBodyComponent).gravityScale,
-        (c, v) => (c as PhysicsBodyComponent).gravityScale = v,
-      ),
-      SchemaField(
-        name: 'oneWayDirection',
-        kind: const EnumFieldType(
-          OneWayDirection.values,
-          fallback: OneWayDirection.fromAbove,
-          id: 'enum.oneWayDirection',
-        ),
-        read: (c) => (c as PhysicsBodyComponent).oneWayDirection,
-        write: (c, v) =>
-            (c as PhysicsBodyComponent).oneWayDirection = v as OneWayDirection,
-      ),
     ],
     extent: const _PhysicsBodyExtent(),
   );
 
+  /// Definition of [SpawnComponent] (a spawn point), saved as
+  /// `SpawnComponent`.
   static final spawn = ComponentDefinition<SpawnComponent>(
     type: 'SpawnComponent',
     hints: const ComponentHints(
@@ -716,6 +886,8 @@ abstract final class CoreDefinitions {
     ],
   );
 
+  /// Definition of [TagComponent], saved as `TagComponent` with its tags as
+  /// a `tags` list.
   static final tag = ComponentDefinition<TagComponent>(
     type: 'TagComponent',
     hints: const ComponentHints(
@@ -742,6 +914,8 @@ abstract final class CoreDefinitions {
     ],
   );
 
+  /// Definition of [InputComponent], saved as `InputComponent`: its
+  /// `playerIndex` (-1 reads every device).
   static final input = ComponentDefinition<InputComponent>(
     type: 'InputComponent',
     hints: const ComponentHints(
@@ -768,6 +942,8 @@ abstract final class CoreDefinitions {
     ],
   );
 
+  /// Definition of [EffectComponent], saved as `EffectComponent` with no
+  /// fields: its effect queue is not saved, so a loaded one starts empty.
   static final effect = ComponentDefinition<EffectComponent>(
     type: 'EffectComponent',
     hints: const ComponentHints(
@@ -780,6 +956,8 @@ abstract final class CoreDefinitions {
     fields: const [],
   );
 
+  /// Definition of [SimpleMovementComponent], saved as
+  /// `SimpleMovementComponent`. 2-D only.
   static final simpleMovement = ComponentDefinition<SimpleMovementComponent>(
     type: 'SimpleMovementComponent',
     hints: const ComponentHints(
@@ -843,6 +1021,8 @@ abstract final class CoreDefinitions {
     ],
   );
 
+  /// Definition of [ChildrenComponent], saved as `ChildrenComponent`. Its
+  /// `childIds` are saved for reference only and never read back.
   static final children = ComponentDefinition<ChildrenComponent>(
     type: 'ChildrenComponent',
     hints: const ComponentHints(
@@ -865,6 +1045,8 @@ abstract final class CoreDefinitions {
     ],
   );
 
+  /// Definition of [ParentComponent], saved as `ParentComponent`. Its
+  /// `parentId` is saved for reference only; no local transform is saved.
   static final parent = ComponentDefinition<ParentComponent>(
     type: 'ParentComponent',
     hints: const ComponentHints(
@@ -908,6 +1090,8 @@ abstract final class CoreDefinitions {
     ),
   ];
 
+  /// Definition of [DistanceJointComponent], saved as
+  /// `DistanceJointComponent`. 2-D only.
   static final distanceJoint = ComponentDefinition<DistanceJointComponent>(
     type: 'DistanceJointComponent',
     hints: const ComponentHints(
@@ -982,6 +1166,8 @@ abstract final class CoreDefinitions {
     ],
   );
 
+  /// Definition of [WeldJointComponent], saved as `WeldJointComponent`.
+  /// 2-D only.
   static final weldJoint = ComponentDefinition<WeldJointComponent>(
     type: 'WeldJointComponent',
     hints: const ComponentHints(
@@ -1014,6 +1200,8 @@ abstract final class CoreDefinitions {
     ],
   );
 
+  /// Definition of [PrismaticJointComponent], saved as
+  /// `PrismaticJointComponent`. 2-D only.
   static final prismaticJoint = ComponentDefinition<PrismaticJointComponent>(
     type: 'PrismaticJointComponent',
     hints: const ComponentHints(
@@ -1024,13 +1212,7 @@ abstract final class CoreDefinitions {
       icon: Icons.sync_alt,
       accentColor: Color(0xFFFF7043),
       fieldGroups: {
-        'Joint': [
-          'targetEntityName',
-          'localAnchorA',
-          'localAnchorB',
-          'axis',
-          'collideConnected',
-        ],
+        'Joint': ['targetEntityName', 'axis', 'collideConnected'],
         'Motor': ['enableMotor', 'motorSpeed', 'maxMotorForce'],
         'Limits': ['enableLimit', 'lowerTranslation', 'upperTranslation'],
       },
@@ -1110,6 +1292,8 @@ abstract final class CoreDefinitions {
     ],
   );
 
+  /// Definition of [WheelJointComponent], saved as `WheelJointComponent`.
+  /// 2-D only.
   static final wheelJoint = ComponentDefinition<WheelJointComponent>(
     type: 'WheelJointComponent',
     hints: const ComponentHints(
@@ -1120,13 +1304,7 @@ abstract final class CoreDefinitions {
       icon: Icons.trip_origin,
       accentColor: Color(0xFFFF7043),
       fieldGroups: {
-        'Joint': [
-          'targetEntityName',
-          'localAnchorA',
-          'localAnchorB',
-          'suspensionAxis',
-          'collideConnected',
-        ],
+        'Joint': ['targetEntityName', 'suspensionAxis', 'collideConnected'],
         'Motor': ['enableMotor', 'motorSpeed', 'maxMotorTorque'],
         'Spring': ['stiffness', 'damping'],
       },
@@ -1297,27 +1475,52 @@ class _SpriteExtent extends ComponentExtent {
 
 class _PhysicsBodyExtent extends ComponentExtent {
   const _PhysicsBodyExtent();
+
+  static Rect _bounds(PhysicsBodyComponent body) => ColliderGeometry.boundsOf(
+    ColliderGeometry.build(body.shape, offset: body.offset),
+  );
+
   @override
-  Size? sizeOf(Component c) =>
-      (c as PhysicsBodyComponent).shape.getBounds(Offset.zero).size;
+  Size? sizeOf(Component c) => _bounds(c as PhysicsBodyComponent).size;
+
+  @override
+  bool boundsInto(Component c, Aabb3 out) {
+    final r = _bounds(c as PhysicsBodyComponent);
+    out.setValues(r.left, r.top, 0, r.right, r.bottom, 0);
+    return true;
+  }
+
+  /// Resizes the collider itself — its shape and offset — the way a
+  /// rectangle or circle resizes: a circle by the smaller factor.
   @override
   bool scale(Component c, double sx, double sy) {
     final body = c as PhysicsBodyComponent;
+    final ax = sx.abs(), ay = sy.abs();
     final shape = body.shape;
-    if (shape is RectangleShape) {
-      body.shape = RectangleShape(
-        (shape.width * sx).abs().clamp(1, double.infinity),
-        (shape.height * sy).abs().clamp(1, double.infinity),
-      );
-      return true;
+    body.shape = switch (shape) {
+      CircleShape s => CircleShape(
+        (s.radius * (ax < ay ? ax : ay)).clamp(0.5, double.infinity),
+        center: Offset(s.center.dx * ax, s.center.dy * ay),
+      ),
+      RectangleShape s => RectangleShape(
+        (s.width * ax).clamp(1, double.infinity),
+        (s.height * ay).clamp(1, double.infinity),
+      ),
+      _ => ColliderGeometry.build(shape, sx: ax, sy: ay),
+    };
+    body.offset = Offset(body.offset.dx * ax, body.offset.dy * ay);
+    return true;
+  }
+
+  /// Mirrors the collider across the entity's centre: its offset, and a
+  /// shape that is not the same both ways round.
+  @override
+  void flip(Component c, {required bool horizontal}) {
+    final body = c as PhysicsBodyComponent;
+    final sx = horizontal ? -1.0 : 1.0, sy = horizontal ? 1.0 : -1.0;
+    if (!ColliderGeometry.isMirrorSymmetric(body.shape, Offset.zero)) {
+      body.shape = ColliderGeometry.build(body.shape, sx: sx, sy: sy);
     }
-    if (shape is CircleShape) {
-      final k = sx < sy ? sx : sy;
-      body.shape = CircleShape(
-        (shape.radius * k).abs().clamp(0.5, double.infinity),
-      );
-      return true;
-    }
-    return false;
+    body.offset = Offset(body.offset.dx * sx, body.offset.dy * sy);
   }
 }

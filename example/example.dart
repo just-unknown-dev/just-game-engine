@@ -1,218 +1,220 @@
+// A tiny platformer: the level comes from scene JSON (the format an editor
+// saves), the player and some crates are built in code, a virtual camera
+// follows the player, and the arrow keys (or a gamepad) move it.
+//
+// To run it, make a Flutter app that depends on just_game_engine and put
+// this file in its lib/main.dart.
+
 import 'package:flutter/material.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(MaterialApp(home: MyGame()));
+  // Build the whole game before the first frame.
+  final engine = await createGame();
+  runApp(ExampleApp(engine: engine));
 }
 
-class MyGame extends StatefulWidget {
-  const MyGame({super.key});
+/// Makes, fills and starts the engine.
+Future<Engine> createGame() async {
+  // The standard systems — input, physics, movement, audio, rendering,
+  // sprites, level maps and cameras — are added as the engine initializes.
+  final engine = Engine(
+    config: const EngineConfig(defaultSystems: DefaultSystems.all),
+  );
+  await engine.initialize();
 
-  @override
-  State<MyGame> createState() => _MyGameState();
-}
+  // Input: actions and their bindings come from an input asset, usually a
+  // `.input.json` file in the app's assets.
+  engine.input.loadAsset(InputActionAsset.parse(inputAsset));
+  await engine.input.attachGamepads(); // opt-in; no pads is fine
 
-class _MyGameState extends State<MyGame> {
-  late final Engine _engine;
-  late final World _world;
-  final GlobalKey _gameWidgetKey = GlobalKey();
+  final world = engine.world;
 
-  Size _readViewportSize() {
-    final renderObject = _gameWidgetKey.currentContext?.findRenderObject();
-    if (renderObject is RenderBox && renderObject.hasSize) {
-      return renderObject.size;
-    }
-    return MediaQuery.sizeOf(context);
-  }
+  // The level: a floor, a ledge and a camera, read from scene JSON.
+  SceneLoader.loadString(world, levelScene);
 
-  @override
-  void initState() {
-    super.initState();
-    _engine = Engine();
-    _init();
-  }
+  // The player, in code. The scene's camera follows the tag `player`, so it
+  // finds this entity although the scene was loaded first.
+  world.createEntityWithComponents([
+    TransformComponent(position: Vector3.fromXY(-200, 100)),
+    VelocityComponent(),
+    RectangleComponent(
+      width: 32,
+      height: 48,
+      cornerRadius: 6,
+      fillStyle: const ShapePaintStyle(color: Color(0xFF4FC3F7)),
+    ),
+    PhysicsBodyComponent(
+      shape: RectangleShape(32, 48),
+      restitution: 0,
+      fixedRotation: true, // stays upright
+    ),
+    InputComponent(), // player 1's actions, copied in by InputSystem
+    TagComponent('player'),
+  ], name: 'Player');
 
-  @override
-  void dispose() {
-    _engine.dispose();
-    super.dispose();
-  }
-
-  Future<void> _init() async {
-    await _engine.initialize();
-    _world = _engine.world;
-
-    // Add core ECS systems
-    _world.addSystem(RenderSystem());
-
-    final size = _readViewportSize();
-    final centerX = size.width / 2;
-    final centerY = size.height / 2;
-
-    // Circle: radial gradient + warm tint.
-    _world.createEntityWithComponents([
-      TransformComponent(
-        position: Vector3.fromXY(centerX - 180, centerY - 120),
-      ),
-      CircleComponent(
-        radius: 48,
-        fillStyle: const ShapePaintStyle(
-          color: Color(0xFFFFB36B),
-          gradient: ShapeGradient.radial(
-            colors: [Color(0xFFFFFFFF), Color(0xFF4E2B1A)],
-            radius: 0.9,
-          ),
-        ),
-        strokeStyle: const ShapePaintStyle(
-          color: Color(0xFFFFE2BE),
-          gradient: ShapeGradient.sweep(
-            colors: [Color(0xFFFFF0D9), Color(0xFFFFA45C), Color(0xFFFFF0D9)],
-          ),
-        ),
-        strokeWidth: 4,
-      ),
-    ], name: 'shape_circle');
-
-    // Rectangle: linear gradient + cool tint.
-    _world.createEntityWithComponents([
-      TransformComponent(position: Vector3.fromXY(centerX + 40, centerY - 120)),
+  // Crates and a ball to push around.
+  for (var i = 0; i < 3; i++) {
+    world.createEntityWithComponents([
+      TransformComponent(position: Vector3.fromXY(60, 150 - i * 42.0)),
       RectangleComponent(
-        width: 180,
-        height: 96,
-        cornerRadius: 20,
-        fillStyle: const ShapePaintStyle(
-          color: Color(0xFF8FD6FF),
-          gradient: ShapeGradient.linear(
-            colors: [Color(0xFF0A1A2A), Color(0xFF1A4C70), Color(0xFF2E8DBB)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        strokeStyle: const ShapePaintStyle(color: Color(0xFFDAF4FF)),
-        strokeWidth: 3,
+        width: 40,
+        height: 40,
+        fillStyle: const ShapePaintStyle(color: Color(0xFFFFB74D)),
       ),
-    ], name: 'shape_rectangle');
-
-    // Polygon: sweep gradient + magenta tint.
-    _world.createEntityWithComponents([
-      TransformComponent(position: Vector3.fromXY(centerX - 210, centerY + 90)),
-      PolygonComponent(
-        vertices: const [
-          Offset(0, -70),
-          Offset(58, -18),
-          Offset(36, 60),
-          Offset(-36, 60),
-          Offset(-58, -18),
-        ],
-        fillStyle: const ShapePaintStyle(
-          color: Color(0xFFFF6AD5),
-          gradient: ShapeGradient.sweep(
-            colors: [Color(0xFF25002A), Color(0xFF6D1A84), Color(0xFF25002A)],
-          ),
-        ),
-        strokeStyle: const ShapePaintStyle(color: Color(0xFFFFD1F5)),
-        strokeWidth: 4,
-      ),
-    ], name: 'shape_polygon');
-
-    // Line: linear gradient + cyan tint.
-    _world.createEntityWithComponents([
-      TransformComponent(position: Vector3.fromXY(centerX - 10, centerY + 96)),
-      LineComponent(
-        start: const Offset(-110, 0),
-        end: const Offset(110, 0),
-        roundCaps: true,
-        strokeWidth: 14,
-        strokeStyle: const ShapePaintStyle(
-          color: Color(0xFF95FFF9),
-          gradient: ShapeGradient.linear(
-            colors: [Color(0xFF00353F), Color(0xFF00A0B3), Color(0xFF00353F)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-        ),
-      ),
-    ], name: 'shape_line');
-
-    // Capsule: radial fill + sweep stroke.
-    _world.createEntityWithComponents([
-      TransformComponent(position: Vector3.fromXY(centerX + 220, centerY + 86)),
-      CapsuleComponent(
-        width: 150,
-        height: 70,
-        fillStyle: const ShapePaintStyle(
-          color: Color(0xFFFFE28A),
-          gradient: ShapeGradient.radial(
-            colors: [Color(0xFF4A3200), Color(0xFFB67E00)],
-            center: Alignment(-0.25, -0.15),
-            radius: 1.0,
-          ),
-        ),
-        strokeStyle: const ShapePaintStyle(
-          color: Color(0xFFFFF2C6),
-          gradient: ShapeGradient.sweep(
-            colors: [Color(0xFFFFD46A), Color(0xFFFFFAE0), Color(0xFFFFD46A)],
-          ),
-        ),
-        strokeWidth: 4,
-      ),
-    ], name: 'shape_capsule');
-
-    _engine.start();
+      PhysicsBodyComponent(shape: RectangleShape(40, 40), restitution: 0.1),
+    ], name: 'Crate $i');
   }
+  world.createEntityWithComponents([
+    TransformComponent(position: Vector3.fromXY(160, 0)),
+    CircleComponent(
+      radius: 18,
+      fillStyle: const ShapePaintStyle(color: Color(0xFFE57373)),
+    ),
+    PhysicsBodyComponent(shape: CircleShape(18), restitution: 0.6),
+  ], name: 'Ball');
 
-  Widget _shapeLabel({
-    required double left,
-    required double top,
-    required String text,
-  }) {
-    return Positioned(
-      left: left,
-      top: top,
-      child: IgnorePointer(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: const Color(0xAA000000),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+  // The game's own rule, as a system of its own.
+  world.addSystem(PlayerControlSystem());
+
+  engine.start();
+  return engine;
+}
+
+/// Moves whatever has input and a velocity: left and right with `move`, up
+/// with `jump`.
+class PlayerControlSystem extends System {
+  static const double speed = 260;
+  static const double jumpSpeed = 620;
+
+  // After input is read, before physics steps: a press moves the player in
+  // the same frame.
+  @override
+  int get priority => SystemPriorities.playerControl;
+
+  @override
+  List<Type> get requiredComponents => [InputComponent, VelocityComponent];
+
+  @override
+  void update(double deltaTime) {
+    for (final entity in entities) {
+      final input = entity.getComponent<InputComponent>()!;
+      final velocity = entity.getComponent<VelocityComponent>()!.velocity;
+      velocity.x = input.vector('move').dx * speed;
+      // y points down. Only jump when not already rising or falling.
+      if (input.wasPressed('jump') && velocity.y.abs() < 1) {
+        velocity.y = -jumpSpeed;
+      }
+    }
+  }
+}
+
+/// Shows the game.
+class ExampleApp extends StatelessWidget {
+  const ExampleApp({super.key, required this.engine});
+
+  final Engine engine;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: GameWidget(
+          engine: engine,
+          overlay: const Padding(
+            padding: EdgeInsets.all(16),
             child: Text(
-              text,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+              'Arrow keys or left stick: move.  Space or A: jump.',
+              style: TextStyle(color: Colors.white70),
             ),
           ),
         ),
       ),
     );
   }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final centerX = size.width / 2;
-    final centerY = size.height / 2;
-
-    return Scaffold(
-      body: Stack(
-        children: [
-          GameWidget(key: _gameWidgetKey, engine: _engine),
-          _shapeLabel(left: centerX - 220, top: centerY - 195, text: 'Circle'),
-          _shapeLabel(
-            left: centerX + 10,
-            top: centerY - 195,
-            text: 'Rectangle',
-          ),
-          _shapeLabel(left: centerX - 250, top: centerY + 12, text: 'Polygon'),
-          _shapeLabel(left: centerX - 36, top: centerY + 132, text: 'Line'),
-          _shapeLabel(left: centerX + 184, top: centerY + 10, text: 'Capsule'),
-        ],
-      ),
-    );
-  }
 }
+
+/// Scene JSON, as the editor saves it — a file under `assets/scenes/` in a
+/// real game, loaded with `SceneLoader.loadAsset`. Fields left out keep
+/// their defaults.
+const levelScene = '''
+{
+  "version": 7,
+  "name": "example",
+  "entities": [
+    {
+      "name": "Floor",
+      "components": [
+        {"type": "TransformComponent",
+         "fields": {"position": {"x": 0, "y": 200, "z": 0}}},
+        {"type": "RectangleComponent",
+         "fields": {"width": 1200, "height": 40}},
+        {"type": "PhysicsBodyComponent",
+         "fields": {"shape": {"kind": "rectangle", "width": 1200, "height": 40},
+                    "isStatic": true}}
+      ]
+    },
+    {
+      "name": "Ledge",
+      "components": [
+        {"type": "TransformComponent",
+         "fields": {"position": {"x": 320, "y": 60, "z": 0}}},
+        {"type": "RectangleComponent",
+         "fields": {"width": 200, "height": 20}},
+        {"type": "PhysicsBodyComponent",
+         "fields": {"shape": {"kind": "rectangle", "width": 200, "height": 20},
+                    "isStatic": true}}
+      ]
+    },
+    {
+      "name": "Camera",
+      "components": [
+        {"type": "TransformComponent", "fields": {}},
+        {"type": "VirtualCameraComponent",
+         "fields": {"follow": {"tag": "player"}}},
+        {"type": "CameraFramingComponent",
+         "fields": {"dampingX": 0.3, "dampingY": 0.3}}
+      ]
+    }
+  ]
+}
+''';
+
+/// An input asset: the `player` map's `move` and `jump` actions.
+const inputAsset = '''
+{
+  "format": "just_inputs",
+  "version": 3,
+  "maps": [
+    {
+      "id": "m1",
+      "name": "player",
+      "actions": [
+        {
+          "id": "a1",
+          "name": "move",
+          "type": "vector2",
+          "bindings": [
+            {"id": "b1", "composite": "2DVector", "parts": [
+              {"id": "b2", "part": "left", "path": "<Keyboard>/leftArrow"},
+              {"id": "b3", "part": "right", "path": "<Keyboard>/rightArrow"}
+            ]},
+            {"id": "b4", "path": "<Gamepad>/leftStick"}
+          ]
+        },
+        {
+          "id": "a2",
+          "name": "jump",
+          "type": "button",
+          "bindings": [
+            {"id": "b5", "path": "<Keyboard>/space"},
+            {"id": "b6", "path": "<Gamepad>/buttonSouth"}
+          ]
+        }
+      ]
+    }
+  ]
+}
+''';

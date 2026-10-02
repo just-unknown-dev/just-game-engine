@@ -8,7 +8,7 @@ part of '../effect_system.dart';
 ///
 /// ```dart
 /// // Grow from current scale to 2×:
-/// ScaleEffect(to: 2.0, durationTicks: 45, easing: EasingType.easeOutBack)
+/// ScaleEffect(to: 2.0, durationTicks: 45, easing: EasingType.easeOutCubic)
 /// ```
 class ScaleEffect extends DeterministicEffect {
   /// Explicit start scale. When `null` the entity's current scale is
@@ -23,6 +23,10 @@ class ScaleEffect extends DeterministicEffect {
 
   double? _capturedFrom;
 
+  /// Scales uniformly to [to] over [durationTicks] ticks (30 by default),
+  /// along [easing] (linear by default), starting from [from] or, when that
+  /// is null, from the mean of the entity's X and Y scale on the first
+  /// tick. The same change goes onto X, Y and Z.
   ScaleEffect({
     required this.to,
     this.from,
@@ -44,8 +48,8 @@ class ScaleEffect extends DeterministicEffect {
     if (effectiveFrom == null) return;
 
     final totalDelta = to - effectiveFrom;
-    final prevEased = EffectEasings.resolve(easing, tAt(prevElapsed));
-    final currEased = EffectEasings.resolve(easing, tAt(currElapsed));
+    final prevEased = easing.transform(tAt(prevElapsed));
+    final currEased = easing.transform(tAt(currElapsed));
     final delta = totalDelta * (currEased - prevEased);
     transform.scale.x += delta;
     transform.scale.y += delta;

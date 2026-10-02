@@ -3,6 +3,7 @@ library;
 
 import 'dart:ui' show Locale;
 
+import 'package:flutter/foundation.dart' show FlutterError, debugPrint;
 import 'package:flutter/services.dart';
 import 'package:just_signals/just_signals.dart';
 
@@ -35,13 +36,17 @@ import 'string_interpolator.dart';
 /// print(l10n.t('game.enemies.count', {'count': 3})); // 3 ennemis
 /// ```
 ///
-/// **Global instance**
+/// **The engine's manager**
 /// ```dart
 /// // On app / engine init:
-/// LocalizationManager.instance = l10n;
+/// engine.context.localization = l10n;
 ///
-/// // Anywhere in game code:
-/// final text = LocalizationManager.instance.t('ui.back');
+/// // In game code with the engine at hand:
+/// final text = engine.context.localization!.t('ui.back');
+///
+/// // In widgets under a GameWidget (which provides a LocalizationScope for
+/// // the engine's manager):
+/// final text = LocalizationScope.of(context).t('ui.back');
 /// ```
 ///
 /// **Fallback chain**
@@ -64,14 +69,11 @@ import 'string_interpolator.dart';
 /// }
 /// ```
 class LocalizationManager {
+  /// A manager with no tables yet and `en` as its current locale; keys
+  /// missing from the current locale are looked up in [fallbackLocale]
+  /// (`en` when null).
   LocalizationManager({Locale? fallbackLocale})
     : fallbackLocale = fallbackLocale ?? const Locale('en');
-
-  // ---- Global instance -----------------------------------------------------
-
-  /// Optional global singleton — set this once on engine/app init for
-  /// convenient access via `LocalizationManager.instance`.
-  static LocalizationManager? instance;
 
   // ---- Locale state --------------------------------------------------------
 
@@ -150,8 +152,13 @@ class LocalizationManager {
       final path = pathTemplate.replaceAll('{locale}', tag);
       try {
         await load(locale, path, ns: ns, bundle: bundle);
-      } catch (_) {
-        // Missing locale file — silently skip, fallback chain handles it.
+      } catch (e) {
+        // A missing locale file is expected — the fallback chain covers it.
+        // One that is there but unreadable (bad JSON, not an object) is a
+        // mistake to fix, so it is reported rather than taken for missing.
+        if (!_isMissingAsset(e)) {
+          debugPrint('Localization: skipped $path — $e');
+        }
       }
     }
   }
@@ -241,6 +248,8 @@ class LocalizationManager {
   // Disposal
   // ---------------------------------------------------------------------------
 
+  /// Forgets every table and disposes [localeChanged]. Not to be used
+  /// afterwards.
   void dispose() {
     _tables.clear();
     _merged.clear();
@@ -297,3 +306,8 @@ class LocalizationManager {
         : locale.languageCode;
   }
 }
+
+/// Whether [error] is an asset bundle's "no such asset" — as opposed to an
+/// asset that exists but could not be used.
+bool _isMissingAsset(Object error) =>
+    error is FlutterError && error.message.startsWith('Unable to load asset');

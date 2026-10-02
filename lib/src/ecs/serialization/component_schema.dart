@@ -15,13 +15,13 @@ export 'component_definition.dart';
 /// final healthSchema = ComponentSchema<HealthComponent>(
 ///   type: 'HealthComponent',
 ///   id: 'health',
-///   create: HealthComponent.new,
+///   create: () => HealthComponent(maxHealth: 100),
 ///   fields: [
 ///     SchemaField(
-///       name: 'max',
-///       kind: FieldKind.decimal,
-///       read: (c) => (c as HealthComponent).max,
-///       write: (c, v) => (c as HealthComponent).max = v as double,
+///       name: 'maxHealth',
+///       kind: FieldTypes.decimal,
+///       read: (c) => (c as HealthComponent).maxHealth,
+///       write: (c, v) => (c as HealthComponent).maxHealth = v as double,
 ///       min: 0,
 ///     ),
 ///   ],
@@ -33,6 +33,8 @@ export 'component_definition.dart';
 /// levels load unchanged. New definitions should use [ComponentDefinition]
 /// directly.
 class ComponentSchema<T extends Component> extends ComponentDefinition<T> {
+  /// A definition saved as [type] that also writes [id] as its
+  /// `customComponentId`; the rest is as for [ComponentDefinition].
   const ComponentSchema({
     required super.type,
     required String id,

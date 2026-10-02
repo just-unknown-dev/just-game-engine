@@ -2,13 +2,14 @@ library;
 
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
-import '../../core/dimensions.dart';
+import '../../foundation/dimensions.dart';
 import 'package:just_dart/just_dart.dart';
 
 import '../components/components.dart';
 import '../../subsystems/timeline/timeline_asset.dart';
 import '../ecs.dart';
 import 'component_codec.dart';
+import 'component_presentation.dart';
 import 'component_schema.dart';
 import 'field_type.dart';
 

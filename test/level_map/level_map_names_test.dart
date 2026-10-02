@@ -4,24 +4,21 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
+/// The engine's own definitions, fresh for this file.
+final _coreDefinitions = ComponentDefinitionRegistry.core();
 void main() {
-  setUpAll(registerCoreCodecs);
-
   test('a map saved as a TileMapComponent loads, and is saved as a '
       'LevelMapComponent', () {
-    final saved = ComponentCodecRegistry.instance.encode(
+    final saved = _coreDefinitions.encode(
       LevelMapComponent(mapPath: 'assets/maps/cave.map.json'),
     )!;
     expect(saved['type'], 'LevelMapComponent');
 
     final old = {...saved, 'type': 'TileMapComponent'};
-    final back = ComponentCodecRegistry.instance.decode(old);
+    final back = _coreDefinitions.decode(old);
     expect(back, isA<LevelMapComponent>());
     expect((back! as LevelMapComponent).mapPath, 'assets/maps/cave.map.json');
-    expect(
-      ComponentCodecRegistry.instance.encode(back)!['type'],
-      'LevelMapComponent',
-    );
+    expect(_coreDefinitions.encode(back)!['type'], 'LevelMapComponent');
   });
 
   test('a map file is a .map.json, and a .tilemap.json is still one', () {

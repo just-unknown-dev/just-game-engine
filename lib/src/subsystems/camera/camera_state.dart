@@ -6,7 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/animation.dart' show Curve, Curves;
 import 'package:flutter/painting.dart' show Offset;
 
-import 'camera_lens.dart';
+import '../../interfaces/camera_lens.dart';
 
 /// Where a camera is, how far it is zoomed, how it is turned and through
 /// what lens it looks.
@@ -19,6 +19,8 @@ import 'camera_lens.dart';
 /// A 2-D shot uses [position], [zoom] and [rotation] (roll) and leaves the
 /// rest at their defaults: depth 0, no pitch or yaw, an orthographic lens.
 class CameraState {
+  /// A shot at [position]; everything left out is the 2-D default — zoom 1,
+  /// no roll, depth 0, no pitch or yaw, an orthographic lens.
   const CameraState({
     this.position = Offset.zero,
     this.zoom = 1.0,
@@ -53,6 +55,8 @@ class CameraState {
   /// Whether this is a plain 2-D shot: no pitch or yaw, orthographic.
   bool get isPlanar => pitch == 0 && yaw == 0 && lens.isOrthographic;
 
+  /// This shot with the given values replaced; a null argument keeps the
+  /// current value.
   CameraState copyWith({
     Offset? position,
     double? zoom,
@@ -124,6 +128,8 @@ class CameraState {
 
 /// How long a change of shot takes, and how it eases.
 class CameraBlend {
+  /// A blend of [duration] seconds, half a second by default, eased by
+  /// [curve] (ease-in-out by default).
   const CameraBlend({this.duration = 0.5, this.curve = Curves.easeInOut});
 
   /// No blend: the new shot is on screen the next frame.
@@ -132,19 +138,30 @@ class CameraBlend {
   /// Seconds from the old shot to the new one.
   final double duration;
 
+  /// Maps the blend's linear progress (0..1 over [duration]) to how far
+  /// along the shot is.
   final Curve curve;
 
+  /// Whether this is a cut: a [duration] of zero or less.
   bool get isCut => duration <= 0;
 }
 
 /// A blend for one pair of cameras, by entity name. `'*'` matches any.
 class CameraBlendRule {
+  /// Use [blend] going from the camera named [from] to the one named [to];
+  /// a side left out matches any camera.
   const CameraBlendRule({this.from = any, this.to = any, required this.blend});
 
+  /// The wildcard name, `'*'`: matches any camera.
   static const String any = '*';
 
+  /// Name of the camera entity the blend leaves, or [any].
   final String from;
+
+  /// Name of the camera entity the blend arrives at, or [any].
   final String to;
+
+  /// The blend used when this rule is the best match.
   final CameraBlend blend;
 
   int _scoreFor(String? fromName, String? toName) {
@@ -161,9 +178,12 @@ class CameraBlendRule {
 /// Between two one-sided rules, the one that names where the blend comes
 /// *from* wins — leaving a cutscene camera is usually the special case.
 class CameraBlendTable {
+  /// A table holding its own copy of [rules]; empty by default.
   CameraBlendTable([List<CameraBlendRule> rules = const []])
     : rules = List.of(rules);
 
+  /// The rules, in order; add or remove freely. Of two equally specific
+  /// matches, the earlier one wins.
   final List<CameraBlendRule> rules;
 
   /// The blend for going from [from] to [to], or null to use the default.

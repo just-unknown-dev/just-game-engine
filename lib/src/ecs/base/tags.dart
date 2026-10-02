@@ -30,9 +30,12 @@ class TagComponent extends Component {
   TagComponent.of(Iterable<String> tags)
     : _tags = {...TagNames.normalize(tags)};
 
-  /// Bumped by every change to any tag set, so a world's index can tell it
-  /// is out of date without every component knowing its world.
-  static int _revision = 0;
+  /// The entity this is attached to, so its world's tag index hears of
+  /// every change. A tag component belongs to one entity at a time.
+  Entity? _owner;
+
+  /// The tag index of the world [_owner] lives in, if any.
+  _TagIndex? get _index => _owner?._world?._tagIndex;
 
   final Set<String> _tags;
 
@@ -43,10 +46,18 @@ class TagComponent extends Component {
   set tags(Iterable<String> value) {
     final next = TagNames.normalize(value).toList();
     if (next.length == _tags.length && _tags.containsAll(next)) return;
+    final index = _index;
+    final before = index == null ? null : Set.of(_tags);
     _tags
       ..clear()
       ..addAll(next);
-    _revision++;
+    if (index == null) return;
+    for (final tag in before!) {
+      if (!_tags.contains(tag)) index.untag(_owner!, tag);
+    }
+    for (final tag in _tags) {
+      if (!before.contains(tag)) index.tag(_owner!, tag);
+    }
   }
 
   /// Whether it carries [tag].
@@ -56,17 +67,18 @@ class TagComponent extends Component {
   bool add(String tag) {
     final name = tag.trim();
     if (name.isEmpty || !_tags.add(name)) return false;
-    _revision++;
+    _index?.tag(_owner!, name);
     return true;
   }
 
   /// Removes [tag]; false when it was not there.
   bool remove(String tag) {
     if (!_tags.remove(tag)) return false;
-    _revision++;
+    _index?.untag(_owner!, tag);
     return true;
   }
 
+  /// Whether it carries no tag at all.
   bool get isEmpty => _tags.isEmpty;
 
   /// The first tag, or empty.
@@ -183,42 +195,89 @@ abstract final class TagNames {
   }
 }
 
-/// A world's tag → entities index. Rebuilt lazily, on the first lookup
-/// after an entity carrying tags came or went, or any tag set changed.
+/// A world's tag → entities index, kept up to date as tags come and go:
+/// each change touches only the tags it concerns.
+///
+/// Each tag's entities are kept oldest first, so "the first tagged" is the
+/// same entity every run. [all]'s lists are made once and reused until
+/// that tag's entities change or one of them is switched on or off.
 class _TagIndex {
-  _TagIndex(this._world);
+  final Map<String, List<Entity>> _byTag = {};
+  final Map<String, UnmodifiableListView<Entity>> _all = {};
+  final Map<String, UnmodifiableListView<Entity>> _active = {};
 
-  final World _world;
-  Map<String, List<Entity>> _byTag = const {};
-  bool _dirty = true;
-  int _revision = -1;
-
-  void markDirty() => _dirty = true;
-
-  Map<String, List<Entity>> get byTag {
-    if (_dirty || _revision != TagComponent._revision) _rebuild();
-    return _byTag;
+  /// [tags] was attached to [entity].
+  void attach(Entity entity, TagComponent tags) {
+    if (identical(tags._owner, entity)) return; // Put back as it was.
+    tags._owner = entity;
+    for (final tag in tags._tags) {
+      this.tag(entity, tag);
+    }
   }
 
-  void _rebuild() {
-    final tagged = <Entity>[];
-    for (final archetype in _world._archetypes.values) {
-      if (!archetype.types.contains(TagComponent)) continue;
-      for (final id in archetype.entityIds) {
-        final entity = _world._entityMap[id];
-        if (entity != null) tagged.add(entity);
-      }
+  /// [tags] was detached from [entity].
+  void detach(Entity entity, TagComponent tags) {
+    if (identical(tags._owner, entity)) tags._owner = null;
+    for (final tag in tags._tags) {
+      untag(entity, tag);
     }
-    // Creation order, so "the first tagged" is the same entity every run.
-    tagged.sort((a, b) => a.id.compareTo(b.id));
-    final byTag = <String, List<Entity>>{};
+  }
+
+  void tag(Entity entity, String tag) {
+    _insertById(_byTag[tag] ??= [], entity);
+    _forget(tag);
+  }
+
+  void untag(Entity entity, String tag) {
+    final list = _byTag[tag];
+    if (list == null) return;
+    _removeById(list, entity);
+    if (list.isEmpty) _byTag.remove(tag);
+    _forget(tag);
+  }
+
+  /// [entity], which carries tags, was switched on or off.
+  void activeChanged(Entity entity) {
+    final tags = entity.getComponent<TagComponent>();
+    if (tags == null) return;
+    for (final tag in tags._tags) {
+      _active.remove(tag);
+    }
+  }
+
+  void _forget(String tag) {
+    _all.remove(tag);
+    _active.remove(tag);
+  }
+
+  void clear() {
+    _byTag.clear();
+    _all.clear();
+    _active.clear();
+  }
+
+  Entity? first(String tag, bool includeInactive) {
+    final tagged = _byTag[tag];
+    if (tagged == null) return null;
     for (final entity in tagged) {
-      for (final tag in entity.getComponent<TagComponent>()!._tags) {
-        (byTag[tag] ??= []).add(entity);
-      }
+      if (includeInactive || entity._isActive) return entity;
     }
-    _byTag = byTag;
-    _dirty = false;
-    _revision = TagComponent._revision;
+    return null;
   }
+
+  List<Entity> all(String tag, bool includeInactive) {
+    final tagged = _byTag[tag];
+    if (tagged == null) return const [];
+    if (includeInactive) {
+      return _all[tag] ??= UnmodifiableListView(
+        List<Entity>.of(tagged, growable: false),
+      );
+    }
+    return _active[tag] ??= UnmodifiableListView([
+      for (final entity in tagged)
+        if (entity._isActive) entity,
+    ]);
+  }
+
+  Set<String> get tagsInUse => _byTag.keys.toSet();
 }

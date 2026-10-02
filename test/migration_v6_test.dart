@@ -3,10 +3,14 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
+/// The engine's own definitions, fresh for this file.
+final _coreDefinitions = ComponentDefinitionRegistry.core();
+
 /// A version-5 scene shaped like level_01: a Level Map at the origin with a
 /// child whose saved offset is stale, a spinning coin with an inline
 /// timeline, a tilted thing and a moving thing.
-Map<String, dynamic> _v5() => jsonDecode('''
+Map<String, dynamic> _v5() =>
+    jsonDecode('''
 {
   "version": 5,
   "name": "level",
@@ -47,9 +51,14 @@ Map<String, dynamic> _v5() => jsonDecode('''
   ],
   "editor": {"guides": []}
 }
-''') as Map<String, dynamic>;
+''')
+        as Map<String, dynamic>;
 
-Map<String, dynamic> _fields(Map<String, dynamic> scene, String name, String type) {
+Map<String, dynamic> _fields(
+  Map<String, dynamic> scene,
+  String name,
+  String type,
+) {
   final e = (scene['entities'] as List).cast<Map>().firstWhere(
     (e) => e['name'] == name,
   );
@@ -60,10 +69,14 @@ Map<String, dynamic> _fields(Map<String, dynamic> scene, String name, String typ
       .cast<String, dynamic>();
 }
 
+/// A migration run with no package rules.
+MigrationRun _run([MigrationHooks? hooks]) =>
+    MigrationRun(hooks ?? MigrationHooks.none);
+
 void main() {
   group('V5ToV6', () {
     test('transforms get z and a three-angle rotation', () {
-      final out = const V5ToV6().apply(_v5());
+      final out = const V5ToV6().apply(_v5(), _run());
       final t = _fields(out, 'Tiles_0', 'TransformComponent');
       expect(t['position'], {'x': 96.0, 'y': -416.0, 'z': 0.0});
       expect(t['rotation'], {'x': 0.25, 'y': -0.5, 'z': 0.5});
@@ -71,27 +84,30 @@ void main() {
       expect(t.containsKey('rotationY'), isFalse);
       final flat = _fields(out, 'Coin', 'TransformComponent');
       expect(flat['rotation'], {'x': 0.0, 'y': 0.0, 'z': 0.0});
-      expect(
-        _fields(out, 'Coin', 'VelocityComponent')['velocity'],
-        {'x': 3.0, 'y': 4.0, 'z': 0.0},
-      );
+      expect(_fields(out, 'Coin', 'VelocityComponent')['velocity'], {
+        'x': 3.0,
+        'y': 4.0,
+        'z': 0.0,
+      });
     });
 
     test('parent offsets go, the stale one is reported, root goes', () {
-      final out = const V5ToV6().apply(_v5());
+      final run = _run();
+      final out = const V5ToV6().apply(_v5(), run);
       final link = _fields(out, 'Tiles_0', 'ParentComponent');
       expect(link.keys, ['parentId']);
-      expect(V5ToV6.report, hasLength(1));
-      expect(V5ToV6.report.single, contains('Tiles_0'));
+      expect(run.notes, hasLength(1));
+      expect(run.notes.single.fromVersion, 5);
+      expect(run.notes.single.message, contains('Tiles_0'));
       expect(out.containsKey('root'), isFalse);
       expect(out['mode'], '2d');
       expect(out['editor'], {'guides': []}, reason: 'left alone');
     });
 
     test('inline timelines move to format 2', () {
-      final out = const V5ToV6().apply(_v5());
-      final inline = _fields(out, 'Coin', 'TimelinePlayerComponent')['inline']
-          as Map;
+      final out = const V5ToV6().apply(_v5(), _run());
+      final inline =
+          _fields(out, 'Coin', 'TimelinePlayerComponent')['inline'] as Map;
       expect(inline['formatVersion'], 2);
       final tracks = (inline['tracks'] as List).cast<Map>();
       expect(tracks[0]['field'], 'rotation');
@@ -100,9 +116,9 @@ void main() {
     });
 
     test('a kit can add its own rules', () {
-      V5ToV6.perType['TransformComponent'] = (f) => f['seen'] = true;
-      addTearDown(() => V5ToV6.perType.remove('TransformComponent'));
-      final out = const V5ToV6().apply(_v5());
+      final hooks = MigrationHooks();
+      hooks.perType(5)['TransformComponent'] = (f) => f['seen'] = true;
+      final out = const V5ToV6().apply(_v5(), _run(hooks));
       expect(_fields(out, 'Coin', 'TransformComponent')['seen'], isTrue);
     });
   });
@@ -148,10 +164,8 @@ void main() {
   });
 
   group('format 6 round trips', () {
-    setUp(registerCoreCodecs);
-
     test('3-D transform and velocity values survive encode → decode', () {
-      final codec = ComponentCodecRegistry.instance;
+      final codec = _coreDefinitions;
       final t = TransformComponent(
         position: Vector3(1.5, -2.25, 7),
         euler: Vector3(0.3, -1.1, 2.9),
@@ -164,12 +178,10 @@ void main() {
         expect(jsonEncode(again), jsonEncode(json));
       }
       final back = codec.decode(codec.encode(t)!)! as TransformComponent;
-      expect([back.position.z, back.eulerX, back.eulerY, back.angle], [
-        7,
-        0.3,
-        -1.1,
-        2.9,
-      ]);
+      expect(
+        [back.position.z, back.eulerX, back.eulerY, back.angle],
+        [7, 0.3, -1.1, 2.9],
+      );
       expect(back.scale.z, -3);
       // Saved as the one rotation field, three angles.
       expect(codec.encode(t)!['fields']['rotation'], {
@@ -180,18 +192,16 @@ void main() {
     });
 
     test('a scene of format 6 loads unchanged, parents and all', () {
-      final scene = const V5ToV6().apply(_v5())..['version'] = 6;
+      final scene = const V5ToV6().apply(_v5(), _run())..['version'] = 6;
       final world = World()..initialize();
       addTearDown(world.dispose);
       final entities = SceneLoader.load(world, scene);
       final tiles = entities.firstWhere((e) => e.name == 'Tiles_0');
       final t = tiles.getComponent<TransformComponent>()!;
-      expect([t.position.x, t.position.y, t.eulerX, t.angle], [
-        96,
-        -416,
-        0.25,
-        0.5,
-      ]);
+      expect(
+        [t.position.x, t.position.y, t.eulerX, t.angle],
+        [96, -416, 0.25, 0.5],
+      );
       world.update(0);
       expect([t.position.x, t.position.y], [96, -416], reason: 'kept');
       final link = tiles.getComponent<ParentComponent>()!;
@@ -266,8 +276,9 @@ void main() {
 
   test('an Euler field reads a map, or a plain angle as a turn about Z', () {
     const euler = FieldTypes.euler;
-    final v = euler.decode({'x': 1, 'y': 2, 'z': 3}, FieldConstraints.none)
-        as Vector3;
+    final v =
+        euler.decode({'x': 1, 'y': 2, 'z': 3}, FieldConstraints.none)
+            as Vector3;
     expect([v.x, v.y, v.z], [1, 2, 3]);
     final z = euler.decode(0.5, FieldConstraints.none) as Vector3;
     expect([z.x, z.y, z.z], [0, 0, 0.5]);

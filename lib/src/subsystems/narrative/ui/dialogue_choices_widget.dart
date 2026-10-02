@@ -35,6 +35,8 @@ import '../runtime/dialogue_runner.dart';
 /// greyed-out and are not tappable.  Override [unavailableStyle] to change
 /// this.
 class DialogueChoicesWidget extends StatelessWidget {
+  /// A column of buttons for [runner]'s pending choices, one per choice;
+  /// builds nothing while no choice is pending.
   const DialogueChoicesWidget({
     super.key,
     required this.runner,
@@ -47,6 +49,7 @@ class DialogueChoicesWidget extends StatelessWidget {
     this.showUnavailable = true,
   });
 
+  /// The runner whose choices are shown and told which one was picked.
   final DialogueRunner runner;
 
   /// Text style for available choices.
@@ -55,11 +58,13 @@ class DialogueChoicesWidget extends StatelessWidget {
   /// Text style for unavailable choices (greyed-out by default).
   final TextStyle? unavailableStyle;
 
+  /// Each button's background at rest; translucent black by default.
   final Color backgroundColor;
 
   /// Background highlight when hovered / tapped.
   final Color selectedColor;
 
+  /// Corner radius of each button, in logical pixels.
   final double borderRadius;
 
   /// Vertical gap between choice buttons.

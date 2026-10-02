@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
+// Internal: no longer exported from the package.
+import 'package:just_game_engine/src/ecs/base/transform/hierarchy_math.dart';
 
 const _eps = 1e-9;
 
@@ -144,10 +146,7 @@ void main() {
     });
 
     test('an uneven parent scale drops the skew but inverts exactly', () {
-      final parent = TransformComponent(
-        angle: 0.3,
-        scale: Vector3(3, 1, 1),
-      );
+      final parent = TransformComponent(angle: 0.3, scale: Vector3(3, 1, 1));
       final child = TransformComponent(
         position: Vector3(5, -2, 0),
         angle: 1.0,

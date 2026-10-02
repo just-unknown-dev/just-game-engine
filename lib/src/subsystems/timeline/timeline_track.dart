@@ -2,10 +2,15 @@
 /// registry a package adds its own kinds of track to.
 library;
 
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
+
 import '../../ecs/ecs.dart';
 import '../../ecs/serialization/component_definition.dart' show SchemaField;
 import 'timeline_asset.dart';
 import 'timeline_player.dart';
+import 'tracks/block_tracks.dart';
+import 'tracks/event_track.dart';
+import 'tracks/property_track.dart';
 
 /// Who a track acts on: [EntityTargetKind], by its timeline name.
 typedef TrackBindingKind = EntityTargetKind;
@@ -16,10 +21,16 @@ typedef TrackBindingKind = EntityTargetKind;
 /// An [EntityTarget] whose default is the timeline's own entity rather than
 /// nobody: a track with no binding animates whoever plays it.
 class TrackBinding extends EntityTarget {
+  /// The entity playing the timeline.
   const TrackBinding.self() : super.self();
+
+  /// The first (oldest) entity named [value].
   const TrackBinding.name(super.value) : super.name();
+
+  /// The first (oldest) entity tagged [value] (without the `#`).
   const TrackBinding.tag(super.value) : super.tag();
 
+  /// The binding a track has by default: the entity playing the timeline.
   static const TrackBinding owner = TrackBinding.self();
 
   /// [target] as a binding; nobody becomes the timeline's own entity.
@@ -37,11 +48,17 @@ class TrackBinding extends EntityTarget {
     TrackBindingKind.tag => {'tag': value},
   };
 
+  /// Reads [toJson]'s `'self'`, `{'name': ...}` or `{'tag': ...}`. A bare
+  /// string reads as [EntityTarget.parse] reads one — `'#door'` a tag,
+  /// `'Door'` a name — so a hand-written file means what it says; a blank
+  /// one, `'self'`, null, or any other map or value is [owner].
   static TrackBinding fromJson(Object? json) {
     if (json is Map) {
       if (json['name'] is String) return TrackBinding.name(json['name']);
       if (json['tag'] is String) return TrackBinding.tag(json['tag']);
+      return owner;
     }
+    if (json is String) return of(EntityTarget.parse(json));
     return owner;
   }
 }
@@ -49,6 +66,7 @@ class TrackBinding extends EntityTarget {
 /// What a running track can reach: the world, who is playing the timeline,
 /// the entities bindings mean, and a way to say an event happened.
 abstract class TimelineContext {
+  /// The world the timeline plays in, where its bindings are looked up.
   World get world;
 
   /// The entity whose player is playing this timeline.
@@ -82,11 +100,20 @@ abstract class TimelineContext {
   /// so a track must not do what cannot be undone — play a sound, fire a
   /// signal.
   bool get isPreview;
+
+  /// Whether something an event set off — a handler that stopped, sought
+  /// or restarted the playback, or the one it is nested in — has changed
+  /// what is playing since this step began. A track that fires several
+  /// things in one step stops at the first that finds it true: what comes
+  /// after them is no longer happening.
+  bool get isInterrupted => false;
 }
 
 /// One row of a timeline. Immutable: an editor replaces a track to change
 /// it, which is what makes undo a list of assets.
 abstract class TimelineTrack {
+  /// The shared part of every track: unnamed, bound to the entity playing
+  /// the timeline, neither muted nor locked unless said.
   const TimelineTrack({
     this.name = '',
     this.binding = TrackBinding.owner,
@@ -99,6 +126,8 @@ abstract class TimelineTrack {
 
   /// A label; empty shows what the track says about itself.
   final String name;
+
+  /// Who the track acts on, looked up by the playback as it plays.
   final TrackBinding binding;
 
   /// A muted track is kept but not played.
@@ -129,6 +158,9 @@ abstract class TimelineTrack {
   /// The kind's own fields; [toJson] adds the shared ones.
   Map<String, dynamic> bodyToJson();
 
+  /// The saved form in a `.timeline.json`'s `tracks`: `kind`; `name`,
+  /// `binding`, `muted` and `locked` only when not the default; then the
+  /// kind's own [bodyToJson] keys.
   Map<String, dynamic> toJson() => {
     'kind': kind,
     if (name.isNotEmpty) 'name': name,
@@ -157,10 +189,13 @@ abstract class TrackRunner {
   void end(TimelineContext context) {}
 }
 
-/// A track of a kind nobody registered — a package that is not installed.
+/// A track of a kind nobody registered — a package that is not installed —
+/// or of a known kind whose reader could not read it ([error] says why).
 /// Kept as it was read so saving the timeline does not lose it.
 class UnknownTrack extends TimelineTrack {
-  UnknownTrack(this.raw)
+  /// A track kept as [raw], its saved map; the name, binding, muted and
+  /// locked flags are read from it so an editor can still show them.
+  UnknownTrack(this.raw, {this.error})
     : super(
         name: raw['name'] as String? ?? '',
         binding: TrackBinding.fromJson(raw['binding']),
@@ -168,7 +203,13 @@ class UnknownTrack extends TimelineTrack {
         locked: raw['locked'] == true,
       );
 
+  /// The track's saved map, as read; [toJson] returns it unchanged. It is
+  /// not copied: a change to the map changes what is saved.
   final Map<String, dynamic> raw;
+
+  /// Why a registered kind's reader could not read [raw]; null when the
+  /// kind is simply not registered.
+  final Object? error;
 
   @override
   String get kind => raw['kind'] as String? ?? 'unknown';
@@ -190,11 +231,11 @@ class UnknownTrack extends TimelineTrack {
     bool? locked,
   }) => UnknownTrack({
     ...raw,
-    if (name != null) 'name': name,
+    'name': ?name,
     if (binding != null) 'binding': binding.toJson(),
-    if (muted != null) 'muted': muted,
-    if (locked != null) 'locked': locked,
-  });
+    'muted': ?muted,
+    'locked': ?locked,
+  }, error: error);
 
   @override
   Map<String, dynamic> bodyToJson() => const {};
@@ -205,37 +246,107 @@ class UnknownTrack extends TimelineTrack {
 
 class _NoRunner extends TrackRunner {}
 
-/// The kinds of track a timeline can hold. The engine registers its own;
-/// a package registers more, and a timeline asset that uses them loads,
+/// Reads a track of one kind from its saved form.
+typedef TimelineTrackReader = TimelineTrack Function(Map<String, dynamic> json);
+
+/// The kinds of track a timeline can hold. The engine's own are always
+/// there; a package registers more into an engine's
+/// (`engine.context.trackKinds`), and a timeline asset that uses them loads,
 /// plays and saves like any other:
 ///
 /// ```dart
-/// TimelineTrackKinds.register('weather', WeatherTrack.fromJson);
+/// engine.context.trackKinds.register('weather', WeatherTrack.fromJson);
 /// ```
-abstract final class TimelineTrackKinds {
-  static final Map<String, TimelineTrack Function(Map<String, dynamic> json)>
-  _kinds = {};
+///
+/// A timeline read without a package's kinds keeps their tracks as
+/// [UnknownTrack]s, which save back unchanged; [resolve] reads them again
+/// once the kinds are known — a player does so with its world's.
+/// [builtIn] holds only the engine's kinds and cannot be changed.
+final class TimelineTrackKinds {
+  /// The engine's kinds (unless [withBuiltIns] is false), to add to.
+  TimelineTrackKinds({bool withBuiltIns = true}) : _frozen = false {
+    if (withBuiltIns) _kinds.addAll(_engine);
+  }
 
-  static void register(
-    String kind,
-    TimelineTrack Function(Map<String, dynamic> json) fromJson,
-  ) => _kinds[kind] = fromJson;
+  TimelineTrackKinds._frozen() : _frozen = true {
+    _kinds.addAll(_engine);
+  }
 
-  static void unregister(String kind) => _kinds.remove(kind);
+  /// The engine's kinds and nothing else — what a timeline is read with when
+  /// given none. Read-only: [register] throws.
+  static final TimelineTrackKinds builtIn = TimelineTrackKinds._frozen();
 
-  static bool has(String kind) => _kinds.containsKey(kind);
+  static final Map<String, TimelineTrackReader> _engine = {
+    PropertyTrack.kindId: PropertyTrack.fromJson,
+    EventTrack.kindId: EventTrack.fromJson,
+    SpriteClipTrack.kindId: SpriteClipTrack.fromJson,
+    CameraShotTrack.kindId: CameraShotTrack.fromJson,
+    AudioTrack.kindId: AudioTrack.fromJson,
+    ActivationTrack.kindId: ActivationTrack.fromJson,
+    NestedTimelineTrack.kindId: NestedTimelineTrack.fromJson,
+  };
 
-  static List<String> get kinds => _kinds.keys.toList();
+  final bool _frozen;
+  final Map<String, TimelineTrackReader> _kinds = {};
+
+  void _check() {
+    if (_frozen) {
+      throw UnsupportedError(
+        "TimelineTrackKinds.builtIn cannot be changed: register into an "
+        "engine's (engine.context.trackKinds).",
+      );
+    }
+  }
+
+  /// Reads tracks of [kind] with [fromJson], replacing any reader for it.
+  void register(String kind, TimelineTrackReader fromJson) {
+    _check();
+    _kinds[kind] = fromJson;
+  }
+
+  /// Forgets the reader for [kind], built-in or not; tracks of it are read
+  /// as [UnknownTrack]s from then on. Throws [UnsupportedError] on
+  /// [builtIn].
+  void unregister(String kind) {
+    _check();
+    _kinds.remove(kind);
+  }
+
+  /// Whether a reader is registered for [kind].
+  bool has(String kind) => _kinds.containsKey(kind);
+
+  /// Every registered kind id, the engine's first — a new list each call.
+  List<String> get kinds => _kinds.keys.toList();
+
+  /// [asset] with every [UnknownTrack] whose kind is registered here read
+  /// again — the same instance when there is none.
+  TimelineAsset resolve(TimelineAsset asset) {
+    List<TimelineTrack>? tracks;
+    for (var i = 0; i < asset.tracks.length; i++) {
+      final track = asset.tracks[i];
+      if (track is! UnknownTrack || track.error != null) continue;
+      if (!_kinds.containsKey(track.kind)) continue;
+      (tracks ??= List.of(asset.tracks))[i] = read(track.raw);
+    }
+    return tracks == null ? asset : asset.copyWith(tracks: tracks);
+  }
 
   /// The track [json] describes; an [UnknownTrack] for a kind not
-  /// registered, or one whose reader throws.
-  static TimelineTrack read(Map<String, dynamic> json) {
+  /// registered, or one whose reader throws — that one carries the error,
+  /// which is also printed in debug builds.
+  TimelineTrack read(Map<String, dynamic> json) {
     final reader = _kinds[json['kind']];
     if (reader == null) return UnknownTrack(json);
     try {
       return reader(json);
-    } catch (_) {
-      return UnknownTrack(json);
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint(
+          'Timeline: a "${json['kind']}" track could not be read and is '
+          'kept as it was: $error',
+        );
+      }
+      return UnknownTrack(json, error: error);
     }
   }
 }

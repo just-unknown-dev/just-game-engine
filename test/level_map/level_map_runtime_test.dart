@@ -63,21 +63,18 @@ void main() {
   setUpAll(() async => image = await createTestImage(width: 32, height: 32));
 
   setUp(() {
-    TileAssets.clear();
-    TileAssets.readText = (path) async =>
+    world = World()..initialize();
+    world.context.tiles.readText = (path) async =>
         files[path] ?? (throw StateError('no file $path'));
-    SpriteAssets.loader = _Images(image);
+    world.context.sprites = _Images(image);
     files
       ..clear()
       ..['assets/t.tileset.json'] = jsonEncode(_tileset().toJson());
-    world = World()..initialize();
     registerLevelMapSystems(world);
   });
 
   tearDown(() {
     world.dispose();
-    TileAssets.useBundle();
-    SpriteAssets.loader = BundleSpriteAssetLoader();
   });
 
   LevelMapData map() {
@@ -217,7 +214,7 @@ void main() {
       final ground = h.layer('Ground')!;
       expect(ground.collides, isTrue);
       expect(h.rawAt(ground, const TileCoord(1, 0)), TileCell.make(0, 1));
-      final ts = TileAssets.loadedTileset('assets/maps/b.tmx#0')!;
+      final ts = world.context.tiles.loadedTileset('assets/maps/b.tmx#0')!;
       expect(ts.image, 'assets/tiles/set.png', reason: 'relative to the .tsx');
 
       world.update(0);

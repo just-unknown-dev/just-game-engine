@@ -6,7 +6,7 @@ library;
 import '../../../subsystems/audio/audio.dart';
 import '../../ecs.dart';
 import '../../components/components.dart';
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 
 /// System that drives audio playback from ECS entities.
 ///
@@ -27,6 +27,7 @@ import '../system_priorities.dart';
 /// world.addSystem(AudioSystem(engine: myAudioEngine));
 /// ```
 class AudioSystem extends System {
+  /// A system playing through [engine], which it does not own or dispose.
   AudioSystem({required AudioEngine engine}) : _engine = engine;
 
   final AudioEngine _engine;
@@ -48,6 +49,14 @@ class AudioSystem extends System {
     _updateStreams();
   }
 
+  /// The listener pose last sent — position, forward, up — or null before
+  /// the first. Sent again only when it changes: an unmoved listener used to
+  /// cost three new objects and a native update every frame.
+  List<double>? _sentListener;
+
+  /// Where each 3-D source was last sent, and under which playback handle.
+  final Expando<_SentPosition> _sentPositions = Expando('audio positions');
+
   void _updateListener() {
     for (final entity in world.query([
       AudioListenerComponent,
@@ -55,13 +64,32 @@ class AudioSystem extends System {
     ])) {
       final listenerComp = entity.getComponent<AudioListenerComponent>()!;
       final transform = entity.getComponent<TransformComponent>()!;
+      final p = transform.position;
+      final sent = _sentListener ??= List<double>.filled(9, double.nan);
+      if (sent[0] == p.x &&
+          sent[1] == p.y &&
+          sent[2] == p.z &&
+          sent[3] == listenerComp.forwardX &&
+          sent[4] == listenerComp.forwardY &&
+          sent[5] == listenerComp.forwardZ &&
+          sent[6] == listenerComp.upX &&
+          sent[7] == listenerComp.upY &&
+          sent[8] == listenerComp.upZ) {
+        break;
+      }
+      sent
+        ..[0] = p.x
+        ..[1] = p.y
+        ..[2] = p.z
+        ..[3] = listenerComp.forwardX
+        ..[4] = listenerComp.forwardY
+        ..[5] = listenerComp.forwardZ
+        ..[6] = listenerComp.upX
+        ..[7] = listenerComp.upY
+        ..[8] = listenerComp.upZ;
       _engine.setListener3D(
         Audio3DListener(
-          position: Audio3DPosition(
-            transform.position.x,
-            transform.position.y,
-            transform.position.z,
-          ),
+          position: Audio3DPosition(p.x, p.y, p.z),
           forward: Audio3DPosition(
             listenerComp.forwardX,
             listenerComp.forwardY,
@@ -98,7 +126,8 @@ class AudioSystem extends System {
               audio.clipPath,
               volume: audio.volume,
               loop: audio.loop,
-              pan: audio.pan,
+              // A sound placed in 3-D is panned by where it is.
+              pan: pos == null ? audio.pan : 0.0,
               pitch: audio.pitch,
               speed: audio.speed,
               effects: audio.effects,
@@ -112,20 +141,28 @@ class AudioSystem extends System {
         return;
       }
 
-      // Update 3D position every frame for moving sources.
-      if (audio.is3d && audio.handle != null) {
-        final transform = entity.getComponent<TransformComponent>();
-        if (transform != null) {
-          _engine.updateSfxPosition(
-            audio.handle! as String,
-            Audio3DPosition(
-              transform.position.x,
-              transform.position.y,
-              transform.position.z,
-            ),
-          );
-        }
+      // Follow moving sources — only when they have moved, or started a new
+      // playback, since the position was last sent.
+      if (!audio.is3d) return;
+      final id = audio.handle;
+      if (id is! String) return;
+      final transform = entity.getComponent<TransformComponent>();
+      if (transform == null) return;
+      final p = transform.position;
+      final sent = _sentPositions[audio];
+      if (sent != null &&
+          sent.id == id &&
+          sent.x == p.x &&
+          sent.y == p.y &&
+          sent.z == p.z) {
+        return;
       }
+      _sentPositions[audio] = (sent ?? _SentPosition())
+        ..id = id
+        ..x = p.x
+        ..y = p.y
+        ..z = p.z;
+      _engine.updateSfxPosition(id, Audio3DPosition(p.x, p.y, p.z));
     });
   }
 
@@ -146,7 +183,7 @@ class AudioSystem extends System {
       _engine.playSfx(
         play.clipPath,
         volume: play.volume,
-        pan: play.pan,
+        pan: pos == null ? play.pan : 0.0,
         pitch: play.pitch,
         speed: play.speed,
         effects: play.effects,
@@ -219,14 +256,23 @@ class AudioSystem extends System {
       if (comp.stream == null && comp.playOnAdd) {
         final stream = AudioStream(path: comp.path, channel: comp.channel);
         comp.stream = stream;
+        final fadeIn = comp.fadeInDuration;
+        final fades = fadeIn != null && fadeIn > Duration.zero;
         stream.open(_engine.backend).then((_) async {
-          await stream.play(volume: comp.volume, loop: comp.loop);
-          if (comp.fadeInDuration != null) {
-            await stream.fade(comp.volume, comp.fadeInDuration!);
-          }
+          // A fade-in starts from silence.
+          await stream.play(volume: fades ? 0.0 : comp.volume, loop: comp.loop);
+          if (fades) await stream.fade(comp.volume, fadeIn);
         });
         comp.playOnAdd = false;
       }
     }
   }
+}
+
+/// A 3-D source's position as last sent to the audio engine.
+class _SentPosition {
+  String id = '';
+  double x = 0;
+  double y = 0;
+  double z = 0;
 }

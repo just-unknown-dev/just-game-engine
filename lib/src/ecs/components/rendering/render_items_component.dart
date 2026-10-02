@@ -4,7 +4,7 @@ library;
 import 'dart:ui';
 
 import '../../ecs.dart';
-import '../../serialization/component_definition.dart' show RenderContext;
+import '../../serialization/component_presentation.dart' show RenderContext;
 
 /// One drawable an entity owns, sorted into the same draw order as every
 /// renderable in the world.
@@ -15,7 +15,7 @@ import '../../serialization/component_definition.dart' show RenderContext;
 /// for one entity. Items give it that without spawning an entity per layer —
 /// entities would be saved, listed in the editor's tree and pickable.
 ///
-/// Items sort by `(layer << 20) + zOrder`, then [subOrder], exactly as a
+/// Items sort by [layer], then [zOrder], then [subOrder], exactly as a
 /// `LayerComponent` does, and draw inside the camera transform. The canvas is **not**
 /// translated to the owner: an item places itself, usually from the owner's
 /// transform.
@@ -41,9 +41,14 @@ abstract class RenderItem {
 /// The [RenderItem]s an entity draws. Runtime only: whatever creates the
 /// items (a loading system, usually) attaches this, and nothing saves it.
 class RenderItemsComponent extends Component {
+  /// A component drawing [items] — the list itself, not a copy; a new empty
+  /// list when null.
   RenderItemsComponent([List<RenderItem>? items]) : items = items ?? [];
 
   /// The items, in no particular order: the render system sorts them.
+  ///
+  /// Add, remove or replace items freely: the render system compares this
+  /// list with what it drew last frame, and re-sorts when it changed.
   final List<RenderItem> items;
 
   @override

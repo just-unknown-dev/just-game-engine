@@ -3,7 +3,7 @@
 /// Generic broad-phase spatial index for ECS entities.
 library;
 
-import 'package:flutter/material.dart';
+import 'dart:ui' show Rect;
 
 import '../ecs.dart';
 
@@ -19,48 +19,48 @@ import '../ecs.dart';
 /// list. This only guarantees "might overlap" — callers must still run their
 /// own precise overlap check on the result.
 ///
+/// Steady state allocates nothing: each tracked entity has one record,
+/// made when it is first seen, holding its cell range and the stamps that
+/// replace per-call sets; [query] can fill a list the caller keeps.
+///
 /// Positions are never cached inside the grid itself — only entity
 /// references — so whatever reads a queried entity's `TransformComponent`
 /// afterwards always sees its true current position.
 class EntitySpatialGrid {
+  /// Side of one square cell, in world units. Bounds much larger than a
+  /// cell are filed in many cells, which costs more each time they move.
   final double cellSize;
 
-  final Map<int, List<Entity>> _cells = {};
-  final List<List<Entity>> _listPool = [];
-  final Map<Entity, _CellRange> _tracked = {};
-  final Set<Entity> _seen = <Entity>{};
-  final List<Entity> _removedScratch = [];
+  final Map<int, List<_Tracked>> _cells = {};
+  final List<List<_Tracked>> _listPool = [];
+  final Map<Entity, _Tracked> _tracked = {};
+  final List<_Tracked> _removedScratch = [];
+  int _syncStamp = 0;
+  int _queryStamp = 0;
 
+  /// An empty grid of [cellSize]-unit cells, 256 by default.
   EntitySpatialGrid({this.cellSize = 256});
 
   static int _hash(int x, int y) => (x * 73856093) ^ (y * 83492791);
 
-  List<Entity> _acquireList() =>
-      _listPool.isNotEmpty ? _listPool.removeLast() : <Entity>[];
+  List<_Tracked> _acquireList() =>
+      _listPool.isNotEmpty ? _listPool.removeLast() : <_Tracked>[];
 
-  _CellRange _rangeOf(Rect bounds) => _CellRange(
-    minX: (bounds.left / cellSize).floor(),
-    minY: (bounds.top / cellSize).floor(),
-    maxX: (bounds.right / cellSize).floor(),
-    maxY: (bounds.bottom / cellSize).floor(),
-  );
-
-  void _insertIntoRange(Entity entity, _CellRange range) {
-    for (var x = range.minX; x <= range.maxX; x++) {
-      for (var y = range.minY; y <= range.maxY; y++) {
-        final hash = _hash(x, y);
-        (_cells[hash] ??= _acquireList()).add(entity);
+  void _insert(_Tracked t) {
+    for (var x = t.minX; x <= t.maxX; x++) {
+      for (var y = t.minY; y <= t.maxY; y++) {
+        (_cells[_hash(x, y)] ??= _acquireList()).add(t);
       }
     }
   }
 
-  void _removeFromRange(Entity entity, _CellRange range) {
-    for (var x = range.minX; x <= range.maxX; x++) {
-      for (var y = range.minY; y <= range.maxY; y++) {
+  void _remove(_Tracked t) {
+    for (var x = t.minX; x <= t.maxX; x++) {
+      for (var y = t.minY; y <= t.maxY; y++) {
         final hash = _hash(x, y);
         final bucket = _cells[hash];
         if (bucket == null) continue;
-        bucket.remove(entity);
+        bucket.remove(t);
         if (bucket.isEmpty) {
           _cells.remove(hash);
           _listPool.add(bucket);
@@ -74,45 +74,74 @@ class EntitySpatialGrid {
   /// call are left untouched; entities no longer present in [entities] are
   /// removed from the grid.
   void sync(Iterable<Entity> entities, Rect Function(Entity) boundsOf) {
-    _seen.clear();
+    final stamp = ++_syncStamp;
 
     for (final entity in entities) {
-      _seen.add(entity);
-      final nextRange = _rangeOf(boundsOf(entity));
-      final previousRange = _tracked[entity];
+      final bounds = boundsOf(entity);
+      final minX = (bounds.left / cellSize).floor();
+      final minY = (bounds.top / cellSize).floor();
+      final maxX = (bounds.right / cellSize).floor();
+      final maxY = (bounds.bottom / cellSize).floor();
 
-      if (previousRange == nextRange) continue;
-
-      if (previousRange != null) {
-        _removeFromRange(entity, previousRange);
+      final known = _tracked[entity];
+      if (known == null) {
+        final t = _Tracked(entity, minX, minY, maxX, maxY)..synced = stamp;
+        _tracked[entity] = t;
+        _insert(t);
+        continue;
       }
-      _insertIntoRange(entity, nextRange);
-      _tracked[entity] = nextRange;
+      known.synced = stamp;
+      if (known.minX == minX &&
+          known.minY == minY &&
+          known.maxX == maxX &&
+          known.maxY == maxY) {
+        continue;
+      }
+      _remove(known);
+      known
+        ..minX = minX
+        ..minY = minY
+        ..maxX = maxX
+        ..maxY = maxY;
+      _insert(known);
     }
 
     _removedScratch.clear();
-    for (final entity in _tracked.keys) {
-      if (!_seen.contains(entity)) _removedScratch.add(entity);
+    for (final t in _tracked.values) {
+      if (t.synced != stamp) _removedScratch.add(t);
     }
-    for (final entity in _removedScratch) {
-      final previousRange = _tracked.remove(entity);
-      if (previousRange != null) _removeFromRange(entity, previousRange);
+    for (final t in _removedScratch) {
+      _tracked.remove(t.entity);
+      _remove(t);
     }
+    _removedScratch.clear();
   }
 
   /// Broad-phase candidates whose tracked cell range overlaps [queryRect].
   /// Deduplicated — an entity spanning multiple cells is returned once.
   /// Callers must still do a precise bounds check on the result.
-  List<Entity> query(Rect queryRect) {
-    final range = _rangeOf(queryRect);
-    final results = <Entity>{};
-    for (var x = range.minX; x <= range.maxX; x++) {
-      for (var y = range.minY; y <= range.maxY; y++) {
+  ///
+  /// Given [out], the candidates are added to it and it is returned, so a
+  /// caller querying every frame can reuse one list.
+  List<Entity> query(Rect queryRect, [List<Entity>? out]) {
+    final results = out ?? <Entity>[];
+    final stamp = ++_queryStamp;
+    final minX = (queryRect.left / cellSize).floor();
+    final minY = (queryRect.top / cellSize).floor();
+    final maxX = (queryRect.right / cellSize).floor();
+    final maxY = (queryRect.bottom / cellSize).floor();
+    for (var x = minX; x <= maxX; x++) {
+      for (var y = minY; y <= maxY; y++) {
         final bucket = _cells[_hash(x, y)];
-        if (bucket != null) results.addAll(bucket);
+        if (bucket == null) continue;
+        for (final t in bucket) {
+          if (t.queried == stamp) continue;
+          t.queried = stamp;
+          results.add(t.entity);
+        }
       }
     }
-    return results.toList();
+    return results;
   }
 
   /// Reset to empty, returning all cell lists to the pool.
@@ -123,34 +152,22 @@ class EntitySpatialGrid {
     }
     _cells.clear();
     _tracked.clear();
-    _seen.clear();
   }
 
   /// Number of entities currently tracked (diagnostics/tests).
   int get trackedEntityCount => _tracked.length;
 }
 
-class _CellRange {
-  final int minX;
-  final int minY;
-  final int maxX;
-  final int maxY;
+/// One tracked entity: the cells it covers, and when it was last synced
+/// and last returned by a query.
+class _Tracked {
+  _Tracked(this.entity, this.minX, this.minY, this.maxX, this.maxY);
 
-  const _CellRange({
-    required this.minX,
-    required this.minY,
-    required this.maxX,
-    required this.maxY,
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      other is _CellRange &&
-      other.minX == minX &&
-      other.minY == minY &&
-      other.maxX == maxX &&
-      other.maxY == maxY;
-
-  @override
-  int get hashCode => Object.hash(minX, minY, maxX, maxY);
+  final Entity entity;
+  int minX;
+  int minY;
+  int maxX;
+  int maxY;
+  int synced = 0;
+  int queried = 0;
 }

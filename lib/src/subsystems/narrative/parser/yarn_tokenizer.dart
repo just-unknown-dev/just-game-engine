@@ -63,6 +63,8 @@ enum TokenType {
 
 /// A single logical line from a Yarn Spinner source file.
 class YarnToken {
+  /// The token for source line [lineNumber], of kind [type], with [value]
+  /// its content and [indentLevel] its indentation.
   const YarnToken({
     required this.type,
     required this.value,
@@ -70,6 +72,7 @@ class YarnToken {
     required this.lineNumber,
   });
 
+  /// What kind of line this is, which says what [value] holds.
   final TokenType type;
 
   /// Meaningful content of the line, trimmed of its syntactic delimiters.

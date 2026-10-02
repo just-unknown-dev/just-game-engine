@@ -8,6 +8,8 @@ export 'field_type_shape_impls.dart';
 
 /// Bounds and parsers a field applies while decoding.
 class FieldConstraints {
+  /// Constraints with the bounds and parser given; each unset one is not
+  /// applied.
   const FieldConstraints({this.min, this.max, this.enumParser});
 
   /// No constraints.
@@ -33,6 +35,7 @@ class FieldConstraints {
 /// inspector as soon as a module supplies an editor for it, and as a visible
 /// read-only row until then.
 abstract class FieldType<T> {
+  /// Const constructor so subclasses can be const.
   const FieldType();
 
   /// Stable identifier, written nowhere in a save but used to find the
@@ -74,10 +77,20 @@ abstract class FieldType<T> {
 /// `FieldKind.decimal` became `FieldTypes.decimal` with nothing else to
 /// change.
 abstract final class FieldTypes {
+  /// A `bool`, saved as JSON `true` / `false`.
   static const boolean = BooleanFieldType();
+
+  /// An `int`, clamped to the field's min and max when read.
   static const integer = IntegerFieldType();
+
+  /// A `double`, clamped to the field's min and max when read.
   static const decimal = DecimalFieldType();
+
+  /// A plain string.
   static const text = TextFieldType();
+
+  /// A path into the asset bundle, stored as text; the editor offers a
+  /// picker.
   static const assetRef = AssetRefFieldType();
 
   /// The name of another entity in the scene. Stored as text, looked up
@@ -103,20 +116,44 @@ abstract final class FieldTypes {
   /// An enum stored by name, parsed back with [FieldConstraints.enumParser].
   /// Prefer [EnumFieldType], which needs no parser and knows its values.
   static const enumeration = EnumerationFieldType();
+
+  /// A list of raw JSON values, kept as they are.
   static const list = ListFieldType();
+
+  /// A map of raw JSON values, kept as they are.
   static const map = MapFieldType();
+
+  /// A `Vector2`, saved as `{x, y}`.
   static const vector2 = Vector2FieldType();
+
+  /// A `Vector3`, saved as `{x, y, z}`; a 2-D scene shows x and y.
   static const vector3 = Vector3FieldType();
 
   /// A rotation as Euler angles in radians, `{x, y, z}`.
   static const euler = EulerFieldType();
+
+  /// A `Color`, saved as its ARGB int.
   static const color = ColorFieldType();
+
+  /// An `Offset`, saved as `{dx, dy}`.
   static const offset = OffsetFieldType();
+
+  /// A list of `Offset`s, saved as a list of `{dx, dy}`.
   static const offsetList = OffsetListFieldType();
+
+  /// A shape's fill: colour, blend mode and optional gradient.
   static const shapePaintStyle = ShapePaintStyleFieldType();
 
   /// A physics collision shape, stored as `{kind, ...dimensions}`.
   static const physicsShape = PhysicsShapeFieldType();
+
+  /// A collision layer, 0 to 15, saved as its number; the editor offers the
+  /// project's layer names.
+  static const physicsLayer = PhysicsLayerFieldType();
+
+  /// A set of collision layers as a mask (bit `n` for layer `n`), or null
+  /// for "as the project's grid says"; the editor offers the layers by name.
+  static const physicsLayerMask = PhysicsLayerMaskFieldType();
 
   /// Space around something.
   static const edgeInsets = EdgeInsetsFieldType();
@@ -156,6 +193,8 @@ abstract final class FieldTypes {
     offsetList,
     shapePaintStyle,
     physicsShape,
+    physicsLayer,
+    physicsLayerMask,
     edgeInsets,
     unknown,
   ];
@@ -166,6 +205,8 @@ abstract final class FieldTypes {
 /// A module registers its own here; the editor resolves editors and
 /// formatters through the same ids.
 class FieldTypeRegistry {
+  /// A registry holding every type in [FieldTypes.all], or nothing when
+  /// [withBuiltIns] is false.
   FieldTypeRegistry({bool withBuiltIns = true}) {
     if (withBuiltIns) registerAll(FieldTypes.all);
   }

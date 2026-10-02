@@ -51,8 +51,10 @@ void main() {
       recorder.endRecording().dispose();
     }
     sw.stop();
-    debugPrint('PERF shapes10k: ${_frameMs(sw, frames).toStringAsFixed(3)} '
-        'ms/frame');
+    debugPrint(
+      'PERF shapes10k: ${_frameMs(sw, frames).toStringAsFixed(3)} '
+      'ms/frame',
+    );
     expect(_frameMs(sw, frames), lessThan(1000));
   });
 
@@ -81,8 +83,10 @@ void main() {
       world.update(1 / 60);
     }
     sw.stop();
-    debugPrint('PERF physics2k: ${_frameMs(sw, frames).toStringAsFixed(3)} '
-        'ms/frame');
+    debugPrint(
+      'PERF physics2k: ${_frameMs(sw, frames).toStringAsFixed(3)} '
+      'ms/frame',
+    );
     expect(_frameMs(sw, frames), lessThan(2000));
   });
 }

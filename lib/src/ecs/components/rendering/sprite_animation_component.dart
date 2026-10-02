@@ -12,6 +12,9 @@ import '../../ecs.dart';
 /// [SpriteAnimationSystem] loads the atlas, advances the frames and keeps the
 /// entity's renderable showing the right one.
 class SpriteAnimationComponent extends Component {
+  /// Plays [clip] of the atlas at [atlasPath] at its authored speed once
+  /// loaded, unflipped, untinted and without smoothing. An empty
+  /// [atlasPath] shows nothing.
   SpriteAnimationComponent({
     this.atlasPath = '',
     this.clip = '',
@@ -38,8 +41,14 @@ class SpriteAnimationComponent extends Component {
   /// Playback rate: 1 is the authored timing, 0 holds the frame.
   double speed;
 
+  /// Draw the frames mirrored left to right.
   bool flipX;
+
+  /// Draw the frames mirrored top to bottom.
   bool flipY;
+
+  /// Colour multiplied into every frame (a modulate filter); null draws
+  /// the frames as they are.
   Color? tint;
 
   /// Sample the texture without smoothing, so scaled pixels stay square.
@@ -47,6 +56,9 @@ class SpriteAnimationComponent extends Component {
 
   // ── Runtime state (driven by SpriteAnimationSystem) ──────────────────────
 
+  /// Whether the clip is advancing. Set by [play], [pause], [stop] and
+  /// [switchClip]; set by the system when it acts on [playOnStart], and
+  /// cleared when a clip that does not loop ends.
   bool isPlaying = false;
 
   /// Seconds into the current pass of [clip].
@@ -66,13 +78,17 @@ class SpriteAnimationComponent extends Component {
 
   // ── Playback control ─────────────────────────────────────────────────────
 
+  /// Plays on from the current frame; a clip that has finished starts again
+  /// from its first frame.
   void play() {
     if (isComplete) restart();
     isPlaying = true;
   }
 
+  /// Holds the current frame.
   void pause() => isPlaying = false;
 
+  /// Stops and goes back to the clip's first frame.
   void stop() {
     isPlaying = false;
     restart();

@@ -8,31 +8,34 @@ import 'test_helpers.dart';
 void main() {
   // Initialize Flutter bindings for all tests
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUp(() => Engine.resetInstance());
-
-  // resetInstance() disposes the engine it discards, so each test starts
-  // from a fresh one without leaking the last.
+  // Each test makes its own engine and disposes it when done.
 
   group('Core Engine Sanity Tests', () {
     test('Engine can be instantiated', () {
       final engine = Engine();
+      addTearDown(engine.dispose);
       expect(engine, isNotNull);
     });
 
-    test('Engine singleton works', () {
-      final engine1 = Engine.instance;
-      final engine2 = Engine.instance;
-      expect(engine1, same(engine2));
+    test('Each Engine() is a new engine', () {
+      final engine1 = Engine();
+      final engine2 = Engine();
+      addTearDown(engine1.dispose);
+      addTearDown(engine2.dispose);
+      expect(engine1, isNot(same(engine2)));
+      expect(engine1.context, isNot(same(engine2.context)));
     });
 
     test('Engine initializes successfully', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
       expect(engine.isInitialized, true);
     });
 
     test('Engine lifecycle methods work', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       engine.start();
@@ -50,13 +53,12 @@ void main() {
 
     test('All subsystems are initialized', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       expect(engine.rendering, isNotNull);
       expect(engine.physics, isNotNull);
       expect(engine.input, isNotNull);
-      expect(engine.animation, isNotNull);
-      expect(engine.sceneEditor, isNotNull);
       expect(engine.world, isNotNull);
       expect(engine.assets, isNotNull);
       expect(engine.audio, isNotNull);
@@ -66,6 +68,7 @@ void main() {
   group('Rendering System Tests', () {
     test('Can add renderables to rendering engine', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final circle = createTestCircle(radius: 50);
@@ -76,6 +79,7 @@ void main() {
 
     test('Can remove renderables', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final circle = createTestCircle();
@@ -87,6 +91,7 @@ void main() {
 
     test('Renderables are sorted by layer', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final obj1 = createTestCircle(layer: 2);
@@ -104,6 +109,7 @@ void main() {
 
     test('Camera can be manipulated', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final camera = engine.rendering.camera;
@@ -118,6 +124,7 @@ void main() {
 
     test('Camera zoom works', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final camera = engine.rendering.camera;
@@ -131,6 +138,7 @@ void main() {
   group('Physics System Tests', () {
     test('Can add physics bodies', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final body = PhysicsBody(position: Vector2(0, 0), shape: CircleShape(30));
@@ -141,6 +149,7 @@ void main() {
 
     test('Can remove physics bodies', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final body = PhysicsBody(position: Vector2(0, 0), shape: CircleShape(30));
@@ -169,67 +178,10 @@ void main() {
     });
   });
 
-  group('Animation System Tests', () {
-    test('Animation system is initialized', () async {
-      final engine = Engine();
-      await engine.initialize();
-
-      expect(engine.animation, isNotNull);
-      expect(engine.animation.animationCount, 0);
-    });
-
-    test('Can add animations to animation system', () async {
-      final engine = Engine();
-      await engine.initialize();
-
-      final target = createTestCircle();
-      final animation = RotationTween(
-        target: target,
-        start: 0,
-        end: 3.14159 * 2,
-        duration: 1.0,
-      );
-
-      engine.animation.addAnimation(animation);
-      expect(engine.animation.animationCount, 1);
-    });
-  });
-
-  group('Scene Graph Tests', () {
-    test('Can create scenes', () async {
-      final engine = Engine();
-      await engine.initialize();
-
-      final scene = engine.sceneEditor.createScene('TestScene');
-      expect(scene, isNotNull);
-      expect(scene.name, 'TestScene');
-    });
-
-    test('Can add nodes to scene', () async {
-      final engine = Engine();
-      await engine.initialize();
-
-      final scene = engine.sceneEditor.createScene('TestScene');
-      final node = SceneNode('TestNode');
-
-      scene.addNode(node);
-      expect(scene.findNode('TestNode'), same(node));
-    });
-
-    test('Parent-child hierarchy works', () {
-      final parent = SceneNode('Parent');
-      final child = SceneNode('Child');
-
-      parent.addChild(child);
-
-      expect(child.parent, same(parent));
-      expect(parent.children, contains(child));
-    });
-  });
-
   group('ECS Tests', () {
     test('Can create entities', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final entity = engine.world.createEntity(name: 'TestEntity');
@@ -239,6 +191,7 @@ void main() {
 
     test('Can add components to entities', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final entity = engine.world.createEntity();
@@ -250,6 +203,7 @@ void main() {
 
     test('Can query entities by component', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final entity1 = engine.world.createEntity();
@@ -302,6 +256,7 @@ void main() {
   group('Input System Tests', () {
     test('Input subsystems exist', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       expect(engine.input, isNotNull);
@@ -315,6 +270,7 @@ void main() {
   group('Asset System Tests', () {
     test('Asset manager exists', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       expect(engine.assets, isNotNull);
@@ -332,6 +288,7 @@ void main() {
   group('Audio System Tests', () {
     test('Audio engine exists', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       expect(engine.audio, isNotNull);
@@ -378,6 +335,7 @@ void main() {
   group('Integration Tests', () {
     test('Multiple systems work together', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
       engine.start();
 
@@ -396,15 +354,9 @@ void main() {
       final entity = engine.world.createEntity();
       entity.addComponent(TransformComponent(position: null));
 
-      // Create scene
-      final scene = engine.sceneEditor.createScene('IntegrationTest');
-      final node = SceneNode('TestNode');
-      scene.addNode(node);
-
       expect(engine.rendering.renderables.length, greaterThan(0));
       expect(engine.physics.bodies.length, greaterThan(0));
       expect(engine.world.entities.length, greaterThan(0));
-      expect(scene.findNode('TestNode'), isNotNull);
     });
   });
 }

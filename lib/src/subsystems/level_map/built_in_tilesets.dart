@@ -18,6 +18,11 @@ import 'tileset_data.dart';
 ///
 /// Its tile ids never change, and new tiles only ever go after the last,
 /// so a map painted with it keeps meaning the same tiles.
+///
+/// Nothing here is kept: [build] and [draw] make a new tileset and a new
+/// picture each time. An engine keeps its own copies, in its context's
+/// `TileAssets` (`loadedTileset`, `builtInImage`), and disposes the picture
+/// with it.
 abstract final class BuiltInTilesets {
   /// What every built-in path starts with. Never a file: nothing may hand
   /// such a path to a file system.
@@ -41,19 +46,18 @@ abstract final class BuiltInTilesets {
   /// Whether [path] names a built-in tileset or picture.
   static bool isBuiltIn(String path) => path.startsWith(prefix);
 
-  /// The built-in tileset at [path]; null when there is none.
-  static TilesetData? tileset(String path) =>
-      path == basicShapes ? _basic ??= _basicShapes() : null;
+  /// A new copy of the built-in tileset at [path]; null when there is none.
+  static TilesetData? build(String path) =>
+      path == basicShapes ? _basicShapes() : null;
 
-  /// The built-in picture at [path], drawn the first time it is asked for;
-  /// null when there is none.
-  static ui.Image? image(String path) {
-    if (path != basicShapesImage) return null;
-    return _basicImage ??= _draw(tileset(basicShapes)!);
-  }
+  /// The built-in tileset whose picture [imagePath] is; null when there is
+  /// none.
+  static String? tilesetOfImage(String imagePath) =>
+      imagePath == basicShapesImage ? basicShapes : null;
 
-  static TilesetData? _basic;
-  static ui.Image? _basicImage;
+  /// Draws [ts]'s picture — a built-in tileset's, which has no image file.
+  /// The caller owns the image and disposes it.
+  static ui.Image draw(TilesetData ts) => _draw(ts);
 
   // ── The tiles ────────────────────────────────────────────────────────────
 
@@ -169,7 +173,11 @@ abstract final class BuiltInTilesets {
           ..drawPath(path, edge);
       }
     }
-    return recorder.endRecording().toImageSync(ts.imageWidth, ts.imageHeight);
+    final picture = recorder.endRecording();
+    final image = picture.toImageSync(ts.imageWidth, ts.imageHeight);
+    // The image keeps what it needs of the picture.
+    picture.dispose();
+    return image;
   }
 
   /// [p] of a tile placed at [at], pulled in from the tile's edges so its

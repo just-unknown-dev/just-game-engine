@@ -7,12 +7,16 @@ import '../../../subsystems/camera/camera_noise.dart';
 /// Continuous procedural motion on a virtual camera: the difference between
 /// a locked-off shot and one that feels held.
 class CameraNoiseComponent extends Component {
+  /// Noise from [preset] (normal handheld by default), played as authored
+  /// unless [amplitudeGain] or [frequencyGain] say otherwise.
   CameraNoiseComponent({
     this.preset = CameraNoisePreset.handheldNormal,
     this.amplitudeGain = 1.0,
     this.frequencyGain = 1.0,
   });
 
+  /// The recipe of motion played; its position amplitudes are screen
+  /// pixels, so the shake looks the same at any zoom.
   CameraNoisePreset preset;
 
   /// Multiplies how far the shot moves. `0` switches the noise off.
@@ -31,6 +35,8 @@ class CameraNoiseComponent extends Component {
 /// every listening shot reacts by how close it is — including a shot that is
 /// only blending in.
 class CameraImpulseListenerComponent extends Component {
+  /// A listener feeling impulses at full strength ([gain] `1`) on channel 1
+  /// only ([channels] `1`).
   CameraImpulseListenerComponent({this.gain = 1.0, this.channels = 1});
 
   /// Multiplies what is felt.
@@ -46,6 +52,8 @@ class CameraImpulseListenerComponent extends Component {
 /// An authored impulse: what `CameraBrain.emitImpulseFrom` sends for this
 /// entity — a landing, an explosion, a door slamming.
 class CameraImpulseSourceComponent extends Component {
+  /// The same defaults as a `CameraImpulse`: a 12-unit, 0.4-second jolt
+  /// felt everywhere on channel 1.
   CameraImpulseSourceComponent({
     this.amplitude = 12.0,
     this.duration = 0.4,

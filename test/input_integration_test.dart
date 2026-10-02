@@ -6,8 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_inputs/just_inputs.dart';
 import 'package:just_inputs/testing.dart';
 
+/// The engine's own definitions, fresh for this file.
+final _coreDefinitions = ComponentDefinitionRegistry.core();
 const _asset = InputActionAsset(
   name: 'test',
   nextId: 30,
@@ -107,10 +110,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   Future<Engine> boot() async {
-    Engine.resetInstance();
     final engine = Engine();
+    addTearDown(engine.dispose);
     await engine.initialize();
-    addTearDown(Engine.resetInstance);
     engine.input.loadAsset(_asset);
     return engine;
   }
@@ -229,8 +231,7 @@ void main() {
     });
 
     test('saves which player it is', () {
-      registerCoreCodecs();
-      final codec = ComponentCodecRegistry.instance;
+      final codec = _coreDefinitions;
       final json = codec.encode(InputComponent(playerIndex: 2))!;
       expect((codec.decode(json) as InputComponent).playerIndex, 2);
     });

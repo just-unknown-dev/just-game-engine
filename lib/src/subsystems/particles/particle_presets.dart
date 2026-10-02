@@ -399,7 +399,7 @@ class ParticleEffects {
 
   /// Confetti burst — colorful rotating squares falling with drag.
   ///
-  /// Sub-emitter example: [subEmitters] can be used to spawn smaller confetti
+  /// Sub-emitter example: `subEmitters` can be used to spawn smaller confetti
   /// on death for extra density.
   static ParticleEmitter confetti({required Vector3 position, int count = 80}) {
     return ParticleEmitter(

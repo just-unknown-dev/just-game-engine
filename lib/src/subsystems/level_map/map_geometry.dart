@@ -10,19 +10,35 @@ import 'level_map_data.dart';
 /// A rectangle of cells: [x0] to [x1] and [y0] to [y1], the far edges
 /// exclusive.
 class TileRange {
+  /// The cells from ([x0], [y0]) up to, not including, ([x1], [y1]).
   const TileRange(this.x0, this.y0, this.x1, this.y1);
 
+  /// The smallest x in it.
   final int x0;
+
+  /// The smallest y in it.
   final int y0;
+
+  /// One past the largest x in it.
   final int x1;
+
+  /// One past the largest y in it.
   final int y1;
 
+  /// Whether it holds no cells.
   bool get isEmpty => x1 <= x0 || y1 <= y0;
+
+  /// How many cells it spans along x; never negative.
   int get width => math.max(0, x1 - x0);
+
+  /// How many cells it spans along y; never negative.
   int get height => math.max(0, y1 - y0);
 
+  /// Whether cell ([x], [y]) is in it.
   bool contains(int x, int y) => x >= x0 && x < x1 && y >= y0 && y < y1;
 
+  /// Every cell in it: y by y from [y0], and within each, x by x from
+  /// [x0]. Made as it is walked.
   Iterable<TileCoord> get coords sync* {
     for (var y = y0; y < y1; y++) {
       for (var x = x0; x < x1; x++) {
@@ -54,7 +70,15 @@ class TileRange {
 /// A cell's *box* is the rectangle its shape sits in; a tile's image is
 /// drawn with its bottom-left corner on the box's bottom-left, so a tile
 /// taller than the grid rises above its cell, as in Tiled.
+///
+/// A grid too small to divide by — a tile width or height below 1 (below 2
+/// on a staggered or hexagonal map), a negative side length — is taken as
+/// the smallest that works, so a half-edited map still finds its cells.
 class MapGeometry {
+  /// The grid of an [orientation] map whose cells are [tileWidth] ×
+  /// [tileHeight] pixels, sizes raised as the class doc says. [staggerAxis]
+  /// and [staggerIndex] matter only on staggered and hexagonal maps,
+  /// [hexSideLength] only on hexagonal ones.
   MapGeometry({
     this.orientation = MapOrientation.orthogonal,
     required int tileWidth,
@@ -62,10 +86,10 @@ class MapGeometry {
     this.staggerAxis = TileStaggerAxis.y,
     this.staggerIndex = TileStaggerIndex.odd,
     int hexSideLength = 0,
-  }) : // Tiled's hexagonal and staggered renderers work on even sizes.
-       tileWidth = _isStaggered(orientation) ? tileWidth & ~1 : tileWidth,
-       tileHeight = _isStaggered(orientation) ? tileHeight & ~1 : tileHeight,
-       hexSideLength = orientation == MapOrientation.hexagonal
+  }) : tileWidth = _size(orientation, tileWidth),
+       tileHeight = _size(orientation, tileHeight),
+       hexSideLength =
+           orientation == MapOrientation.hexagonal && hexSideLength > 0
            ? hexSideLength
            : 0 {
     final sx = staggerAxis == TileStaggerAxis.x;
@@ -90,11 +114,32 @@ class MapGeometry {
   static bool _isStaggered(MapOrientation o) =>
       o == MapOrientation.staggered || o == MapOrientation.hexagonal;
 
+  /// A tile side as the grid uses it: even on staggered and hexagonal maps,
+  /// whose renderers in Tiled work on even sizes, and never so small that
+  /// finding a cell divides by nothing.
+  static int _size(MapOrientation o, int size) =>
+      _isStaggered(o) ? math.max(2, size & ~1) : math.max(1, size);
+
+  /// The shape and layout of the cells.
   final MapOrientation orientation;
+
+  /// Width of a cell's box, in pixels: at least 1, and on staggered and
+  /// hexagonal maps even and at least 2 (an odd width is rounded down).
   final int tileWidth;
+
+  /// Height of a cell's box, in pixels, raised and rounded as [tileWidth]
+  /// is.
   final int tileHeight;
+
+  /// Whether columns or rows are staggered (staggered and hexagonal maps).
   final TileStaggerAxis staggerAxis;
+
+  /// Whether the odd or the even ones are shifted (staggered and hexagonal
+  /// maps).
   final TileStaggerIndex staggerIndex;
+
+  /// Length of a hexagon's flat side, in pixels; 0 on any other map, and
+  /// for a side given as 0 or less.
   final int hexSideLength;
 
   late final int _sideLengthX;
@@ -580,6 +625,18 @@ class MapGeometry {
     }
     return clockwise ? TileCoord(-d.y, d.x) : TileCoord(d.y, -d.x);
   }
+
+  /// [cell]'s tile mirrored left to right on screen, as [mirrorH] mirrors
+  /// its place.
+  int mirrorCellH(int cell) => orientation == MapOrientation.hexagonal
+      ? TileCell.mirroredHexH(cell)
+      : TileCell.mirroredH(cell);
+
+  /// [cell]'s tile mirrored top to bottom on screen, as [mirrorV] mirrors
+  /// its place.
+  int mirrorCellV(int cell) => orientation == MapOrientation.hexagonal
+      ? TileCell.mirroredHexV(cell)
+      : TileCell.mirroredV(cell);
 
   /// [cell]'s tile turned one step the same way as [turn].
   int turnCell(int cell, {bool clockwise = true}) =>

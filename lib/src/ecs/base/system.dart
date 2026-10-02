@@ -21,6 +21,10 @@ abstract class System {
   /// Priority for system execution order (higher = earlier)
   int priority = 0;
 
+  /// What [World.stats] files this system's time under — its type's name,
+  /// worked out once rather than every frame.
+  late final String _profileName = runtimeType.toString();
+
   /// Initialize the system
   void initialize() {}
 

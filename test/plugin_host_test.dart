@@ -36,11 +36,9 @@ void main() {
   test(
     'plugins tick every frame on unscaled time, even at time scale 0',
     () async {
-      Engine.resetInstance();
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
-      addTearDown(Engine.resetInstance);
-
       final plugin = _Counting();
       engine.plugins.register(plugin);
       expect(plugin.attached, 1);
@@ -64,11 +62,9 @@ void main() {
   test(
     'registering the same id again replaces and detaches the old one',
     () async {
-      Engine.resetInstance();
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
-      addTearDown(Engine.resetInstance);
-
       final first = _Counting();
       final second = _Counting();
       engine.plugins.register(first);

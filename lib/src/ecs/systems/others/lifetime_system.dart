@@ -2,7 +2,7 @@ library;
 
 import '../../ecs.dart';
 import '../../components/components.dart';
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 
 /// Lifetime system - Destroys expired entities
 class LifetimeSystem extends System {

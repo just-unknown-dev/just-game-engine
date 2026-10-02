@@ -17,6 +17,9 @@ import '../../../ecs/ecs.dart';
 /// └─────────────────────────────────────┘
 /// ```
 class CameraFramingComponent extends Component {
+  /// By default: the target centred, a dead zone a tenth of the view's
+  /// width and height, a soft zone eight tenths, half-second damping, no
+  /// lookahead, following on both axes.
   CameraFramingComponent({
     this.screenX = 0.0,
     this.screenY = 0.0,
@@ -32,22 +35,34 @@ class CameraFramingComponent extends Component {
     this.followY = true,
   });
 
-  /// Where the target sits, from the centre: `-0.5` is the left edge, `0.5`
-  /// the right. A platformer often wants it a little below the middle.
+  /// Where the target sits horizontally, from the centre: `-0.5` is the
+  /// left edge, `0.5` the right.
   double screenX;
+
+  /// Where the target sits vertically, from the centre: `-0.5` is the top
+  /// edge, `0.5` the bottom. A platformer often wants the target a little
+  /// below the middle — a small positive value.
   double screenY;
 
   /// The target moves freely inside this without the camera moving.
   double deadZoneWidth;
+
+  /// Full height of the dead zone, as a fraction of the view's height,
+  /// centred on the target's screen spot.
   double deadZoneHeight;
 
   /// The target never leaves this, however heavy the damping.
   double softZoneWidth;
+
+  /// Full height of the soft zone, as a fraction of the view's height. One
+  /// smaller than [deadZoneHeight] acts as the dead zone's size.
   double softZoneHeight;
 
   /// Seconds for the camera to close 99% of the gap on each axis. `0` is
   /// rigid.
   double dampingX;
+
+  /// Seconds for the camera to close 99% of the vertical gap. `0` is rigid.
   double dampingY;
 
   /// Looks this many seconds ahead along the target's velocity. `0` is off.
@@ -60,6 +75,9 @@ class CameraFramingComponent extends Component {
   /// Off holds that axis at the camera entity's own position: a room that
   /// scrolls sideways only, a boss arena that does not scroll at all.
   bool followX;
+
+  /// Whether the camera follows the target vertically; off holds the
+  /// camera entity's own y.
   bool followY;
 
   @override

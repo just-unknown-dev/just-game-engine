@@ -1,6 +1,7 @@
 library;
 
 import '../../../subsystems/animation/animator/animator_graph.dart';
+import '../../../subsystems/sprite_atlas/sprite_asset_loader.dart';
 import '../../../subsystems/timeline/timeline_asset.dart';
 import '../../ecs.dart';
 import '../rendering/sprite_systems.dart';

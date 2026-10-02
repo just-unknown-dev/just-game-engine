@@ -87,7 +87,6 @@ void main() {
   });
 
   test('the plugin host forwards updates and replaces by id', () async {
-    Engine.resetInstance();
     final host = PluginHost(Engine());
     final first = _Plugin('p');
     final second = _Plugin('p');
@@ -100,6 +99,5 @@ void main() {
     host.unregister('p');
     expect(second.detached, isTrue);
     expect(host.all, isEmpty);
-    Engine.resetInstance();
   });
 }

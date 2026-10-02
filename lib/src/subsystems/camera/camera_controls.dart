@@ -31,6 +31,9 @@ export 'camera_effects.dart';
 /// )
 /// ```
 class GameCameraControls extends StatefulWidget {
+  /// Controls for [camera] over [child]: buttons and scroll steps of 0.1,
+  /// mouse-drag pan and pinch zoom on, the zoom readout off, unless told
+  /// otherwise. Every zoom is clamped to the camera's `minZoom`..`maxZoom`.
   const GameCameraControls({
     super.key,
     required this.camera,
@@ -51,7 +54,8 @@ class GameCameraControls extends StatefulWidget {
   /// Zoom delta applied each time the +/− buttons are tapped.
   final double zoomStep;
 
-  /// Zoom delta applied per scroll unit (mouse-wheel / trackpad).
+  /// Zoom added (scrolling up) or taken away (scrolling down) per scroll
+  /// event, whatever the event's size (mouse-wheel / trackpad).
   final double scrollZoomFactor;
 
   /// When `true`, displays the current zoom level between the +/− buttons.

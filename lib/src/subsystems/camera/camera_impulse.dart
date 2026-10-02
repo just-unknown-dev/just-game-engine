@@ -7,6 +7,8 @@ import 'camera_noise.dart';
 
 /// Something that happened in the world that a camera should feel.
 class CameraImpulse {
+  /// An impulse at [position]: by default a 12-unit, 0.4-second, 22 Hz jolt
+  /// felt everywhere on channel 1.
   CameraImpulse({
     required this.position,
     this.amplitude = 12.0,
@@ -35,9 +37,14 @@ class CameraImpulse {
   final double frequency;
 
   double _age = 0;
-  late final int _seed = _nextSeed++;
-  static int _nextSeed = 1;
 
+  /// Picks its noise pattern; handed out by the [CameraImpulseBus] it is
+  /// emitted on, so the same impulses in the same order shake the same way
+  /// every run.
+  int _seed = 0;
+
+  /// Whether it has died away: [duration] seconds have passed since it was
+  /// emitted, or it never had any duration.
   bool get isSpent => duration <= 0 || _age >= duration;
 
   /// What a listener at [listener] feels right now.
@@ -67,10 +74,23 @@ class CameraImpulse {
 class CameraImpulseBus {
   final List<CameraImpulse> _active = [];
 
+  /// The seed the next impulse emitted here gets; back to 1 on [clear].
+  int _nextSeed = 1;
+
+  /// How many impulses are still being felt.
   int get activeCount => _active.length;
 
+  /// Puts [impulse] in the air from now on. One with a zero amplitude or no
+  /// positive duration is ignored, since it would never be felt. The bus
+  /// keeps and ages the object itself: emitting the same impulse again —
+  /// still in the air or already spent — starts it over at full strength,
+  /// so it is never felt twice at once.
   void emit(CameraImpulse impulse) {
-    if (impulse.duration > 0 && impulse.amplitude != 0) _active.add(impulse);
+    if (impulse.duration <= 0 || impulse.amplitude == 0) return;
+    impulse
+      .._age = 0
+      .._seed = _nextSeed++;
+    if (!_active.contains(impulse)) _active.add(impulse);
   }
 
   /// Ages every impulse by [dt] and drops the spent ones.
@@ -92,5 +112,10 @@ class CameraImpulseBus {
     return total;
   }
 
-  void clear() => _active.clear();
+  /// Drops every impulse and starts the seeds again, so what is emitted
+  /// next shakes exactly as it did the first time.
+  void clear() {
+    _active.clear();
+    _nextSeed = 1;
+  }
 }

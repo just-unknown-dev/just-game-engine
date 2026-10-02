@@ -2,6 +2,7 @@
 /// tiles.
 library;
 
+import '../../foundation/unsupported_format_version.dart';
 import 'tile_cell.dart';
 import 'tile_chunks.dart';
 import 'tile_properties.dart';
@@ -22,6 +23,9 @@ enum MapOrientation {
   /// Hexagons in staggered rows (or columns).
   hexagonal;
 
+  /// The orientation Tiled and a saved map call [name] (`orthogonal`,
+  /// `isometric`, `staggered`, `hexagonal`); [orthogonal] for null or a
+  /// name it does not know.
   static MapOrientation fromName(String? name) =>
       values.firstWhere((o) => o.name == name, orElse: () => orthogonal);
 }
@@ -34,15 +38,21 @@ enum TileStaggerAxis {
   /// Alternate rows shift right (pointy-topped hexagons).
   y;
 
+  /// [x] for `x`, as Tiled saves it; [y] for anything else, null included.
   static TileStaggerAxis fromName(String? name) =>
       name == 'x' ? TileStaggerAxis.x : TileStaggerAxis.y;
 }
 
 /// Whether the odd or the even rows (or columns) are the shifted ones.
 enum TileStaggerIndex {
+  /// Rows (or columns) 1, 3, 5… are shifted.
   odd,
+
+  /// Rows (or columns) 0, 2, 4… are shifted.
   even;
 
+  /// [even] for `even`, as Tiled saves it; [odd] for anything else, null
+  /// included.
   static TileStaggerIndex fromName(String? name) =>
       name == 'even' ? TileStaggerIndex.even : TileStaggerIndex.odd;
 }
@@ -50,14 +60,26 @@ enum TileStaggerIndex {
 /// The order Tiled draws an orthogonal layer's tiles in. Kept for export;
 /// the engine draws every orientation back to front by screen position.
 enum TileRenderOrder {
+  /// Row by row from the top, each left to right. The default.
   rightDown('right-down'),
+
+  /// Row by row from the bottom, each left to right.
   rightUp('right-up'),
+
+  /// Row by row from the top, each right to left.
   leftDown('left-down'),
+
+  /// Row by row from the bottom, each right to left.
   leftUp('left-up');
 
   const TileRenderOrder(this.id);
+
+  /// The name Tiled saves it under (`right-down`), which a saved map's
+  /// `renderOrder` holds too.
   final String id;
 
+  /// The order saved as [id]; [rightDown] for null or an id it does not
+  /// know.
   static TileRenderOrder fromId(String? id) =>
       values.firstWhere((o) => o.id == id, orElse: () => rightDown);
 }
@@ -70,6 +92,9 @@ enum TileRenderOrder {
 /// background layer behind the player and a foreground layer in front,
 /// though both belong to one map.
 class MapLayerData {
+  /// Layer [id], with no cells unless given: visible, unlocked, opaque,
+  /// untinted, at the map's origin, moving with the level, on the `main`
+  /// sort layer (0) and colliding with nothing.
   MapLayerData({
     required this.id,
     this.name = '',
@@ -94,6 +119,8 @@ class MapLayerData {
   /// Stable within its map; what an undo step or a timeline names it by.
   final int id;
 
+  /// What the editor shows it as, and a name a game can look it up by;
+  /// where two layers share one, the first wins.
   String name;
 
   /// Whether it draws at all. Saved, as Tiled saves it.
@@ -110,16 +137,24 @@ class MapLayerData {
 
   /// Where the layer sits relative to the map, in pixels.
   double offsetX;
+
+  /// How far below the map the layer sits, in pixels (negative is up); see
+  /// [offsetX].
   double offsetY;
 
   /// How fast the layer scrolls with the camera: 1 moves with the level,
   /// less than 1 lags behind it like a distant background.
   double parallaxX;
+
+  /// The same, vertically; [parallaxX] is the horizontal factor.
   double parallaxY;
 
   /// The named layer of the level it belongs to (`background`, `main`,
   /// `foreground` — see `LevelLayers`), and the number that sorts it.
   String sortLayerId;
+
+  /// The number [sortLayerId] sorts by: higher draws in front (`main` is
+  /// 0, `foreground` 100).
   int sortLayer;
 
   /// Order within [sortLayer].
@@ -131,6 +166,7 @@ class MapLayerData {
   /// A free-form class, as in Tiled.
   String className;
 
+  /// Custom properties a game reads — a layer's `ambient` sound, say.
   TileProperties properties;
 
   /// The tiles.
@@ -139,6 +175,9 @@ class MapLayerData {
   /// The cell at ([x], [y]).
   int cellAt(int x, int y) => cells.cellAt(x, y);
 
+  /// The saved form, a JSON map. Settings at their defaults are left out;
+  /// `offset` and `parallax` are `[x, y]` pairs, `layerId` and `layer` the
+  /// sort layer, `cells` as [TileChunkStore.toJson] writes them.
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
@@ -157,6 +196,9 @@ class MapLayerData {
     'cells': cells.toJson(),
   };
 
+  /// Reads what [toJson] wrote; missing keys take their defaults (a missing
+  /// id is 0 — [LevelMapData.fromJson] gives such a layer a new one). A
+  /// value of the wrong type, such as a string `opacity`, throws.
   static MapLayerData fromJson(Map<String, dynamic> json) {
     final offset = json['offset'];
     final parallax = json['parallax'];
@@ -214,6 +256,8 @@ class MapLayerData {
 /// project-relative, like every other asset path the engine saves, so the
 /// editor can find them when a file is renamed.
 class LevelMapData {
+  /// A map with no tilesets and no layers, on an orthogonal grid of 32 × 32
+  /// pixel cells unless said. [nextLayerId] is the id [addLayer] gives next.
   LevelMapData({
     this.orientation = MapOrientation.orthogonal,
     this.tileWidth = 32,
@@ -237,19 +281,32 @@ class LevelMapData {
   /// which maps no longer hold: they are passed over.
   static const int format = 1;
 
+  /// The newest saved form [fromJson] reads. Above [format] because form 2
+  /// (shapes in layers) was written for a while and still reads — so the
+  /// next change that needs a new number takes 3.
+  static const int newestReadableFormat = 2;
+
+  /// The shape and layout of its cells.
   MapOrientation orientation;
 
   /// The grid, in pixels (world units).
   int tileWidth;
+
+  /// Height of the grid's cells, in pixels (world units); see [tileWidth].
   int tileHeight;
 
   /// Staggered and hexagonal maps only.
   TileStaggerAxis staggerAxis;
+
+  /// Whether the odd or the even rows (or columns) are shifted; staggered
+  /// and hexagonal maps only.
   TileStaggerIndex staggerIndex;
 
   /// Hexagonal maps only: the length of the flat sides, in pixels.
   int hexSideLength;
 
+  /// The order Tiled draws the tiles in. Kept for export only; the engine
+  /// does not use it.
   TileRenderOrder renderOrder;
 
   /// Tileset paths by slot — what a cell's slot number means. A removed
@@ -265,7 +322,10 @@ class LevelMapData {
   /// ARGB, or null.
   int? backgroundColor;
 
+  /// A free-form class, as in Tiled.
   String className;
+
+  /// Custom properties a game reads, as in Tiled.
   TileProperties properties;
 
   /// Bumped by whoever changes the map outside its layers' cells — layer
@@ -299,11 +359,41 @@ class LevelMapData {
 
   /// The layer called [id], or null.
   MapLayerData? layerById(int id) {
-    for (final layer in layers) {
-      if (layer.id == id) return layer;
-    }
-    return null;
+    final i = indexOfLayer(id);
+    return i < 0 ? null : layers[i];
   }
+
+  /// Where in [layers] the layer called [id] is, or -1.
+  ///
+  /// Looked up in an index kept with [revision] and the number of layers,
+  /// and checked against the list, so a list changed without a [touch]
+  /// still answers right — by a search, as without the index.
+  int indexOfLayer(int id) {
+    var index = _indexById;
+    if (index == null ||
+        _indexRevision != revision ||
+        _indexLength != layers.length) {
+      index = _indexById = {};
+      for (var i = 0; i < layers.length; i++) {
+        index[layers[i].id] ??= i;
+      }
+      _indexRevision = revision;
+      _indexLength = layers.length;
+    }
+    final i = index[id];
+    if (i != null && i < layers.length && layers[i].id == id) return i;
+    for (var j = 0; j < layers.length; j++) {
+      if (layers[j].id == id) {
+        _indexById = null; // stale: rebuilt on the next look-up
+        return j;
+      }
+    }
+    return -1;
+  }
+
+  Map<int, int>? _indexById;
+  int _indexRevision = -1;
+  int _indexLength = -1;
 
   /// A new, empty layer, added in front of the rest.
   MapLayerData addLayer({String? name, int? index}) {
@@ -343,14 +433,38 @@ class LevelMapData {
   };
 
   /// Reads what [toJson] wrote into a new, separate map.
+  ///
+  /// Throws an [UnsupportedFormatVersionException] for a map saved by a newer
+  /// engine ([newestReadableFormat]) rather than misread it. A layer saved
+  /// without an id, or with the id of a layer before it, is given a new one
+  /// after the largest: layers are found by id, and two sharing one would
+  /// draw, collide and change as one.
   static LevelMapData fromJson(Map<String, dynamic> json) {
-    final layers = [
-      for (final raw in json['layers'] as List? ?? const [])
-        if (raw is Map) MapLayerData.fromJson(raw.cast<String, dynamic>()),
-    ];
+    final version = json['format'];
+    if (version is num && version > newestReadableFormat) {
+      throw UnsupportedFormatVersionException(
+        'level map',
+        version.toInt(),
+        newestReadableFormat,
+      );
+    }
+    final layers = <MapLayerData>[];
+    final noId = <int>{};
+    for (final raw in json['layers'] as List? ?? const []) {
+      if (raw is! Map) continue;
+      if (raw['id'] is! num) noId.add(layers.length);
+      layers.add(MapLayerData.fromJson(raw.cast<String, dynamic>()));
+    }
     var next = (json['nextLayerId'] as num?)?.toInt() ?? 1;
     for (final layer in layers) {
       if (layer.id >= next) next = layer.id + 1;
+    }
+    final ids = <int>{};
+    for (var i = 0; i < layers.length; i++) {
+      final layer = layers[i];
+      if (!noId.contains(i) && ids.add(layer.id)) continue;
+      layers[i] = layer.copy(id: next, cells: layer.cells);
+      ids.add(next++);
     }
     return LevelMapData(
       orientation: MapOrientation.fromName(json['orientation'] as String?),

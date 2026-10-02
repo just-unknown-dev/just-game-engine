@@ -43,6 +43,7 @@ import '../core/dialogue_line.dart';
 /// )
 /// ```
 class NarrativeSignals {
+  /// Signals at rest: no line, no choices, not active, no speaker or node.
   NarrativeSignals() {
     hasChoices = Computed<bool>(() => choices.value.isNotEmpty);
     hasLine = Computed<bool>(() => currentLine.value != null);
@@ -76,6 +77,8 @@ class NarrativeSignals {
 
   // ---- Lifecycle ----------------------------------------------------------
 
+  /// Disposes every signal, the derived ones included. Not to be used
+  /// afterwards.
   void dispose() {
     currentLine.dispose();
     choices.dispose();
@@ -91,8 +94,12 @@ class NarrativeSignals {
 // DialogueEvent  (optional event-bus style integration)
 // ---------------------------------------------------------------------------
 
-/// Structured event emitted by [DialogueManager] to an optional event bus.
+/// Structured event describing something that happened in a dialogue, for
+/// a game to put on its own event bus. The engine does not emit these
+/// itself.
 class DialogueEvent {
+  /// An event of [type]; fill in the fields that [type] says apply, leave
+  /// the rest null.
   const DialogueEvent({
     required this.type,
     this.graphId,
@@ -104,6 +111,7 @@ class DialogueEvent {
     this.commandArgs,
   });
 
+  /// What happened, which says which of the other fields are set.
   final DialogueEventType type;
 
   /// ID of the [DialogueGraph] involved.

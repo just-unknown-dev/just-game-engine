@@ -9,6 +9,7 @@ import 'map_geometry.dart';
 
 /// One cell of a stamp: where it goes relative to the brush, and what.
 class StampCell {
+  /// [cell], painted [offset] away from the cell under the pointer.
   const StampCell(this.offset, this.cell);
 
   /// In the map's stable coordinates (see [MapGeometry.toStable]),
@@ -28,6 +29,9 @@ class StampCell {
 /// A stamp made with [TileStamp.random] paints one of its choices per
 /// cell, weighted by each tile's probability — Tiled's random mode.
 class TileStamp {
+  /// A stamp of [cells]; two or more [choices], with their [weights], make
+  /// it a random one (see [TileStamp.random]). All three are copied into
+  /// unmodifiable lists.
   TileStamp(List<StampCell> cells, {List<int>? choices, List<double>? weights})
     : cells = List.unmodifiable(cells),
       choices = List.unmodifiable(choices ?? const <int>[]),
@@ -92,7 +96,10 @@ class TileStamp {
   /// For a random stamp: how likely each choice is.
   final List<double> weights;
 
+  /// Whether it paints a random pick of two or more [choices].
   bool get isRandom => choices.length > 1;
+
+  /// Whether it has no cells, and so paints nothing.
   bool get isEmpty => cells.isEmpty;
 
   /// Whether it paints a single cell.
@@ -139,11 +146,11 @@ class TileStamp {
 
   /// Mirrored left to right on screen: the block and each tile.
   TileStamp flippedH(MapGeometry geometry) =>
-      _mapped(geometry.mirrorH, TileCell.mirroredH);
+      _mapped(geometry.mirrorH, geometry.mirrorCellH);
 
   /// Mirrored top to bottom on screen: the block and each tile.
   TileStamp flippedV(MapGeometry geometry) =>
-      _mapped(geometry.mirrorV, TileCell.mirroredV);
+      _mapped(geometry.mirrorV, geometry.mirrorCellV);
 
   /// Turned one step — a quarter, or a sixth on a hexagonal map.
   TileStamp turned(MapGeometry geometry, {bool clockwise = true}) => _mapped(

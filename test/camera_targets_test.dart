@@ -4,14 +4,13 @@ import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
+/// The engine's own definitions, fresh for this file.
+final _coreDefinitions = ComponentDefinitionRegistry.core();
 const _view = Size(800, 600);
 const _dt = 1 / 60;
 
 T _roundTrip<T extends Component>(T component) =>
-    ComponentCodecRegistry.instance.decode(
-          ComponentCodecRegistry.instance.encode(component)!,
-        )
-        as T;
+    _coreDefinitions.decode(_coreDefinitions.encode(component)!) as T;
 
 void main() {
   late World world;
@@ -60,9 +59,9 @@ void main() {
       final party = at(Offset.zero, [
         CameraTargetGroupComponent(
           members: [
-            CameraGroupMember(name: 'A', weight: 1),
-            CameraGroupMember(name: 'B', weight: 2),
-            CameraGroupMember(name: 'Nobody'),
+            CameraGroupMember(target: const EntityTarget.name('A'), weight: 1),
+            CameraGroupMember(target: const EntityTarget.name('B'), weight: 2),
+            CameraGroupMember(target: const EntityTarget.name('Nobody')),
           ],
         ),
       ], name: 'Party');
@@ -79,8 +78,12 @@ void main() {
       final party = at(Offset.zero, [
         CameraTargetGroupComponent(
           members: [
-            CameraGroupMember(name: 'A', radius: 50),
-            CameraGroupMember(name: 'B', weight: 0, radius: 10),
+            CameraGroupMember(target: const EntityTarget.name('A'), radius: 50),
+            CameraGroupMember(
+              target: const EntityTarget.name('B'),
+              weight: 0,
+              radius: 10,
+            ),
           ],
         ),
       ]);
@@ -98,13 +101,13 @@ void main() {
       at(Offset.zero, [
         CameraTargetGroupComponent(
           members: [
-            CameraGroupMember(tag: 'hero'),
-            CameraGroupMember(name: 'Friend'),
+            CameraGroupMember(target: const EntityTarget.tag('hero')),
+            CameraGroupMember(target: const EntityTarget.name('Friend')),
           ],
         ),
       ], name: 'Party');
       at(Offset.zero, [
-        VirtualCameraComponent(followName: 'Party'),
+        VirtualCameraComponent(follow: const EntityTarget.name('Party')),
         CameraFramingComponent(
           deadZoneWidth: 0,
           deadZoneHeight: 0,
@@ -125,13 +128,13 @@ void main() {
       at(Offset.zero, [
         CameraTargetGroupComponent(
           members: [
-            CameraGroupMember(name: 'A'),
-            CameraGroupMember(name: 'B'),
+            CameraGroupMember(target: const EntityTarget.name('A')),
+            CameraGroupMember(target: const EntityTarget.name('B')),
           ],
         ),
       ], name: 'Party');
       at(Offset.zero, [
-        VirtualCameraComponent(followName: 'Party'),
+        VirtualCameraComponent(follow: const EntityTarget.name('Party')),
         CameraGroupFramingComponent(
           padding: 0,
           minZoom: 0.25,
@@ -158,13 +161,13 @@ void main() {
       at(Offset.zero, [
         CameraTargetGroupComponent(
           members: [
-            CameraGroupMember(name: 'A'),
-            CameraGroupMember(name: 'B'),
+            CameraGroupMember(target: const EntityTarget.name('A')),
+            CameraGroupMember(target: const EntityTarget.name('B')),
           ],
         ),
       ], name: 'Party');
       at(Offset.zero, [
-        VirtualCameraComponent(followName: 'Party'),
+        VirtualCameraComponent(follow: const EntityTarget.name('Party')),
         CameraGroupFramingComponent(padding: 0, minZoom: 0.25, maxZoom: 2),
       ]);
       world.update(_dt);
@@ -265,9 +268,6 @@ void main() {
   });
 
   test('group, group framing and trigger are saved and restored', () {
-    ComponentCodecRegistry.instance.clear();
-    registerCoreCodecs();
-
     final group = _roundTrip(
       CameraTargetGroupComponent(
         members: [
@@ -313,8 +313,7 @@ void main() {
       CameraTriggerComponent(
         width: 100,
         height: 50,
-        targetName: 'Hero',
-        targetTag: '',
+        target: const EntityTarget.name('Hero'),
         cameraName: 'Boss',
         mode: CameraTriggerMode.boostPriority,
         amount: 7,
@@ -322,7 +321,7 @@ void main() {
       ),
     );
     expect((trigger.width, trigger.height), (100, 50));
-    expect((trigger.targetName, trigger.targetTag), ('Hero', ''));
+    expect(trigger.target, const EntityTarget.name('Hero'));
     expect(trigger.cameraName, 'Boss');
     expect(trigger.mode, CameraTriggerMode.boostPriority);
     expect((trigger.amount, trigger.oneShot), (7, true));

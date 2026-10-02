@@ -3,13 +3,17 @@ library;
 
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
-import '../../core/dimensions.dart';
+import '../../foundation/dimensions.dart';
 
 import '../components/components.dart';
 import '../ecs.dart';
 import 'component_definition.dart';
+import 'component_presentation.dart';
 import 'field_type.dart';
 
+/// Definitions for the timeline components that need more than a plain
+/// schema: [TimelineTriggerComponent], whose rectangle the editor sizes and
+/// scales.
 abstract final class TimelineDefinitions {
   static const Color _accent = Color(0xFF7DD8E0);
 
@@ -19,6 +23,8 @@ abstract final class TimelineDefinitions {
     id: 'enum.timelineTriggerAction',
   );
 
+  /// Definition of [TimelineTriggerComponent], saved as
+  /// `TimelineTriggerComponent`.
   static final trigger = ComponentDefinition<TimelineTriggerComponent>(
     type: 'TimelineTriggerComponent',
     hints: const ComponentHints(
@@ -115,6 +121,7 @@ abstract final class TimelineDefinitions {
     ],
   );
 
+  /// Every definition above — a new list on each call.
   static List<ComponentDefinition> get all => [trigger];
 }
 

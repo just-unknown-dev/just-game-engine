@@ -27,6 +27,9 @@ API.md
 # Build outputs
 build/
 
+# Tool logs (flutter crash reports and the like)
+*.log
+
 # OS files
 .DS_Store
 Thumbs.db

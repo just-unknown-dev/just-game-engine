@@ -28,6 +28,7 @@ enum WangTemplate {
 
   const WangTemplate(this.type, this.tileCount, this.columns);
 
+  /// The kind of Wang set the layout makes: a corner or a mixed set.
   final WangType type;
 
   /// How many tiles the layout has.

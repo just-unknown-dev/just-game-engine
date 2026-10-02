@@ -1,28 +1,67 @@
 name: just_game_engine
-description: "A feature-rich 2D game engine for Flutter with ECS, physics, audio, tilemaps, particles, animation, and input systems for building cross-platform games."
-version: 1.7.0
+description: "A 2D game engine for Flutter: ECS, physics, level maps, sprites and animator graphs, timelines, virtual cameras, particles, audio and input, with scenes saved as JSON."
+version: 2.0.0
 homepage: https://engine.justunknown.com/
 repository: https://github.com/just-unknown-dev/just-game-engine
 issue_tracker: https://github.com/just-unknown-dev/just-game-engine/issues
+topics:
+  - game-engine
+  - gamedev
+  - ecs
+  - game
+  - 2d
+
+screenshots:
+  - description: "Sprite animation"
+    path: assets/screenshots/jge_animation_system.png
+  - description: "Particle effects"
+    path: assets/screenshots/jge_particle_system.png
+  - description: "Physics"
+    path: assets/screenshots/jge_physics_engine.png
+  - description: "Sprites"
+    path: assets/screenshots/jge_sprite_system.png
+  - description: "A tile-based level map"
+    path: assets/screenshots/jge_tile_map.png
+
+# Declared, so pub.dev does not infer platforms from dependencies. The engine
+# runs everywhere Flutter does; on the web, gamepads wait on just_gamepads.
+platforms:
+  android:
+  ios:
+  linux:
+  macos:
+  windows:
+  web:
 
 environment:
   sdk: ^3.11.0
-  flutter: ">=1.17.0"
+  # Flutter 3.41 is the first stable release with Dart 3.11.
+  flutter: ">=3.41.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  just_physics_engine: ^1.2.2
+  # just_audio_engine registers a web plugin without depending on
+  # flutter_web_plugins, so a game with no other web plugin fails to compile
+  # for the web. Depending on it here puts it in every game's package config.
+  flutter_web_plugins:
+    sdk: flutter
+  just_physics_engine: ^1.4.0
   just_inputs: ^0.0.1
   just_audio_engine: ^1.0.1
   just_storage: ^1.2.1
+  # Finds the folder of the engine's own storage file. Imported only by
+  # lib/src/memory/engine_storage_io.dart, through a conditional import, so
+  # web builds never import it (it imports dart:io).
+  path_provider: ^2.1.5
   just_database: ^1.4.2
   just_signals: ^1.0.2
   just_memory: ^0.1.0
-  just_tiled: ^0.3.0
-  just_dart: ^0.1.0
+  just_tiled: ^0.4.0
+  # zlib for tile map chunks: pure Dart, with a separate web implementation.
+  archive: ^4.0.4
+  just_dart: ^0.1.1
   meta: ^1.9.0
-  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:

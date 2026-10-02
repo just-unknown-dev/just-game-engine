@@ -13,7 +13,7 @@ import '../../components/components.dart';
 /// player, by default), routing around any entity carrying a
 /// [NavigationObstacleComponent].
 ///
-/// Rather than solving a path per agent (expensive with a horde of zombies
+/// Rather than solving a path per agent (expensive with a horde of enemies
 /// all chasing the same point), this rasterizes a walkability grid over a
 /// bounded [activeWindowSize] region centered on the target, runs a single
 /// multi-source BFS from the target's cell outward, and derives a
@@ -28,8 +28,8 @@ import '../../components/components.dart';
 /// agents far outside it just fall back to a direct seek (see
 /// [directionAt]).
 class FlowFieldSystem extends System {
-  /// Name of the entity BFS expands from — matches `world.findEntityByName`
-  /// usage elsewhere in this codebase (e.g. `'Player'`).
+  /// Name of the entity the BFS expands from, looked up with
+  /// `World.findEntityByName` (`'Player'` by default).
   final String targetName;
 
   /// World-space size (both dimensions) of one grid cell. Should roughly
@@ -43,9 +43,13 @@ class FlowFieldSystem extends System {
   /// [directionAt] and should fall back to a direct seek.
   final double activeWindowSize;
 
-  /// Minimum real time between BFS recomputes.
+  /// Minimum game time between BFS recomputes: the `deltaTime` the world is
+  /// updated with adds up to it, so a paused game recomputes nothing and a
+  /// slowed one less often.
   final Duration recomputeInterval;
 
+  /// A field towards the entity named `Player`, in 48-unit cells over a
+  /// 4000-unit window, recomputed at most every 150 ms.
   FlowFieldSystem({
     this.targetName = 'Player',
     this.cellSize = 48.0,
@@ -53,8 +57,10 @@ class FlowFieldSystem extends System {
     this.recomputeInterval = const Duration(milliseconds: 150),
   });
 
+  // Below physics (90), above movement (80): a steering system sampling the
+  // field runs after it at 85 or less.
   @override
-  int get priority => 86; // Above ZombieAISystem (85), below Physics (90).
+  int get priority => 86;
 
   @override
   List<Type> get requiredComponents => const [];

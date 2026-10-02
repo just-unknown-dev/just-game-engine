@@ -7,7 +7,7 @@ import 'package:just_inputs/just_inputs.dart';
 
 import '../../ecs.dart';
 import '../../components/components.dart';
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 
 /// Reads each [InputComponent]'s player from the [InputService] and writes
 /// every action of [maps] into it by its short name — `jump`, `move` — so
@@ -15,8 +15,11 @@ import '../system_priorities.dart';
 ///
 /// A component whose player is not playing is cleared: nothing held.
 class InputSystem extends System {
+  /// A system reading [input], copying the actions of the `player` map
+  /// unless [maps] names others.
   InputSystem(this.input, {this.maps = const ['player']});
 
+  /// Where each player's actions are read from.
   final InputService input;
 
   /// The maps whose actions are copied. Names must not repeat across them.

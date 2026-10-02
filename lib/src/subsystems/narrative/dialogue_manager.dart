@@ -1,6 +1,8 @@
 /// Main facade for the Narrative/Dialogue System.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:just_signals/just_signals.dart';
 
@@ -40,6 +42,9 @@ import 'signals/narrative_signals.dart';
 /// await runner.start('Start');
 /// ```
 class DialogueManager {
+  /// A manager with no graphs and empty condition and command registries.
+  /// [localizer] defaults to a [DialogueLocalizer] with a manager of its own
+  /// (not the engine's), [globalVariables] to an empty store.
   DialogueManager({
     DialogueLocalizer? localizer,
     DialogueVariableStore? globalVariables,
@@ -76,7 +81,12 @@ class DialogueManager {
 
   final Map<String, DialogueGraph> _graphs = {};
   final Map<int, DialogueRunner> _entityRunners = {};
-  final List<DialogueRunner> _runners = [];
+  final Set<DialogueRunner> _runners = {};
+
+  /// Runners nobody else holds on to — started by [startDialogue], or
+  /// replaced or released for their entity — which are let go as soon as
+  /// their dialogue ends. Kept, they piled up for the whole session.
+  final Set<DialogueRunner> _transient = {};
 
   // ---------------------------------------------------------------------------
   // Graph management
@@ -151,10 +161,14 @@ class DialogueManager {
 
     // Keep aggregate active-state signal in sync
     runner.signals.isDialogueActive.addListener(() {
-      _syncGlobalState(
-        active: runner.signals.isDialogueActive.value,
-        graphId: graphId,
-      );
+      final active = runner.signals.isDialogueActive.value;
+      if (active) {
+        // Tracked again if it was let go and has now been restarted.
+        _runners.add(runner);
+      } else {
+        _releaseIfFinished(runner);
+      }
+      _syncGlobalState(active: active, graphId: graphId);
     });
 
     return runner;
@@ -163,14 +177,31 @@ class DialogueManager {
   /// Creates a runner **bound to an ECS entity** (keyed by [entityId]).
   ///
   /// The [DialogueSystem] uses this to retrieve runners by entity ID.
+  ///
+  /// A runner already bound to [entityId] is replaced. It is not stopped: it
+  /// is let go once its dialogue ends, or at once if it is not running.
   DialogueRunner createRunnerForEntity(
     int entityId,
     String graphId, {
     NarrativeSignals? signals,
   }) {
     final runner = createRunner(graphId, signals: signals);
+    final previous = _entityRunners[entityId];
     _entityRunners[entityId] = runner;
+    if (previous != null) _letGo(previous);
     return runner;
+  }
+
+  /// The entity ids with a runner bound by [createRunnerForEntity].
+  Iterable<int> get boundEntityIds => _entityRunners.keys;
+
+  /// Unbinds the runner for [entityId] — say, when the entity is destroyed —
+  /// without cutting its dialogue short: it is let go once the dialogue
+  /// ends, or at once if it is not running. [DialogueSystem] calls this for
+  /// entities that no longer exist.
+  void releaseRunnerForEntity(int entityId) {
+    final runner = _entityRunners.remove(entityId);
+    if (runner != null) _letGo(runner);
   }
 
   /// Returns the runner bound to [entityId], or `null`.
@@ -188,6 +219,11 @@ class DialogueManager {
     await _disposeRunner(runner);
   }
 
+  /// The runners this manager is tracking: every runner it created that has
+  /// not been disposed, except those started by [startDialogue] (or replaced
+  /// for their entity) whose dialogue has ended.
+  Iterable<DialogueRunner> get runners => _runners;
+
   // ---------------------------------------------------------------------------
   // Convenience
   // ---------------------------------------------------------------------------
@@ -196,15 +232,22 @@ class DialogueManager {
   /// returns the runner.
   ///
   /// The returned [Future] resolves immediately — the dialogue runs
-  /// asynchronously.  Await [runner.signals.isDialogueActive] to know when it
+  /// asynchronously.  Await `runner.signals.isDialogueActive` to know when it
   /// ends.
+  ///
+  /// The manager stops tracking the runner once its dialogue ends; the
+  /// runner itself stays usable for whoever holds it.
   Future<DialogueRunner> startDialogue({
     required String graphId,
     String startNode = 'Start',
   }) async {
     final runner = createRunner(graphId);
-    // Fire-and-forget the long-running session; caller gets runner for control
-    runner.start(startNode);
+    _transient.add(runner);
+    // Fire-and-forget the long-running session; caller gets runner for
+    // control. Let go when it ends — also when it fails to start at all.
+    unawaited(
+      runner.start(startNode).whenComplete(() => _releaseIfFinished(runner)),
+    );
     return runner;
   }
 
@@ -218,6 +261,7 @@ class DialogueManager {
       await _disposeRunner(runner);
     }
     _runners.clear();
+    _transient.clear();
     _entityRunners.clear();
     _graphs.clear();
     activeGraphId.dispose();
@@ -231,7 +275,21 @@ class DialogueManager {
   Future<void> _disposeRunner(DialogueRunner runner) async {
     await runner.stop();
     _runners.remove(runner);
+    _transient.remove(runner);
     runner.signals.dispose();
+  }
+
+  /// Marks [runner] as held by nobody: let go now if it is not running, or
+  /// as soon as its dialogue ends.
+  void _letGo(DialogueRunner runner) {
+    _transient.add(runner);
+    _releaseIfFinished(runner);
+  }
+
+  void _releaseIfFinished(DialogueRunner runner) {
+    if (runner.isRunning || !_transient.contains(runner)) return;
+    _runners.remove(runner);
+    _transient.remove(runner);
   }
 
   void _syncGlobalState({required bool active, required String graphId}) {

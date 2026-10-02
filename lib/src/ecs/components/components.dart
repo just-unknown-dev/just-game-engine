@@ -4,8 +4,8 @@
 library;
 
 // Core components
-export 'core/transform_component.dart';
-export 'core/euler_rotation.dart';
+export '../base/transform/transform_component.dart';
+export '../base/transform/euler_rotation.dart';
 export 'core/velocity_component.dart';
 export 'core/generated_entity_component.dart';
 
@@ -21,6 +21,7 @@ export 'rendering/shader_component.dart';
 // Physics components
 export 'physics/physics_body_component.dart';
 export 'physics/physics_body_ref_component.dart';
+export 'physics/raycast_collider_component.dart';
 export 'physics/joints/distance_joint_component.dart';
 export 'physics/joints/prismatic_joint_component.dart';
 export 'physics/joints/weld_joint_component.dart';
@@ -32,8 +33,8 @@ export 'gameplay/checkpoint_component.dart';
 export 'gameplay/spawn_component.dart';
 
 // Hierarchy components
-export 'hierarchy/parent_component.dart';
-export 'hierarchy/children_component.dart';
+export '../base/transform/parent_component.dart';
+export '../base/transform/children_component.dart';
 
 // Input components
 export 'input/input_component.dart';
@@ -44,6 +45,7 @@ export 'animation/animation_event.dart';
 export 'animation/timeline_player_component.dart';
 export 'animation/timeline_trigger_component.dart';
 export 'animation/animator_component.dart';
+export 'animation/animator_bindings.dart';
 
 // Audio components
 export 'audio/audio_components.dart';
@@ -51,8 +53,7 @@ export 'audio/audio_components.dart';
 // Shape components
 export 'shapes/shapes.dart';
 
-// Other components
-export 'others/tag_component.dart';
+// Other components (TagComponent is part of the ECS core: ecs.dart)
 export 'others/lifetime_component.dart';
 
 // Level maps
@@ -80,6 +81,6 @@ export 'effects/effect_component.dart';
 export 'rendering/particle_emitter_component.dart';
 
 // Narrative / Dialogue components
-export '../../subsystems/narrative/ecs/dialogue_component.dart';
+export 'narrative/dialogue_component.dart';
 
 // UI components live in just_ui_editor.

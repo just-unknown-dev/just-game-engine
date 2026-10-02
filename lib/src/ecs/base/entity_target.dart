@@ -27,38 +27,47 @@ enum EntityTargetKind {
 /// Saved as `'self'`, `{'name': 'Door'}` or `{'tag': 'player'}`; [none] as
 /// null.
 class EntityTarget {
+  /// The entity that holds the component itself.
   const EntityTarget.self() : kind = EntityTargetKind.self, value = '';
+
+  /// The entity named [value]; an empty name is [none].
   const EntityTarget.name(this.value) : kind = EntityTargetKind.name;
+
+  /// The entity, or entities, tagged [value] (without the `#`).
   const EntityTarget.tag(this.value) : kind = EntityTargetKind.tag;
 
   /// Nobody: a camera that follows nothing.
   static const EntityTarget none = EntityTarget.name('');
 
+  /// Whether this means the owner itself, a name, or a tag.
   final EntityTargetKind kind;
 
   /// The name or the tag; empty for [EntityTargetKind.self].
   final String value;
 
+  /// Whether this means the owner itself.
   bool get isSelf => kind == EntityTargetKind.self;
+
+  /// Whether this names an entity (true for [none] too).
   bool get isName => kind == EntityTargetKind.name;
+
+  /// Whether this names a tag.
   bool get isTag => kind == EntityTargetKind.tag;
 
   /// Whether it names nobody.
   bool get isNone => !isSelf && value.isEmpty;
 
-  /// The entity this means for [owner] — the one entity by that name, or
-  /// the first (oldest) with that tag — or null. Entities switched off are
-  /// passed over unless [includeInactive].
+  /// The entity this means for [owner] — the first (oldest) with that name,
+  /// or with that tag — or null. Entities switched off are passed over
+  /// unless [includeInactive]: a switched-off entity does not hide a
+  /// switched-on one of the same name.
   Entity? resolve(World world, Entity? owner, {bool includeInactive = false}) {
     switch (kind) {
       case EntityTargetKind.self:
         return owner;
       case EntityTargetKind.name:
         if (value.isEmpty) return null;
-        final found = world.findEntityByName(value);
-        return found != null && (includeInactive || found.isActive)
-            ? found
-            : null;
+        return world.findEntityByName(value, includeInactive: includeInactive);
       case EntityTargetKind.tag:
         if (value.isEmpty) return null;
         return world.findTagged(value, includeInactive: includeInactive);
@@ -87,6 +96,8 @@ class EntityTarget {
     EntityTargetKind.tag => '#$value',
   };
 
+  /// The saved form: `'self'`, `{'name': value}` or `{'tag': value}`;
+  /// null for [none].
   Object? toJson() => switch (kind) {
     _ when isNone => null,
     EntityTargetKind.self => 'self',
@@ -124,18 +135,6 @@ class EntityTarget {
     if (name.trim().isNotEmpty) return EntityTarget.name(name.trim());
     if (tag.trim().isNotEmpty) return EntityTarget.tag(tag.trim());
     return none;
-  }
-
-  /// This target once an old name field was set to [name] — for the
-  /// deprecated name and tag field pairs components used to have.
-  EntityTarget afterSettingName(String name) =>
-      name.isNotEmpty ? EntityTarget.name(name) : (isName ? none : this);
-
-  /// This target once an old tag field was set to [tag]. A name was tried
-  /// before the tag, so a tag set beside a name changes nothing.
-  EntityTarget afterSettingTag(String tag) {
-    if (isName && value.isNotEmpty) return this;
-    return tag.isNotEmpty ? EntityTarget.tag(tag) : none;
   }
 
   @override

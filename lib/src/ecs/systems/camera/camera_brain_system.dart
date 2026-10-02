@@ -1,10 +1,10 @@
 /// Runs the camera brain inside the ECS frame.
 library;
 
-import '../../../subsystems/camera/camera_system.dart';
+import 'camera_system.dart';
 import '../../components/components.dart';
 import '../../ecs.dart';
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 import 'camera_target_systems.dart';
 
 /// Evaluates the camera brain once per ECS update.
@@ -13,8 +13,11 @@ import 'camera_target_systems.dart';
 /// everything where it is this frame, and before anything draws — so the
 /// camera frames where the player *is*, not where they were.
 class CameraBrainSystem extends System {
+  /// A system evaluating the brain of [cameraSystem], which must be
+  /// initialized before the first update.
   CameraBrainSystem({required this.cameraSystem});
 
+  /// Owner of the brain this system evaluates.
   final CameraSystem cameraSystem;
 
   @override

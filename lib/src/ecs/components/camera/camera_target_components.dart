@@ -7,15 +7,13 @@ import '../../../ecs/ecs.dart';
 
 /// Who a target group keeps in shot: one entity, or every entity with a tag.
 class CameraGroupMember {
+  /// A member pulling with weight 1 and needing no room around it; it
+  /// finds nothing until [target] is set.
   CameraGroupMember({
-    EntityTarget target = EntityTarget.none,
-    @Deprecated('Use target: EntityTarget.name(…).') String? name,
-    @Deprecated('Use target: EntityTarget.tag(…).') String? tag,
+    this.target = EntityTarget.none,
     this.weight = 1.0,
     this.radius = 0.0,
-  }) : target = name != null || tag != null
-           ? EntityTarget.fromNameOrTag(name ?? '', tag ?? '')
-           : target;
+  });
 
   /// Reads [toJson]'s shape, and the old `{name, tag}` one.
   factory CameraGroupMember.fromJson(Map<Object?, Object?> json) =>
@@ -34,26 +32,14 @@ class CameraGroupMember {
   /// `player`, frames all the players however many have joined.
   EntityTarget target;
 
-  /// The name [target] names, or empty.
-  @Deprecated('Use target.')
-  String get name => target.isName ? target.value : '';
-
-  /// The tag [target] names, or empty.
-  @Deprecated('Use target.')
-  String get tag => target.isTag ? target.value : '';
-
-  @Deprecated('Use target = EntityTarget.name(…).')
-  set name(String value) => target = target.afterSettingName(value);
-
-  @Deprecated('Use target = EntityTarget.tag(…).')
-  set tag(String value) => target = target.afterSettingTag(value);
-
   /// How hard it pulls the centre. `0` keeps it in shot without pulling.
   double weight;
 
   /// How much room it needs around its position, in world units.
   double radius;
 
+  /// This member as a JSON map with the keys `target` (the target's own
+  /// JSON), `weight` and `radius`.
   Map<String, dynamic> toJson() => {
     'target': target.toJson(),
     'weight': weight,
@@ -68,9 +54,12 @@ class CameraGroupMember {
 /// frames the whole party by following this entity by name. Add a
 /// [CameraGroupFramingComponent] to that camera to zoom out as they spread.
 class CameraTargetGroupComponent extends Component {
+  /// A group of [members]; none when null.
   CameraTargetGroupComponent({List<CameraGroupMember>? members})
     : members = members ?? [];
 
+  /// Who the group keeps in shot. An entity found through two members
+  /// counts twice; the group's own entity is never counted.
   List<CameraGroupMember> members;
 
   /// The box around every member found this frame, radii included. Runtime
@@ -86,6 +75,8 @@ class CameraTargetGroupComponent extends Component {
 
 /// Body: sets the lens so a followed target group fits the view.
 class CameraGroupFramingComponent extends Component {
+  /// A quarter of the group's size as padding, zoom kept between 0.4 and
+  /// 1.5, settling over 0.6 seconds, unless told otherwise.
   CameraGroupFramingComponent({
     this.padding = 0.25,
     this.minZoom = 0.4,
@@ -123,44 +114,33 @@ enum CameraTriggerMode {
 /// A rectangle, centred on its entity, that switches a virtual camera by
 /// whether a target is inside it.
 class CameraTriggerComponent extends Component {
+  /// A 640 × 360 zone, set off by any entity tagged `player`, that enables
+  /// the camera on its own entity while inside, unless told otherwise.
   CameraTriggerComponent({
     this.width = 640,
     this.height = 360,
-    EntityTarget target = const EntityTarget.tag('player'),
-    @Deprecated('Use target: EntityTarget.name(…).') String? targetName,
-    @Deprecated('Use target: EntityTarget.tag(…).') String? targetTag,
+    this.target = const EntityTarget.tag('player'),
     this.cameraName = '',
     this.mode = CameraTriggerMode.enableWhileInside,
     this.amount = 10,
     this.oneShot = false,
-  }) : target = targetName != null || targetTag != null
-           ? EntityTarget.fromNameOrTag(targetName ?? '', targetTag ?? '')
-           : target;
+  });
 
+  /// Full width of the zone, in world units, centred on the entity.
   double width;
+
+  /// Full height of the zone, in world units, centred on the entity.
   double height;
 
   /// Who sets it off: one entity by name, or any entity with a tag.
   EntityTarget target;
 
-  /// The name [target] names, or empty.
-  @Deprecated('Use target.')
-  String get targetName => target.isName ? target.value : '';
-
-  /// The tag [target] names, or empty.
-  @Deprecated('Use target.')
-  String get targetTag => target.isTag ? target.value : '';
-
-  @Deprecated('Use target = EntityTarget.name(…).')
-  set targetName(String value) => target = target.afterSettingName(value);
-
-  @Deprecated('Use target = EntityTarget.tag(…).')
-  set targetTag(String value) => target = target.afterSettingTag(value);
-
   /// The camera it switches. Empty means the virtual camera on this same
   /// entity — a zone that carries its own shot.
   String cameraName;
 
+  /// What being inside does to the camera: enable it, or boost its
+  /// priority by [amount].
   CameraTriggerMode mode;
 
   /// Priority added in [CameraTriggerMode.boostPriority].
@@ -178,6 +158,8 @@ class CameraTriggerComponent extends Component {
   /// Whether a one-shot trigger has gone off. Runtime only.
   bool hasFired = false;
 
+  /// The zone, in world space, for the entity at [centre]. A target counts
+  /// as inside when its position is in it.
   Rect regionAt(Offset centre) =>
       Rect.fromCenter(center: centre, width: width, height: height);
 

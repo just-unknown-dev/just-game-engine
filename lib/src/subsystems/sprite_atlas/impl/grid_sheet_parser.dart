@@ -18,8 +18,13 @@ part of '../sprite_atlas_subsystem.dart';
 /// sheet is taken to sit beside the JSON with the same name and `.png`;
 /// [imageFallback] supplies that name.
 class GridSheetAtlasParser extends AtlasParser {
+  /// A parser that assumes the sheet image is [imageFallback] (`sheet.png`
+  /// by default) when the JSON's `meta.image` does not name it.
   GridSheetAtlasParser({this.imageFallback = 'sheet.png'});
 
+  /// The sheet image's file name, in the JSON's folder, used when
+  /// `meta.image` is missing. [AtlasParser.detect] passes the JSON's own
+  /// name with `.png`.
   final String imageFallback;
 
   /// Whether [json] is a grid sheet: a frame size and no `frames`.

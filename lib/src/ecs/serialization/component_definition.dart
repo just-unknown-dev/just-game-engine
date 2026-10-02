@@ -3,17 +3,18 @@ library;
 import 'dart:ui';
 
 import 'package:flutter/widgets.dart' show IconData;
-import 'package:just_dart/just_dart.dart' show Aabb3;
 
-import '../../core/dimensions.dart';
-import '../../interfaces/interfaces.dart';
-import '../../subsystems/rendering/render_view.dart';
+import '../../foundation/dimensions.dart';
 import '../ecs.dart';
 import 'component_codec.dart';
+import 'component_presentation.dart';
 import 'field_type.dart';
 
 /// One persisted property of a component.
 class SchemaField {
+  /// A field saved under [name] as [kind], taken from a component by [read]
+  /// and put back by [write]. [min], [max] and [enumParser] shape what
+  /// decoding accepts; leave them null to apply none.
   const SchemaField({
     required this.name,
     required this.kind,
@@ -64,25 +65,47 @@ class SchemaField {
 /// here: they come from [SchemaField.min]/[SchemaField.max], so what the
 /// inspector allows and what a load accepts cannot drift apart.
 class ScrubHint {
+  /// A scrub of [step] per [pixelsPerStep] pixels dragged, shown with
+  /// [fractionDigits] decimals, or as a whole number when [integer], and
+  /// followed by [suffix].
   const ScrubHint({
     this.step = 1.0,
     this.pixelsPerStep = 12.0,
     this.fractionDigits = 2,
     this.integer = false,
+    this.suffix,
   });
 
+  /// How much the value changes for each [pixelsPerStep] dragged.
   final double step;
+
+  /// Horizontal drag distance, in logical pixels, that moves the value by
+  /// one [step].
   final double pixelsPerStep;
+
+  /// Decimal places the value is shown with.
   final int fractionDigits;
+
+  /// Whether scrubbing rounds to whole numbers and shows no decimals.
   final bool integer;
+
+  /// The unit shown after the value — `px`, `/s`, `°/s` — or none.
+  final String? suffix;
 }
 
 /// How an angle is shown; the value itself is always radians.
-enum AngleUnit { radians, degrees }
+enum AngleUnit {
+  /// Shown as stored, in radians.
+  radians,
+
+  /// Shown and typed in degrees; converted to radians to store.
+  degrees,
+}
 
 /// Several numeric fields of a component on one inspector row, as a vector's
 /// axes are: `Dead zone  W [0.10]  H [0.10]`.
 class FieldRowHint {
+  /// A row called [label] holding the fields named in [cells], in order.
   const FieldRowHint(this.label, this.cells);
 
   /// The row's label, where a single field's would be.
@@ -96,6 +119,8 @@ class FieldRowHint {
 /// How one field appears in an inspector. Presentation only — the field's
 /// name, kind, limits and read/write come from its [SchemaField].
 class FieldHint {
+  /// Presentation for one field; every hint is optional, and by default the
+  /// field is shown, editable, in both 2-D and 3-D scenes.
   const FieldHint({
     this.label,
     this.description,
@@ -103,6 +128,7 @@ class FieldHint {
     this.visibleWhen,
     this.editable = true,
     this.scrub,
+    this.slider = false,
     this.unit,
     this.fileExtensions,
     this.itemTemplate,
@@ -111,15 +137,32 @@ class FieldHint {
     this.channels2D,
   });
 
+  /// The name shown for the field; its [SchemaField.name] when null.
   final String? label;
+
+  /// Help text about the field an editor may show with it; none when null.
   final String? description;
+
+  /// Whether the inspector shows the field at all. Hidden, it is still
+  /// saved.
   final bool visible;
 
   /// Shown only while this returns true — a crumble delay only on a
   /// crumbling platform, say.
   final bool Function(Component component)? visibleWhen;
+
+  /// Whether the inspector lets the value be changed; off, it is shown
+  /// read-only. A field with no [SchemaField.write] is read-only anyway.
   final bool editable;
+
+  /// Makes a numeric field drag-to-scrub, and how; null leaves it to the
+  /// editor.
   final ScrubHint? scrub;
+
+  /// For a number with both a [SchemaField.min] and a [SchemaField.max]:
+  /// show a slider between them beside the value, for a setting whose
+  /// range matters more than its digits — a bounciness from 0 to 1.
+  final bool slider;
 
   /// For angles: show degrees while storing radians.
   final AngleUnit? unit;
@@ -153,6 +196,8 @@ class FieldHint {
 /// Plain data, so it can live beside the runtime definition — a handful of
 /// constants, tree-shaken from a build that never shows an inspector.
 class ComponentHints {
+  /// Presentation for one component; every hint is optional. By default it
+  /// is one per entity, removable, and offered in 2-D and 3-D scenes.
   const ComponentHints({
     this.name,
     this.group,
@@ -162,6 +207,7 @@ class ComponentHints {
     this.allowMultiple = false,
     this.deletable = true,
     this.fieldGroups,
+    this.foldedGroups = const {},
     this.fieldRows = const [],
     this.fields = const {},
     this.dimensions = Dimensions.both,
@@ -172,8 +218,16 @@ class ComponentHints {
 
   /// Component picker group.
   final String? group;
+
+  /// A line about what the component does, shown under its inspector
+  /// header and in the component picker; none when null.
   final String? description;
+
+  /// The icon beside its name in the inspector; none when null.
   final IconData? icon;
+
+  /// The colour that marks it — its inspector card's edge and icon; the
+  /// editor's own colours when null.
   final Color? accentColor;
 
   /// Whether an entity may carry more than one.
@@ -184,6 +238,10 @@ class ComponentHints {
 
   /// Header → field names under it, in order. Fields in no group list first.
   final Map<String, List<String>>? fieldGroups;
+
+  /// Which of [fieldGroups] start folded, opened with a click: settings few
+  /// people need, kept out of the way of the ones everybody does.
+  final Set<String> foldedGroups;
 
   /// Numbers that belong together, shown side by side on one row — a width
   /// and a height, a minimum and a maximum. A row sits where its first field
@@ -198,88 +256,6 @@ class ComponentHints {
   final Dimensions dimensions;
 }
 
-/// The size a component implies, and how to change it.
-///
-/// Unifies what used to be three separate type switches (selection bounds,
-/// resize handles, gizmo bounds) into one answer per definition.
-abstract class ComponentExtent {
-  const ComponentExtent();
-
-  /// The component's local, unrotated size, or null if it implies none.
-  Size? sizeOf(Component component);
-
-  /// Scales the component's own dimensions by ([sx], [sy]). Returns false when
-  /// it has nothing to scale.
-  bool scale(Component component, double sx, double sy) => false;
-
-  /// Mirrors the component across its own centre, if that means anything
-  /// for it — a sprite's flip flag, say.
-  void flip(Component component, {required bool horizontal}) {}
-
-  /// The component's local bounds in 3-D, centred on its origin, into
-  /// [out]; false when it implies none. A flat thing's is its [sizeOf] with
-  /// no depth — override for something with a depth of its own (a model).
-  bool boundsInto(Component component, Aabb3 out) {
-    final size = sizeOf(component);
-    if (size == null) return false;
-    out.setValues(
-      -size.width / 2,
-      -size.height / 2,
-      0,
-      size.width / 2,
-      size.height / 2,
-      0,
-    );
-    return true;
-  }
-}
-
-/// What a [ComponentPainter] is given per frame.
-class RenderContext {
-  const RenderContext({
-    required this.world,
-    required this.size,
-    this.camera,
-    this.interpolation = 1.0,
-    this.view,
-  });
-
-  final World world;
-  final Size size;
-  final GameCamera? camera;
-
-  /// Sub-frame interpolation factor for physics-driven entities.
-  final double interpolation;
-
-  /// The frame's camera as matrices, when the renderer was given them —
-  /// for a painter that draws something in 3-D.
-  final RenderView? view;
-}
-
-/// Draws a component that is not a [RenderableComponent] — text, a button, a
-/// progress bar, anything that renders itself from its own fields.
-///
-/// The canvas is already translated, rotated and scaled by the entity's
-/// transform, so painters draw around the origin.
-abstract class ComponentPainter<T extends Component> {
-  const ComponentPainter();
-
-  /// Draw order within the painter pass; lower first.
-  int layerOf(T component) => 0;
-
-  /// Whether to draw at all this frame.
-  bool isVisible(T component) => true;
-
-  void paint(Canvas canvas, Entity entity, T component, RenderContext context);
-
-  /// [paint] for a component typed only as [Component].
-  void paintAny(Canvas canvas, Entity entity, Component c, RenderContext ctx) =>
-      paint(canvas, entity, c as T, ctx);
-
-  int layerOfAny(Component c) => layerOf(c as T);
-  bool isVisibleAny(Component c) => isVisible(c as T);
-}
-
 /// Everything the engine and editor need to know about one component type,
 /// in one place: how to build it, what it persists, how it looks in an
 /// inspector, how big it is, and how it draws.
@@ -292,6 +268,10 @@ abstract class ComponentPainter<T extends Component> {
 /// `customComponentId`, which the editor stored for years; new definitions
 /// leave it null.
 class ComponentDefinition<T extends Component> extends ComponentCodec<T> {
+  /// A definition saved as [type], built by [create] and persisting
+  /// [fields]. [aliases] are older names it also loads; [extent] and
+  /// [painter] only matter to components with a size or that draw
+  /// themselves.
   const ComponentDefinition({
     required this.type,
     required this.create,
@@ -302,6 +282,7 @@ class ComponentDefinition<T extends Component> extends ComponentCodec<T> {
     this.extent,
     this.painter,
     this.parent,
+    this.afterDecode,
   });
 
   /// A definition for a subclass of [base]'s component: inherits its fields,
@@ -320,10 +301,12 @@ class ComponentDefinition<T extends Component> extends ComponentCodec<T> {
     ComponentHints? hints,
     ComponentExtent? extent,
     ComponentPainter? painter,
+    void Function(Component component)? afterDecode,
   }) : fields = [...base.fields, ...extraFields],
        hints = hints ?? base.hints,
        extent = extent ?? base.extent,
        painter = painter ?? base.painter,
+       afterDecode = afterDecode ?? base.afterDecode,
        parent = base;
 
   @override
@@ -355,6 +338,12 @@ class ComponentDefinition<T extends Component> extends ComponentCodec<T> {
   /// The definition this one extends, if any.
   final ComponentDefinition<Component>? parent;
 
+  /// Runs on a component [decode] has just filled in, once every saved field
+  /// is set: for state that is not saved but has to agree with what was —
+  /// a transform's previous pose, which render interpolation reads, has to
+  /// be the pose just loaded rather than the origin. Null for none.
+  final void Function(Component component)? afterDecode;
+
   /// The field named [name], or null.
   SchemaField? field(String name) {
     for (final f in fields) {
@@ -377,6 +366,7 @@ class ComponentDefinition<T extends Component> extends ComponentCodec<T> {
     for (final f in fields) {
       if (values.containsKey(f.name)) f.decodeInto(component, values[f.name]);
     }
+    afterDecode?.call(component);
     return component;
   }
 }

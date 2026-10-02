@@ -2,70 +2,28 @@ library;
 
 import 'dart:async';
 
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../../../subsystems/animation/animator/animator_graph.dart';
 import '../../components/components.dart';
 import '../../ecs.dart';
 import '../rendering/sprite_systems.dart';
-import '../system_priorities.dart';
-
-/// Reads an entity's own state into an animator parameter, every frame.
-/// Returns a `num` or a `bool`, or null to leave the parameter alone.
-typedef AnimatorBinding = Object? Function(Entity entity);
-
-/// The sources a graph's parameter can be bound to, by id.
-///
-/// The engine registers the ones below; a kit adds its own — a platformer's
-/// `grounded` — so a graph can use them without the game writing glue.
-abstract final class AnimatorBindings {
-  static final Map<String, AnimatorBinding> _sources = {
-    'velocityX': (e) => e.getComponent<VelocityComponent>()?.velocity.x,
-    'velocityY': (e) => e.getComponent<VelocityComponent>()?.velocity.y,
-    'speed': (e) => e.getComponent<VelocityComponent>()?.speed,
-    'speedX': (e) => e.getComponent<VelocityComponent>()?.velocity.x.abs(),
-    'speedY': (e) => e.getComponent<VelocityComponent>()?.velocity.y.abs(),
-    'health': (e) => e.getComponent<HealthComponent>()?.health,
-    'healthFraction': (e) {
-      final h = e.getComponent<HealthComponent>();
-      if (h == null) return null;
-      return h.maxHealth <= 0 ? 0.0 : h.health / h.maxHealth;
-    },
-    'alive': (e) {
-      final h = e.getComponent<HealthComponent>();
-      return h == null ? null : h.health > 0;
-    },
-  };
-
-  /// Adds (or replaces) the source called [id].
-  static void register(String id, AnimatorBinding read) => _sources[id] = read;
-
-  static void unregister(String id) => _sources.remove(id);
-
-  static AnimatorBinding? of(String id) => _sources[id];
-
-  /// Every id, for an editor's dropdown.
-  static List<String> get ids => _sources.keys.toList()..sort();
-}
-
-/// Where animator graphs come from; a tool replaces [loader] to read the
-/// project's files instead of the asset bundle.
-abstract final class AnimatorAssets {
-  static Future<AnimatorGraph> Function(String path) loader = _fromBundle;
-
-  static Future<AnimatorGraph> _fromBundle(String path) async =>
-      AnimatorGraph.parse(await rootBundle.loadString(path));
-
-  /// Restores the bundle loader.
-  static void useBundle() => loader = _fromBundle;
-}
+import '../../base/system_priorities.dart';
 
 /// A state change, for whoever wants to react: sound, particles, a debugger.
 class AnimatorStateChange {
+  /// [entity]'s animator leaving the state [from] for [to].
   const AnimatorStateChange(this.entity, this.from, this.to);
 
+  /// The entity whose animator changed state.
   final Entity entity;
+
+  /// The state left; empty when the animator has just started and is
+  /// entering its graph's entry state.
   final String from;
+
+  /// The state entered. May equal [from]: a transition back into the same
+  /// state restarts it.
   final String to;
 }
 
@@ -74,24 +32,41 @@ class _Running {
 
   final String path;
   AnimatorGraph? graph;
+
+  /// The frame this animator last ran in.
+  int seenAt = 0;
 }
 
 /// Runs every [AnimatorComponent]: fills its bound parameters, takes the
 /// transition that should fire, and tells the entity's
 /// [SpriteAnimationComponent] which clip to play.
 class AnimatorSystem extends System {
+  /// A system that reads each graph with [loader] — the world context's
+  /// `animatorGraphs` when null — once per path, shared by every animator
+  /// that names it.
   AnimatorSystem({Future<AnimatorGraph> Function(String path)? loader})
     : _loader = loader;
 
   final Future<AnimatorGraph> Function(String path)? _loader;
   final Map<String, Future<AnimatorGraph>> _graphs = {};
   final Map<Entity, _Running> _running = {};
+
+  // Paths whose failure to load has been said.
+  final Set<String> _reported = {};
+
+  int _frame = 0;
+
+  // Found once a frame, the first time an exit time needs it.
+  SpriteAnimationSystem? _sprites;
+  bool _spritesLooked = false;
   final StreamController<AnimatorStateChange> _changes =
       StreamController<AnimatorStateChange>.broadcast(sync: true);
 
   /// Below this horizontal speed the sprite keeps facing the way it was.
   static const double facingDeadZone = 1.0;
 
+  /// Every state an animator enters, its first included. Broadcast and
+  /// synchronous: a listener runs inside [update], as the state changes.
   Stream<AnimatorStateChange> get stateChanges => _changes.stream;
 
   // Before SpriteAnimationSystem, so a clip chosen this frame plays this
@@ -125,8 +100,9 @@ class AnimatorSystem extends System {
 
   @override
   void update(double deltaTime) {
-    final live = entities.toSet();
-    _running.removeWhere((e, _) => !live.contains(e));
+    final frame = ++_frame;
+    _spritesLooked = false;
+    var seen = 0;
 
     forEach((entity) {
       final animator = entity.getComponent<AnimatorComponent>()!;
@@ -137,6 +113,8 @@ class AnimatorSystem extends System {
         animator.restart();
         if (path.isNotEmpty) _load(entity, running);
       }
+      running.seenAt = frame;
+      seen++;
       final graph = running.graph;
       if (graph == null || !animator.enabled) return;
       final sprite = entity.getComponent<SpriteAnimationComponent>()!;
@@ -148,7 +126,9 @@ class AnimatorSystem extends System {
 
       for (final p in graph.parameters) {
         animator.parameters.putIfAbsent(p.name, () => p.initialValue);
-        final read = p.binding == null ? null : AnimatorBindings.of(p.binding!);
+        final read = p.binding == null
+            ? null
+            : world.context.animatorBindings.of(p.binding!);
         final value = read?.call(entity);
         if (value != null) animator.parameters[p.name] = value;
       }
@@ -171,15 +151,29 @@ class AnimatorSystem extends System {
       }
       _enter(entity, animator, sprite, graph.stateNamed(next.to)!);
     });
+
+    // An animator not run this frame — its entity destroyed, switched off
+    // or without the components — is forgotten, and starts again from its
+    // entry when it next runs.
+    if (_running.length > seen) {
+      _running.removeWhere((_, running) => running.seenAt != frame);
+    }
   }
 
   Future<void> _load(Entity entity, _Running running) async {
     try {
       final graph = await (_graphs[running.path] ??=
-          (_loader ?? AnimatorAssets.loader)(running.path));
+          (_loader ?? world.context.animatorGraphs)(running.path));
       if (_running[entity] == running) running.graph = graph;
-    } catch (_) {
+    } catch (error) {
+      // Not tried again for this animator; said once per file.
       _graphs.remove(running.path);
+      if (_reported.add(running.path)) {
+        debugPrint(
+          'AnimatorSystem: "${running.path}" could not be loaded; animators '
+          'using it stay still. $error',
+        );
+      }
     }
   }
 
@@ -191,25 +185,9 @@ class AnimatorSystem extends System {
     AnimatorComponent animator,
     SpriteAnimationComponent sprite,
   ) {
-    final current = animator.currentState;
     // Any State first, then this state's own; within each, the highest
     // priority, and the one listed first among equals.
-    final all = graph.transitions;
-    int rank(int i) => all[i].isFromAny ? 0 : 1;
-    final order =
-        [
-          for (var i = 0; i < all.length; i++)
-            if (graph.stateNamed(all[i].to) != null &&
-                (all[i].isFromAny
-                    ? all[i].to != current
-                    : all[i].from == current))
-              i,
-        ]..sort((a, b) {
-          if (rank(a) != rank(b)) return rank(a) - rank(b);
-          final byPriority = all[b].priority.compareTo(all[a].priority);
-          return byPriority != 0 ? byPriority : a - b;
-        });
-    final candidates = [for (final i in order) all[i]];
+    final candidates = graph.transitionsFrom(animator.currentState);
 
     double? progress;
     for (final t in candidates) {
@@ -240,17 +218,19 @@ class AnimatorSystem extends System {
   /// past its first pass, so an exit time is reached once and stays reached.
   double _progress(Entity entity, SpriteAnimationComponent sprite) {
     if (sprite.isComplete) return 1.0;
-    for (final system in world.systems) {
-      if (system is! SpriteAnimationSystem) continue;
-      final atlas = system.atlasOf(entity);
-      if (atlas == null) return 0.0;
-      final total = system.clipOf(atlas, sprite).totalDuration;
-      if (total <= 0) return 1.0;
-      final animator = entity.getComponent<AnimatorComponent>()!;
-      final played = animator.stateTime * sprite.speed;
-      return played / total;
+    if (!_spritesLooked) {
+      _spritesLooked = true;
+      _sprites = world.getSystem<SpriteAnimationSystem>();
     }
-    return 0.0;
+    final system = _sprites;
+    if (system == null) return 0.0;
+    final atlas = system.atlasOf(entity);
+    if (atlas == null) return 0.0;
+    final total = system.clipOf(atlas, sprite).totalDuration;
+    if (total <= 0) return 1.0;
+    final animator = entity.getComponent<AnimatorComponent>()!;
+    final played = animator.stateTime * sprite.speed;
+    return played / total;
   }
 
   void _enter(

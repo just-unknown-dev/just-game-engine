@@ -17,7 +17,7 @@ import '../../../subsystems/effects/base/effect_player.dart';
 /// // Attach manually if you prefer:
 /// entity.addComponent(EffectComponent());
 /// entity.getComponent<EffectComponent>()!.player.add(
-///   MoveEffect(to: Offset(100, 0), durationTicks: 30),
+///   MoveEffect(to: Vector3(100, 0, 0), durationTicks: 30),
 ///   effectSystem.currentTick,
 /// );
 /// ```
@@ -25,6 +25,7 @@ class EffectComponent extends Component {
   /// The per-entity effect queue. Do not replace this reference.
   final EffectPlayer player = EffectPlayer();
 
+  /// A component with an empty [player].
   EffectComponent();
 
   @override

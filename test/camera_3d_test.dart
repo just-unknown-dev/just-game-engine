@@ -4,6 +4,8 @@ import 'dart:ui' show Canvas, Offset, PictureRecorder, Size;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
+/// The engine's own definitions, fresh for this file.
+final _coreDefinitions = ComponentDefinitionRegistry.core();
 Camera _flat() => Camera(
   position: const Offset(120, -40),
   zoom: 1.75,
@@ -162,17 +164,12 @@ void main() {
     });
 
     test('the lens is saved, and hidden in 2-D scenes', () {
-      registerCoreCodecs();
-      final def = ComponentDefinitionRegistry.instance.definitionByType(
-        'VirtualCameraComponent',
-      )!;
-      final json = ComponentCodecRegistry.instance.encode(
+      final def = _coreDefinitions.definitionByType('VirtualCameraComponent')!;
+      final json = _coreDefinitions.encode(
         VirtualCameraComponent(projection: CameraProjection.perspective),
       )!;
       expect(json['fields']['projection'], 'perspective');
-      final back =
-          ComponentCodecRegistry.instance.decode(json)!
-              as VirtualCameraComponent;
+      final back = _coreDefinitions.decode(json)! as VirtualCameraComponent;
       expect(back.projection, CameraProjection.perspective);
       for (final f in ['projection', 'fieldOfView', 'nearClip', 'farClip']) {
         expect(def.hints.fields[f]!.dimensions, Dimensions.threeD, reason: f);

@@ -22,9 +22,13 @@ abstract interface class CameraBoundsSource {
 /// thing in the level: visible, selectable, resized with the same handles as
 /// a shape — and shared by every camera that names it.
 class CameraBoundsComponent extends Component implements CameraBoundsSource {
+  /// Bounds [width] by [height] world units, 4000 × 800 unless given.
   CameraBoundsComponent({this.width = 4000, this.height = 800});
 
+  /// Full width of the allowed area, in world units, centred on the entity.
   double width;
+
+  /// Full height of the allowed area, in world units, centred on the entity.
   double height;
 
   @override
@@ -42,6 +46,8 @@ class CameraBoundsComponent extends Component implements CameraBoundsSource {
 /// legal to be, so the camera centres on them instead of jittering between
 /// two wrong answers.
 class CameraConfinerComponent extends Component {
+  /// A confiner to the entity named [boundsName]; the default empty name
+  /// confines to nothing. A hard wall ([damping] `0`) unless told otherwise.
   CameraConfinerComponent({this.boundsName = '', this.damping = 0.0});
 
   /// Name of the entity carrying a [CameraBoundsSource].

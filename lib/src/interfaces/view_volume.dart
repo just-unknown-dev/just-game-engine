@@ -21,6 +21,7 @@ abstract interface class ViewVolume {
 
 /// What a 2-D camera sees: a rectangle of the world, at every depth.
 class PlanarViewVolume implements ViewVolume {
+  /// A volume over [planarBounds], in world units; [Rect.zero] until set.
   PlanarViewVolume([this.planarBounds = Rect.zero]);
 
   @override

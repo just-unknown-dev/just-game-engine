@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
+/// The engine's own definitions, fresh for this file.
+final _coreDefinitions = ComponentDefinitionRegistry.core();
 void main() {
   test('a scene mode reads back from its id, and anything else is 2-D', () {
     expect(SceneMode.fromId('3d'), SceneMode.threeD);
@@ -16,16 +18,6 @@ void main() {
     expect(Dimensions.threeD.allows(SceneMode.twoD), isFalse);
   });
 
-  test('a scene saves its mode and reads it back; no node tree', () {
-    final flat = Scene(name: 'flat').toJson();
-    expect(flat['mode'], '2d');
-    expect(flat.containsKey('root'), isFalse);
-    expect(Scene.fromJson(flat).mode, SceneMode.twoD);
-    final json = Scene(name: 'deep', mode: SceneMode.threeD).toJson();
-    expect(json['mode'], '3d');
-    expect(Scene.fromJson(json).mode, SceneMode.threeD);
-  });
-
   test('vector types name their channels, and which a 2-D scene shows', () {
     expect(FieldTypes.vector3.channels, ['x', 'y', 'z']);
     expect(FieldTypes.vector3.channels2D, {'x', 'y'});
@@ -35,8 +27,7 @@ void main() {
   });
 
   test('the 2-D-only definitions say so, and the shared ones do not', () {
-    final registry = ComponentDefinitionRegistry.instance;
-    registerCoreCodecs();
+    final registry = _coreDefinitions;
     Dimensions of(String type) =>
         registry.definitionByType(type)!.hints.dimensions;
     for (final type in [

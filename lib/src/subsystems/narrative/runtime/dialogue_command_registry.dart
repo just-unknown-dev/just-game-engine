@@ -3,6 +3,8 @@ library;
 
 /// Context passed to every [DialogueCommandHandler].
 class DialogueCommandContext {
+  /// The call of command [name] with [rawArgs], already split into [args].
+  /// [DialogueCommandRegistry.execute] makes these.
   const DialogueCommandContext({
     required this.name,
     required this.args,

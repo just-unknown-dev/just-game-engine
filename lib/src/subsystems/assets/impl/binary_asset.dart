@@ -1,6 +1,9 @@
 part of '../asset_management.dart';
 
 /// Binary asset
+///
+/// Read straight from the asset bundle and kept in memory by [AssetManager]
+/// until unloaded — never copied into the engine's persistent cache.
 class BinaryAsset extends Asset {
   Uint8List? _data;
 
@@ -15,26 +18,14 @@ class BinaryAsset extends Asset {
     if (_isLoaded) return;
 
     try {
-      final cache = Engine.instance.cache;
-      if (cache.isInitialized) {
-        final cachedData = await cache.getBinary(path);
-        if (cachedData != null) {
-          _data = cachedData;
-          _isLoaded = true;
-          return;
-        }
-      }
-
-      final byteData = await rootBundle.load(path);
-      _data = byteData.buffer.asUint8List();
-
-      if (cache.isInitialized && _data != null) {
-        await cache.setBinary(path, _data!);
-      }
-
+      final byteData = await _bundle.load(path);
+      _data = _bytesOf(byteData);
       _isLoaded = true;
-    } catch (e) {
-      throw AssetLoadException('Failed to load binary asset: $path', e);
+    } catch (e, stack) {
+      Error.throwWithStackTrace(
+        AssetLoadException('Failed to load binary asset: $path', e),
+        stack,
+      );
     }
   }
 

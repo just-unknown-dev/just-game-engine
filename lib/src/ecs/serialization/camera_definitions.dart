@@ -2,12 +2,13 @@ library;
 
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
-import '../../core/dimensions.dart';
+import '../../foundation/dimensions.dart';
 
 import '../components/components.dart';
 import '../ecs.dart';
 import 'component_definition.dart';
-import '../../subsystems/camera/camera_lens.dart';
+import 'component_presentation.dart';
+import '../../interfaces/camera_lens.dart';
 import '../../subsystems/camera/camera_noise.dart';
 import 'field_type.dart';
 
@@ -81,6 +82,8 @@ abstract final class CameraDefinitions {
   static const _fraction = ScrubHint(step: 0.01, fractionDigits: 2);
   static const _seconds = ScrubHint(step: 0.05, fractionDigits: 2);
 
+  /// Definition of [VirtualCameraComponent] (one shot the brain can show),
+  /// saved as `VirtualCameraComponent`.
   static final virtualCamera = ComponentDefinition<VirtualCameraComponent>(
     type: 'VirtualCameraComponent',
     hints: const ComponentHints(
@@ -216,6 +219,8 @@ abstract final class CameraDefinitions {
     ],
   );
 
+  /// Definition of [CameraFramingComponent] (dead-zone framing), saved as
+  /// `CameraFramingComponent`. 2-D only.
   static final framing = ComponentDefinition<CameraFramingComponent>(
     type: 'CameraFramingComponent',
     hints: const ComponentHints(
@@ -351,6 +356,8 @@ abstract final class CameraDefinitions {
     ],
   );
 
+  /// Definition of [CameraConfinerComponent], saved as
+  /// `CameraConfinerComponent`. 2-D only.
   static final confiner = ComponentDefinition<CameraConfinerComponent>(
     type: 'CameraConfinerComponent',
     hints: const ComponentHints(
@@ -383,6 +390,8 @@ abstract final class CameraDefinitions {
     ],
   );
 
+  /// Definition of [CameraBoundsComponent] (the rectangle a confiner
+  /// names), saved as `CameraBoundsComponent`. 2-D only.
   static final bounds = ComponentDefinition<CameraBoundsComponent>(
     type: 'CameraBoundsComponent',
     hints: const ComponentHints(
@@ -425,6 +434,8 @@ abstract final class CameraDefinitions {
     ],
   );
 
+  /// Definition of [CameraNoiseComponent] (handheld shake), saved as
+  /// `CameraNoiseComponent`. 2-D only.
   static final noise = ComponentDefinition<CameraNoiseComponent>(
     type: 'CameraNoiseComponent',
     hints: const ComponentHints(
@@ -468,6 +479,8 @@ abstract final class CameraDefinitions {
     ],
   );
 
+  /// Definition of [CameraImpulseListenerComponent], saved as
+  /// `CameraImpulseListenerComponent`. 2-D only.
   static final impulseListener =
       ComponentDefinition<CameraImpulseListenerComponent>(
         type: 'CameraImpulseListenerComponent',
@@ -502,6 +515,8 @@ abstract final class CameraDefinitions {
         ],
       );
 
+  /// Definition of [CameraImpulseSourceComponent], saved as
+  /// `CameraImpulseSourceComponent`. 2-D only.
   static final impulseSource = ComponentDefinition<CameraImpulseSourceComponent>(
     type: 'CameraImpulseSourceComponent',
     hints: const ComponentHints(
@@ -552,6 +567,8 @@ abstract final class CameraDefinitions {
     ],
   );
 
+  /// Definition of [CameraTargetGroupComponent], saved as
+  /// `CameraTargetGroupComponent`.
   static final targetGroup = ComponentDefinition<CameraTargetGroupComponent>(
     type: 'CameraTargetGroupComponent',
     hints: const ComponentHints(
@@ -593,6 +610,8 @@ abstract final class CameraDefinitions {
     ],
   );
 
+  /// Definition of [CameraGroupFramingComponent], saved as
+  /// `CameraGroupFramingComponent`. 2-D only.
   static final groupFraming = ComponentDefinition<CameraGroupFramingComponent>(
     type: 'CameraGroupFramingComponent',
     hints: const ComponentHints(
@@ -642,6 +661,8 @@ abstract final class CameraDefinitions {
     ],
   );
 
+  /// Definition of [CameraTriggerComponent], saved as
+  /// `CameraTriggerComponent`. 2-D only.
   static final trigger = ComponentDefinition<CameraTriggerComponent>(
     type: 'CameraTriggerComponent',
     hints: ComponentHints(
@@ -739,6 +760,8 @@ abstract final class CameraDefinitions {
     ],
   );
 
+  /// Definition of [CameraDollyComponent] (a camera on a track), saved as
+  /// `CameraDollyComponent`. 2-D only.
   static final dolly = ComponentDefinition<CameraDollyComponent>(
     type: 'CameraDollyComponent',
     hints: ComponentHints(
@@ -799,6 +822,8 @@ abstract final class CameraDefinitions {
     ],
   );
 
+  /// Definition of [CameraStateDrivenComponent] (a manager camera picking a
+  /// child by state), saved as `CameraStateDrivenComponent`.
   static final stateDriven = ComponentDefinition<CameraStateDrivenComponent>(
     type: 'CameraStateDrivenComponent',
     hints: const ComponentHints(
@@ -853,6 +878,8 @@ abstract final class CameraDefinitions {
     ],
   );
 
+  /// Definition of [CameraStateComponent] (the state a state-driven camera
+  /// reads), saved as `CameraStateComponent`.
   static final cameraState = ComponentDefinition<CameraStateComponent>(
     type: 'CameraStateComponent',
     hints: const ComponentHints(
@@ -870,6 +897,8 @@ abstract final class CameraDefinitions {
     ],
   );
 
+  /// Definition of [CameraBlendListComponent] (a manager camera playing
+  /// its children in sequence), saved as `CameraBlendListComponent`.
   static final blendList = ComponentDefinition<CameraBlendListComponent>(
     type: 'CameraBlendListComponent',
     hints: const ComponentHints(
@@ -908,6 +937,8 @@ abstract final class CameraDefinitions {
     ],
   );
 
+  /// Definition of [CameraMixerComponent] (a weighted mix of its child
+  /// cameras), saved as `CameraMixerComponent`.
   static final mixer = ComponentDefinition<CameraMixerComponent>(
     type: 'CameraMixerComponent',
     hints: const ComponentHints(

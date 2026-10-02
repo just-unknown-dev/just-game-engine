@@ -10,10 +10,15 @@ library;
 
 import 'dart:collection';
 import 'dart:math';
-import 'package:flutter/material.dart';
+import 'dart:ui' show Canvas, Size;
 
-import 'systems/hierarchy/transform_hierarchy.dart';
-import 'systems/system_priorities.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
+
+import 'base/engine_context.dart';
+import 'base/transform/children_component.dart';
+import 'base/transform/parent_component.dart';
+import 'base/transform/transform_hierarchy.dart';
+import 'base/system_priorities.dart';
 
 part 'base/component.dart';
 part 'base/archetype.dart';

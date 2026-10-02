@@ -6,7 +6,9 @@ part of '../ecs.dart';
 
 /// A buffer that collects structural mutations (create, destroy, add/remove
 /// component) during system updates and applies them in a batch after
-/// iteration is complete.
+/// iteration is complete — in the order they were queued, so
+/// `removeComponent<Sprite>(e)` then `addComponent(e, newSprite)` ends with
+/// the new sprite.
 ///
 /// This prevents concurrent modification when systems destroy or create
 /// entities while iterating query results.
@@ -22,89 +24,98 @@ part of '../ecs.dart';
 class CommandBuffer {
   final World _world;
 
-  final List<_DeferredCreate> _creates = [];
-  final List<Entity> _destroys = [];
-  final List<_DeferredAddComponent> _adds = [];
-  final List<_DeferredRemoveComponent> _removes = [];
+  List<_Command> _commands = [];
 
+  /// An empty buffer that applies its commands to the given world.
   CommandBuffer(this._world);
 
   /// Schedule entity creation with the given components.
   /// Returns nothing — use [flush] results or query after flush.
   void create(List<Component> components, {String? name}) {
-    _creates.add(_DeferredCreate(components, name));
+    _commands.add(_DeferredCreate(components, name));
   }
 
-  /// Schedule entity destruction.
-  void destroy(Entity entity) {
-    _destroys.add(entity);
+  /// Schedule entity destruction; see [World.destroyEntity] for
+  /// [withChildren].
+  void destroy(Entity entity, {bool withChildren = true}) {
+    _commands.add(_DeferredDestroy(entity, withChildren));
   }
 
   /// Schedule adding a component to an existing entity.
   void addComponent(Entity entity, Component component) {
-    _adds.add(_DeferredAddComponent(entity, component));
+    _commands.add(_DeferredAddComponent(entity, component));
   }
 
   /// Schedule removing a component type from an entity.
   void removeComponent<T extends Component>(Entity entity) {
-    _removes.add(_DeferredRemoveComponent(entity, T));
+    _commands.add(_DeferredRemoveComponent(entity, T));
   }
 
   /// Whether any commands are pending.
-  bool get isNotEmpty =>
-      _creates.isNotEmpty ||
-      _destroys.isNotEmpty ||
-      _adds.isNotEmpty ||
-      _removes.isNotEmpty;
+  bool get isNotEmpty => _commands.isNotEmpty;
 
-  /// Apply all buffered commands to the world and clear the buffer.
+  /// Apply all buffered commands to the world, in the order they were
+  /// queued, and clear the buffer.
+  ///
+  /// A command on an entity that is gone by then is skipped. Commands queued
+  /// while flushing (by a component's `onAttach`, say) run in this flush,
+  /// after the ones already queued.
   void flush() {
-    // Process destroys first (avoids adding components to doomed entities).
-    for (final entity in _destroys) {
-      if (entity._world != null) {
-        _world.destroyEntity(entity);
+    while (_commands.isNotEmpty) {
+      final batch = _commands;
+      _commands = [];
+      for (final command in batch) {
+        command.apply(_world);
       }
     }
-    _destroys.clear();
-
-    // Process creates.
-    for (final cmd in _creates) {
-      _world.createEntityWithComponents(cmd.components, name: cmd.name);
-    }
-    _creates.clear();
-
-    // Process component additions.
-    for (final cmd in _adds) {
-      if (cmd.entity._world != null) {
-        cmd.entity.addComponent(cmd.component);
-      }
-    }
-    _adds.clear();
-
-    // Process component removals.
-    for (final cmd in _removes) {
-      if (cmd.entity._world != null) {
-        _world._removeComponentFromEntity2(cmd.entity, cmd.type);
-      }
-    }
-    _removes.clear();
   }
 }
 
-class _DeferredCreate {
+sealed class _Command {
+  void apply(World world);
+}
+
+class _DeferredCreate extends _Command {
   final List<Component> components;
   final String? name;
   _DeferredCreate(this.components, this.name);
+
+  @override
+  void apply(World world) =>
+      world.createEntityWithComponents(components, name: name);
 }
 
-class _DeferredAddComponent {
+class _DeferredDestroy extends _Command {
+  final Entity entity;
+  final bool withChildren;
+  _DeferredDestroy(this.entity, this.withChildren);
+
+  @override
+  void apply(World world) {
+    if (identical(entity._world, world)) {
+      world.destroyEntity(entity, withChildren: withChildren);
+    }
+  }
+}
+
+class _DeferredAddComponent extends _Command {
   final Entity entity;
   final Component component;
   _DeferredAddComponent(this.entity, this.component);
+
+  @override
+  void apply(World world) {
+    if (entity._world != null) entity.addComponent(component);
+  }
 }
 
-class _DeferredRemoveComponent {
+class _DeferredRemoveComponent extends _Command {
   final Entity entity;
   final Type type;
   _DeferredRemoveComponent(this.entity, this.type);
+
+  @override
+  void apply(World world) {
+    if (entity._world != null) entity.removeComponentByType(type);
+  }
 }

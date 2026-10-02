@@ -7,7 +7,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:just_dart/just_dart.dart';
 
-import '../subsystems/camera/camera_lens.dart';
+import 'camera_lens.dart';
 import 'view_volume.dart';
 
 /// Minimal camera interface consumed by ECS render systems.

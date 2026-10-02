@@ -2,9 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart' show AssetBundle, rootBundle;
 import 'package:just_memory/just_memory.dart';
-import '../../core/engine.dart';
 
 part 'base/asset.dart';
 part 'impl/image_asset.dart';
@@ -21,7 +20,19 @@ part 'impl/asset_bundle.dart';
 /// 1. **Simple** — [load] / [unload] for direct management.
 /// 2. **Reference-counted** — [acquire] / [release] paired with [MemoryScope]
 ///    for automatic scene-based lifecycle management.
+///
+/// Each engine has one, in its context (`engine.assets`,
+/// `engine.context.assets`); assets it loads read from its [bundle].
 class AssetManager {
+  /// A manager reading from [bundle] — the app's `rootBundle` when null —
+  /// with the built-in loaders registered.
+  AssetManager({AssetBundle? bundle}) : bundle = bundle ?? rootBundle {
+    initialize();
+  }
+
+  /// Where the built-in assets read their bytes from.
+  final AssetBundle bundle;
+
   /// Asset cache
   final Map<String, Asset> _assets = {};
 
@@ -50,7 +61,9 @@ class AssetManager {
   /// Get the current reference count for an asset (0 if not tracked).
   int refCount(String path) => _refCounts[path] ?? 0;
 
-  /// Initialize the asset manager
+  /// Registers the built-in loaders (image, audio, text, JSON, binary),
+  /// replacing any registered for those types. The constructor has done
+  /// this already; call it again after [dispose] to use the manager again.
   void initialize() {
     // Register default asset loaders
     _loaders[AssetType.image] = ImageAssetLoader();
@@ -131,7 +144,7 @@ class AssetManager {
       throw AssetLoadException('No loader registered for asset type: $type');
     }
 
-    final asset = loader.createAsset(path);
+    final asset = loader.createAsset(path).._manager = this;
     await asset.load();
     return asset;
   }

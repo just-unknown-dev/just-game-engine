@@ -6,6 +6,8 @@ import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
+/// The engine's own definitions, fresh for this file.
+final _coreDefinitions = ComponentDefinitionRegistry.core();
 const _dt = 1 / 60;
 
 /// idle (0.2 s, loops) · run (0.2 s, loops) · jump (0.2 s, once) · hurt.
@@ -255,12 +257,14 @@ void main() {
   });
 
   test('a kit can add a binding', () async {
-    AnimatorBindings.register('always7', (_) => 7);
-    addTearDown(() => AnimatorBindings.unregister('always7'));
-    expect(AnimatorBindings.ids, contains('always7'));
+    final bindings = World().context.animatorBindings
+      ..register('always7', (_) => 7);
+    expect(bindings.ids, contains('always7'));
+    expect(bindings.ids, containsAll(['speedX', 'velocityY', 'health']));
+    expect(AnimatorBindings.builtIn.ids, isNot(contains('always7')));
     expect(
-      AnimatorBindings.ids,
-      containsAll(['speedX', 'velocityY', 'health']),
+      () => AnimatorBindings.builtIn.register('x', (_) => 1),
+      throwsUnsupportedError,
     );
   });
 
@@ -329,10 +333,9 @@ void main() {
   });
 
   test('the component round-trips through the scene codec', () {
-    registerCoreCodecs();
     final out =
-        ComponentCodecRegistry.instance.decode(
-              ComponentCodecRegistry.instance.encode(
+        _coreDefinitions.decode(
+              _coreDefinitions.encode(
                 AnimatorComponent(
                   graphPath: 'a.animator.json',
                   faceVelocity: true,

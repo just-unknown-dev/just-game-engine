@@ -83,10 +83,19 @@ class SystemManager implements ILifecycle {
     return true;
   }
 
+  /// The declared type each name was registered under.
+  final Map<String, Type> _typeByName = {};
+
   /// Register a system with the manager
   ///
   /// [name] - Unique name for the system
   /// [system] - System instance to register
+  ///
+  /// The system is keyed by its **declared** type [T] — the type argument,
+  /// inferred from the static type of [system] when not given — not by its
+  /// runtime type: `registerSystem<RenderingEngine>('rendering', custom)`
+  /// is found by `getSystem<RenderingEngine>()` even when `custom` is a
+  /// subclass.
   void registerSystem<T>(String name, T system) {
     if (_systems.containsKey(name)) {
       throw StateError('System with name "$name" is already registered');
@@ -94,21 +103,26 @@ class SystemManager implements ILifecycle {
 
     _systems[name] = system;
     _systemsByType[T] = system;
+    _typeByName[name] = T;
 
     debugPrint('System registered: $name (${T.toString()})');
   }
 
   /// Unregister a system by name
   ///
-  /// Returns true if the system was found and removed.
+  /// Returns true if the system was found and removed. Its typed entry goes
+  /// with it — the one [registerSystem] made under the declared type — as
+  /// long as that entry is still this system.
   bool unregisterSystem(String name) {
     if (!_systems.containsKey(name)) {
       return false;
     }
 
-    final system = _systems[name];
-    _systems.remove(name);
-    _systemsByType.remove(system.runtimeType);
+    final system = _systems.remove(name);
+    final type = _typeByName.remove(name);
+    if (type != null && identical(_systemsByType[type], system)) {
+      _systemsByType.remove(type);
+    }
 
     debugPrint('System unregistered: $name');
     return true;
@@ -203,6 +217,7 @@ class SystemManager implements ILifecycle {
   void clear() {
     _systems.clear();
     _systemsByType.clear();
+    _typeByName.clear();
     _updateTasks.clear();
     _updateOrder.clear();
     _lastTaskTimesMs.clear();

@@ -7,6 +7,8 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
+/// The engine's own definitions, fresh for this file.
+final _coreDefinitions = ComponentDefinitionRegistry.core();
 void main() {
   late World world;
   setUp(() => world = World());
@@ -147,15 +149,6 @@ void main() {
         EntityTarget.fromNameOrTag('', 'player'),
         const EntityTarget.tag('player'),
       );
-      final camera = VirtualCameraComponent();
-      // ignore: deprecated_member_use_from_same_package
-      camera.followTag = 'player';
-      expect(camera.follow, const EntityTarget.tag('player'));
-      // ignore: deprecated_member_use_from_same_package
-      camera.followName = 'Boss';
-      // ignore: deprecated_member_use_from_same_package
-      camera.followTag = 'enemy';
-      expect(camera.follow, const EntityTarget.name('Boss'));
     });
   });
 
@@ -203,7 +196,7 @@ void main() {
           },
         ]),
       );
-      expect(out['version'], 7);
+      expect(out['version'], SceneFormat.current);
       expect(fieldsOf(out, 'Coin', 'TagComponent'), {
         'tags': ['coin'],
       });
@@ -212,7 +205,7 @@ void main() {
     });
 
     test('name and tag pairs become one target, and say what they chose', () {
-      final out = SceneFormat.migrate(
+      final result = SceneFormat.migrateWithReport(
         scene([
           {
             'name': 'Cam',
@@ -244,6 +237,7 @@ void main() {
           {'name': 'Door', 'components': <Object>[]},
         ]),
       );
+      final out = result.scene;
       expect(fieldsOf(out, 'Cam', 'VirtualCameraComponent'), {
         'follow': {'tag': 'player'},
       });
@@ -257,8 +251,7 @@ void main() {
         'target': null,
       });
       expect(
-        (fieldsOf(out, 'Cam', 'CameraTargetGroupComponent')!['members']
-            as List)
+        (fieldsOf(out, 'Cam', 'CameraTargetGroupComponent')!['members'] as List)
             .single,
         {
           'target': {'name': 'Door'},
@@ -266,13 +259,12 @@ void main() {
           'radius': 0.0,
         },
       );
-      expect(V6ToV7.report, hasLength(2));
-      expect(V6ToV7.report.first, contains('Players'));
+      expect(result.notes, hasLength(2));
+      expect(result.notes.first.message, contains('Players'));
+      expect(result.notes.map((n) => n.fromVersion), everyElement(6));
     });
 
     test('what it writes decodes through the definitions', () {
-      ComponentCodecRegistry.instance.clear();
-      registerCoreCodecs();
       final out = SceneFormat.migrate(
         scene([
           {
@@ -291,7 +283,7 @@ void main() {
       final components = [
         for (final json
             in ((out['entities'] as List).single as Map)['components'] as List)
-          ComponentCodecRegistry.instance.decode(json as Map<String, dynamic>),
+          _coreDefinitions.decode(json as Map<String, dynamic>),
       ];
       expect((components[0]! as TagComponent).tags, ['enemy']);
       expect((components[1]! as SpawnComponent).spawner, 'wave');
@@ -356,29 +348,19 @@ void main() {
       expect(SpawnPoints.of(world, 'player'), hasLength(2));
 
       final missing = <(Entity, String)>[];
-      final spawned = SpawnPoints.spawnAll(
-        world,
-        [
-          Spawner(
-            id: 'player',
-            tags: const {'player'},
-            spawn: (w, at) => w.createEntityWithComponents([
-              TransformComponent(),
-              TagComponent('player'),
-            ]),
-          ),
-        ],
-        onMissing: (p, id) => missing.add((p, id)),
-      );
+      final spawned = SpawnPoints.spawnAll(world, [
+        Spawner(
+          id: 'player',
+          tags: const {'player'},
+          spawn: (w, at) => w.createEntityWithComponents([
+            TransformComponent(),
+            TagComponent('player'),
+          ]),
+        ),
+      ], onMissing: (p, id) => missing.add((p, id)));
       expect(spawned, hasLength(2));
       expect(world.allTagged('player'), spawned);
       expect(missing, [(unknown, 'players')]);
-    });
-
-    test('the old field name still works', () {
-      // ignore: deprecated_member_use_from_same_package
-      final spawn = SpawnComponent(tag: 'wave');
-      expect(spawn.spawner, 'wave');
     });
   });
 
@@ -392,10 +374,9 @@ void main() {
         onEnter: TimelineTriggerAction.nothing,
       ),
     ]);
-    tagged(['player']).getComponent<TransformComponent>()!.setPositionXY(
-      500,
-      0,
-    );
+    tagged([
+      'player',
+    ]).getComponent<TransformComponent>()!.setPositionXY(500, 0);
     final second = tagged(['player']);
     world.update(1 / 60);
     expect(

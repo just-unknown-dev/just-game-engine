@@ -1,0 +1,174 @@
+/// Draws physics bodies and ray-cast colliders as outlines, for debugging.
+library;
+
+import 'dart:math' as math;
+import 'dart:ui';
+
+import 'package:just_physics_engine/just_physics_engine.dart'
+    show CircleShape, PhysicsBody, PolygonShape, RectangleShape;
+
+import '../../ecs.dart';
+import '../../components/components.dart';
+import '../../../subsystems/camera/camera_system.dart' show Camera;
+import '../../base/system_priorities.dart';
+
+/// Outlines every physics body ([PhysicsBodyRefComponent]) and every
+/// [RaycastColliderComponent] in [color], above everything else
+/// ([SystemPriorities.debug]).
+///
+/// Pass [camera] so the outlines follow the world view; see
+/// `RenderSystem.cameraAppliedExternally` for why a system draws in screen
+/// space otherwise.
+class ColliderDebuggerSystem extends System {
+  /// A debugger drawing everything in 1.5-pixel red outlines unless told
+  /// otherwise.
+  ColliderDebuggerSystem({
+    this.camera,
+    this.color = const Color(0xFFFF4D4D),
+    this.strokeWidth = 1.5,
+    this.includeStaticBodies = true,
+    this.includeDynamicBodies = true,
+    this.includeRaycastColliders = true,
+  });
+
+  /// The camera whose transform the outlines are drawn through; each
+  /// render also sets its `viewportSize` to the canvas size. Null draws
+  /// world positions as they are, through whatever transform the canvas
+  /// already has.
+  final Camera? camera;
+
+  /// Colour of every outline.
+  final Color color;
+
+  /// Outline thickness, in the canvas's units — with a [camera], world
+  /// units, so it scales with the zoom.
+  final double strokeWidth;
+
+  /// Whether to outline static bodies — those with a mass of zero or less.
+  /// Only the body's outline is left out: a ray-cast collider on the same
+  /// entity follows [includeRaycastColliders].
+  final bool includeStaticBodies;
+
+  /// Whether to outline dynamic bodies — those with a positive mass. Only
+  /// the body's outline is left out: a ray-cast collider on the same
+  /// entity follows [includeRaycastColliders].
+  final bool includeDynamicBodies;
+
+  /// Whether to outline [RaycastColliderComponent]s: a box when it has a
+  /// width and height, otherwise a circle of its radius (8 when unset).
+  final bool includeRaycastColliders;
+
+  @override
+  int get priority => SystemPriorities.debug;
+
+  @override
+  List<Type> get requiredComponents => [TransformComponent];
+
+  @override
+  void render(Canvas canvas, Size size) {
+    if (camera != null) {
+      camera!.viewportSize = size;
+      canvas.save();
+      camera!.applyTransform(canvas, size);
+    }
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+
+    forEach((entity) {
+      final transform = entity.getComponent<TransformComponent>()!;
+      final physicsRef = entity.getComponent<PhysicsBodyRefComponent>();
+
+      if (physicsRef != null) {
+        final body = physicsRef.body;
+        final isStatic = body.mass <= 0;
+        if (isStatic ? includeStaticBodies : includeDynamicBodies) {
+          _drawPhysicsBody(canvas, paint, body);
+        }
+      }
+
+      if (includeRaycastColliders) {
+        final raycast = entity.getComponent<RaycastColliderComponent>();
+        if (raycast != null) {
+          _drawRaycastCollider(canvas, paint, transform, raycast);
+        }
+      }
+    });
+
+    if (camera != null) {
+      canvas.restore();
+    }
+  }
+
+  void _drawPhysicsBody(Canvas canvas, Paint paint, PhysicsBody body) {
+    if (body.shape is CircleShape) {
+      final circle = body.shape as CircleShape;
+      canvas.drawCircle(
+        Offset(body.position.x, body.position.y),
+        circle.radius,
+        paint,
+      );
+      return;
+    }
+
+    if (body.shape is RectangleShape) {
+      final rect = body.shape as RectangleShape;
+      canvas.save();
+      canvas.translate(body.position.x, body.position.y);
+      canvas.rotate(body.angle);
+      canvas.drawRect(
+        Rect.fromCenter(
+          center: Offset.zero,
+          width: rect.width,
+          height: rect.height,
+        ),
+        paint,
+      );
+      canvas.restore();
+      return;
+    }
+
+    if (body.shape is PolygonShape) {
+      final polygon = body.shape as PolygonShape;
+      final c = math.cos(body.angle);
+      final s = math.sin(body.angle);
+      final path = Path();
+      final vertices = polygon.vertices.map((v) {
+        final rx = v.dx * c - v.dy * s;
+        final ry = v.dx * s + v.dy * c;
+        return Offset(body.position.x + rx, body.position.y + ry);
+      });
+      path.addPolygon(vertices.toList(), true);
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  void _drawRaycastCollider(
+    Canvas canvas,
+    Paint paint,
+    TransformComponent transform,
+    RaycastColliderComponent collider,
+  ) {
+    final center = Offset(transform.position.x, transform.position.y);
+    if (collider.width > 0 && collider.height > 0) {
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.rotate(transform.angle);
+      canvas.drawRect(
+        Rect.fromCenter(
+          center: Offset.zero,
+          width: collider.width,
+          height: collider.height,
+        ),
+        paint,
+      );
+      canvas.restore();
+      return;
+    }
+
+    final radius = collider.radius > 0 ? collider.radius : 8.0;
+    canvas.drawCircle(center, radius, paint);
+  }
+}

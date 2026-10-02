@@ -17,7 +17,11 @@ part of '../sprite_atlas_subsystem.dart';
 ///
 /// ## Rotated sprites
 /// When [rotated] is `true` the exporter stored the frame rotated 90° CW.
-/// [AtlasSpriteAnimation] accounts for this automatically via [Sprite.sourceRect].
+/// As TexturePacker writes it, [frame] then gives the sprite's upright
+/// width and height; in the texture they are the other way round.
+/// [AtlasRegionSprite] — what [SpriteAtlas.createSprite] and the sprite
+/// systems draw with — turns such a frame back, and places a trimmed one
+/// inside its untrimmed box.
 ///
 /// ## Pivots / anchors
 /// [pivot] is a normalised anchor point (`0.0`–`1.0` per axis).  Defaults to
@@ -40,7 +44,8 @@ class SpriteRegion {
 
   /// `true` when the exporter rotated this frame 90° clock-wise to fit better.
   ///
-  /// Renderers must undo this rotation to display the sprite correctly.
+  /// Renderers must undo this rotation to display the sprite correctly;
+  /// [AtlasRegionSprite] does.
   final bool rotated;
 
   /// `true` when the exporter stripped transparent pixels from the edges.
@@ -64,6 +69,9 @@ class SpriteRegion {
   /// Defaults to `Offset(0.5, 0.5)` — the centre of the sprite.
   final Offset pivot;
 
+  /// Region [name] on page [pageIndex], its pixels at [frame] in the
+  /// texture and [sourceSize] its untrimmed size. By default it is neither
+  /// rotated nor trimmed, and pivots on its centre.
   const SpriteRegion({
     required this.name,
     required this.pageIndex,

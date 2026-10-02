@@ -1,6 +1,9 @@
 part of '../asset_management.dart';
 
 /// Audio asset (placeholder for audio data)
+///
+/// Read straight from the asset bundle and kept in memory by [AssetManager]
+/// until unloaded — never copied into the engine's persistent cache.
 class AudioAsset extends Asset {
   Uint8List? _audioData;
   AudioFormat? _format;
@@ -9,10 +12,12 @@ class AudioAsset extends Asset {
   /// Get raw audio data
   Uint8List? get data => _audioData;
 
-  /// Get audio format
+  /// The format its path's extension names, any case; null for an
+  /// extension that is none of [AudioFormat]'s.
   AudioFormat? get format => _format;
 
-  /// Get audio duration
+  /// The clip's length. Not worked out yet — the data is not decoded — so
+  /// always null.
   Duration? get duration => _duration;
 
   /// Constructor
@@ -23,42 +28,27 @@ class AudioAsset extends Asset {
     if (_isLoaded) return;
 
     try {
-      final cache = Engine.instance.cache;
-      if (cache.isInitialized) {
-        final cachedData = await cache.getBinary(path);
-        if (cachedData != null) {
-          _audioData = cachedData;
-          _detectFormat();
-          _isLoaded = true;
-          return;
-        }
-      }
-
-      // Load audio data from assets
-      final data = await rootBundle.load(path);
-      _audioData = data.buffer.asUint8List();
-
-      if (cache.isInitialized) {
-        await cache.setBinary(path, _audioData!);
-      }
-
+      final data = await _bundle.load(path);
+      _audioData = _bytesOf(data);
       _detectFormat();
-
       _isLoaded = true;
-    } catch (e) {
-      throw AssetLoadException('Failed to load audio asset: $path', e);
+    } catch (e, stack) {
+      Error.throwWithStackTrace(
+        AssetLoadException('Failed to load audio asset: $path', e),
+        stack,
+      );
     }
   }
 
   void _detectFormat() {
-    // Detect format from extension
-    if (path.endsWith('.mp3')) {
-      _format = AudioFormat.mp3;
-    } else if (path.endsWith('.wav')) {
-      _format = AudioFormat.wav;
-    } else if (path.endsWith('.ogg')) {
-      _format = AudioFormat.ogg;
-    }
+    final lower = path.toLowerCase();
+    _format = switch (lower) {
+      _ when lower.endsWith('.mp3') => AudioFormat.mp3,
+      _ when lower.endsWith('.wav') => AudioFormat.wav,
+      _ when lower.endsWith('.ogg') => AudioFormat.ogg,
+      _ when lower.endsWith('.flac') => AudioFormat.flac,
+      _ => null,
+    };
   }
 
   @override
@@ -76,4 +66,18 @@ class AudioAsset extends Asset {
 }
 
 /// Audio format types
-enum AudioFormat { mp3, wav, ogg, flac }
+///
+/// An [AudioAsset] tells its format from its path's extension.
+enum AudioFormat {
+  /// MPEG audio layer III (`.mp3`).
+  mp3,
+
+  /// Waveform audio (`.wav`).
+  wav,
+
+  /// Ogg-contained audio, usually Vorbis (`.ogg`).
+  ogg,
+
+  /// Free Lossless Audio Codec (`.flac`).
+  flac,
+}

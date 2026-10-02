@@ -16,6 +16,8 @@ import '../tileset_data.dart';
 /// An object from one of a Tiled map's object layers, with what the groups
 /// it sat in did to it.
 class TiledObjectRecord {
+  /// [object] from the object layer [layerName], placed at [position], as
+  /// imported onto map layer [mapLayerId] (none when null).
   const TiledObjectRecord({
     required this.object,
     required this.layerName,
@@ -25,6 +27,8 @@ class TiledObjectRecord {
     this.mapLayerId,
   });
 
+  /// The object as Tiled has it: its shape, name, class and properties. Its
+  /// own `x` and `y` are Tiled's; [position] is where it goes.
   final tiled.TiledObject object;
 
   /// The object layer's name, groups included (`Group/Layer`).
@@ -38,24 +42,58 @@ class TiledObjectRecord {
   /// the engine's map-local pixels.
   final Offset position;
 
+  /// Its object layer's opacity times its groups', 0 to 1.
   final double opacity;
+
+  /// Whether it shows: it, its object layer and every group it sat in are
+  /// all visible.
   final bool visible;
 }
 
 /// An image layer from a Tiled map, placed in map-local pixels.
+///
+/// Every value here has the layer's groups folded in, the way Tiled draws
+/// it; [layer] keeps the layer's own values.
 class TiledImageRecord {
+  /// [layer], placed at [position] with [opacity], its groups' included —
+  /// and likewise [visible], [parallaxX], [parallaxY] and [tint], which
+  /// default to a shown, unscrolled, untinted layer.
   const TiledImageRecord({
     required this.layer,
     required this.position,
     required this.opacity,
+    this.visible = true,
+    this.parallaxX = 1,
+    this.parallaxY = 1,
+    this.tint,
   });
+
+  /// The image layer as Tiled has it: its image, name and properties.
   final tiled.ImageLayer layer;
+
+  /// Where it sits: its offset plus its groups', in map-local pixels.
   final Offset position;
+
+  /// Its opacity times its groups', 0 to 1.
   final double opacity;
+
+  /// Whether it shows: it and every group it sat in are all visible.
+  final bool visible;
+
+  /// Its horizontal parallax factor times its groups'; 1 scrolls with the
+  /// map.
+  final double parallaxX;
+
+  /// Its vertical parallax factor times its groups'.
+  final double parallaxY;
+
+  /// Its tint multiplied by its groups', or null for none.
+  final Color? tint;
 }
 
 /// What an import made of a Tiled map.
 class TiledImport {
+  /// The result of [TiledInterop.importMap]: see each field.
   TiledImport({
     required this.map,
     required this.tilesets,
@@ -127,11 +165,15 @@ abstract final class TiledInterop {
 
   /// [ts] as an engine tileset whose image is [image] (project-relative).
   /// Null for an image-collection tileset, which the engine does not draw.
+  ///
+  /// A collision shape's class names its kind when [kinds] (the engine's own
+  /// when null) knows it.
   static TilesetData? importTileset(
     tiled.Tileset ts, {
     required String image,
     String? name,
     void Function(String warning)? warn,
+    MapCollisionKinds? kinds,
   }) {
     if (ts.isImageCollection) {
       warn?.call(
@@ -162,7 +204,11 @@ abstract final class TiledInterop {
         animation: [
           for (final f in t.animation) TileFrame(f.tileId, f.duration),
         ],
-        collision: _importCollision(t, warn),
+        collision: _importCollision(
+          t,
+          warn,
+          kinds ?? MapCollisionKinds.builtIn,
+        ),
       );
       if (!def.isDefault) tiles[entry.key] = def;
     }
@@ -221,12 +267,13 @@ abstract final class TiledInterop {
   static TileCollision? _importCollision(
     tiled.Tile tile,
     void Function(String warning)? warn,
+    MapCollisionKinds kinds,
   ) {
     if (tile.objectGroup.isEmpty) return null;
     final shapes = <TileShape>[];
     String? kind = tile.properties.getString('collision');
     for (final o in tile.objectGroup) {
-      if (kind == null && MapCollisionKinds.byId(o.type) != null) {
+      if (kind == null && kinds.byId(o.type) != null) {
         kind = o.type;
       }
       if (o.polygon != null) {
@@ -369,15 +416,25 @@ abstract final class TiledInterop {
   /// was among the others; its objects are returned in
   /// [TiledImport.objects], each naming that layer, for the caller to make
   /// something of — an entity on the layer, say.
+  ///
+  /// Layers keep their Tiled ids, except one without an id (a map saved
+  /// before Tiled 1.2) or with the id of a layer before it, which gets a new
+  /// one after the largest.
   static TiledImport importMap(
     tiled.TiledMap map, {
     required String Function(int index, tiled.Tileset ts) tilesetPath,
     required String Function(tiled.Tileset ts) imagePath,
+    MapCollisionKinds? kinds,
   }) {
     final warnings = <String>[];
     final tilesets = <TilesetData?>[
       for (final ts in map.tilesets)
-        importTileset(ts, image: imagePath(ts), warn: warnings.add),
+        importTileset(
+          ts,
+          image: imagePath(ts),
+          warn: warnings.add,
+          kinds: kinds,
+        ),
     ];
     final data = LevelMapData(
       orientation: _orientation(map.orientation),
@@ -425,6 +482,30 @@ abstract final class TiledInterop {
         gid - map.tilesets[slot].firstGid,
         tiled.TiledGid.flagsOf(raw),
       );
+    }
+
+    // Tiled numbers layers from 1, but a map saved before Tiled 1.2 has no
+    // ids (all read as 0) and a hand-edited one may repeat one. The engine
+    // finds a layer by its id, so each gets one of its own: the first layer
+    // with an id keeps it, the rest are numbered after the largest.
+    var nextId = map.nextLayerId ?? 1;
+    void scanIds(List<tiled.Layer> layers) {
+      for (final layer in layers) {
+        if (layer is tiled.GroupLayer) {
+          scanIds(layer.layers);
+        } else if (layer is tiled.TileLayer || layer is tiled.ObjectGroup) {
+          if (layer.id >= nextId) nextId = layer.id + 1;
+        }
+      }
+    }
+
+    scanIds(map.layers);
+    if (nextId < 1) nextId = 1;
+    final usedIds = <int>{};
+    int idOf(tiled.Layer layer) {
+      if (layer.id > 0 && usedIds.add(layer.id)) return layer.id;
+      usedIds.add(nextId);
+      return nextId++;
     }
 
     final objects = <TiledObjectRecord>[];
@@ -477,7 +558,7 @@ abstract final class TiledInterop {
             final foreground = layer.properties.getBool('foreground') ?? false;
             data.layers.add(
               MapLayerData(
-                id: layer.id,
+                id: idOf(layer),
                 name: name,
                 visible: vis,
                 locked: layer.locked,
@@ -498,9 +579,10 @@ abstract final class TiledInterop {
             );
           case tiled.ObjectGroup():
             final foreground = layer.properties.getBool('foreground') ?? false;
+            final id = idOf(layer);
             data.layers.add(
               MapLayerData(
-                id: layer.id,
+                id: id,
                 name: name,
                 visible: vis,
                 locked: layer.locked,
@@ -525,13 +607,21 @@ abstract final class TiledInterop {
                   position: off + objectPosition(map, o),
                   opacity: op,
                   visible: vis && o.visible,
-                  mapLayerId: layer.id,
+                  mapLayerId: id,
                 ),
               );
             }
           case tiled.ImageLayer():
             images.add(
-              TiledImageRecord(layer: layer, position: off, opacity: op),
+              TiledImageRecord(
+                layer: layer,
+                position: off,
+                opacity: op,
+                visible: vis,
+                parallaxX: px,
+                parallaxY: py,
+                tint: t,
+              ),
             );
           case tiled.GroupLayer():
             walk(
@@ -551,7 +641,7 @@ abstract final class TiledInterop {
     }
 
     walk(map.layers);
-    var next = map.nextLayerId ?? 1;
+    var next = nextId;
     for (final l in data.layers) {
       if (l.id >= next) next = l.id + 1;
     }
@@ -603,6 +693,10 @@ abstract final class TiledInterop {
   /// A map whose tiles all sit at zero or beyond becomes a finite map just
   /// big enough for them; tiles further up or left make an infinite one, so
   /// nothing moves.
+  ///
+  /// A layer's `collides` and `foreground` properties are its settings as
+  /// they are now ([MapLayerData.collides], a `foreground` sort layer), not
+  /// the same-named properties an import kept.
   static tiled.TiledMap exportMap(
     LevelMapData map,
     List<TilesetData?> tilesets, {
@@ -658,9 +752,20 @@ abstract final class TiledInterop {
       final props = exportProperties(layer.properties);
       final values = {...props.toMap()};
       final types = {for (final k in props.keys) k: props.typeOf(k)};
+      // What an import reads `collides` and `foreground` into are the
+      // layer's own settings; the same-named properties it kept may be out
+      // of date, so the settings as they are now are written in their place.
+      for (final name in const ['collides', 'foreground']) {
+        values.remove(name);
+        types.remove(name);
+      }
       if (layer.collides) {
         values['collides'] = true;
         types['collides'] = 'bool';
+      }
+      if (layer.sortLayerId == 'foreground') {
+        values['foreground'] = true;
+        types['foreground'] = 'bool';
       }
       Uint32List? raw;
       final chunks = <tiled.TileChunk>[];

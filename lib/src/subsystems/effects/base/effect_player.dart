@@ -51,6 +51,9 @@ class _EffectEntry {
 class EffectPlayer {
   final List<_EffectEntry> _entries = [];
 
+  /// The last [EffectHandle.id] this player handed out.
+  int _nextHandleId = 0;
+
   /// Number of active (non-cancelled) effects in the queue.
   int get activeCount =>
       _entries.fold(0, (n, e) => n + (e.handle.isCancelled ? 0 : 1));
@@ -67,6 +70,7 @@ class EffectPlayer {
   /// `currentTick - startTick == 1`.
   EffectHandle add(DeterministicEffect effect, int startTick) {
     final handle = EffectHandle.create(
+      id: ++_nextHandleId,
       effectType: effect.effectType,
       startTick: startTick,
     );
@@ -81,7 +85,7 @@ class EffectPlayer {
   /// The entry is removed on the next [advanceTo] call.
   void cancel(EffectHandle handle) {
     handle.cancel();
-    _entries.removeWhere((e) => e.handle.id == handle.id);
+    _entries.removeWhere((e) => identical(e.handle, handle));
   }
 
   /// Cancel and remove all active effects.
@@ -169,7 +173,7 @@ class EffectPlayer {
   /// Restore from a previously captured [toJson] snapshot.
   ///
   /// Existing effects are cleared. After restore, the next [advanceTo] call
-  /// continues from [processedElapsed] without re-applying already-processed
+  /// continues from `processedElapsed` without re-applying already-processed
   /// ticks.
   void fromJson(
     List<dynamic> json,
@@ -181,6 +185,7 @@ class EffectPlayer {
       final effect = decode(raw['effect'] as Map<String, dynamic>);
       final startTick = raw['startTick'] as int;
       final handle = EffectHandle.create(
+        id: ++_nextHandleId,
         effectType: effect.effectType,
         startTick: startTick,
       );

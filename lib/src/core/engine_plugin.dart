@@ -32,6 +32,8 @@ abstract class EnginePlugin {
 
 /// The plugins attached to one engine.
 class PluginHost {
+  /// An empty host for the given engine; each plugin registered is attached
+  /// to it.
   PluginHost(this._engine);
 
   final Engine _engine;

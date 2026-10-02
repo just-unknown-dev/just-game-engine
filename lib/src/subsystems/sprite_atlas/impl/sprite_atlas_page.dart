@@ -4,7 +4,7 @@ part of '../sprite_atlas_subsystem.dart';
 ///
 /// Large atlases may span multiple pages when the total packed sprite area
 /// exceeds the maximum supported GPU texture size (commonly 4096 × 4096 px).
-/// Each page is an independent texture file; a [SpriteRegion]'s [pageIndex]
+/// Each page is an independent texture file; a [SpriteRegion]'s [SpriteRegion.pageIndex]
 /// says which page it lives on.
 ///
 /// Page images are loaded and cached through the engine [AssetManager] so
@@ -24,6 +24,8 @@ class SpriteAtlasPage {
   /// Pixel dimensions of this page, as reported in the atlas metadata.
   final Size size;
 
+  /// Page [index] of an atlas, its texture at [imagePath]; unloaded unless
+  /// an already decoded [image] is given.
   SpriteAtlasPage({
     required this.index,
     required this.imagePath,
@@ -31,17 +33,17 @@ class SpriteAtlasPage {
     this.image,
   });
 
-  /// Loads (or retrieves from the engine [AssetManager] cache) the page
-  /// texture and assigns [image].
+  /// Loads (or retrieves from [assets]' cache) the page texture and assigns
+  /// [image].
   ///
   /// Called automatically by [SpriteAtlas.fromAsset]; there is no need to
   /// call this manually unless you construct a [SpriteAtlasPage] outside the
   /// standard loading pipeline.
   ///
   /// Throws [StateError] if the image file cannot be found or decoded.
-  Future<void> loadImage() async {
+  Future<void> loadImage(AssetManager assets) async {
     if (image != null) return;
-    final imgAsset = await Engine.instance.assets.loadImage(imagePath);
+    final imgAsset = await assets.loadImage(imagePath);
     if (imgAsset.image == null) {
       throw StateError('Failed to decode atlas page texture: $imagePath');
     }

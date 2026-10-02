@@ -2,12 +2,11 @@
 /// the component that plays it.
 library;
 
+import '../../ecs/serialization/migration_hooks.dart';
 import 'timeline_format.dart';
 import 'dart:convert';
 
 import 'timeline_track.dart';
-import 'tracks/block_tracks.dart';
-import 'tracks/event_track.dart';
 import 'tracks/property_track.dart';
 
 /// What happens when time reaches the end.
@@ -24,20 +23,34 @@ enum TimelineWrap {
 
 /// A named time: somewhere to play from, something to snap to.
 class TimelineMarker {
+  /// A marker called [name], [time] seconds from the start.
   const TimelineMarker({required this.time, required this.name});
 
+  /// Seconds from the timeline's start.
   final double time;
+
+  /// What [TimelineAsset.markerNamed] — and so playing from a marker —
+  /// finds it by.
   final String name;
 
+  /// This marker as a JSON map with `time` and `name`.
   Map<String, dynamic> toJson() => {'time': time, 'name': name};
 
+  /// Reads [toJson]'s shape; a missing `time` is 0 and a missing `name` is
+  /// empty.
   factory TimelineMarker.fromJson(Map<String, dynamic> json) => TimelineMarker(
     time: (json['time'] as num?)?.toDouble() ?? 0,
     name: json['name'] as String? ?? '',
   );
 }
 
+/// Tracks on one clock: what a `.timeline.json` holds, or what a Timeline
+/// Player keeps inline. Immutable — an editor makes a new one with
+/// [copyWith] — so one asset can be shared by every player of it.
 class TimelineAsset {
+  /// A timeline of [tracks] lasting [duration] seconds (at or below zero,
+  /// playback runs to [contentEnd]), played once by default. Both lists
+  /// are copied into unmodifiable ones, [markers] sorted by time.
   TimelineAsset({
     this.name = '',
     this.duration = 1.0,
@@ -48,9 +61,7 @@ class TimelineAsset {
   }) : tracks = List.unmodifiable(tracks),
        markers = List.unmodifiable(
          List.of(markers)..sort((a, b) => a.time.compareTo(b.time)),
-       ) {
-    ensureBuiltInTracks();
-  }
+       );
 
   /// The version of the file format this engine writes
   /// ([TimelineFormat.current]). Older files are brought up to it as they
@@ -60,6 +71,7 @@ class TimelineAsset {
   /// What a timeline file's name ends with.
   static const String fileExtension = 'timeline.json';
 
+  /// A display name; empty for none, and then not saved.
   final String name;
 
   /// Seconds.
@@ -68,14 +80,21 @@ class TimelineAsset {
   /// Frames per second — how an editor divides and snaps time. Playback is
   /// continuous and does not care.
   final int fps;
+
+  /// What happens when time reaches the end; a player may impose its own.
   final TimelineWrap wrap;
+
+  /// Its rows, in the order they run each step. Unmodifiable.
   final List<TimelineTrack> tracks;
+
+  /// Its markers, sorted by time. Unmodifiable.
   final List<TimelineMarker> markers;
 
   /// When the last key, event or block on any track is.
   double get contentEnd =>
       tracks.fold(0.0, (end, t) => t.end > end ? t.end : end);
 
+  /// The earliest marker called [name], or null.
   TimelineMarker? markerNamed(String name) {
     for (final m in markers) {
       if (m.name == name) return m;
@@ -87,6 +106,8 @@ class TimelineAsset {
   Iterable<PropertyTrack> get propertyTracks =>
       tracks.whereType<PropertyTrack>();
 
+  /// A copy with the given fields replaced; the tracks themselves are
+  /// shared, being immutable.
   TimelineAsset copyWith({
     String? name,
     double? duration,
@@ -119,7 +140,11 @@ class TimelineAsset {
     final seen = <String>{};
     for (final track in tracks) {
       if (track is UnknownTrack) {
-        problems.add('A track is of the unknown kind "${track.kind}".');
+        problems.add(
+          track.error == null
+              ? 'A track is of the unknown kind "${track.kind}".'
+              : 'A "${track.kind}" track could not be read: ${track.error}',
+        );
       }
       if (track is PropertyTrack) {
         if (track.component.isEmpty || track.field.isEmpty) {
@@ -143,6 +168,9 @@ class TimelineAsset {
     return problems;
   }
 
+  /// The `.timeline.json` form: `formatVersion`, `name` when set,
+  /// `duration`, `fps`, `wrap` (by name), `tracks`, and `markers` when
+  /// there are any.
   Map<String, dynamic> toJson() => {
     'formatVersion': formatVersion,
     if (name.isNotEmpty) 'name': name,
@@ -153,11 +181,29 @@ class TimelineAsset {
     if (markers.isNotEmpty) 'markers': [for (final m in markers) m.toJson()],
   };
 
+  /// [toJson] as text indented by two spaces: what a `.timeline.json` file
+  /// holds.
   String encode() => const JsonEncoder.withIndent('  ').convert(toJson());
 
-  factory TimelineAsset.fromJson(Map<String, dynamic> source) {
-    ensureBuiltInTracks();
-    final json = TimelineFormat.migrate(source);
+  /// Reads a timeline saved by this engine or an older one.
+  ///
+  /// Throws a [FormatException] for a file written by a newer engine
+  /// ([TimelineFormat.versionOf] above [TimelineFormat.current]): reading
+  /// it anyway would lose whatever the newer format added the next time it
+  /// is saved.
+  ///
+  /// Tracks are read with [kinds] — the engine's own
+  /// ([TimelineTrackKinds.builtIn]) when null. A track of a kind it does not
+  /// know is kept as an [UnknownTrack] and saved back as it was. An older
+  /// file is migrated with the packages' rules in [migrations] (none when
+  /// null).
+  factory TimelineAsset.fromJson(
+    Map<String, dynamic> source, {
+    TimelineTrackKinds? kinds,
+    MigrationHooks? migrations,
+  }) {
+    final readers = kinds ?? TimelineTrackKinds.builtIn;
+    final json = TimelineFormat.migrate(source, hooks: migrations);
     return TimelineAsset(
       name: json['name'] as String? ?? '',
       duration: (json['duration'] as num?)?.toDouble() ?? 1.0,
@@ -165,7 +211,7 @@ class TimelineAsset {
       wrap: TimelineWrap.values.asNameMap()[json['wrap']] ?? TimelineWrap.once,
       tracks: [
         for (final t in json['tracks'] as List? ?? const [])
-          if (t is Map) TimelineTrackKinds.read(t.cast<String, dynamic>()),
+          if (t is Map) readers.read(t.cast<String, dynamic>()),
       ],
       markers: [
         for (final m in json['markers'] as List? ?? const [])
@@ -174,27 +220,14 @@ class TimelineAsset {
     );
   }
 
-  static TimelineAsset parse(String source) =>
-      TimelineAsset.fromJson((jsonDecode(source) as Map).cast());
-
-  static bool _builtInsRegistered = false;
-
-  /// Registers the engine's own track kinds; harmless to call again. A
-  /// package's registration of the same id beforehand is left alone.
-  static void ensureBuiltInTracks() {
-    if (_builtInsRegistered) return;
-    _builtInsRegistered = true;
-    void add(String kind, TimelineTrack Function(Map<String, dynamic>) read) {
-      if (!TimelineTrackKinds.has(kind))
-        TimelineTrackKinds.register(kind, read);
-    }
-
-    add(PropertyTrack.kindId, PropertyTrack.fromJson);
-    add(EventTrack.kindId, EventTrack.fromJson);
-    add(SpriteClipTrack.kindId, SpriteClipTrack.fromJson);
-    add(CameraShotTrack.kindId, CameraShotTrack.fromJson);
-    add(AudioTrack.kindId, AudioTrack.fromJson);
-    add(ActivationTrack.kindId, ActivationTrack.fromJson);
-    add(NestedTimelineTrack.kindId, NestedTimelineTrack.fromJson);
-  }
+  /// Parses and reads [source]; see [TimelineAsset.fromJson].
+  static TimelineAsset parse(
+    String source, {
+    TimelineTrackKinds? kinds,
+    MigrationHooks? migrations,
+  }) => TimelineAsset.fromJson(
+    (jsonDecode(source) as Map).cast(),
+    kinds: kinds,
+    migrations: migrations,
+  );
 }

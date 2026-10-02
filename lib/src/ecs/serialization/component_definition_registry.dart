@@ -3,26 +3,34 @@ library;
 import '../ecs.dart';
 import 'component_codec.dart';
 import 'component_definition.dart';
+import 'core_codecs.dart';
 
 /// Every component the engine can save, load, inspect, size and draw, keyed
 /// by type name, alias and Dart type.
 ///
 /// Holds two kinds of entry. A [ComponentDefinition] describes a component
-/// fully and is normally also its wire codec. A plain [ComponentCodec]
-/// registered for the same type takes over *only* the wire format — how the
-/// engine keeps reading and writing its older hand-written JSON shapes for
-/// the core components while their definitions drive everything else.
+/// fully and is normally also its wire codec — the engine's own components
+/// are all saved that way. A plain [ComponentCodec] registered for the same
+/// type takes over *only* the wire format: how a package keeps its own JSON
+/// shape for a type while the definition drives everything else.
 ///
 /// Registration never clobbers silently: re-registering the same instance is
 /// a no-op, a different one for the same type throws unless `override` is
 /// passed. A project's replacement for a built-in therefore stays replaced.
+///
+/// There is no process-wide registry: each engine's is its context's
+/// (`engine.context.definitions`, `world.context.definitions`).
 class ComponentDefinitionRegistry {
+  /// An empty registry.
   ComponentDefinitionRegistry();
 
-  /// Process-wide registry. Goes away once every registry is owned by an
-  /// editor scope; kept so existing boot code keeps working.
-  static final ComponentDefinitionRegistry instance =
-      ComponentDefinitionRegistry();
+  /// A fresh registry holding the engine's own definitions — what every
+  /// `EngineContext` starts from.
+  factory ComponentDefinitionRegistry.core() {
+    final registry = ComponentDefinitionRegistry();
+    registerCoreCodecs(registry);
+    return registry;
+  }
 
   final Map<String, ComponentDefinition> _definitions = {};
   final Map<Type, ComponentDefinition> _definitionsByType = {};
@@ -154,6 +162,3 @@ class ComponentDefinitionRegistry {
     return byName(type)?.decode(json);
   }
 }
-
-/// The name this registry had while it only held codecs.
-typedef ComponentCodecRegistry = ComponentDefinitionRegistry;

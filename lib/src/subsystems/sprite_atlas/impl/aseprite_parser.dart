@@ -12,7 +12,7 @@ part of '../sprite_atlas_subsystem.dart';
 /// | `"pingpong"` | `from → to → (to-1) → (from+1)` |
 ///
 /// Per-frame durations (in MS in Aseprite, converted to seconds) produce
-/// [AtlasAnimationClip]s that drive [AtlasSpriteAnimation] with exact
+/// [AtlasAnimationClip]s that play with exact
 /// designer-specified timing.
 ///
 /// ## Aseprite Hash-frames example
@@ -83,10 +83,14 @@ class AsepriteAtlasParser extends AtlasParser {
     final frameTags = (meta['frameTags'] as List<dynamic>?) ?? [];
 
     for (final tagRaw in frameTags) {
-      final tag = tagRaw as Map<String, dynamic>;
+      if (tagRaw is! Map) continue;
+      final tag = tagRaw.cast<String, dynamic>();
       final clipName = (tag['name'] as String?) ?? '';
-      final from = (tag['from'] as int?) ?? 0;
-      final to = (tag['to'] as int?) ?? 0;
+      // Some writers put whole numbers down as 3.0.
+      var from = _index(tag['from']);
+      var to = _index(tag['to']);
+      // A range written backwards is still the frames between its ends.
+      if (to < from) (from, to) = (to, from);
       final direction = (tag['direction'] as String?) ?? 'forward';
 
       final indices = _resolveIndices(from, to, direction);
@@ -195,6 +199,9 @@ class AsepriteAtlasParser extends AtlasParser {
 
   static double _d(dynamic v, {double fallback = 0.0}) =>
       v != null ? (v as num).toDouble() : fallback;
+
+  /// A frame index as written: an int, or a whole double; 0 otherwise.
+  static int _index(Object? v) => v is num && v.isFinite ? v.toInt() : 0;
 
   static String _stripExtension(String name) {
     final dot = name.lastIndexOf('.');

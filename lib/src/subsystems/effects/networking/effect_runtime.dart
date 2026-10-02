@@ -15,7 +15,7 @@ part of '../effect_system.dart';
 /// final effectSystem = world.getSystem<EffectSystemECS>()!;
 /// effectSystem.scheduleEffect(
 ///   entity: e,
-///   effect: MoveEffect(to: Offset(300, 0), durationTicks: 60),
+///   effect: MoveEffect(to: Vector3(300, 0, 0), durationTicks: 60),
 ///   startTick: serverTick, // same on all peers → same result
 /// );
 /// ```
@@ -120,6 +120,9 @@ class PredictionEffectRuntime extends _EffectRuntimeBase {
   /// Per-tick log: key = startTick, value = effects scheduled at that tick.
   final Map<int, List<_RollbackEntry>> _log = {};
 
+  /// A runtime at tick 0 that remembers effects scheduled in the last
+  /// [rollbackWindowTicks] ticks (120 by default: 2 s at 60 ticks a
+  /// second).
   PredictionEffectRuntime({this.rollbackWindowTicks = 120});
 
   @override

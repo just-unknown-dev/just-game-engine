@@ -42,6 +42,7 @@ abstract class ILifecycle {
 /// Interface for systems that can be updated every frame
 ///
 /// Systems that need to perform per-frame updates should implement this interface.
+@Deprecated('Unused; will be removed in 3.0')
 abstract class IUpdatable {
   /// Update the system
   ///
@@ -52,6 +53,7 @@ abstract class IUpdatable {
 /// Interface for systems that can be rendered
 ///
 /// Systems that need to render visuals should implement this interface.
+@Deprecated('Unused; will be removed in 3.0')
 abstract class IRenderable {
   /// Render the system
   void render();
@@ -60,6 +62,7 @@ abstract class IRenderable {
 /// Interface for systems that can be paused
 ///
 /// Systems that support pausing should implement this interface.
+@Deprecated('Unused; will be removed in 3.0')
 abstract class IPausable {
   /// Pause the system
   void pause();
@@ -74,6 +77,7 @@ abstract class IPausable {
 /// Interface for systems that can be enabled/disabled
 ///
 /// Systems that can be toggled on and off should implement this interface.
+@Deprecated('Unused; will be removed in 3.0')
 abstract class IEnableable {
   /// Enable the system
   void enable();
@@ -88,6 +92,7 @@ abstract class IEnableable {
 /// Mixin for adding lifecycle state tracking
 ///
 /// This mixin provides common state tracking for lifecycle management.
+@Deprecated('Unused; will be removed in 3.0')
 mixin LifecycleStateMixin {
   /// Whether the object is initialized
   bool _isInitialized = false;

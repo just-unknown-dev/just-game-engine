@@ -8,7 +8,7 @@ import 'dart:ui';
 
 import '../../../ecs/components/components.dart';
 import '../../../ecs/ecs.dart';
-import '../../../ecs/serialization/component_definition.dart'
+import '../../../ecs/serialization/component_presentation.dart'
     show RenderContext;
 import '../tile_cell.dart';
 import '../tile_chunks.dart';
@@ -20,11 +20,17 @@ import '../level_map_runtime.dart';
 /// among sprites and shapes by the layer's own sort layer and z-order, and
 /// the entities on the layer draw just after it.
 class MapLayerRenderItem extends RenderItem {
+  /// The item drawing layer [layerId] of [runtime]'s map.
   MapLayerRenderItem(this.runtime, this.layerId);
 
+  /// The map whose layer it draws.
   final LevelMapRuntime runtime;
+
+  /// The layer, by its id within the map.
   final int layerId;
 
+  /// The layer's data; null once the map no longer has it, and the item
+  /// then draws nothing.
   MapLayerData? get data => runtime.base.layerById(layerId);
 
   /// Set by `LevelMapSystem`: where the layer sits among the map's layers
@@ -35,6 +41,9 @@ class MapLayerRenderItem extends RenderItem {
   /// Set by `LevelMapSystem` when the map is a piece of another map's layer:
   /// it then draws where that layer does, not where its own layer says.
   int? layerOverride;
+
+  /// The z-order of that other layer, set along with [layerOverride]; null
+  /// uses this layer's own.
   int? zOrderOverride;
 
   @override
@@ -109,6 +118,30 @@ class _Batch {
   int shownMs = -1;
 }
 
+/// What one [MapLayerPainter.paint] call draws with, handed from batch to
+/// batch.
+class _Draw {
+  _Draw(
+    this.canvas,
+    this.batches,
+    this.geometry,
+    this.layerId, {
+    required this.ordered,
+    required this.assets,
+    required this.color,
+  });
+
+  final Canvas canvas;
+  final Map<int, _Batch> batches;
+  final MapGeometry geometry;
+  final int layerId;
+  final bool ordered;
+
+  /// The signature of what every batch is built from besides its chunks.
+  final int assets;
+  final int? color;
+}
+
 /// Draws a map's layers.
 ///
 /// A layer is cut into batches — a chunk each on orthogonal and isometric
@@ -123,17 +156,22 @@ class _Batch {
 /// not mirror; with that, each of the eight turns and mirrors of a square
 /// tile is "mirrored image or not" plus a number of quarter turns.
 class MapLayerPainter {
+  /// A painter for [runtime]'s layers, with no batches built yet.
   MapLayerPainter(this.runtime);
 
+  /// The map whose layers it draws.
   final LevelMapRuntime runtime;
   final Map<int, Map<int, _Batch>> _batches = {};
   final Paint _paint = Paint()
     ..filterQuality = FilterQuality.none
     ..isAntiAlias = false;
 
-  /// Forgets every built batch.
-  void invalidate() => _batches.clear();
-
+  /// Draws layer [layerId] of the map on [owner] — whose position is the
+  /// map's origin — onto [canvas], with the layer's offset, parallax,
+  /// opacity and tint. Only batches in [context]'s camera view are drawn
+  /// (all of them without a camera), each rebuilt first if its cells,
+  /// tilesets or images have changed. A layer the map no longer has draws
+  /// nothing.
   void paint(Canvas canvas, RenderContext context, Entity owner, int layerId) {
     final layer = runtime.base.layerById(layerId);
     if (layer == null) return;
@@ -181,107 +219,173 @@ class MapLayerPainter {
     }
 
     final cells = runtime.cellsOf(layer);
-    final batches = _batches.putIfAbsent(layerId, () => {});
+    final bounds = cells.chunkBounds;
+    if (bounds == null) return;
+    final orientation = geometry.orientation;
     final banded =
-        geometry.orientation == MapOrientation.staggered ||
-        geometry.orientation == MapOrientation.hexagonal;
+        orientation == MapOrientation.staggered ||
+        orientation == MapOrientation.hexagonal;
+    final iso = orientation == MapOrientation.isometric;
+
+    // The chunks to walk: those in view, among those there are. A banded
+    // layer's batch is a whole row of chunks, so only rows are culled.
+    var cx0 = bounds.cx0, cy0 = bounds.cy0;
+    var cx1 = bounds.cx1, cy1 = bounds.cy1;
+    if (view != null) {
+      final r = geometry.cellRange(view);
+      cy0 = math.max(cy0, r.y0 >> 4);
+      cy1 = math.min(cy1, ((r.y1 - 1) >> 4) + 1);
+      if (!banded) {
+        cx0 = math.max(cx0, r.x0 >> 4);
+        cx1 = math.min(cx1, ((r.x1 - 1) >> 4) + 1);
+      }
+    }
+    if (cx1 <= cx0 || cy1 <= cy0) return;
+
+    var batches = _batches[layerId];
+    if (batches == null) _batches[layerId] = batches = {};
+    final draw = _Draw(
+      canvas,
+      batches,
+      geometry,
+      layerId,
+      ordered: banded || iso,
+      assets: Object.hash(
+        runtime.assetsRevision,
+        runtime.tilesetsRevision,
+        runtime.base.revision,
+        runtime.hiddenRevision,
+      ),
+      color: color,
+    );
 
     canvas.save();
     canvas.translate(shift.dx, shift.dy);
-    for (final (key, chunks) in _groups(cells, view, geometry, banded)) {
-      final signature = _signature(chunks, layerId);
-      var batch = batches[key];
-      if (batch == null || batch.signature != signature || !batch.complete) {
-        batch = _build(
-          chunks,
-          geometry,
-          layerId,
-          ordered: banded || geometry.orientation == MapOrientation.isometric,
-          signature: signature,
-        );
-        batches[key] = batch;
+    final group = _group;
+    if ((cx1 - cx0) * (cy1 - cy0) > cells.chunkCount * 4 + 64) {
+      // A few chunks spread far apart: walk those there are.
+      _drawSparse(draw, cells, cx0, cy0, cx1, cy1, banded: banded, iso: iso);
+    } else if (banded) {
+      // A band per row of chunks, top to bottom.
+      for (var cy = cy0; cy < cy1; cy++) {
+        group.clear();
+        for (var cx = cx0; cx < cx1; cx++) {
+          final c = cells.chunk(cx, cy);
+          if (c != null) group.add(c);
+        }
+        if (group.isNotEmpty) _drawGroup(draw, cy, group);
       }
-      _animate(batch);
-      for (final run in batch.runs) {
-        final image = run.mirrored
-            ? runtime.mirroredAt(run.slot)
-            : runtime.imageAt(run.slot);
-        if (image == null || run.length == 0) continue;
-        canvas.drawRawAtlas(
-          image,
-          run.transforms,
-          run.rects,
-          color == null ? null : run.colors(color),
-          color == null ? null : BlendMode.modulate,
-          null,
-          _paint,
-        );
+    } else if (iso) {
+      // Diagonal by diagonal (cx + cy), each left to right: back to front.
+      for (var d = cx0 + cy0; d <= cx1 + cy1 - 2; d++) {
+        final from = math.max(cx0, d - cy1 + 1);
+        final to = math.min(cx1 - 1, d - cy0);
+        for (var cx = from; cx <= to; cx++) {
+          final c = cells.chunk(cx, d - cx);
+          if (c != null) _drawChunk(draw, c);
+        }
+      }
+    } else {
+      // Row by row, each left to right.
+      for (var cy = cy0; cy < cy1; cy++) {
+        for (var cx = cx0; cx < cx1; cx++) {
+          final c = cells.chunk(cx, cy);
+          if (c != null) _drawChunk(draw, c);
+        }
       }
     }
+    group.clear();
     canvas.restore();
   }
 
-  /// The chunks to draw, in draw order, grouped into batches.
-  Iterable<(int, List<TileChunkData>)> _groups(
+  /// The chunks of the batch being drawn, reused from batch to batch.
+  final List<TileChunkData> _group = [];
+
+  void _drawChunk(_Draw draw, TileChunkData chunk) {
+    _group
+      ..clear()
+      ..add(chunk);
+    _drawGroup(draw, TileChunkStore.keyOf(chunk.cx, chunk.cy), _group);
+  }
+
+  /// The chunks in range, found by going through the chunks there are
+  /// rather than looking each place in the range up, and sorted into draw
+  /// order: cheaper when a few chunks lie far apart.
+  void _drawSparse(
+    _Draw draw,
     TileChunkStore cells,
-    Rect? view,
-    MapGeometry geometry,
-    bool banded,
-  ) sync* {
-    TileRange? chunkRange;
-    if (view != null) {
-      final r = geometry.cellRange(view);
-      chunkRange = TileRange(
-        r.x0 >> 4,
-        r.y0 >> 4,
-        ((r.x1 - 1) >> 4) + 1,
-        ((r.y1 - 1) >> 4) + 1,
-      );
-    }
-    final all = cells.chunks.where(
-      (c) =>
-          chunkRange == null ||
-          (banded
-              ? c.cy >= chunkRange.y0 && c.cy < chunkRange.y1
-              : chunkRange.contains(c.cx, c.cy)),
-    );
-    if (banded) {
-      final bands = <int, List<TileChunkData>>{};
-      for (final c in all) {
-        bands.putIfAbsent(c.cy, () => []).add(c);
+    int cx0,
+    int cy0,
+    int cx1,
+    int cy1, {
+    required bool banded,
+    required bool iso,
+  }) {
+    final list = [
+      for (final c in cells.chunks)
+        if (c.cy >= cy0 && c.cy < cy1 && c.cx >= cx0 && c.cx < cx1) c,
+    ];
+    list.sort((a, b) {
+      if (iso) {
+        final d = (a.cx + a.cy).compareTo(b.cx + b.cy);
+        if (d != 0) return d;
+        return a.cx.compareTo(b.cx);
       }
-      final keys = bands.keys.toList()..sort();
-      for (final cy in keys) {
-        yield (cy, bands[cy]!);
+      final d = a.cy.compareTo(b.cy);
+      return d != 0 ? d : a.cx.compareTo(b.cx);
+    });
+    if (!banded) {
+      for (final c in list) {
+        _drawChunk(draw, c);
       }
       return;
     }
-    final list = all.toList()
-      ..sort((a, b) {
-        if (geometry.orientation == MapOrientation.isometric) {
-          final d = (a.cx + a.cy).compareTo(b.cx + b.cy);
-          if (d != 0) return d;
-          return a.cx.compareTo(b.cx);
-        }
-        final d = a.cy.compareTo(b.cy);
-        return d != 0 ? d : a.cx.compareTo(b.cx);
-      });
-    for (final c in list) {
-      yield (TileChunkStore.keyOf(c.cx, c.cy), [c]);
+    var i = 0;
+    while (i < list.length) {
+      final cy = list[i].cy;
+      final band = <TileChunkData>[];
+      while (i < list.length && list[i].cy == cy) {
+        band.add(list[i++]);
+      }
+      _drawGroup(draw, cy, band);
     }
   }
 
-  int _signature(List<TileChunkData> chunks, int layerId) {
-    var s = Object.hash(
-      runtime.assetsRevision,
-      runtime.tilesetsRevision,
-      runtime.base.revision,
-      runtime.hiddenRevision,
-    );
+  /// Draws the batch [key] made of [chunks], built again first if they,
+  /// or the tilesets and images, have changed since it was.
+  void _drawGroup(_Draw draw, int key, List<TileChunkData> chunks) {
+    var signature = draw.assets;
     for (final c in chunks) {
-      s = Object.hash(s, identityHashCode(c), c.revision);
+      signature = Object.hash(signature, identityHashCode(c), c.revision);
     }
-    return s;
+    var batch = draw.batches[key];
+    if (batch == null || batch.signature != signature || !batch.complete) {
+      batch = _build(
+        chunks,
+        draw.geometry,
+        draw.layerId,
+        ordered: draw.ordered,
+        signature: signature,
+      );
+      draw.batches[key] = batch;
+    }
+    _animate(batch);
+    final color = draw.color;
+    for (final run in batch.runs) {
+      final image = run.mirrored
+          ? runtime.mirroredAt(run.slot)
+          : runtime.imageAt(run.slot);
+      if (image == null || run.length == 0) continue;
+      draw.canvas.drawRawAtlas(
+        image,
+        run.transforms,
+        run.rects,
+        color == null ? null : run.colors(color),
+        color == null ? null : BlendMode.modulate,
+        null,
+        _paint,
+      );
+    }
   }
 
   _Batch _build(
@@ -291,7 +395,7 @@ class MapLayerPainter {
     required bool ordered,
     required int signature,
   }) {
-    final hidden = runtime.hiddenCells[layerId];
+    final hidden = runtime.hiddenCellsOf(layerId);
     final hex = geometry.orientation == MapOrientation.hexagonal;
     final entries = <(int, int, int)>[];
     for (final chunk in chunks) {

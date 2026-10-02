@@ -27,6 +27,7 @@ abstract interface class SpatialIndex {
 /// A [SpatialIndex] over the x/y footprint of everything — an
 /// [EntitySpatialGrid] — ignoring depth, as 2-D does.
 class PlanarSpatialIndex implements SpatialIndex {
+  /// An empty index over a grid of [cellSize]-unit cells, 256 by default.
   PlanarSpatialIndex({double cellSize = 256.0})
     : grid = EntitySpatialGrid(cellSize: cellSize);
 
@@ -49,6 +50,6 @@ class PlanarSpatialIndex implements SpatialIndex {
   @override
   void query(Aabb3 region, List<Entity> out) {
     if (region.isEmpty) return;
-    out.addAll(grid.query(region.toRect()));
+    grid.query(region.toRect(), out);
   }
 }

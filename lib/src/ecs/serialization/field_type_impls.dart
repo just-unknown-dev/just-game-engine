@@ -11,7 +11,9 @@ import 'field_type.dart';
 
 double _toDouble(Object? v) => v is num ? v.toDouble() : 0.0;
 
+/// A [bool], saved as JSON `true` / `false` and read back as it is.
 class BooleanFieldType extends FieldType<bool> {
+  /// Const constructor; the shared instance is [FieldTypes.boolean].
   const BooleanFieldType();
   @override
   String get id => 'boolean';
@@ -21,7 +23,11 @@ class BooleanFieldType extends FieldType<bool> {
   Object? decode(Object? json, FieldConstraints c) => json;
 }
 
+/// An [int], saved as a JSON number. Reading truncates any number to an
+/// int and clamps it to the constraints' `min` (rounded up) and `max`
+/// (rounded down).
 class IntegerFieldType extends FieldType<int> {
+  /// Const constructor; the shared instance is [FieldTypes.integer].
   const IntegerFieldType();
   @override
   String get id => 'integer';
@@ -37,7 +43,10 @@ class IntegerFieldType extends FieldType<int> {
   }
 }
 
+/// A [double], saved as a JSON number. Reading takes any number as a
+/// double and clamps it to the constraints' `min` and `max`.
 class DecimalFieldType extends FieldType<double> {
+  /// Const constructor; the shared instance is [FieldTypes.decimal].
   const DecimalFieldType();
   @override
   String get id => 'decimal';
@@ -53,7 +62,9 @@ class DecimalFieldType extends FieldType<double> {
   }
 }
 
+/// A [String], saved as a JSON string and read back as it is.
 class TextFieldType extends FieldType<String> {
+  /// Const constructor; the shared instance is [FieldTypes.text].
   const TextFieldType();
   @override
   String get id => 'text';
@@ -65,6 +76,7 @@ class TextFieldType extends FieldType<String> {
 
 /// A path into the asset bundle. Stored as text; the editor offers a picker.
 class AssetRefFieldType extends FieldType<String> {
+  /// Const constructor; the shared instance is [FieldTypes.assetRef].
   const AssetRefFieldType();
   @override
   String get id => 'assetRef';
@@ -78,6 +90,7 @@ class AssetRefFieldType extends FieldType<String> {
 /// what the author called it, which survives a reload and a respawn where an
 /// id would not.
 class EntityRefFieldType extends FieldType<String> {
+  /// Const constructor; the shared instance is [FieldTypes.entityRef].
   const EntityRefFieldType();
   @override
   String get id => 'entityRef';
@@ -90,6 +103,7 @@ class EntityRefFieldType extends FieldType<String> {
 /// A tag, from the project's tag list. Stored as text; the editor offers the
 /// tags the project knows and a way to make a new one.
 class TagRefFieldType extends FieldType<String> {
+  /// Const constructor; the shared instance is [FieldTypes.tagRef].
   const TagRefFieldType();
   @override
   String get id => 'tagRef';
@@ -102,6 +116,7 @@ class TagRefFieldType extends FieldType<String> {
 /// The id of a spawner the game registers, as a spawn point names it.
 /// Stored as text; the editor offers the spawners it was given.
 class SpawnerRefFieldType extends FieldType<String> {
+  /// Const constructor; the shared instance is [FieldTypes.spawnerRef].
   const SpawnerRefFieldType();
   @override
   String get id => 'spawnerRef';
@@ -114,6 +129,8 @@ class SpawnerRefFieldType extends FieldType<String> {
 /// Several tags: a list of names, blanks and repeats dropped. What a
 /// [TagComponent] saves.
 class TagListFieldType extends FieldType<List<String>> {
+  /// Const constructor; the shared instance is [FieldTypes.tagList]. Also
+  /// reads a lone string as a one-tag list.
   const TagListFieldType();
   @override
   String get id => 'tagList';
@@ -138,8 +155,12 @@ class TagListFieldType extends FieldType<List<String>> {
 /// following itself means nothing; a timeline animating its own entity is
 /// the usual case.
 class EntityTargetFieldType extends FieldType<EntityTarget> {
+  /// A target field, offering "Self" when [allowSelf]; the shared instances
+  /// are [FieldTypes.target] and [FieldTypes.targetOrSelf].
   const EntityTargetFieldType({this.allowSelf = false});
 
+  /// Whether an editor offers the component's own entity ("Self") as well
+  /// as a name or a tag. Changes nothing about how the value is saved.
   final bool allowSelf;
 
   /// The kinds an editor offers.
@@ -163,6 +184,9 @@ class EntityTargetFieldType extends FieldType<EntityTarget> {
 
 /// An enum stored by name and parsed back with [FieldConstraints.enumParser].
 class EnumerationFieldType extends FieldType<Object> {
+  /// Const constructor; the shared instance is [FieldTypes.enumeration].
+  /// Saves the value's `toString()` after its last dot; reads a string back
+  /// through the parser, or keeps the string when there is none.
   const EnumerationFieldType();
   @override
   String get id => 'enumeration';
@@ -179,6 +203,9 @@ class EnumerationFieldType extends FieldType<Object> {
 /// An enum that knows its own values, so it needs no parser and the editor
 /// can list its options without being told them separately.
 class EnumFieldType<E extends Enum> extends FieldType<E> {
+  /// A field over [values], saved as the value's `name`. [id] names the
+  /// type for editors (`'enum'` when null); an unknown saved name reads as
+  /// [fallback].
   const EnumFieldType(this.values, {this.fallback, String? id})
     : _id = id ?? 'enum';
 
@@ -209,7 +236,10 @@ class EnumFieldType<E extends Enum> extends FieldType<E> {
   }
 }
 
+/// A list of plain JSON values, saved and read back as it is — no element
+/// is converted.
 class ListFieldType extends FieldType<List<Object?>> {
+  /// Const constructor; the shared instance is [FieldTypes.list].
   const ListFieldType();
   @override
   String get id => 'list';
@@ -221,6 +251,8 @@ class ListFieldType extends FieldType<List<Object?>> {
 
 /// Space around something: `{l, t, r, b}`.
 class EdgeInsetsFieldType extends FieldType<EdgeInsets> {
+  /// Const constructor; the shared instance is [FieldTypes.edgeInsets].
+  /// A missing side reads as 0.
   const EdgeInsetsFieldType();
   @override
   String get id => 'edgeInsets';
@@ -242,7 +274,10 @@ class EdgeInsetsFieldType extends FieldType<EdgeInsets> {
       : json;
 }
 
+/// A map of plain JSON values, saved and read back as it is — no entry is
+/// converted.
 class MapFieldType extends FieldType<Map<Object?, Object?>> {
+  /// Const constructor; the shared instance is [FieldTypes.map].
   const MapFieldType();
   @override
   String get id => 'map';
@@ -252,7 +287,10 @@ class MapFieldType extends FieldType<Map<Object?, Object?>> {
   Object? decode(Object? json, FieldConstraints c) => json;
 }
 
+/// A [Vector2], saved as `{x, y}`; a missing or non-numeric part reads as
+/// 0.
 class Vector2FieldType extends FieldType<Vector2> {
+  /// Const constructor; the shared instance is [FieldTypes.vector2].
   const Vector2FieldType();
   @override
   String get id => 'vector2';
@@ -265,7 +303,10 @@ class Vector2FieldType extends FieldType<Vector2> {
       json is Map ? Vector2(_toDouble(json['x']), _toDouble(json['y'])) : json;
 }
 
+/// A [Vector3], saved as `{x, y, z}`; a missing or non-numeric part reads
+/// as 0.
 class Vector3FieldType extends FieldType<Vector3> {
+  /// Const constructor; the shared instance is [FieldTypes.vector3].
   const Vector3FieldType();
   @override
   String get id => 'vector3';
@@ -294,6 +335,7 @@ class Vector3FieldType extends FieldType<Vector3> {
 /// A plain number reads as a turn about Z, which is what a rotation was
 /// before it had three angles.
 class EulerFieldType extends FieldType<Vector3> {
+  /// Const constructor; the shared instance is [FieldTypes.euler].
   const EulerFieldType();
   @override
   String get id => 'euler';
@@ -315,7 +357,10 @@ class EulerFieldType extends FieldType<Vector3> {
   };
 }
 
+/// A [Color], saved as its 32-bit ARGB value as a JSON int
+/// (`0xAARRGGBB`).
 class ColorFieldType extends FieldType<Color> {
+  /// Const constructor; the shared instance is [FieldTypes.color].
   const ColorFieldType();
   @override
   String get id => 'color';
@@ -326,7 +371,10 @@ class ColorFieldType extends FieldType<Color> {
       json is int ? Color(json) : json;
 }
 
+/// An [Offset], saved as `{dx, dy}`; a missing or non-numeric part reads
+/// as 0.
 class OffsetFieldType extends FieldType<Offset> {
+  /// Const constructor; the shared instance is [FieldTypes.offset].
   const OffsetFieldType();
   @override
   String get id => 'offset';
@@ -339,7 +387,10 @@ class OffsetFieldType extends FieldType<Offset> {
       json is Map ? Offset(_toDouble(json['dx']), _toDouble(json['dy'])) : json;
 }
 
+/// A list of [Offset]s — a polygon's points, say — saved as a list of
+/// `{dx, dy}` maps. Reading skips entries that are not maps.
 class OffsetListFieldType extends FieldType<List<Offset>> {
+  /// Const constructor; the shared instance is [FieldTypes.offsetList].
   const OffsetListFieldType();
   @override
   String get id => 'offsetList';
@@ -358,6 +409,7 @@ class OffsetListFieldType extends FieldType<List<Offset>> {
 
 /// Raw JSON, kept exactly as found.
 class UnknownFieldType extends FieldType<Object> {
+  /// Const constructor; the shared instance is [FieldTypes.unknown].
   const UnknownFieldType();
   @override
   String get id => 'unknown';
@@ -374,6 +426,9 @@ class UnknownFieldType extends FieldType<Object> {
 /// both — older schema-backed saves stored `beginX`/`beginY` and the tile
 /// mode's index.
 class ShapePaintStyleFieldType extends FieldType<ShapePaintStyle> {
+  /// Const constructor; the shared instance is
+  /// [FieldTypes.shapePaintStyle]. A style saved without a colour reads as
+  /// opaque white.
   const ShapePaintStyleFieldType();
 
   @override

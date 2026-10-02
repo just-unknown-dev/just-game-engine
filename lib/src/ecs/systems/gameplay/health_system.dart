@@ -2,7 +2,7 @@ library;
 
 import '../../ecs.dart';
 import '../../components/components.dart';
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 
 /// Health system - Handles death and health regeneration
 class HealthSystem extends System {

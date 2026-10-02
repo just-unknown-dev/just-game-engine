@@ -18,7 +18,7 @@ class _NoFiles extends SpriteAssetLoader {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  final ts = BuiltInTilesets.tileset(BuiltInTilesets.basicShapes)!;
+  final ts = BuiltInTilesets.build(BuiltInTilesets.basicShapes)!;
 
   test('24 tiles of 32 pixels, 8 to a row, each with its collision', () {
     expect(ts.name, 'Basic shapes');
@@ -37,10 +37,19 @@ void main() {
   test(
     'always there: nothing to load, nothing forgotten, nothing replaced',
     () {
-      TileAssets.clear();
-      expect(TileAssets.loadedTileset(BuiltInTilesets.basicShapes), same(ts));
-      TileAssets.putTileset(BuiltInTilesets.basicShapes, TilesetData());
-      expect(TileAssets.loadedTileset(BuiltInTilesets.basicShapes), same(ts));
+      final tiles = EngineContext().tiles;
+      addTearDown(tiles.dispose);
+      final kept = tiles.loadedTileset(BuiltInTilesets.basicShapes)!;
+      expect(kept.tileCount, ts.tileCount);
+      tiles
+        ..clear()
+        ..putTileset(BuiltInTilesets.basicShapes, TilesetData());
+      expect(tiles.loadedTileset(BuiltInTilesets.basicShapes), same(kept));
+      expect(
+        EngineContext().tiles.loadedTileset(BuiltInTilesets.basicShapes),
+        isNot(same(kept)),
+        reason: 'each engine keeps its own copy',
+      );
       expect(TileAssets.isVirtual(BuiltInTilesets.basicShapes), isTrue);
       expect(TileAssets.isVirtual(BuiltInTilesets.basicShapesImage), isTrue);
       expect(TileAssets.isVirtual('assets/a.tileset.json'), isFalse);
@@ -76,17 +85,19 @@ void main() {
   });
 
   test('a map draws it from the picture the engine makes', () async {
-    SpriteAssets.loader = _NoFiles();
-    addTearDown(() => SpriteAssets.loader = BundleSpriteAssetLoader());
+    final context = EngineContext()..sprites = _NoFiles();
     final data = LevelMapData()..addTileset(BuiltInTilesets.basicShapes);
-    final rt = LevelMapRuntime(base: data, source: data);
+    final rt = LevelMapRuntime(base: data, source: data, context: context);
     await rt.syncAssets();
     final image = rt.imageAt(0)!;
     expect((image.width, image.height), (256, 96));
     expect(
-      BuiltInTilesets.image(BuiltInTilesets.basicShapesImage),
+      context.tiles.builtInImage(BuiltInTilesets.basicShapesImage),
       same(image),
       reason: 'drawn once',
     );
+    rt.dispose();
+    context.dispose();
+    expect(image.debugDisposed, isTrue, reason: 'disposed with its engine');
   });
 }

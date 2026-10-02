@@ -5,7 +5,7 @@ import 'dart:ui' show Offset;
 import '../../../subsystems/timeline/timeline_track.dart';
 import '../../components/components.dart';
 import '../../ecs.dart';
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 
 /// Runs every [TimelineTriggerComponent]: watches its target cross the
 /// rectangle's edge and tells the player what to do.

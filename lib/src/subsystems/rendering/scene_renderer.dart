@@ -3,9 +3,9 @@ library;
 
 import 'dart:ui';
 
-import 'render_view.dart';
+import 'frame_view.dart';
 
-/// Draws the world from a [RenderView] — the slot a 3-D rendering backend
+/// Draws the world from a [FrameView] — the slot a 3-D rendering backend
 /// fills.
 ///
 /// Scene renderers run inside the frame, in screen space, after the
@@ -19,6 +19,7 @@ import 'render_view.dart';
 /// Register with `RenderingEngine.addSceneRenderer`. With none registered,
 /// a frame costs nothing extra.
 abstract class SceneRenderer {
+  /// Const constructor so subclasses can be const.
   const SceneRenderer();
 
   /// Draw order among scene renderers; lower first.
@@ -29,5 +30,5 @@ abstract class SceneRenderer {
 
   /// Draw into [canvas], whose coordinates are viewport pixels, what
   /// [view] sees.
-  void render(Canvas canvas, RenderView view);
+  void render(Canvas canvas, FrameView view);
 }

@@ -12,7 +12,10 @@ import '../../ecs.dart';
 /// pathfinding target, and marking its own cell unwalkable would break the
 /// field.
 class NavigationObstacleComponent extends Component {
+  /// Radius of the blocked circle, in world units: grid cells whose centres
+  /// lie within it are unwalkable.
   final double radius;
 
+  /// An obstacle of [radius] world units around the entity's position.
   NavigationObstacleComponent({required this.radius});
 }

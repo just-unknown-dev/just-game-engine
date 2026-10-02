@@ -3,7 +3,8 @@ library;
 import 'package:flutter/material.dart';
 
 import '../rendering/renderable_component.dart';
-import '../../../subsystems/rendering/rendering_engine.dart';
+import '../../../subsystems/rendering/impl/renderable.dart';
+import 'shape_paint_cache.dart';
 import 'shape_paint_style.dart';
 import 'shape_painting.dart';
 
@@ -27,12 +28,15 @@ class PolygonComponent extends RenderableComponent {
   /// Stroke style, combining color tint with optional gradient.
   ShapePaintStyle strokeStyle;
 
-  /// Whether the polygon is filled (`true`) or drawn as an outline (`false`).
+  /// Whether the polygon is filled. Its outline ([strokeStyle]) is drawn
+  /// either way, unless fully transparent.
   bool filled;
 
-  /// Stroke width used when [filled] is `false`.
+  /// Width of the outline, in world units; drawn whether or not [filled].
   double strokeWidth;
 
+  /// A polygon through [vertices] — that list, not a copy — filled white,
+  /// with a translucent white outline 1 world unit wide.
   factory PolygonComponent({
     required List<Offset> vertices,
     ShapePaintStyle fillStyle = const ShapePaintStyle(color: Colors.white),
@@ -68,14 +72,9 @@ class PolygonComponent extends RenderableComponent {
             maxY + self.strokeWidth,
           );
         },
-        onRender: (canvas, _) => ShapePainting.polygon(
-          canvas,
-          self.vertices,
-          fill: self.fillStyle,
-          stroke: self.strokeStyle,
-          strokeWidth: self.strokeWidth,
-          filled: self.filled,
-        ),
+        onRender: (canvas, _) => self._draw(canvas, null, 1.0),
+        onRenderFaded: (canvas, _, tint, opacity) =>
+            self._drawFaded(canvas, tint, opacity),
       ),
     );
     return self;
@@ -89,6 +88,58 @@ class PolygonComponent extends RenderableComponent {
     required this.strokeWidth,
     required super.renderable,
   });
+
+  // Paints, the path and its bounds, kept between frames. The path is
+  // rebuilt when a vertex changes — [vertices] is compared with the copy it
+  // was built from, so editing the list in place is seen too.
+  final ShapePaintCache _paints = ShapePaintCache();
+  final List<Offset> _pathPoints = [];
+  Path _path = Path();
+  Rect _pathBounds = Rect.zero;
+
+  void _updatePath() {
+    final points = vertices;
+    var same = points.length == _pathPoints.length;
+    for (var i = 0; same && i < points.length; i++) {
+      same = points[i] == _pathPoints[i];
+    }
+    if (same) return;
+    _pathPoints
+      ..clear()
+      ..addAll(points);
+    _path = ShapePainting.pathThrough(points);
+    _pathBounds = ShapePainting.boundsOf(points);
+  }
+
+  void _draw(Canvas canvas, Color? tint, double opacity) {
+    if (vertices.isEmpty) return;
+    _updatePath();
+    ShapePainting.pathWith(
+      canvas,
+      _paints,
+      _path,
+      _pathBounds,
+      fill: fillStyle,
+      stroke: strokeStyle,
+      strokeWidth: strokeWidth,
+      filled: filled,
+      tint: tint,
+      opacity: opacity,
+    );
+  }
+
+  bool _drawFaded(Canvas canvas, Color? tint, double opacity) {
+    if (opacity == 0) return true; // Nothing a layer would show.
+    if (!ShapePainting.canFold(
+      filled: filled,
+      fill: fillStyle,
+      stroke: strokeStyle,
+    )) {
+      return false;
+    }
+    _draw(canvas, tint, opacity);
+    return true;
+  }
 
   @override
   String toString() =>

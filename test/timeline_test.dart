@@ -4,6 +4,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
+/// The engine's own definitions, fresh for this file.
+final _coreDefinitions = ComponentDefinitionRegistry.core();
 const _dt = 1 / 60;
 
 TimelineKey _k(
@@ -27,8 +29,6 @@ PropertyTrack _posX(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUpAll(registerCoreCodecs);
-
   group('curves', () {
     test('linear, step and the ends', () {
       final curve = KeyCurve([
@@ -49,13 +49,13 @@ void main() {
         const TimelineKey(
           time: 0,
           value: 0.0,
-          outTangent: Tangent(5, 0), // far longer than the segment
+          outTangent: KeyTangent(5, 0), // far longer than the segment
           tangentMode: TangentMode.broken,
         ),
         const TimelineKey(
           time: 1,
           value: 100.0,
-          inTangent: Tangent(-5, 0),
+          inTangent: KeyTangent(-5, 0),
           tangentMode: TangentMode.broken,
         ),
       ]);
@@ -95,7 +95,7 @@ void main() {
         const TimelineKey(
           time: 0,
           value: 0xFF000000,
-          outTangent: Tangent(0.3, 9),
+          outTangent: KeyTangent(0.3, 9),
           tangentMode: TangentMode.broken,
         ),
         _k(1, 0xFFFFFFFF),
@@ -193,16 +193,27 @@ void main() {
     });
 
     test('a package registers its own kind of track', () {
-      TimelineTrackKinds.register('test.counter', _CounterTrack.fromJson);
-      addTearDown(() => TimelineTrackKinds.unregister('test.counter'));
-      final asset = TimelineAsset.fromJson({
+      final world = World();
+      addTearDown(world.dispose);
+      world.context.trackKinds.register('test.counter', _CounterTrack.fromJson);
+      final json = {
         'duration': 1.0,
         'tracks': [
           {'kind': 'test.counter'},
         ],
-      });
-      expect(asset.tracks.single, isA<_CounterTrack>());
-      final world = World();
+      };
+      final read = TimelineAsset.fromJson(
+        json,
+        kinds: world.context.trackKinds,
+      );
+      expect(read.tracks.single, isA<_CounterTrack>());
+      // Read without the kind — an inline timeline in a scene, say — it is
+      // kept as it was, and played once the world knows it.
+      final asset = TimelineAsset.fromJson(json);
+      expect(asset.tracks.single, isA<UnknownTrack>());
+      expect(asset.toJson()['tracks'], [
+        {'kind': 'test.counter'},
+      ]);
       final playback = TimelinePlayback(
         asset,
         world: world,
@@ -602,7 +613,7 @@ void main() {
     });
 
     test('the range survives a save and a load', () {
-      final definition = ComponentDefinitionRegistry.instance.definitionByType(
+      final definition = _coreDefinitions.definitionByType(
         'TimelinePlayerComponent',
       )!;
       final player = TimelinePlayerComponent(from: 0.25, to: 1.75);
@@ -758,7 +769,7 @@ void main() {
     });
 
     test('the component survives a save and a load', () {
-      final registry = ComponentDefinitionRegistry.instance;
+      final registry = _coreDefinitions;
       final definition = registry.definitionByType('TimelinePlayerComponent')!;
       final player = TimelinePlayerComponent(
         timelinePath: 'a.timeline.json',
@@ -863,7 +874,7 @@ void main() {
       final entityJson = (migrated['entities'] as List).single as Map;
       final playerJson =
           ((entityJson['components'] as List)[1] as Map)['fields'] as Map;
-      final definition = ComponentDefinitionRegistry.instance.definitionByType(
+      final definition = _coreDefinitions.definitionByType(
         'TimelinePlayerComponent',
       )!;
       final player = TimelinePlayerComponent();

@@ -21,14 +21,14 @@ typedef RenderCallback = void Function();
 /// It uses a fixed timestep for updates and variable timestep for rendering.
 ///
 /// The loop is *externally driven* — call [tick] once per frame (typically
-/// from a [Ticker] in [GameWidget]).  For headless / server scenarios you can
+/// from a `Ticker` in [GameWidget]).  For headless / server scenarios you can
 /// call [tick] from your own timer or test harness.
 class GameLoop {
   /// Update callback function
   final UpdateCallback onUpdate;
 
   /// Render callback function (kept for headless compatibility — a no-op when
-  /// rendering is handled by Flutter's [CustomPainter]).
+  /// rendering is handled by Flutter's `CustomPainter`).
   final RenderCallback? onRender;
 
   /// Time manager for tracking time
@@ -54,6 +54,10 @@ class GameLoop {
 
   /// Last frame timestamp in microseconds from [_clock].
   int _lastFrameMicros = 0;
+
+  /// The frame timestamp the last [tick] was given, in microseconds; null
+  /// before the first such tick and after [start] or [resume].
+  int? _lastTickMicros;
 
   /// Frame counter for FPS calculation
   int _frameCount = 0;
@@ -91,7 +95,7 @@ class GameLoop {
   /// Mark the game loop as running and reset timing state.
   ///
   /// No internal timer is created — the loop must be driven externally via
-  /// [tick] (e.g. from a vsync [Ticker] in the rendering widget).
+  /// [tick] (e.g. from a vsync `Ticker` in the rendering widget).
   void start() {
     if (_isRunning) {
       debugPrint('Game loop is already running');
@@ -108,6 +112,7 @@ class GameLoop {
       ..reset()
       ..start();
     _lastFrameMicros = 0;
+    _lastTickMicros = null;
 
     debugPrint('Game loop started (Target UPS: $targetUPS)');
   }
@@ -130,6 +135,7 @@ class GameLoop {
 
     _isPaused = false;
     _lastFrameMicros = _clock.elapsedMicroseconds;
+    _lastTickMicros = null;
     // Reset accumulator to prevent a burst of fixed-timestep updates after
     // a long pause.
     _accumulator = 0.0;
@@ -151,20 +157,37 @@ class GameLoop {
 
   /// Advance the game loop by one frame.
   ///
-  /// Call this once per vsync frame from the rendering widget's [Ticker],
+  /// Call this once per vsync frame from the rendering widget's `Ticker`,
   /// or from a manual timer / test harness for headless usage.
-  void tick() {
+  ///
+  /// [frameTime] is the frame's timestamp — the ticker's `elapsed` — and
+  /// the frame lasts from the previous one's to it. Without it the loop
+  /// times the frame with its own stopwatch, read when [tick] is called.
+  /// Pass it when you have it: vsync timestamps are exact, and the time a
+  /// callback happens to run is not — on the web `performance.now()` is
+  /// coarsened, and a stopwatch-timed 60 Hz frame there alternates between
+  /// none and two fixed updates.
+  void tick([Duration? frameTime]) {
     if (!_isRunning) return;
 
     final nowMicros = _clock.elapsedMicroseconds;
-    final frameMicros = _lastFrameMicros == 0
-        ? 0
-        : nowMicros - _lastFrameMicros;
+    final int frameMicros;
+    if (frameTime != null) {
+      final stamp = frameTime.inMicroseconds;
+      final last = _lastTickMicros;
+      // The first stamped frame, or a new ticker counting from zero again,
+      // has nothing to measure from.
+      frameMicros = last == null || stamp < last ? 0 : stamp - last;
+      _lastTickMicros = stamp;
+    } else {
+      frameMicros = _lastFrameMicros == 0 ? 0 : nowMicros - _lastFrameMicros;
+      _lastTickMicros = null;
+    }
     _lastFrameMicros = nowMicros;
-    final frameTime = frameMicros / 1000000.0;
+    final frameSeconds = frameMicros / 1000000.0;
 
     // Update time manager
-    timeManager.update(frameTime);
+    timeManager.update(frameSeconds);
 
     // Calculate FPS
     _calculateFPS(frameMicros);
@@ -172,15 +195,20 @@ class GameLoop {
     // Don't update game logic if paused
     if (!_isPaused) {
       // Accumulate frame time
-      _accumulator += frameTime;
+      _accumulator += frameSeconds;
 
       // Clamp accumulator to prevent spiral of death
       if (_accumulator > _fixedDeltaTime * 3) {
         _accumulator = _fixedDeltaTime * 3;
       }
 
-      // Update at fixed timestep
-      while (_accumulator >= _fixedDeltaTime) {
+      // Update at fixed timestep. A step is taken when the accumulator is
+      // within [_stepSlack] of one: frame stamps come rounded (to whole
+      // microseconds natively, far coarser on the web), so a 60 Hz frame
+      // measures a hair under or over 1/60 s, and a strict comparison left
+      // the accumulator straddling the step — none, then two, updates in a
+      // row. The slack borrows from the next frame and is paid back.
+      while (_accumulator >= _fixedDeltaTime * (1 - _stepSlack)) {
         // Use scaled delta so TimeManager.timeScale affects simulation speed.
         onUpdate(_fixedDeltaTime * timeManager.timeScale);
         _accumulator -= _fixedDeltaTime;
@@ -203,10 +231,15 @@ class GameLoop {
     }
   }
 
+  /// How early, as a share of a step, a fixed step may be taken; see [tick].
+  static const double _stepSlack = 0.01;
+
   /// Get the current interpolation factor for rendering
   ///
-  /// This can be used for smooth rendering between update steps.
-  double get interpolation => _accumulator / _fixedDeltaTime;
+  /// This can be used for smooth rendering between update steps. Always in
+  /// `[0, 1]`: a step taken a little early leaves the accumulator just below
+  /// zero.
+  double get interpolation => (_accumulator / _fixedDeltaTime).clamp(0.0, 1.0);
 
   /// The length of one fixed step in seconds, before time scale.
   ///

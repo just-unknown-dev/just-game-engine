@@ -4,14 +4,13 @@ import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
+/// The engine's own definitions, fresh for this file.
+final _coreDefinitions = ComponentDefinitionRegistry.core();
 const _view = Size(800, 600);
 const _dt = 1 / 60;
 
 T _roundTrip<T extends Component>(T component) =>
-    ComponentCodecRegistry.instance.decode(
-          ComponentCodecRegistry.instance.encode(component)!,
-        )
-        as T;
+    _coreDefinitions.decode(_coreDefinitions.encode(component)!) as T;
 
 void main() {
   late World world;
@@ -258,7 +257,7 @@ void main() {
     test('auto dolly rides to the point nearest the target', () {
       final hero = at(const Offset(100, -300), [TagComponent('player')]);
       at(Offset.zero, [
-        VirtualCameraComponent(followTag: 'player'),
+        VirtualCameraComponent(follow: const EntityTarget.tag('player')),
         CameraDollyComponent(waypoints: track, damping: 0),
       ]);
       brain.evaluate(world, _dt);
@@ -272,7 +271,7 @@ void main() {
     test('damping eases along the track', () {
       final hero = at(Offset.zero, [TagComponent('player')]);
       at(Offset.zero, [
-        VirtualCameraComponent(followTag: 'player'),
+        VirtualCameraComponent(follow: const EntityTarget.tag('player')),
         CameraDollyComponent(waypoints: track, damping: 1),
       ]);
       brain.evaluate(world, _dt);
@@ -304,19 +303,15 @@ void main() {
   });
 
   test('managers, state and dolly are saved and restored', () {
-    ComponentCodecRegistry.instance.clear();
-    registerCoreCodecs();
-
     final driven = _roundTrip(
       CameraStateDrivenComponent(
-        sourceName: 'Hero',
-        sourceTag: '',
+        source: const EntityTarget.name('Hero'),
         states: {'a': 'A', 'b': 'B'},
         defaultChild: 'A',
         blend: 0.25,
       ),
     );
-    expect((driven.sourceName, driven.sourceTag), ('Hero', ''));
+    expect(driven.source, const EntityTarget.name('Hero'));
     expect(driven.states, {'a': 'A', 'b': 'B'});
     expect((driven.defaultChild, driven.blend), ('A', 0.25));
 

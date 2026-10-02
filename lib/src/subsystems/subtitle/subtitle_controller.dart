@@ -8,6 +8,8 @@ import 'subtitle_track.dart';
 /// time in seconds.  [currentText] fires only when the visible cue changes,
 /// so widgets rebuild at most once per cue boundary.
 class SubtitleController {
+  /// A controller playing [track], showing nothing until the first
+  /// [update].
   SubtitleController({required SubtitleTrack track}) : _track = track;
 
   final SubtitleTrack _track;
@@ -30,6 +32,8 @@ class SubtitleController {
     }
   }
 
+  /// Clears the subtitle: [currentText] becomes null, and the next [update]
+  /// shows whichever cue is active then.
   void reset() {
     _activeCueText = null;
     currentText.value = null;

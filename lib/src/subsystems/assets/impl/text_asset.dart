@@ -1,6 +1,9 @@
 part of '../asset_management.dart';
 
 /// Text asset
+///
+/// Read straight from the asset bundle and kept in memory by [AssetManager]
+/// until unloaded — never copied into the engine's persistent cache.
 class TextAsset extends Asset {
   String? _content;
 
@@ -15,25 +18,15 @@ class TextAsset extends Asset {
     if (_isLoaded) return;
 
     try {
-      final cache = Engine.instance.cache;
-      if (cache.isInitialized) {
-        final cachedContent = await cache.getString(path);
-        if (cachedContent != null) {
-          _content = cachedContent;
-          _isLoaded = true;
-          return;
-        }
-      }
-
-      _content = await rootBundle.loadString(path);
-
-      if (cache.isInitialized && _content != null) {
-        await cache.setString(path, _content!);
-      }
-
+      // Not cached by the bundle as well: the string held here is the copy
+      // the game uses, and a second one would outlive unload().
+      _content = await _bundle.loadString(path, cache: false);
       _isLoaded = true;
-    } catch (e) {
-      throw AssetLoadException('Failed to load text asset: $path', e);
+    } catch (e, stack) {
+      Error.throwWithStackTrace(
+        AssetLoadException('Failed to load text asset: $path', e),
+        stack,
+      );
     }
   }
 

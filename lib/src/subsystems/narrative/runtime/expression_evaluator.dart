@@ -1,6 +1,8 @@
 /// Simple recursive-descent evaluator for Yarn Spinner condition expressions.
 library;
 
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
+
 import '../core/dialogue_variable_store.dart';
 import 'dialogue_condition_registry.dart';
 
@@ -26,28 +28,46 @@ import 'dialogue_condition_registry.dart';
 /// eval.evaluate(r'$gold + 5');   // arithmetic not supported — returns raw
 /// ```
 class ExpressionEvaluator {
+  /// An evaluator reading `$name` from [variables] and calling `[name]`
+  /// from [conditions]; it keeps no state of its own between calls.
   ExpressionEvaluator({required this.variables, required this.conditions});
 
+  /// Where `$name` variables are read from; evaluating never writes to it.
   final DialogueVariableStore variables;
+
+  /// The predicates `[name]` in an expression calls.
   final DialogueConditionRegistry conditions;
 
   /// Evaluates [expression] and coerces the result to a [bool].
+  ///
+  /// An expression that cannot be evaluated counts as `false` — and, in a
+  /// debug build, says so in the log, so a typo in a Yarn condition does not
+  /// pass for a condition that is simply unmet.
   bool evaluateBool(String expression) {
     try {
       final result = _Parser(expression.trim(), variables, conditions).parse();
       return _coerceBool(result);
-    } catch (_) {
+    } catch (e) {
+      _report(expression, e);
       return false;
     }
   }
 
   /// Evaluates [expression] and returns the raw value (`bool`, `int`,
-  /// `double`, or `String`).
+  /// `double`, or `String`) — `null`, logged in a debug build, when it
+  /// cannot be evaluated.
   dynamic evaluate(String expression) {
     try {
       return _Parser(expression.trim(), variables, conditions).parse();
-    } catch (_) {
+    } catch (e) {
+      _report(expression, e);
       return null;
+    }
+  }
+
+  static void _report(String expression, Object error) {
+    if (kDebugMode) {
+      debugPrint('Dialogue: could not evaluate "$expression" ($error)');
     }
   }
 

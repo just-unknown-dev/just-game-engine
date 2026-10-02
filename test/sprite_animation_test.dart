@@ -7,6 +7,9 @@ import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
+/// The engine's own definitions, fresh for this file.
+final _coreDefinitions = ComponentDefinitionRegistry.core();
+
 /// Four 8×8 frames in a row. Frames 0–1 are `idle` (100 ms, 300 ms), 1–3 are
 /// `swing` played ping-pong, and 2–3 are `land`, which does not loop.
 Map<String, dynamic> _atlasJson() => {
@@ -197,13 +200,13 @@ void main() {
     await settle();
 
     world.update(0.2);
-    expect(heard, isEmpty, reason: 'time zero belongs to the wrap');
+    expect(heard, ['breathe'], reason: 'time zero happens as the clip begins');
     world.update(0.1); // 0.3: crossed 0.25
-    expect(heard, ['blink']);
+    expect(heard, ['breathe', 'blink']);
     world.update(0.01);
-    expect(heard, ['blink']);
+    expect(heard, ['breathe', 'blink']);
     world.update(0.15); // wraps past 0.4
-    expect(heard, ['blink', 'breathe']);
+    expect(heard, ['breathe', 'blink', 'breathe']);
   });
 
   test('switchClip restarts; the same clip again does not', () async {
@@ -237,7 +240,9 @@ void main() {
       final e = hero(c);
       await settle();
       expect(spriteOf(e).filterQuality, ui.FilterQuality.none);
-      expect(spriteOf(e).batchImage, isNull);
+      // Batched since 2.0.0 — but in a batch of its own filter quality, so
+      // still never with smoothed sprites.
+      expect(spriteOf(e).batchImage, isNotNull);
       c.pixelArt = false;
       world.update(0);
       expect(spriteOf(e).batchImage, isNotNull);
@@ -320,10 +325,12 @@ void main() {
       ],
     };
 
-    List<dynamic> migrated(List<Map<String, dynamic>> components) =>
-        ((SceneFormat.migrate(scene(components))['entities'] as List).single
-                as Map)['components']
-            as List;
+    late MigrationResult last;
+    List<dynamic> migrated(List<Map<String, dynamic>> components) {
+      last = SceneFormat.migrateWithReport(scene(components));
+      return ((last.scene['entities'] as List).single as Map)['components']
+          as List;
+    }
 
     test('an animated sprite becomes a sprite animation', () {
       final out = migrated([
@@ -352,7 +359,7 @@ void main() {
           'pixelArt': false,
         },
       });
-      expect(V2ToV3.needsAtlas, isEmpty);
+      expect(last.needsAtlas, isEmpty);
     });
 
     test('one with only a grid is pointed beside its sheet, and listed', () {
@@ -366,7 +373,7 @@ void main() {
         ((out.single as Map)['fields'] as Map)['atlasPath'],
         'assets/sprites/coin.json',
       );
-      expect(V2ToV3.needsAtlas, ['Hero']);
+      expect(last.needsAtlas, ['Hero']);
     });
 
     test('animation state goes; a sprite loses its frame number', () {
@@ -387,14 +394,13 @@ void main() {
     });
 
     test('what it writes loads', () {
-      registerCoreCodecs();
       final out = migrated([
         {
           'type': 'AnimatedSpriteComponent',
           'fields': {'jsonPath': 'a.json', 'activeClip': 'idle'},
         },
       ]);
-      final c = ComponentCodecRegistry.instance.decode(
+      final c = _coreDefinitions.decode(
         (out.single as Map).cast<String, dynamic>(),
       );
       expect(c, isA<SpriteAnimationComponent>());

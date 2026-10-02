@@ -2,12 +2,14 @@
 /// time into a value.
 library;
 
-import '../animation/animation_system.dart' show Easing, Easings;
+import '../../foundation/easing.dart';
 
 /// How a key reaches the next one.
 enum KeyInterpolation {
   /// Holds its value until the next key.
   step,
+
+  /// A straight line to the next key's value, at an even pace.
   linear,
 
   /// A cubic bezier through the two keys' tangent handles.
@@ -34,23 +36,35 @@ enum TangentMode {
 }
 
 /// A bezier handle, as an offset from its key: [dt] seconds, [dv] value.
-class Tangent {
-  const Tangent(this.dt, this.dv);
+class KeyTangent {
+  /// A handle [dt] seconds and [dv] in value from its key.
+  const KeyTangent(this.dt, this.dv);
 
-  static const Tangent zero = Tangent(0, 0);
+  /// A handle of no length, on its key. Between two keys whose facing
+  /// handles are both zero, a bezier is a straight line.
+  static const KeyTangent zero = KeyTangent(0, 0);
 
+  /// Seconds from the key: negative for an in handle, positive for an out.
+  /// Clamped to the span between the two keys when the curve is read.
   final double dt;
+
+  /// Value from the key's value, in the track's units. On a colour track
+  /// it is read as a fraction of the way between the two keys, clamped to
+  /// 0–1 for an out handle and −1–0 for an in handle.
   final double dv;
 
+  /// The handle as a two-number list, `[dt, dv]`.
   List<double> toJson() => [dt, dv];
 
-  static Tangent fromJson(Object? json) => json is List && json.length == 2
-      ? Tangent((json[0] as num).toDouble(), (json[1] as num).toDouble())
+  /// Reads [toJson]'s `[dt, dv]`; anything but a two-item list is [zero].
+  /// Throws a [TypeError] when an item is not a number.
+  static KeyTangent fromJson(Object? json) => json is List && json.length == 2
+      ? KeyTangent((json[0] as num).toDouble(), (json[1] as num).toDouble())
       : zero;
 
   @override
   bool operator ==(Object other) =>
-      other is Tangent && other.dt == dt && other.dv == dv;
+      other is KeyTangent && other.dt == dt && other.dv == dv;
 
   @override
   int get hashCode => Object.hash(dt, dv);
@@ -62,41 +76,53 @@ class Tangent {
 /// track as a colour, or a `bool` / `String` for what can only step (a flag,
 /// an enum's name, a path).
 class TimelineKey {
+  /// A key holding [value] at [time] seconds. By default it reaches the
+  /// next key by a bezier with zero-length handles — a straight line — and
+  /// its handles are [TangentMode.auto], for [KeyCurve.withAutoTangents] to
+  /// set.
   const TimelineKey({
     required this.time,
     required this.value,
     this.interpolation = KeyInterpolation.bezier,
-    this.inTangent = Tangent.zero,
-    this.outTangent = Tangent.zero,
+    this.inTangent = KeyTangent.zero,
+    this.outTangent = KeyTangent.zero,
     this.tangentMode = TangentMode.auto,
     this.easing = '',
   });
 
   /// Seconds from the start of the timeline.
   final double time;
+
+  /// The value at [time]: a `num`, an ARGB `int` on a colour track, or a
+  /// `bool` / `String`, which only steps.
   final Object value;
 
   /// How this key reaches the next.
   final KeyInterpolation interpolation;
 
-  /// The handle arriving at this key; [Tangent.dt] is zero or negative.
-  final Tangent inTangent;
+  /// The handle arriving at this key; [KeyTangent.dt] is zero or negative.
+  final KeyTangent inTangent;
 
-  /// The handle leaving this key; [Tangent.dt] is zero or positive.
-  final Tangent outTangent;
+  /// The handle leaving this key; [KeyTangent.dt] is zero or positive.
+  final KeyTangent outTangent;
+
+  /// How an editor keeps the two handles in step, and whether
+  /// [KeyCurve.withAutoTangents] recomputes them. Playback ignores it.
   final TangentMode tangentMode;
 
   /// The [KeyEasings] name, for [KeyInterpolation.eased].
   final String easing;
 
+  /// [value] as a double; 0 when it is not a number.
   double get number => value is num ? (value as num).toDouble() : 0.0;
 
+  /// A copy with the given fields replaced.
   TimelineKey copyWith({
     double? time,
     Object? value,
     KeyInterpolation? interpolation,
-    Tangent? inTangent,
-    Tangent? outTangent,
+    KeyTangent? inTangent,
+    KeyTangent? outTangent,
     TangentMode? tangentMode,
     String? easing,
   }) => TimelineKey(
@@ -109,33 +135,59 @@ class TimelineKey {
     easing: easing ?? this.easing,
   );
 
+  /// This key as a compact JSON map: `t` (time) and `v` (value) always;
+  /// `i` (interpolation), `in` and `out` (handles), `m` (tangent mode) and
+  /// `e` (easing) only when not the default.
   Map<String, dynamic> toJson() => {
     't': time,
     'v': value,
     if (interpolation != KeyInterpolation.bezier) 'i': interpolation.name,
-    if (inTangent != Tangent.zero) 'in': inTangent.toJson(),
-    if (outTangent != Tangent.zero) 'out': outTangent.toJson(),
+    if (inTangent != KeyTangent.zero) 'in': inTangent.toJson(),
+    if (outTangent != KeyTangent.zero) 'out': outTangent.toJson(),
     if (tangentMode != TangentMode.auto) 'm': tangentMode.name,
     if (easing.isNotEmpty) 'e': easing,
   };
 
+  /// Reads [toJson]'s shape. What is missing takes its default — a missing
+  /// time or value is 0 — as does an unknown interpolation or tangent mode.
   factory TimelineKey.fromJson(Map<String, dynamic> json) => TimelineKey(
     time: (json['t'] as num?)?.toDouble() ?? 0,
     value: json['v'] as Object? ?? 0,
     interpolation:
         KeyInterpolation.values.asNameMap()[json['i']] ??
         KeyInterpolation.bezier,
-    inTangent: Tangent.fromJson(json['in']),
-    outTangent: Tangent.fromJson(json['out']),
+    inTangent: KeyTangent.fromJson(json['in']),
+    outTangent: KeyTangent.fromJson(json['out']),
     tangentMode: TangentMode.values.asNameMap()[json['m']] ?? TangentMode.auto,
     easing: json['e'] as String? ?? '',
   );
 }
 
-/// The engine's easing functions by name, so a key in a file can ask for
-/// one: shapes a single bezier cannot make, like a bounce.
-abstract final class KeyEasings {
-  static final Map<String, Easing> _all = {
+/// Easing functions by name, so a key in a file can ask for one: shapes a
+/// single bezier cannot make, like a bounce. A key saves the name, so the
+/// names never change.
+///
+/// Each engine has its own (`engine.context.easings`), holding the engine's
+/// ([Easings]) and whatever a game registers. [builtIn] holds only the
+/// engine's, and cannot be changed.
+final class KeyEasings {
+  /// The engine's easings (unless [withBuiltIns] is false), to add to.
+  KeyEasings({bool withBuiltIns = true}) : _frozen = false {
+    if (withBuiltIns) _all.addAll(_engine);
+  }
+
+  KeyEasings._frozen() : _frozen = true {
+    _all.addAll(_engine);
+  }
+
+  /// The engine's easings and nothing else — what a curve uses when given
+  /// none. Read-only: [register] throws.
+  static final KeyEasings builtIn = KeyEasings._frozen();
+
+  final bool _frozen;
+  final Map<String, EasingFunction> _all = {};
+
+  static const Map<String, EasingFunction> _engine = {
     'linear': Easings.linear,
     'easeInQuad': Easings.easeInQuad,
     'easeOutQuad': Easings.easeOutQuad,
@@ -152,26 +204,40 @@ abstract final class KeyEasings {
     'easeOutBounce': Easings.easeOutBounce,
   };
 
-  static List<String> get names => _all.keys.toList();
+  /// Every name, the engine's first.
+  List<String> get names => _all.keys.toList();
 
   /// Adds (or replaces) an easing a game wants to name in its timelines.
-  static void register(String name, Easing easing) => _all[name] = easing;
+  void register(String name, EasingFunction easing) {
+    if (_frozen) {
+      throw UnsupportedError(
+        'KeyEasings.builtIn cannot be changed: register into an engine\'s '
+        '(engine.context.easings).',
+      );
+    }
+    _all[name] = easing;
+  }
 
-  static double apply(String name, double t) =>
-      (_all[name] ?? Easings.linear)(t);
+  /// [name]'s easing at [t]; linear for a name not registered.
+  double apply(String name, double t) => (_all[name] ?? Easings.linear)(t);
 }
 
 /// Keys in time order, and the value between them.
 class KeyCurve {
+  /// A curve through [keys], copied, sorted by time and made unmodifiable.
+  /// Handles are kept as given; see [withAutoTangents].
   KeyCurve(List<TimelineKey> keys)
     : keys = List.unmodifiable(
         List.of(keys)..sort((a, b) => a.time.compareTo(b.time)),
       );
 
+  /// A curve with no keys.
   static final KeyCurve empty = KeyCurve(const []);
 
+  /// The keys, in time order. Unmodifiable.
   final List<TimelineKey> keys;
 
+  /// Whether the curve has no keys, so [valueAt] is null everywhere.
   bool get isEmpty => keys.isEmpty;
 
   /// When the last key is; 0 for an empty curve.
@@ -179,8 +245,9 @@ class KeyCurve {
 
   /// The value at [t]: before the first key its value, after the last its
   /// value, between two keys whatever the earlier one's interpolation says.
-  /// Null for an empty curve.
-  Object? valueAt(double t, {bool isColor = false}) {
+  /// Null for an empty curve. A named easing is looked up in [easings] — the
+  /// engine's own ([KeyEasings.builtIn]) when null.
+  Object? valueAt(double t, {bool isColor = false, KeyEasings? easings}) {
     if (keys.isEmpty) return null;
     if (t <= keys.first.time) return keys.first.value;
     if (t >= keys.last.time) return keys.last.value;
@@ -203,7 +270,10 @@ class KeyCurve {
     final u = (t - a.time) / span;
     final s = switch (a.interpolation) {
       KeyInterpolation.linear => u,
-      KeyInterpolation.eased => KeyEasings.apply(a.easing, u),
+      KeyInterpolation.eased => (easings ?? KeyEasings.builtIn).apply(
+        a.easing,
+        u,
+      ),
       // Colours take the bezier's *timing* (0–1) but never its overshoot:
       // a channel past 255 is not a colour.
       KeyInterpolation.bezier => isColor ? _bezierProgress(a, b, t) : null,
@@ -215,7 +285,16 @@ class KeyCurve {
         : a.number + (b.number - a.number) * s;
   }
 
-  double numberAt(double t) => (valueAt(t) as num?)?.toDouble() ?? 0.0;
+  /// [valueAt] [t] as a double; 0 for an empty curve. A named easing is
+  /// looked up in [easings] — the built-in ones when null. A `bool` value
+  /// reads as 1 or 0 and any other value that is not a number (a `String`)
+  /// as 0. Not for colours: it blends the ARGB int as one number.
+  double numberAt(double t, {KeyEasings? easings}) =>
+      switch (valueAt(t, easings: easings)) {
+        final num n => n.toDouble(),
+        true => 1.0,
+        _ => 0.0,
+      };
 
   /// The control points' times, kept between the two keys so the curve is a
   /// function of time — it never runs backwards.
@@ -249,7 +328,7 @@ class KeyCurve {
 
   static double _bezierValue(TimelineKey a, TimelineKey b, double t) {
     // Handles of no length are a straight line: skip the solve.
-    if (a.outTangent == Tangent.zero && b.inTangent == Tangent.zero) {
+    if (a.outTangent == KeyTangent.zero && b.inTangent == KeyTangent.zero) {
       return a.number +
           (b.number - a.number) * (t - a.time) / (b.time - a.time);
     }
@@ -264,7 +343,7 @@ class KeyCurve {
   /// How far from [a] to [b] the bezier is at [t], as 0–1, reading the
   /// handles' values as fractions of the way — what a colour blends by.
   static double _bezierProgress(TimelineKey a, TimelineKey b, double t) {
-    if (a.outTangent == Tangent.zero && b.inTangent == Tangent.zero) {
+    if (a.outTangent == KeyTangent.zero && b.inTangent == KeyTangent.zero) {
       return (t - a.time) / (b.time - a.time);
     }
     final s = _solve(a, b, t), i = 1 - s;
@@ -295,6 +374,8 @@ class KeyCurve {
     key,
   ]).withAutoTangents();
 
+  /// This curve without the key at [index] (none removed when it is out of
+  /// range), with the auto handles recomputed.
   KeyCurve withoutKeyAt(int index) => KeyCurve([
     for (var i = 0; i < keys.length; i++)
       if (i != index) keys[i],
@@ -336,16 +417,19 @@ class KeyCurve {
       }
       out.add(
         k.copyWith(
-          inTangent: Tangent(-before, -before * slope),
-          outTangent: Tangent(after, after * slope),
+          inTangent: KeyTangent(-before, -before * slope),
+          outTangent: KeyTangent(after, after * slope),
         ),
       );
     }
     return KeyCurve(out);
   }
 
+  /// The keys as a list of [TimelineKey.toJson] maps, in time order.
   List<Map<String, dynamic>> toJson() => [for (final k in keys) k.toJson()];
 
+  /// Reads [toJson]'s list. Anything but a list is an empty curve, and
+  /// entries that are not maps are skipped. Handles are kept as saved.
   factory KeyCurve.fromJson(Object? json) => KeyCurve([
     if (json is List)
       for (final k in json)

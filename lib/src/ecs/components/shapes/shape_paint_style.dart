@@ -3,7 +3,16 @@ library;
 import 'package:flutter/material.dart';
 
 /// Engine-specific gradient descriptor for shape paints.
-enum ShapeGradientKind { linear, radial, sweep }
+enum ShapeGradientKind {
+  /// Colours change along a line, as Flutter's [LinearGradient].
+  linear,
+
+  /// Colours change outwards from a centre, as Flutter's [RadialGradient].
+  radial,
+
+  /// Colours change round a centre, as Flutter's [SweepGradient].
+  sweep,
+}
 
 /// Serializable-style gradient config used by shape components.
 class ShapeGradient {
@@ -37,6 +46,8 @@ class ShapeGradient {
   /// Tile mode for all gradient kinds.
   final TileMode tileMode;
 
+  /// A gradient through [colors] from [begin] to [end]; left to right
+  /// across the shape by default.
   const ShapeGradient.linear({
     required this.colors,
     this.stops,
@@ -49,6 +60,8 @@ class ShapeGradient {
        startAngle = 0.0,
        endAngle = 0.0;
 
+  /// A gradient through [colors] out from [center] to [radius], a fraction
+  /// of the shape's shorter side (half of it by default).
   const ShapeGradient.radial({
     required this.colors,
     this.stops,
@@ -61,6 +74,8 @@ class ShapeGradient {
        startAngle = 0.0,
        endAngle = 0.0;
 
+  /// A gradient through [colors] round [center], from [startAngle] to
+  /// [endAngle] in radians; one full turn by default.
   const ShapeGradient.sweep({
     required this.colors,
     this.stops,
@@ -73,6 +88,8 @@ class ShapeGradient {
        end = Alignment.centerRight,
        radius = 0.5;
 
+  /// A new shader painting this gradient over [rect], the shape's bounds in
+  /// its own space. Allocates on every call.
   Shader createShader(Rect rect) {
     switch (kind) {
       case ShapeGradientKind.linear:
@@ -115,6 +132,8 @@ class ShapePaintStyle {
   /// Blend mode used when combining [color] with [gradient].
   final BlendMode blendMode;
 
+  /// Plain white by default. With a [gradient], [color] is laid over it by
+  /// [blendMode] — multiplied in, by default.
   const ShapePaintStyle({
     this.color = Colors.white,
     this.gradient,
@@ -122,14 +141,20 @@ class ShapePaintStyle {
   });
 
   /// Applies this style to an existing [Paint].
+  ///
+  /// A shape component keeps its paints in a `ShapePaintCache` rather than
+  /// calling this every frame; this is for one-off drawing.
   void applyTo(Paint paint, Rect shaderRect) {
-    paint
-      ..shader = null
-      ..colorFilter = null
-      ..color = color;
+    paint.color = color;
 
     final g = gradient;
-    if (g == null) return;
+    if (g == null) {
+      // Only what is set is reset: the shader and filter setters allocate
+      // the paint's object list even to store a null.
+      if (paint.shader != null) paint.shader = null;
+      if (paint.colorFilter != null) paint.colorFilter = null;
+      return;
+    }
 
     paint
       ..shader = g.createShader(shaderRect)

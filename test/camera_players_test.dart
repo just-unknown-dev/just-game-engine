@@ -32,7 +32,12 @@ void main() {
     player(const Offset(0, 0));
     final group = at(Offset.zero, [
       CameraTargetGroupComponent(
-        members: [CameraGroupMember(tag: 'player', radius: 10)],
+        members: [
+          CameraGroupMember(
+            target: const EntityTarget.tag('player'),
+            radius: 10,
+          ),
+        ],
       ),
     ], name: 'Players');
     world.update(_dt);
@@ -54,7 +59,9 @@ void main() {
     player(const Offset(0, 0));
     final gone = player(const Offset(400, 0));
     final group = at(Offset.zero, [
-      CameraTargetGroupComponent(members: [CameraGroupMember(tag: 'player')]),
+      CameraTargetGroupComponent(
+        members: [CameraGroupMember(target: const EntityTarget.tag('player'))],
+      ),
     ]);
     gone.isActive = false;
     world.update(_dt);
@@ -66,7 +73,11 @@ void main() {
     at(const Offset(500, 0), const [], name: 'Boss');
     final group = at(Offset.zero, [
       CameraTargetGroupComponent(
-        members: [CameraGroupMember(name: 'Boss', tag: 'player')],
+        members: [
+          CameraGroupMember(
+            target: EntityTarget.fromNameOrTag('Boss', 'player'),
+          ),
+        ],
       ),
     ]);
     world.update(_dt);
@@ -87,7 +98,7 @@ void main() {
         width: 200,
         height: 200,
         cameraName: 'Shot',
-        targetTag: 'player',
+        target: const EntityTarget.tag('player'),
       ),
     ]);
     final vcam = shot.getComponent<VirtualCameraComponent>()!;

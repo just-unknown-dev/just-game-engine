@@ -14,14 +14,23 @@ import 'map_collision_kinds.dart';
 
 /// One static body a layer's collision is made of, from its tiles.
 class MapBodySpec {
-  const MapBodySpec({
+  /// A body of collision [kind] at [center]: a box of [size], or the
+  /// convex [polygon]. Exactly one of the two must be given; neither or
+  /// both throws an [ArgumentError].
+  MapBodySpec({
     required this.kind,
     required this.center,
     this.size,
     this.polygon,
     this.className = '',
     this.cells = const [],
-  }) : assert(size != null || polygon != null);
+  }) {
+    if ((size == null) == (polygon == null)) {
+      throw ArgumentError(
+        'A map body is a box (size) or a polygon (polygon): give exactly one',
+      );
+    }
+  }
 
   /// Its collision kind's id.
   final String kind;
@@ -41,6 +50,7 @@ class MapBodySpec {
   /// The cells it covers.
   final List<TileCoord> cells;
 
+  /// Whether it is a box ([size]) rather than a [polygon].
   bool get isBox => size != null;
 
   /// The body's extent, map-local.
@@ -75,13 +85,16 @@ class _Box {
 /// running character to catch on. Everything else becomes convex polygons.
 abstract final class TileCollisionBuilder {
   /// The bodies for [cells], drawn on [geometry] with tilesets looked up by
-  /// slot through [tilesetAt], the layer moved by [offset].
+  /// slot through [tilesetAt], the layer moved by [offset]. How each kind
+  /// merges comes from [kinds] — the engine's own when null.
   static List<MapBodySpec> build({
     required TileChunkStore cells,
     required MapGeometry geometry,
     required TilesetData? Function(int slot) tilesetAt,
     Offset offset = Offset.zero,
+    MapCollisionKinds? kinds,
   }) {
+    final known = kinds ?? MapCollisionKinds.builtIn;
     final specs = <MapBodySpec>[];
     // Boxes waiting to be merged, by kind and class: whole cells, and every
     // shape that lands as an upright rectangle — a half-tile ledge, a
@@ -131,7 +144,7 @@ abstract final class TileCollisionBuilder {
 
     for (final entry in boxes.entries) {
       final (kind, className) = entry.key;
-      final mode = MapCollisionKinds.resolve(kind).merge;
+      final mode = known.resolve(kind).merge;
       for (final (rect, covered) in _mergeBoxes(entry.value, mode)) {
         specs.add(
           MapBodySpec(

@@ -4,7 +4,7 @@
 library;
 
 // Priorities
-export 'system_priorities.dart';
+export '../base/system_priorities.dart';
 
 // Core systems
 export 'core/movement_system.dart';
@@ -12,13 +12,15 @@ export 'core/movement_system.dart';
 // Rendering systems
 export 'rendering/render_system.dart';
 export 'rendering/post_process_system.dart';
+export 'rendering/parallax_render_system.dart';
 
 // Physics systems
+export 'physics/collider_geometry.dart';
 export 'physics/physics_system.dart';
-export 'physics/physics_bridge_system.dart';
 export 'physics/physics_joint_binding_system.dart';
 export 'physics/collision_event.dart';
 export 'physics/sensor_event.dart';
+export 'physics/ray_casting.dart';
 
 // Input systems
 export 'input/input_system.dart';
@@ -26,8 +28,7 @@ export 'input/simple_movement_system.dart';
 
 // Hierarchy systems
 export 'hierarchy/hierarchy_system.dart';
-export 'hierarchy/hierarchy_math.dart';
-export 'hierarchy/transform_hierarchy.dart';
+export '../base/transform/transform_hierarchy.dart';
 
 // Gameplay systems
 export 'gameplay/health_system.dart';
@@ -56,6 +57,16 @@ export 'level_map/register_level_map_systems.dart';
 // Camera systems
 export 'camera/camera_brain_system.dart';
 export 'camera/camera_target_systems.dart';
+export 'camera/camera_system.dart';
+export 'camera/camera_brain.dart';
+export 'camera/camera_stage.dart';
+export 'camera/camera_targets.dart';
+export 'camera/stages/framing_stage.dart';
+export 'camera/stages/extension_stages.dart';
+export 'camera/stages/group_framing_stage.dart';
+export 'camera/stages/dolly_stage.dart';
+export 'camera/camera_manager.dart';
+export 'camera/managers/built_in_managers.dart';
 
 // Culling systems
 export 'culling/view_culling_system.dart';
@@ -70,10 +81,7 @@ export 'effects/effect_system_ecs.dart';
 export 'rendering/particle_system_ecs.dart';
 
 // Narrative / Dialogue system
-export '../../subsystems/narrative/ecs/dialogue_system.dart';
+export 'narrative/dialogue_system.dart';
 
 // Debug systems
-export '../../core/collider_debugger_system.dart';
-
-// Platformer systems — character control, moving platforms, level rules,
-// enemies, parallax and camera zones.
+export 'debug/collider_debugger_system.dart';

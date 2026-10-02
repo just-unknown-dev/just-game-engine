@@ -5,6 +5,9 @@ import 'subtitle_cue.dart';
 
 /// An ordered list of [SubtitleCue] entries that make up a subtitle sequence.
 class SubtitleTrack {
+  /// A track of [cues], kept as given (not copied). They should be in time
+  /// order: [totalDuration] reads the last one's end, and [getActiveCue]
+  /// takes the first that covers the time.
   const SubtitleTrack(this.cues);
 
   /// Build a track by resolving localization keys via [l10n].
@@ -19,7 +22,7 @@ class SubtitleTrack {
   ///     (start: 0.5, end: 2.5, key: 'cue1'),
   ///     (start: 2.5, end: 6.5, key: 'cue2'),
   ///   ],
-  ///   l10n: LocalizationManager.instance!,
+  ///   l10n: engine.context.localization!,
   ///   namespace: 'intro',
   /// )
   /// ```
@@ -41,6 +44,7 @@ class SubtitleTrack {
     return SubtitleTrack(cues);
   }
 
+  /// The track's cues, in time order.
   final List<SubtitleCue> cues;
 
   /// Returns the active [SubtitleCue] at [elapsed] seconds, or `null` if none

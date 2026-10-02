@@ -9,6 +9,7 @@ double _d(Object? v) => v is num ? v.toDouble() : 0.0;
 
 /// A physics [CollisionShape], stored as `{kind, ...dimensions}`.
 class PhysicsShapeFieldType extends FieldType<CollisionShape> {
+  /// Const constructor; the shared instance is [FieldTypes.physicsShape].
   const PhysicsShapeFieldType();
 
   @override
@@ -16,7 +17,11 @@ class PhysicsShapeFieldType extends FieldType<CollisionShape> {
 
   @override
   Object? encode(CollisionShape value) => switch (value) {
-    CircleShape s => {'kind': 'circle', 'radius': s.radius},
+    CircleShape s => {
+      'kind': 'circle',
+      'radius': s.radius,
+      if (s.center != Offset.zero) 'center': _offset(s.center),
+    },
     RoundedPolygonShape s => {
       'kind': 'rounded_polygon',
       'vertices': _offsets(s.vertices),
@@ -59,7 +64,10 @@ class PhysicsShapeFieldType extends FieldType<CollisionShape> {
   static CollisionShape? decodeShape(Map raw) {
     switch (raw['kind']) {
       case 'circle':
-        return CircleShape(_d(raw['radius'] ?? 16.0));
+        return CircleShape(
+          _d(raw['radius'] ?? 16.0),
+          center: _offsetFrom(raw['center']),
+        );
       case 'rectangle':
         return RectangleShape(
           _d(raw['width'] ?? 64.0),
@@ -108,4 +116,39 @@ class PhysicsShapeFieldType extends FieldType<CollisionShape> {
   static List<Offset> _offsetsFrom(Object? raw) => raw is List
       ? [for (final m in raw.whereType<Map>()) _offsetFrom(m)]
       : const [];
+}
+
+/// A collision layer, 0 to 15, saved as its number. Reading clamps it into
+/// range.
+class PhysicsLayerFieldType extends FieldType<int> {
+  /// Const constructor; the shared instance is [FieldTypes.physicsLayer].
+  const PhysicsLayerFieldType();
+
+  @override
+  String get id => 'physicsLayer';
+
+  @override
+  Object? encode(int value) => value;
+
+  @override
+  Object? decode(Object? json, FieldConstraints c) =>
+      json is num ? json.toInt().clamp(0, 15) : json;
+}
+
+/// A set of collision layers as a 16-bit mask, saved as its number — or
+/// null, saved as null, for "as the project's grid says".
+class PhysicsLayerMaskFieldType extends FieldType<int> {
+  /// Const constructor; the shared instance is
+  /// [FieldTypes.physicsLayerMask].
+  const PhysicsLayerMaskFieldType();
+
+  @override
+  String get id => 'physicsLayerMask';
+
+  @override
+  Object? encode(int value) => value & 0xFFFF;
+
+  @override
+  Object? decode(Object? json, FieldConstraints c) =>
+      json is num ? json.toInt() & 0xFFFF : json;
 }

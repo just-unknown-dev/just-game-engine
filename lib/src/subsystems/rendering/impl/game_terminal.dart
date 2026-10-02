@@ -36,6 +36,8 @@ typedef TerminalCommandHandler = String? Function(List<String> args);
 /// This is a plain Dart object — no Flutter widget dependencies — so it can
 /// be unit-tested without a widget tree.
 class GameTerminal extends ChangeNotifier {
+  /// A hidden terminal with an empty prompt and history, and the built-in
+  /// `help` and `clear` commands registered.
   GameTerminal() {
     // Register built-in commands.
     registerCommand(
@@ -137,11 +139,11 @@ class GameTerminal extends ChangeNotifier {
     return false;
   }
 
-  /// Append a printable [character] (from [KeyEvent.character]) to the
+  /// Append a printable [character] (from `KeyEvent.character`) to the
   /// input buffer.  This is the preferred path because Flutter resolves
   /// Shift, CapsLock, and dead-key sequences before calling this.
   ///
-  /// Returns `true` so callers can uniformly return [KeyEventResult.handled].
+  /// Returns `true` so callers can uniformly return `KeyEventResult.handled`.
   bool appendCharacter(String character) {
     if (character.isEmpty) return false;
     // Skip control characters (ASCII < 32).

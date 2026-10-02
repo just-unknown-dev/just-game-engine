@@ -8,8 +8,25 @@ part of 'particles.dart';
 ///
 /// Forces are stored on a [ParticleEmitter] and applied once per [Particle]
 /// per frame inside [Particle.update].
+///
+/// The built-in forces work on the particle's numbers — [Particle.vx],
+/// [Particle.vy], [Particle.x], [Particle.y] — so applying one allocates
+/// nothing. A force of your own may do the same, or keep using the
+/// [Particle.velocity] and [Particle.position] offsets, which read and write
+/// those numbers.
 abstract class ParticleForce {
+  /// Const constructor so subclasses can be const.
   const ParticleForce();
+
+  /// Moves the force's own clock on by [dt] seconds — once per frame: its
+  /// [ParticleEmitter] calls it at the start of each update, before any
+  /// particle is. A force whose field changes over time ([WindForce],
+  /// [NoiseForce]) keeps its time here, so it runs at the same pace
+  /// however many particles there are. Does nothing by default.
+  ///
+  /// A force added to several emitters is advanced by each of them; give
+  /// each emitter its own.
+  void advance(double dt) {}
 
   /// Apply this force to [particle] for a time step of [dt] seconds.
   void apply(Particle particle, double dt);
@@ -20,21 +37,19 @@ abstract class ParticleForce {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Constant gravitational acceleration.
-///
-/// Wraps the legacy [ParticleEmitter.gravity] Offset parameter so existing
-/// presets continue to work unchanged.
 class GravityForce extends ParticleForce {
   /// Acceleration vector in world units/sec².  Positive Y = downward.
   final Offset gravity;
 
+  /// Accelerates every particle by [gravity], whatever its mass — e.g.
+  /// `GravityForce(Offset(0, 300))` pulls down at 300 world units/sec².
   const GravityForce(this.gravity);
 
   @override
   void apply(Particle particle, double dt) {
-    particle.velocity = Offset(
-      particle.velocity.dx + gravity.dx * dt,
-      particle.velocity.dy + gravity.dy * dt,
-    );
+    particle
+      ..vx = particle.vx + gravity.dx * dt
+      ..vy = particle.vy + gravity.dy * dt;
   }
 }
 
@@ -42,7 +57,8 @@ class GravityForce extends ParticleForce {
 ///
 /// The base [direction] * [strength] force is applied every frame.
 /// An additional noise-derived turbulence offset oscillates over time using
-/// [frequency] Hz, adding organic variation to the particle stream.
+/// [frequency] Hz, adding organic variation to the particle stream. Its
+/// time moves on once a frame ([advance]), the same for every particle.
 class WindForce extends ParticleForce {
   /// Normalized direction of the wind.
   final Offset direction;
@@ -58,6 +74,10 @@ class WindForce extends ParticleForce {
 
   double _time = 0.0;
 
+  /// Wind along [direction] (+X by default) at [strength] (50 by default),
+  /// wavering sideways by up to half of [turbulence] each way (20 by
+  /// default; 0 turns it off) at [frequency] (0.5 by default). Mass is
+  /// ignored.
   WindForce({
     this.direction = const Offset(1.0, 0.0),
     this.strength = 50.0,
@@ -66,23 +86,22 @@ class WindForce extends ParticleForce {
   });
 
   @override
-  void apply(Particle particle, double dt) {
-    _time += dt;
+  void advance(double dt) => _time += dt;
 
+  @override
+  void apply(Particle particle, double dt) {
     // Base directional force
-    particle.velocity = Offset(
-      particle.velocity.dx + direction.dx * strength * dt,
-      particle.velocity.dy + direction.dy * strength * dt,
-    );
+    particle
+      ..vx = particle.vx + direction.dx * strength * dt
+      ..vy = particle.vy + direction.dy * strength * dt;
 
     // Noise turbulence (orthogonal to wind direction)
     if (turbulence > 0.0) {
       final noiseVal = _smoothNoise1D(_time * frequency) - 0.5; // [-0.5, 0.5]
-      final perp = Offset(-direction.dy, direction.dx); // perpendicular
-      particle.velocity = Offset(
-        particle.velocity.dx + perp.dx * noiseVal * turbulence * dt,
-        particle.velocity.dy + perp.dy * noiseVal * turbulence * dt,
-      );
+      // Along the perpendicular (-direction.dy, direction.dx).
+      particle
+        ..vx = particle.vx + -direction.dy * noiseVal * turbulence * dt
+        ..vy = particle.vy + direction.dx * noiseVal * turbulence * dt;
     }
   }
 
@@ -91,16 +110,40 @@ class WindForce extends ParticleForce {
     final i = t.floor();
     final f = t - i;
     final u = f * f * (3.0 - 2.0 * f); // smoothstep
-    return ui.lerpDouble(_hash1D(i), _hash1D(i + 1), u) ?? 0.5;
+    return ui.lerpDouble(hash1D(i), hash1D(i + 1), u) ?? 0.5;
   }
 
-  static double _hash1D(int n) {
-    int x = n;
-    x = ((x >> 16) ^ x) * 0x45d9f3b;
-    x = ((x >> 16) ^ x) * 0x45d9f3b;
-    x = (x >> 16) ^ x;
-    return (x & 0x7FFFFFFF) / 0x7FFFFFFF;
-  }
+  /// The noise's hash of lattice point [n], in `[0, 1]` — the same on every
+  /// platform; see [_hash32].
+  @visibleForTesting
+  static double hash1D(int n) =>
+      (_hash32(n & 0xFFFFFFFF) & 0x7FFFFFFF) / 0x7FFFFFFF;
+}
+
+/// Multiplies two 32-bit unsigned values, keeping the low 32 bits — the
+/// same on the web as natively.
+///
+/// A plain `a * b` of two 32-bit numbers needs up to 64 bits. Native ints
+/// wrap at 64; on the web numbers are doubles, exact only to 2^53, so the
+/// low bits — the ones a hash keeps — came out different. Split into 16-bit
+/// halves, no intermediate passes 2^49.
+int _mul32(int a, int b) {
+  final lo = (a & 0xFFFF) * b;
+  final hi = (((a >>> 16) & 0xFFFF) * b) & 0xFFFF;
+  return (lo + (hi << 16)) & 0xFFFFFFFF;
+}
+
+/// A 32-bit integer hash of [x] (0 ≤ [x] < 2^32), computed identically on
+/// every platform.
+///
+/// Every step stays within 32 unsigned bits: masked after each multiply
+/// ([_mul32]) and shifted with `>>>`. The web's `>>` truncates to 32 bits
+/// while native `>>` does not, and its multiplies lost the low bits past
+/// 2^53 — so wind and noise forces moved particles differently on the web.
+int _hash32(int x) {
+  x = _mul32(((x >>> 16) ^ x) & 0xFFFFFFFF, 0x45d9f3b);
+  x = _mul32(((x >>> 16) ^ x) & 0xFFFFFFFF, 0x45d9f3b);
+  return ((x >>> 16) ^ x) & 0xFFFFFFFF;
 }
 
 /// Point attractor — pulls particles toward [center].
@@ -117,6 +160,9 @@ class AttractorForce extends ParticleForce {
   /// Radius of influence in world units.
   final double radius;
 
+  /// Pulls particles within [radius] (150 by default) of [center] toward
+  /// it: [strength] (200 by default) at the centre, fading linearly to 0 at
+  /// the edge, divided by the particle's mass when that is positive.
   AttractorForce({
     required this.center,
     this.strength = 200.0,
@@ -125,18 +171,17 @@ class AttractorForce extends ParticleForce {
 
   @override
   void apply(Particle particle, double dt) {
-    final dx = center.dx - particle.position.dx;
-    final dy = center.dy - particle.position.dy;
+    final dx = center.dx - particle.x;
+    final dy = center.dy - particle.y;
     final dist = math.sqrt(dx * dx + dy * dy);
     if (dist <= 0 || dist > radius) return;
 
     final falloff = 1.0 - (dist / radius);
     final accel =
         (strength * falloff) / (particle.mass > 0 ? particle.mass : 1.0);
-    particle.velocity = Offset(
-      particle.velocity.dx + (dx / dist) * accel * dt,
-      particle.velocity.dy + (dy / dist) * accel * dt,
-    );
+    particle
+      ..vx = particle.vx + (dx / dist) * accel * dt
+      ..vy = particle.vy + (dy / dist) * accel * dt;
   }
 }
 
@@ -153,6 +198,9 @@ class RepellerForce extends ParticleForce {
   /// Radius of influence.
   final double radius;
 
+  /// Pushes particles within [radius] (150 by default) of [center] away
+  /// from it: [strength] (200 by default) at the centre, fading linearly to
+  /// 0 at the edge, divided by the particle's mass when that is positive.
   RepellerForce({
     required this.center,
     this.strength = 200.0,
@@ -161,18 +209,17 @@ class RepellerForce extends ParticleForce {
 
   @override
   void apply(Particle particle, double dt) {
-    final dx = particle.position.dx - center.dx;
-    final dy = particle.position.dy - center.dy;
+    final dx = particle.x - center.dx;
+    final dy = particle.y - center.dy;
     final dist = math.sqrt(dx * dx + dy * dy);
     if (dist <= 0 || dist > radius) return;
 
     final falloff = 1.0 - (dist / radius);
     final accel =
         (strength * falloff) / (particle.mass > 0 ? particle.mass : 1.0);
-    particle.velocity = Offset(
-      particle.velocity.dx + (dx / dist) * accel * dt,
-      particle.velocity.dy + (dy / dist) * accel * dt,
-    );
+    particle
+      ..vx = particle.vx + (dx / dist) * accel * dt
+      ..vy = particle.vy + (dy / dist) * accel * dt;
   }
 }
 
@@ -183,18 +230,19 @@ class RepellerForce extends ParticleForce {
 ///
 /// A [coefficient] of 0.1 removes ~10% of velocity per second.
 class DragForce extends ParticleForce {
-  /// Drag coefficient in [0, 1] range.  Typical values: 0.02–0.15.
+  /// Drag coefficient in `[0, 1]` range.  Typical values: 0.02–0.15.
   final double coefficient;
 
+  /// Drag taking about [coefficient] of each particle's velocity away per
+  /// second (0.05 by default); mass is ignored.
   const DragForce({this.coefficient = 0.05});
 
   @override
   void apply(Particle particle, double dt) {
     final factor = 1.0 - (coefficient * dt).clamp(0.0, 1.0);
-    particle.velocity = Offset(
-      particle.velocity.dx * factor,
-      particle.velocity.dy * factor,
-    );
+    particle
+      ..vx = particle.vx * factor
+      ..vy = particle.vy * factor;
   }
 }
 
@@ -213,6 +261,10 @@ class VortexForce extends ParticleForce {
   /// Radius outside which the force is zero.
   final double radius;
 
+  /// Swirls particles within [radius] (200 by default) of [center] around
+  /// it: [strength] (150 by default) at the centre, fading linearly to 0 at
+  /// the edge, divided by the particle's mass when that is positive. A
+  /// negative [strength] swirls the other way.
   VortexForce({
     required this.center,
     this.strength = 150.0,
@@ -221,8 +273,8 @@ class VortexForce extends ParticleForce {
 
   @override
   void apply(Particle particle, double dt) {
-    final dx = particle.position.dx - center.dx;
-    final dy = particle.position.dy - center.dy;
+    final dx = particle.x - center.dx;
+    final dy = particle.y - center.dy;
     final dist = math.sqrt(dx * dx + dy * dy);
     if (dist <= 0 || dist > radius) return;
 
@@ -230,10 +282,9 @@ class VortexForce extends ParticleForce {
     final accel =
         (strength * falloff) / (particle.mass > 0 ? particle.mass : 1.0);
     // Tangent = (-y, x) normalized
-    particle.velocity = Offset(
-      particle.velocity.dx + (-dy / dist) * accel * dt,
-      particle.velocity.dy + (dx / dist) * accel * dt,
-    );
+    particle
+      ..vx = particle.vx + (-dy / dist) * accel * dt
+      ..vy = particle.vy + (dx / dist) * accel * dt;
   }
 }
 
@@ -241,8 +292,9 @@ class VortexForce extends ParticleForce {
 ///
 /// Samples a smooth noise field at the particle's world position (scaled by
 /// [scale]) and time (scaled by [speed]).  The resulting vector is added to
-/// [velocity], producing organic, turbulent motion without explicit force
-/// fields.
+/// [Particle.velocity], producing organic, turbulent motion without explicit
+/// force fields. Its time moves on once a frame ([advance]), the same for
+/// every particle.
 ///
 /// The underlying implementation is a self-contained hash-based value noise
 /// that requires no external dependencies.
@@ -258,28 +310,24 @@ class NoiseForce extends ParticleForce {
 
   double _time = 0.0;
 
+  /// Turbulence pushing each particle by up to half of [strength] each way
+  /// on each axis (80 by default), from a noise field sampled [scale] per
+  /// world unit (0.008 by default) that drifts at [speed] (0.5 by default).
+  /// Mass is ignored.
   NoiseForce({this.strength = 80.0, this.scale = 0.008, this.speed = 0.5});
 
   @override
-  void apply(Particle particle, double dt) {
-    _time += dt * speed;
+  void advance(double dt) => _time += dt * speed;
 
-    final nx = _noise2D(
-      particle.position.dx * scale,
-      particle.position.dy * scale + 31.7,
-      _time,
-    );
-    final ny = _noise2D(
-      particle.position.dx * scale + 17.3,
-      particle.position.dy * scale,
-      _time,
-    );
+  @override
+  void apply(Particle particle, double dt) {
+    final nx = _noise2D(particle.x * scale, particle.y * scale + 31.7, _time);
+    final ny = _noise2D(particle.x * scale + 17.3, particle.y * scale, _time);
 
     // Map [0,1] → [-0.5, 0.5]; apply force
-    particle.velocity = Offset(
-      particle.velocity.dx + (nx - 0.5) * strength * dt,
-      particle.velocity.dy + (ny - 0.5) * strength * dt,
-    );
+    particle
+      ..vx = particle.vx + (nx - 0.5) * strength * dt
+      ..vy = particle.vy + (ny - 0.5) * strength * dt;
   }
 
   // ── Internal noise implementation ──────────────────────────────────────────
@@ -299,14 +347,14 @@ class NoiseForce extends ParticleForce {
     final ut = _fade(ft);
 
     // Sample 8 corners of the (x,y,t) unit cube
-    final v000 = _hash3(xi, yi, ti);
-    final v100 = _hash3(xi + 1, yi, ti);
-    final v010 = _hash3(xi, yi + 1, ti);
-    final v110 = _hash3(xi + 1, yi + 1, ti);
-    final v001 = _hash3(xi, yi, ti + 1);
-    final v101 = _hash3(xi + 1, yi, ti + 1);
-    final v011 = _hash3(xi, yi + 1, ti + 1);
-    final v111 = _hash3(xi + 1, yi + 1, ti + 1);
+    final v000 = hash3(xi, yi, ti);
+    final v100 = hash3(xi + 1, yi, ti);
+    final v010 = hash3(xi, yi + 1, ti);
+    final v110 = hash3(xi + 1, yi + 1, ti);
+    final v001 = hash3(xi, yi, ti + 1);
+    final v101 = hash3(xi + 1, yi, ti + 1);
+    final v011 = hash3(xi, yi + 1, ti + 1);
+    final v111 = hash3(xi + 1, yi + 1, ti + 1);
 
     // Trilinear interpolation
     final x00 = ui.lerpDouble(v000, v100, ux)!;
@@ -321,13 +369,15 @@ class NoiseForce extends ParticleForce {
   /// Smoothstep fade curve.
   static double _fade(double t) => t * t * (3.0 - 2.0 * t);
 
-  /// Deterministic integer hash → [0, 1].
-  static double _hash3(int x, int y, int t) {
-    int v = x ^ (y * 57) ^ (t * 131);
-    v = ((v >> 16) ^ v) * 0x45d9f3b;
-    v = ((v >> 16) ^ v) * 0x45d9f3b;
-    v = (v >> 16) ^ v;
-    return (v.abs() & 0x7FFFFFFF) / 0x7FFFFFFF;
+  /// Deterministic integer hash of a lattice point → `[0, 1]`, the same on
+  /// every platform; see [_hash32].
+  @visibleForTesting
+  static double hash3(int x, int y, int t) {
+    final v =
+        (x & 0xFFFFFFFF) ^
+        _mul32(y & 0xFFFFFFFF, 57) ^
+        _mul32(t & 0xFFFFFFFF, 131);
+    return (_hash32(v & 0xFFFFFFFF) & 0x7FFFFFFF) / 0x7FFFFFFF;
   }
 }
 
@@ -353,8 +403,9 @@ enum ParticleBoundaryBehavior {
 /// Restricts particles to an axis-aligned rectangle.
 ///
 /// When a particle's position crosses any edge of [bounds], the chosen
-/// [behavior] is applied.  Use [BoundaryBehavior.bounce] with [restitution]
-/// close to 1.0 for elastic walls, or 0.3–0.5 for dampened bouncing.
+/// [behavior] is applied.  Use [ParticleBoundaryBehavior.bounce] with
+/// [restitution] close to 1.0 for elastic walls, or 0.3–0.5 for dampened
+/// bouncing.
 class BoundaryForce extends ParticleForce {
   /// The bounding rectangle in world space.
   final Rect bounds;
@@ -365,6 +416,9 @@ class BoundaryForce extends ParticleForce {
   /// Fraction of velocity retained after a bounce (0 = fully inelastic, 1 = elastic).
   final double restitution;
 
+  /// Keeps particles to [bounds]: one found outside it gets [behavior]
+  /// (bounce by default, keeping [restitution] — 0.6 by default — of the
+  /// speed across the edge it crossed).
   const BoundaryForce({
     required this.bounds,
     this.behavior = ParticleBoundaryBehavior.bounce,
@@ -373,10 +427,10 @@ class BoundaryForce extends ParticleForce {
 
   @override
   void apply(Particle particle, double dt) {
-    double vx = particle.velocity.dx;
-    double vy = particle.velocity.dy;
-    double px = particle.position.dx;
-    double py = particle.position.dy;
+    double vx = particle.vx;
+    double vy = particle.vy;
+    double px = particle.x;
+    double py = particle.y;
 
     bool hit = false;
 
@@ -404,19 +458,22 @@ class BoundaryForce extends ParticleForce {
 
     switch (behavior) {
       case ParticleBoundaryBehavior.bounce:
-        particle.position = Offset(px, py);
-        particle.velocity = Offset(vx, vy);
+        particle
+          ..x = px
+          ..y = py
+          ..vx = vx
+          ..vy = vy;
         break;
       case ParticleBoundaryBehavior.kill:
         particle.age = particle.lifetime;
         break;
       case ParticleBoundaryBehavior.stop:
-        particle.position = Offset(px, py);
-        // Zero out only the crossing component
-        particle.velocity = Offset(
-          px == bounds.left || px == bounds.right ? 0 : vx,
-          py == bounds.top || py == bounds.bottom ? 0 : vy,
-        );
+        particle
+          ..x = px
+          ..y = py
+          // Zero out only the crossing component
+          ..vx = px == bounds.left || px == bounds.right ? 0 : vx
+          ..vy = py == bounds.top || py == bounds.bottom ? 0 : vy;
         break;
     }
   }

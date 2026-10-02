@@ -22,7 +22,13 @@ void main() {
       TransformComponent(position: Vector3.fromXY(x, y)),
       CullStateComponent(),
       RenderableComponent(
-        renderable: CircleRenderable(radius: 5, fillColor: Colors.red),
+        // Where RenderSystem puts it: its bounds are in world space, at its
+        // own position, which the render system syncs to the transform.
+        renderable: CircleRenderable(
+          radius: 5,
+          fillColor: Colors.red,
+          position: Vector3.fromXY(x, y),
+        ),
       ),
     ]);
   }

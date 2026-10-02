@@ -18,6 +18,7 @@ class SensorEnterEvent extends GameEvent {
   /// The entity that entered the sensor zone.
   final Entity visitor;
 
+  /// [visitor] has begun overlapping [sensor].
   SensorEnterEvent({required this.sensor, required this.visitor});
 }
 
@@ -29,5 +30,6 @@ class SensorExitEvent extends GameEvent {
   /// The entity that left the sensor zone.
   final Entity visitor;
 
+  /// [visitor] has stopped overlapping [sensor].
   SensorExitEvent({required this.sensor, required this.visitor});
 }

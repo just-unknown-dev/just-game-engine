@@ -44,11 +44,6 @@ Map<String, dynamic> _named(Map<String, dynamic> scene, String name) =>
     );
 
 void main() {
-  setUp(() {
-    ComponentCodecRegistry.instance.clear();
-    registerCoreCodecs();
-  });
-
   test('a camera entity becomes a virtual camera following the old target', () {
     final out = SceneFormat.migrate(
       _scene([
@@ -159,7 +154,10 @@ void main() {
     addTearDown(world.dispose);
     final loaded = SceneLoader.load(world, out);
     final camera = loaded.firstWhere((e) => e.name == 'MainCamera');
-    expect(camera.getComponent<VirtualCameraComponent>()!.followName, 'Hero');
+    expect(
+      camera.getComponent<VirtualCameraComponent>()!.follow,
+      const EntityTarget.name('Hero'),
+    );
     expect(camera.hasComponent<CameraFramingComponent>(), isTrue);
   });
 
@@ -208,10 +206,7 @@ void main() {
       ]),
     );
     expect(
-      _fields(
-        _named(out, 'MainCamera'),
-        'VirtualCameraComponent',
-      )!['follow'],
+      _fields(_named(out, 'MainCamera'), 'VirtualCameraComponent')!['follow'],
       {'name': 'First'},
     );
   });
@@ -245,9 +240,10 @@ void main() {
         ..add({'type': 'B', 'fields': <String, dynamic>{}});
     }
 
-    V1ToV2.perEntity.add(rule);
-    addTearDown(() => V1ToV2.perEntity.remove(rule));
+    final hooks = MigrationHooks();
+    hooks.perEntity(1).add(rule);
     final out = SceneFormat.migrate(
+      hooks: hooks,
       _scene([
         {
           'name': 'Zone',

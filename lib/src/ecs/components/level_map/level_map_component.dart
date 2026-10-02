@@ -19,6 +19,8 @@ import '../../ecs.dart';
 /// player and its foreground layer in front. Only the entity's position is
 /// used; the map is not rotated or scaled with it.
 class LevelMapComponent extends Component {
+  /// A map from the file [mapPath], or, while that is empty, the scene's own
+  /// [inline] one. With neither, there is no map yet.
   LevelMapComponent({this.mapPath = '', this.inline});
 
   /// A `.map.json` (or, from before, `.tilemap.json`), `.tmx` or `.tmj`;

@@ -29,6 +29,9 @@ class FadeEffect extends DeterministicEffect {
 
   double? _capturedFrom;
 
+  /// Fades to opacity [to] (0..1, asserted) over [durationTicks] ticks (30
+  /// by default), along [easing] (linear by default), starting from [from]
+  /// or, when that is null, from the entity's opacity on the first tick.
   FadeEffect({
     required this.to,
     this.from,
@@ -50,8 +53,8 @@ class FadeEffect extends DeterministicEffect {
     if (effectiveFrom == null) return;
 
     final totalDelta = to - effectiveFrom;
-    final prevEased = EffectEasings.resolve(easing, tAt(prevElapsed));
-    final currEased = EffectEasings.resolve(easing, tAt(currElapsed));
+    final prevEased = easing.transform(tAt(prevElapsed));
+    final currEased = easing.transform(tAt(currElapsed));
     renderable.renderable.opacity =
         (renderable.renderable.opacity + totalDelta * (currEased - prevEased))
             .clamp(0.0, 1.0);

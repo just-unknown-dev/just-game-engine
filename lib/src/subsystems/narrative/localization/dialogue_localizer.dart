@@ -3,6 +3,7 @@ library;
 
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show FlutterError, debugPrint;
 import 'package:flutter/services.dart';
 import 'package:just_signals/just_signals.dart';
 
@@ -23,7 +24,7 @@ import '../../../subsystems/localization/localization_manager.dart';
 /// ```dart
 /// // 1. Set up the central manager once (typically in your game init):
 /// final l10n = LocalizationManager();
-/// LocalizationManager.instance = l10n;
+/// engine.context.localization = l10n;
 /// await l10n.load(const Locale('en'), 'assets/data/dialogue_en.json',
 ///     ns: LocalizationManager.dialogueNamespace);
 /// await l10n.load(const Locale('fr'), 'assets/data/dialogue_fr.json',
@@ -42,6 +43,10 @@ import '../../../subsystems/localization/localization_manager.dart';
 /// `{basePath}_{languageCode}[_{countryCode}].json` is preserved for
 /// backwards-compatible [loadLocale] calls.
 class DialogueLocalizer {
+  /// A localizer reading [manager]'s dialogue namespace — a private
+  /// [LocalizationManager] of its own when null. [loadLocale] reads
+  /// `<basePath>_<locale>.json`, [basePath] being `assets/data/dialogue`
+  /// when null.
   DialogueLocalizer({LocalizationManager? manager, String? basePath})
     : _manager = manager ?? LocalizationManager(),
       _basePath = basePath ?? 'assets/data/dialogue';
@@ -83,7 +88,13 @@ class DialogueLocalizer {
           bundle: bundle,
         );
         return;
-      } catch (_) {
+      } catch (e) {
+        // A missing file sends it on to the next candidate, quietly. One
+        // that is there but unreadable does too — the player still gets
+        // text — but it is reported, not taken for missing.
+        if (!_isMissingAsset(e)) {
+          debugPrint('DialogueLocalizer: skipped $path — $e');
+        }
         continue;
       }
     }
@@ -143,3 +154,8 @@ class DialogueLocalizer {
     return '${_basePath}_$tag.json';
   }
 }
+
+/// Whether [error] is an asset bundle's "no such asset" — as opposed to an
+/// asset that exists but could not be used.
+bool _isMissingAsset(Object error) =>
+    error is FlutterError && error.message.startsWith('Unable to load asset');

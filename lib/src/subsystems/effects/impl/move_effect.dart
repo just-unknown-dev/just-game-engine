@@ -8,14 +8,21 @@
 ///
 /// ```dart
 /// // Move to an absolute world position:
-/// MoveEffect(to: Offset(400, 200), durationTicks: 60)
+/// MoveEffect(to: Vector3(400, 200, 0), durationTicks: 60)
 ///
-/// // Move from a known start (ignoring current position):
-/// MoveEffect(from: Offset(0, 0), to: Offset(400, 200), durationTicks: 60)
+/// // Move by an offset, from wherever the entity is — with `from` given,
+/// // the entity moves by `to − from`:
+/// MoveEffect(
+///   from: Vector3.zero(),
+///   to: Vector3(400, 200, 0),
+///   durationTicks: 60,
+/// )
 /// ```
 class MoveEffect extends DeterministicEffect {
-  /// Explicit start position. When `null` the entity's current
-  /// [TransformComponent.position] is captured on the first tick.
+  /// The start the move is measured from. The entity is not put there:
+  /// being additive, it moves by `to − from` from wherever it is. When
+  /// `null`, the entity's position on the first tick is the start, so it
+  /// ends at [to].
   final Vector3? from;
 
   /// Target world position.
@@ -27,6 +34,10 @@ class MoveEffect extends DeterministicEffect {
   // Runtime-captured baseline — set on first applyTick call.
   Vector3? _capturedFrom;
 
+  /// Moves to world position [to] over [durationTicks] ticks (30 by
+  /// default), along [easing] (linear by default), from the entity's
+  /// position on the first tick — or, given [from], by `to − from` from
+  /// wherever the entity is.
   MoveEffect({
     required this.to,
     this.from,
@@ -49,8 +60,8 @@ class MoveEffect extends DeterministicEffect {
     if (effectiveFrom == null) return;
 
     final totalDelta = to - effectiveFrom;
-    final prevEased = EffectEasings.resolve(easing, tAt(prevElapsed));
-    final currEased = EffectEasings.resolve(easing, tAt(currElapsed));
+    final prevEased = easing.transform(tAt(prevElapsed));
+    final currEased = easing.transform(tAt(currElapsed));
     transform.position += totalDelta * (currEased - prevEased);
   }
 

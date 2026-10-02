@@ -2,16 +2,20 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show debugPrint;
+
 import '../../../subsystems/timeline/timeline_asset.dart';
 import '../../../subsystems/timeline/timeline_player.dart';
-import '../../../subsystems/timeline/timeline_signals.dart';
 import '../../components/animation/timeline_player_component.dart';
 import '../../ecs.dart';
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 
 class _Source {
-  _Source(this.path, this.inline);
+  _Source(this.player, this.path, this.inline);
 
+  /// The component this source was made for — kept, so its playback can be
+  /// ended even after the component or its entity is gone.
+  final TimelinePlayerComponent player;
   final String path;
   final TimelineAsset? inline;
   bool failed = false;
@@ -21,21 +25,32 @@ class _Source {
 /// Runs every [TimelinePlayerComponent]: loads its timeline, plays it, and
 /// says which events fired.
 class TimelineSystem extends System {
+  /// A system that reads each timeline with [loader] — the world context's
+  /// `timelines` when null — once per path, shared by every player and
+  /// nested track that names it.
   TimelineSystem({Future<TimelineAsset> Function(String path)? loader})
     : _loader = loader;
 
   final Future<TimelineAsset> Function(String path)? _loader;
   final Map<String, Future<TimelineAsset>> _assets = {};
   final Map<Entity, _Source> _sources = {};
+
+  // Paths whose failure to load has been said.
+  final Set<String> _reported = {};
   final StreamController<TimelineEventFired> _events =
       StreamController<TimelineEventFired>.broadcast(sync: true);
 
   StreamSubscription<String>? _signals;
 
+  // The world's structure when [_sources] was last pruned.
+  int _prunedAt = -1;
+
   @override
   void onAddedToWorld() {
     super.onAddedToWorld();
-    _signals ??= TimelineSignals.stream.listen(_onSignal);
+    // The engine's bus: a signal from any world on this context — a
+    // button on an interface screen — starts players here.
+    _signals ??= world.context.signals.stream.listen(_onSignal);
   }
 
   // A signal starts every player listening for it, from the start.
@@ -68,20 +83,27 @@ class TimelineSystem extends System {
   void reload([String? path]) {
     if (path == null) {
       _assets.clear();
+      _reported.clear();
     } else {
       _assets.remove(path);
+      _reported.remove(path);
     }
     _sources.removeWhere((entity, source) {
       if (path != null && source.path != path) return false;
-      entity.getComponent<TimelinePlayerComponent>()?.reset();
+      source.player.reset();
       return true;
     });
   }
 
   @override
   void update(double deltaTime) {
-    final live = entities.toSet();
-    _sources.removeWhere((e, _) => !live.contains(e));
+    // Only a structural change can take a player away; a player whose
+    // entity is merely switched off keeps its playback, and carries on
+    // where it was when it is switched back on.
+    if (world.structureVersion != _prunedAt) {
+      _prunedAt = world.structureVersion;
+      _prune();
+    }
 
     forEach((entity) {
       final player = entity.getComponent<TimelinePlayerComponent>()!;
@@ -96,7 +118,7 @@ class TimelineSystem extends System {
         // timeline is still owed.
         player.playback?.dispose();
         player.playback = null;
-        source = _sources[entity] = _Source(path, player.inline);
+        source = _sources[entity] = _Source(player, path, player.inline);
         if (path.isNotEmpty) {
           _load(entity, player, source);
         } else if (player.inline != null) {
@@ -115,6 +137,25 @@ class TimelineSystem extends System {
     });
   }
 
+  /// Ends the playback of every player whose entity was destroyed or which
+  /// was taken off its entity (or replaced): what only lasts while a
+  /// timeline runs — a camera shot's raised priority — is undone.
+  void _prune() {
+    _sources.removeWhere((entity, source) {
+      if (entity.isAlive &&
+          identical(
+            entity.getComponent<TimelinePlayerComponent>(),
+            source.player,
+          )) {
+        return false;
+      }
+      final player = source.player;
+      player.playback?.dispose();
+      player.playback = null;
+      return true;
+    });
+  }
+
   void _load(Entity entity, TimelinePlayerComponent player, _Source source) {
     source.loading = true;
     final future = _read(source.path);
@@ -126,17 +167,26 @@ class TimelineSystem extends System {
         if (!identical(_sources[entity], source)) return;
         _start(entity, player, asset);
       },
-      onError: (Object _) {
-        // Remembered, so a missing file is not asked for every frame.
+      onError: (Object error) {
+        // Remembered, so a missing file is not asked for every frame — and
+        // said once, so a player that never moves is not a mystery.
         source.loading = false;
         source.failed = true;
+        if (_reported.add(source.path)) {
+          debugPrint(
+            'TimelineSystem: "${source.path}" could not be loaded; its '
+            'players will not play. $error',
+          );
+        }
       },
     );
   }
 
   // One read per file, shared by every player and nested track that asks.
-  Future<TimelineAsset> _read(String path) =>
-      _assets.putIfAbsent(path, () => (_loader ?? TimelineAssets.loader)(path));
+  Future<TimelineAsset> _read(String path) => _assets.putIfAbsent(
+    path,
+    () => (_loader ?? world.context.timelines)(path),
+  );
 
   void _start(
     Entity entity,
@@ -163,8 +213,8 @@ class TimelineSystem extends System {
 
   @override
   void dispose() {
-    for (final entity in _sources.keys) {
-      entity.getComponent<TimelinePlayerComponent>()?.playback?.dispose();
+    for (final source in _sources.values) {
+      source.player.playback?.dispose();
     }
     _sources.clear();
     _signals?.cancel();

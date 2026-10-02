@@ -27,6 +27,9 @@ import '../ecs/ecs.dart';
 /// });
 /// ```
 class EntitySignal {
+  /// Signals over the given entity, labelled [debugLabel] (by default
+  /// `EntitySignal(<id>)`). Component signals are made as they are asked
+  /// for.
   EntitySignal(this._entity, {String? debugLabel})
     : _debugLabel = debugLabel ?? 'EntitySignal(${_entity.id})';
 
@@ -37,8 +40,8 @@ class EntitySignal {
   // Declared as Map<Type, dynamic> so that Signal<T?> values (which are
   // invariant in T) can coexist in the same map without invalid variance casts.
   final Map<Type, dynamic> _componentSignals = {};
-  final Signal<bool> _activeSignal = Signal(
-    true,
+  late final Signal<bool> _activeSignal = Signal(
+    _entity.isActive,
     debugLabel: 'Entity.isActive',
   );
 
@@ -48,7 +51,8 @@ class EntitySignal {
   /// The entity ID.
   EntityId get id => _entity.id;
 
-  /// Signal for the entity's active state.
+  /// Signal for the entity's active state: the entity's `isActive` when
+  /// first read, then as of the last [sync].
   Signal<bool> get isActive => _activeSignal;
 
   /// Returns the signal for a component [type] if it already exists, or null.
@@ -113,10 +117,11 @@ class EntitySignal {
       // so the assignment is checked against the actual (correct) runtime type.
       final dynamic signal = entry.value;
 
-      // Use reflection-free approach - check if component exists
+      // Matched by componentType — the type the world files a component
+      // under, and so the one component<T>() finds it by.
       Component? current;
       for (final comp in _entity.components) {
-        if (comp.runtimeType == type) {
+        if (comp.componentType == type) {
           current = comp;
           break;
         }
@@ -141,6 +146,8 @@ class EntitySignal {
     }
   }
 
+  /// Disposes every signal made here, [isActive] included. The entity is
+  /// left as it is.
   void dispose() {
     for (final dynamic signal in _componentSignals.values) {
       signal.dispose();

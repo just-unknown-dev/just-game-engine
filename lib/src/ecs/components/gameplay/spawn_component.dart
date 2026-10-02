@@ -21,20 +21,12 @@ import '../../../ecs/ecs.dart';
 /// ], name: 'PlayerSpawn');
 /// ```
 class SpawnComponent extends Component {
-  SpawnComponent({
-    String spawner = 'player',
-    @Deprecated('Renamed spawner: it names a Spawner, not a tag.') String? tag,
-  }) : spawner = tag ?? spawner;
+  /// A spawn point for the spawner named [spawner]; the `player` one by
+  /// default.
+  SpawnComponent({this.spawner = 'player'});
 
   /// The [Spawner.id] of what is created here.
   String spawner;
-
-  /// The old name of [spawner].
-  @Deprecated('Renamed spawner: it names a Spawner, not a tag.')
-  String get tag => spawner;
-
-  @Deprecated('Renamed spawner: it names a Spawner, not a tag.')
-  set tag(String value) => spawner = value;
 
   @override
   String toString() => 'Spawn($spawner)';
@@ -49,6 +41,8 @@ typedef SpawnFunction = Entity Function(World world, Entity spawnPoint);
 /// knows that `player` is a real tag in a level that has no player in it
 /// yet — only a spawn point that will make one.
 class Spawner {
+  /// A spawner saved in levels as [id] that makes entities with [spawn];
+  /// [label], [description] and [tags] are for pickers and editors only.
   const Spawner({
     required this.id,
     required this.spawn,
@@ -66,11 +60,14 @@ class Spawner {
   /// What a person reads in a picker; [id] when unset.
   final String? label;
 
+  /// A short note on what it makes, for people and tools; empty by
+  /// default.
   final String description;
 
   /// The tags the entity [spawn] creates carries.
   final Set<String> tags;
 
+  /// The name to show: [label], or [id] when it has none.
   String get displayName => label ?? id;
 
   /// Spawners without descriptions, from an old `id → function` map.

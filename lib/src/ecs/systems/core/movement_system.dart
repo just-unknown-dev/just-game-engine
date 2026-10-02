@@ -2,9 +2,11 @@ library;
 
 import '../../ecs.dart';
 import '../../components/components.dart';
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 
 /// Movement system - Applies velocity to transform
+///
+/// Entities switched off ([Entity.isActive] false) do not move.
 class MovementSystem extends System {
   @override
   int get priority => SystemPriorities.movement;
@@ -33,6 +35,8 @@ class MovementSystem extends System {
           ? archetype.getColumn(CullStateComponent)
           : null;
       for (int i = 0; i < transforms.length; i++) {
+        // An archetype holds switched-off entities too; they stay put.
+        if (!archetype.entityAt(i).isActive) continue;
         if (cullStates != null &&
             !(cullStates[i] as CullStateComponent).isActive) {
           continue;

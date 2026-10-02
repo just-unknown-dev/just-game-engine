@@ -52,6 +52,10 @@ class PathEffect extends DeterministicEffect {
   // Runtime.
   Vector3? _capturedStart;
 
+  /// Follows [waypoints] (at least 2, and exactly 4 when [cubicBezier];
+  /// asserted) over [durationTicks] ticks (60 by default), along [easing]
+  /// (linear by default), offset from the entity's start position unless
+  /// [relativeToStart] is false.
   PathEffect({
     required this.waypoints,
     this.cubicBezier = false,
@@ -66,7 +70,7 @@ class PathEffect extends DeterministicEffect {
          'Cubic Bézier PathEffect requires exactly 4 waypoints',
        );
 
-  /// Evaluate path position at normalised [t] ∈ [0, 1].
+  /// Evaluate path position at normalised [t] ∈ `[0, 1]`.
   /// Waypoints stay as [Offset] (2-D control points); origin is projected to
   /// XY for the Bézier math, and the result is lifted back to [Vector3].
   Vector3 _evaluate(double t, Vector3 origin) {
@@ -109,8 +113,8 @@ class PathEffect extends DeterministicEffect {
     }
     final origin = _capturedStart!;
 
-    final prevT = EffectEasings.resolve(easing, tAt(prevElapsed));
-    final currT = EffectEasings.resolve(easing, tAt(currElapsed));
+    final prevT = easing.transform(tAt(prevElapsed));
+    final currT = easing.transform(tAt(currElapsed));
     final prevPos = _evaluate(prevT, origin);
     final currPos = _evaluate(currT, origin);
     transform.position += currPos - prevPos;

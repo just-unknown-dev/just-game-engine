@@ -1,16 +1,21 @@
 library;
 
 import '../../subsystems/timeline/timeline_format.dart';
+import 'migration_hooks.dart';
 
 /// One step of the scene-format migration chain: from version [from] to
 /// [from] + 1.
 abstract class SceneMigration {
+  /// Const constructor so subclasses can be const.
   const SceneMigration();
 
+  /// The scene version this step reads; it leaves the scene at [from] + 1.
   int get from;
 
-  /// Rewrites [json] (a private copy) in place and returns it.
-  Map<String, dynamic> apply(Map<String, dynamic> json);
+  /// Rewrites [json] (a private copy) in place and returns it. [run] holds
+  /// the packages' rules ([MigrationRun.hooks]) and collects what the step
+  /// notices.
+  Map<String, dynamic> apply(Map<String, dynamic> json, MigrationRun run);
 }
 
 /// Rewrites one component's v0 JSON to its v1 shape. Receives the component
@@ -24,16 +29,22 @@ typedef ComponentMigration =
 /// the general rule hoists every key but `type` under `fields`. Two of them
 /// stored vectors as `{dx, dy}` where their definitions read `{x, y}`, and
 /// `customComponentId` is dropped (definitions know their aliases). A kit
-/// with its own v0 shapes registers rules in [perType].
+/// with its own v0 shapes adds rules to [MigrationHooks.v0Components].
 class V0ToV1 extends SceneMigration {
+  /// The v0 → v1 step: each component's flat keys move under `fields`
+  /// (dropping `customComponentId`); a transform's `position` and a
+  /// velocity's `velocity` go from `{dx, dy}` to `{x, y}`; a transform's
+  /// `scale` (a number or `{dx, dy}`) becomes `{x, y, z}`; and a shape's
+  /// bare `color` becomes its `fillStyle`.
   const V0ToV1();
 
   @override
   int get from => 0;
 
-  /// Per-type rewrites, applied after the general hoist. Open so a kit can
-  /// add its own.
-  static final Map<String, ComponentMigration> perType = {
+  /// The engine's per-type rewrites, applied after the general hoist. A
+  /// package's rule for the same type ([MigrationHooks.v0Components]) runs
+  /// instead.
+  static final Map<String, ComponentMigration> _core = {
     'TransformComponent': (c) {
       final f = c['fields'] as Map<String, dynamic>;
       f['position'] = _dxdyToXy(f['position']);
@@ -77,7 +88,7 @@ class V0ToV1 extends SceneMigration {
   }
 
   @override
-  Map<String, dynamic> apply(Map<String, dynamic> json) {
+  Map<String, dynamic> apply(Map<String, dynamic> json, MigrationRun run) {
     final entities = json['entities'];
     if (entities is List) {
       for (final entity in entities.whereType<Map<String, dynamic>>()) {
@@ -85,15 +96,21 @@ class V0ToV1 extends SceneMigration {
         if (components is! List) continue;
         for (var i = 0; i < components.length; i++) {
           final c = components[i];
-          if (c is Map<String, dynamic>) components[i] = migrateComponent(c);
+          if (c is Map<String, dynamic>) {
+            components[i] = migrateComponent(c, run.hooks);
+          }
         }
       }
     }
     return json;
   }
 
-  /// One component, v0 → v1.
-  static Map<String, dynamic> migrateComponent(Map<String, dynamic> c) {
+  /// One component, v0 → v1, with [hooks]' rules ([MigrationHooks.none]
+  /// when null).
+  static Map<String, dynamic> migrateComponent(
+    Map<String, dynamic> c, [
+    MigrationHooks? hooks,
+  ]) {
     final type = c['type'];
     final Map<String, dynamic> out;
     if (c['fields'] is Map) {
@@ -110,7 +127,9 @@ class V0ToV1 extends SceneMigration {
         },
       };
     }
-    final rule = type is String ? perType[type] : null;
+    final rule = type is String
+        ? (hooks?.v0Components[type] ?? _core[type])
+        : null;
     return rule == null ? out : rule(out);
   }
 }
@@ -132,9 +151,14 @@ typedef EntityMigration =
 ///   `MainCamera` — that is what the old follow system did implicitly.
 ///
 /// The old dead zone was in world units and framing is in screen fractions,
-/// so the conversion assumes a [nominalView]; it is a starting point to tune,
+/// so the conversion assumes a `nominalView`; it is a starting point to tune,
 /// not an exact translation.
 class V1ToV2 extends SceneMigration {
+  /// The v1 → v2 step: each `CameraComponent` becomes a
+  /// `VirtualCameraComponent` (with a `CameraFramingComponent` when
+  /// something was followed, and a confiner plus a bounds entity for
+  /// authored bounds); every `CameraFollowComponent` is removed; and a
+  /// `MainCamera` entity is added when a follow target had no camera.
   const V1ToV2();
 
   @override
@@ -142,14 +166,13 @@ class V1ToV2 extends SceneMigration {
 
   /// The view the old world-unit dead zones are read against.
   static const double nominalViewWidth = 1280;
+
+  /// The height of that view, in world units at zoom 1; its width is
+  /// [nominalViewWidth].
   static const double nominalViewHeight = 720;
 
-  /// Entity-level rules a package adds for its own components: one component
-  /// becoming several, or moving to another entity. Run after the core ones.
-  static final List<EntityMigration> perEntity = [];
-
   @override
-  Map<String, dynamic> apply(Map<String, dynamic> json) {
+  Map<String, dynamic> apply(Map<String, dynamic> json, MigrationRun run) {
     final list = json['entities'];
     if (list is! List) return json;
     final entities = list.whereType<Map<String, dynamic>>().toList();
@@ -235,7 +258,7 @@ class V1ToV2 extends SceneMigration {
           (c) => c is Map && c['type'] == 'CameraFollowComponent',
         );
       }
-      for (final migrate in perEntity) {
+      for (final migrate in run.hooks.perEntity(from)) {
         migrate(entity, json);
       }
     }
@@ -340,28 +363,24 @@ class V1ToV2 extends SceneMigration {
 ///   `jsonPath` becomes `atlasPath` and `activeClip` becomes `clip`. The old
 ///   grid description (frame size, columns, inline clips, fps) has no place
 ///   in the new component — an atlas file holds all of that — so an entity
-///   that relied on it is listed in [needsAtlas] for a tool to export one.
+///   that relied on it is listed in [MigrationRun.needsAtlas] for a tool to
+///   export one.
 /// - `AnimationStateComponent` is removed: it named a clip and counted
 ///   frames, which the sprite animation now does by itself.
 /// - `SpriteComponent.frame` is dropped; a frame of a sheet is an atlas
 ///   region now.
 class V2ToV3 extends SceneMigration {
+  /// The v2 → v3 step: `AnimatedSpriteComponent` becomes
+  /// `SpriteAnimationComponent` (`jsonPath` → `atlasPath`, `activeClip` →
+  /// `clip`), `AnimationStateComponent` is removed, and
+  /// `SpriteComponent.frame` is dropped.
   const V2ToV3();
 
   @override
   int get from => 2;
 
-  /// Entity-level rules a package adds for its own components.
-  static final List<EntityMigration> perEntity = [];
-
-  /// Names of entities whose old animated sprite had no atlas JSON to point
-  /// at, from the most recent [apply]. Their sheet needs exporting as an
-  /// atlas before they animate again.
-  static final List<String> needsAtlas = [];
-
   @override
-  Map<String, dynamic> apply(Map<String, dynamic> json) {
-    needsAtlas.clear();
+  Map<String, dynamic> apply(Map<String, dynamic> json, MigrationRun run) {
     final list = json['entities'];
     if (list is! List) return json;
     for (final entity in list.whereType<Map<String, dynamic>>()) {
@@ -381,7 +400,7 @@ class V2ToV3 extends SceneMigration {
           final old = fields is Map ? fields : const {};
           final atlasPath = _atlasPathOf(old);
           if ((old['jsonPath'] as String? ?? '').trim().isEmpty) {
-            needsAtlas.add('${entity['name'] ?? '(unnamed)'}');
+            run.needsAtlas.add('${entity['name'] ?? '(unnamed)'}');
           }
           components[i] = <String, dynamic>{
             'type': 'SpriteAnimationComponent',
@@ -399,7 +418,7 @@ class V2ToV3 extends SceneMigration {
           };
         }
       }
-      for (final migrate in perEntity) {
+      for (final migrate in run.hooks.perEntity(from)) {
         migrate(entity, json);
       }
     }
@@ -431,13 +450,14 @@ class V2ToV3 extends SceneMigration {
 /// The old easings were quadratic, which a cubic bezier draws exactly (ease
 /// in, ease out) or as near as makes no difference (ease in-out).
 class V3ToV4 extends SceneMigration {
+  /// The v3 → v4 step: each `AnimationControllerComponent` becomes a
+  /// `TimelinePlayerComponent` whose `inline` timeline has a property track
+  /// per transform channel its keyframes set, and an event track for its
+  /// events.
   const V3ToV4();
 
   @override
   int get from => 3;
-
-  /// Entity-level rules a package adds for its own components.
-  static final List<EntityMigration> perEntity = [];
 
   // Old keyframe property → (transform field, channel).
   static const Map<String, (String, String)> _channels = {
@@ -456,7 +476,7 @@ class V3ToV4 extends SceneMigration {
   };
 
   @override
-  Map<String, dynamic> apply(Map<String, dynamic> json) {
+  Map<String, dynamic> apply(Map<String, dynamic> json, MigrationRun run) {
     final list = json['entities'];
     if (list is! List) return json;
     for (final entity in list.whereType<Map<String, dynamic>>()) {
@@ -471,7 +491,7 @@ class V3ToV4 extends SceneMigration {
           components[i] = _player(fields is Map ? fields : const {});
         }
       }
-      for (final migrate in perEntity) {
+      for (final migrate in run.hooks.perEntity(from)) {
         migrate(entity, json);
       }
     }
@@ -566,16 +586,16 @@ class V3ToV4 extends SceneMigration {
 /// a `UiTextStyle` instead, and old scenes come across with the text they
 /// had, at the size the old default drew it.
 class V4ToV5 extends SceneMigration {
+  /// The v4 → v5 step: a `TextComponent` gets a white 16pt `style`, the
+  /// `body` role and centred, unwrapped text; a `ButtonComponent` gets a
+  /// white, bold 13pt `labelStyle`.
   const V4ToV5();
 
   @override
   int get from => 4;
 
-  /// Entity-level rules a package adds for its own components.
-  static final List<EntityMigration> perEntity = [];
-
   @override
-  Map<String, dynamic> apply(Map<String, dynamic> json) {
+  Map<String, dynamic> apply(Map<String, dynamic> json, MigrationRun run) {
     final list = json['entities'];
     if (list is! List) return json;
     for (final entity in list.whereType<Map<String, dynamic>>()) {
@@ -594,7 +614,7 @@ class V4ToV5 extends SceneMigration {
           }
         }
       }
-      for (final migrate in perEntity) {
+      for (final migrate in run.hooks.perEntity(from)) {
         migrate(entity, json);
       }
     }
@@ -634,34 +654,27 @@ class V4ToV5 extends SceneMigration {
 /// * A parent link no longer saves an offset (`localOffset`,
 ///   `localRotation`): it follows from the world transforms, which are what
 ///   the scene has always shown — the saved offsets were often stale. Where
-///   an offset disagreed with the transforms, [report] says so.
+///   an offset disagreed with the transforms, a [MigrationNote] says so.
 /// * The legacy `root` node tree — a 2-D copy of the transforms — goes.
 /// * The scene says how it is authored: `mode` is `'2d'` unless it said.
 /// * Inline timelines move to timeline format 2 ([TimelineFormat]).
 ///
-/// A package with its own fields to move registers [perType] rules (by
-/// component type, given the fields map) or [perEntity] ones.
+/// A package with its own fields to move adds [MigrationHooks.perType]
+/// rules (by component type, given the fields map) or
+/// [MigrationHooks.perEntity] ones.
 class V5ToV6 extends SceneMigration {
+  /// The v5 → v6 step: positions and velocities gain `z`, a transform's
+  /// three angles become `rotation: {x, y, z}`, a parent link drops
+  /// `localOffset` / `localRotation`, the scene drops `root` and gains
+  /// `mode`, and inline timelines move to timeline format 2.
   const V5ToV6();
 
   @override
   int get from => 5;
 
-  /// Per-type rewrites of a component's `fields`, applied after the
-  /// built-in ones. Open so a kit can add its own.
-  static final Map<String, void Function(Map<String, dynamic> fields)>
-  perType = {};
-
-  /// Entity-level rules a package adds for its own components.
-  static final List<EntityMigration> perEntity = [];
-
-  /// What the last run noticed that a person may want to know — parent
-  /// offsets that disagreed with where their entities actually were.
-  static final List<String> report = [];
-
   @override
-  Map<String, dynamic> apply(Map<String, dynamic> json) {
-    report.clear();
+  Map<String, dynamic> apply(Map<String, dynamic> json, MigrationRun run) {
+    final perType = run.hooks.perType(from);
     json.remove('root');
     json['mode'] ??= '2d';
     final list = json['entities'];
@@ -693,17 +706,20 @@ class V5ToV6 extends SceneMigration {
             case 'VelocityComponent':
               _addZ(fields, 'velocity');
             case 'ParentComponent':
-              _parent(fields, entity, positions);
+              _parent(fields, entity, positions, run);
             case 'TimelinePlayerComponent':
               final inline = fields['inline'];
               if (inline is Map<String, dynamic>) {
-                fields['inline'] = TimelineFormat.migrate(inline);
+                fields['inline'] = TimelineFormat.migrate(
+                  inline,
+                  hooks: run.hooks,
+                );
               }
           }
           perType[c['type']]?.call(fields);
         }
       }
-      for (final migrate in perEntity) {
+      for (final migrate in run.hooks.perEntity(from)) {
         migrate(entity, json);
       }
     }
@@ -739,6 +755,7 @@ class V5ToV6 extends SceneMigration {
     Map<String, dynamic> fields,
     Map<String, dynamic> entity,
     Map<String, (double, double)> positions,
+    MigrationRun run,
   ) {
     final offset = fields.remove('localOffset');
     fields.remove('localRotation');
@@ -750,10 +767,13 @@ class V5ToV6 extends SceneMigration {
       final dx = here.$1 - there.$1, dy = here.$2 - there.$2;
       if ((dx - _d(offset['dx'])).abs() > 1e-6 ||
           (dy - _d(offset['dy'])).abs() > 1e-6) {
-        report.add(
-          '$name: its saved offset from $parentName '
-          '(${_d(offset['dx'])}, ${_d(offset['dy'])}) disagreed with where '
-          'it is ($dx, $dy); where it is was kept.',
+        run.notes.add(
+          MigrationNote(
+            5,
+            '$name: its saved offset from $parentName '
+            '(${_d(offset['dx'])}, ${_d(offset['dy'])}) disagreed with where '
+            'it is ($dx, $dy); where it is was kept.',
+          ),
         );
       }
     }
@@ -786,39 +806,36 @@ class V5ToV6 extends SceneMigration {
 ///   one target ([targetPairs]), and so does a camera group member's
 ///   `name` and `tag`. Where both were set the name is kept if an entity in
 ///   the scene has it — otherwise the tag, since a name that matches
-///   nothing was only ever falling back to it. [report] says which was
-///   kept, and why.
+///   nothing was only ever falling back to it. A [MigrationNote] says which
+///   was kept, and why.
 ///
-/// A package with its own pairs adds them to [targetPairs]; other rewrites
-/// go in [perType] or [perEntity].
+/// A package with its own pairs adds them to [MigrationHooks.targetPairs];
+/// other rewrites go in [MigrationHooks.perType] or
+/// [MigrationHooks.perEntity].
 class V6ToV7 extends SceneMigration {
+  /// The v6 → v7 step: a `TagComponent`'s `tag` becomes a `tags` list, a
+  /// `SpawnComponent`'s `tag` becomes `spawner`, and each name-else-tag
+  /// pair in [targetPairs] (and a camera group member's `name` / `tag`)
+  /// becomes one target field.
   const V6ToV7();
 
   @override
   int get from => 6;
 
-  /// Component type → (name field, tag field, the target field they become).
-  static final Map<String, (String, String, String)> targetPairs = {
+  /// The engine's component type → (name field, tag field, the target
+  /// field they become).
+  static const Map<String, (String, String, String)> targetPairs = {
     'VirtualCameraComponent': ('followName', 'followTag', 'follow'),
     'CameraTriggerComponent': ('targetName', 'targetTag', 'target'),
     'CameraStateDrivenComponent': ('sourceName', 'sourceTag', 'source'),
     'TimelineTriggerComponent': ('targetName', 'targetTag', 'target'),
   };
 
-  /// Per-type rewrites of a component's `fields`, applied after the
-  /// built-in ones.
-  static final Map<String, void Function(Map<String, dynamic> fields)>
-  perType = {};
-
-  /// Entity-level rules a package adds for its own components.
-  static final List<EntityMigration> perEntity = [];
-
-  /// Where the last run had to choose between a name and a tag.
-  static final List<String> report = [];
-
   @override
-  Map<String, dynamic> apply(Map<String, dynamic> json) {
-    report.clear();
+  Map<String, dynamic> apply(Map<String, dynamic> json, MigrationRun run) {
+    final perType = run.hooks.perType(from);
+    final extraPairs = run.hooks.targetPairs;
+    void note(String message) => run.notes.add(MigrationNote(from, message));
     final list = json['entities'];
     if (list is! List) return json;
     final entities = list.whereType<Map<String, dynamic>>().toList();
@@ -838,9 +855,12 @@ class V6ToV7 extends SceneMigration {
           switch (type) {
             case 'TagComponent':
               final tag = fields['tag'];
-              _replace(fields, const ['tag'], 'tags', [
-                if (tag is String && tag.trim().isNotEmpty) tag.trim(),
-              ]);
+              _replace(
+                fields,
+                const ['tag'],
+                'tags',
+                [if (tag is String && tag.trim().isNotEmpty) tag.trim()],
+              );
             case 'SpawnComponent':
               if (fields.containsKey('tag')) {
                 _replace(fields, const ['tag'], 'spawner', fields['tag']);
@@ -861,12 +881,17 @@ class V6ToV7 extends SceneMigration {
                       m['tag'],
                       names,
                       where: '$where (camera group member)',
+                      note: note,
                     ),
                   );
                 }
               }
           }
-          if (targetPairs[type] case (final n, final t, final target)) {
+          if ((targetPairs[type] ?? extraPairs[type]) case (
+            final n,
+            final t,
+            final target,
+          )) {
             if (fields.containsKey(n) || fields.containsKey(t)) {
               _replace(
                 fields,
@@ -877,6 +902,7 @@ class V6ToV7 extends SceneMigration {
                   fields[t],
                   names,
                   where: '$where ($type.$target)',
+                  note: note,
                 ),
               );
             }
@@ -884,7 +910,7 @@ class V6ToV7 extends SceneMigration {
           perType[type]?.call(fields);
         }
       }
-      for (final migrate in perEntity) {
+      for (final migrate in run.hooks.perEntity(from)) {
         migrate(entity, json);
       }
     }
@@ -917,12 +943,14 @@ class V6ToV7 extends SceneMigration {
   }
 
   /// The saved target an old name and tag pair becomes, given the entity
-  /// [names] in the scene. See the class comment for the rule.
+  /// [names] in the scene. See the class comment for the rule. With [where],
+  /// [note] hears which was kept, and why.
   static Object? targetFor(
     Object? name,
     Object? tag,
     Set<String> names, {
     String? where,
+    void Function(String message)? note,
   }) {
     final n = name is String ? name.trim() : '';
     final t = tag is String ? tag.trim() : '';
@@ -931,21 +959,187 @@ class V6ToV7 extends SceneMigration {
     if (t.isEmpty) return {'name': n};
     if (names.contains(n)) {
       if (where != null) {
-        report.add('$where: kept the entity "$n"; the tag "$t" beside it was '
-            'only used when "$n" was missing, and is dropped.');
+        note?.call(
+          '$where: kept the entity "$n"; the tag "$t" beside it was '
+          'only used when "$n" was missing, and is dropped.',
+        );
       }
       return {'name': n};
     }
     if (where != null) {
-      report.add('$where: nothing in the scene is called "$n", so it was '
-          'always falling back to the tag "$t" — it now names the tag.');
+      note?.call(
+        '$where: nothing in the scene is called "$n", so it was '
+        'always falling back to the tag "$t" — it now names the tag.',
+      );
     }
     return {'tag': t};
   }
 }
 
+/// v7 → v8: physics bodies.
+///
+/// * One switch for how a body moves: `isStatic: true` becomes
+///   `bodyType: 'static'`, and `isStatic` goes.
+/// * Collision layers: `categoryBits` becomes `layer` (its lowest bit), and
+///   `maskBits` becomes `collidesWith` — left out when it was every layer,
+///   so the body follows the project's grid.
+/// * Linear damping (`drag`) now defaults to 0; a body saved without it
+///   keeps the old default, 0.98.
+/// * A collider now follows its entity's scale. The shape of a scaled
+///   entity is divided by the scale, so the collider stays the size it was;
+///   a [MigrationNote] names each one.
+///
+/// A package's own rewrites go in [MigrationHooks.perType] or
+/// [MigrationHooks.perEntity].
+class V7ToV8 extends SceneMigration {
+  /// The v7 → v8 step: see the class comment.
+  const V7ToV8();
+
+  @override
+  int get from => 7;
+
+  @override
+  Map<String, dynamic> apply(Map<String, dynamic> json, MigrationRun run) {
+    final perType = run.hooks.perType(from);
+    void note(String message) => run.notes.add(MigrationNote(from, message));
+    final list = json['entities'];
+    if (list is! List) return json;
+    for (final entity in list.whereType<Map<String, dynamic>>()) {
+      final components = entity['components'];
+      if (components is List) {
+        final where = '${entity['name'] ?? '(unnamed)'}';
+        Map? transform;
+        for (final c in components) {
+          if (c is Map && c['type'] == 'TransformComponent') {
+            transform = c['fields'] as Map?;
+          }
+        }
+        for (final c in components) {
+          if (c is! Map) continue;
+          final fields = c['fields'];
+          if (fields is! Map<String, dynamic>) continue;
+          final type = c['type'];
+          if (type == 'PhysicsBodyComponent') {
+            body(fields, transform?['scale'], where: where, note: note);
+          }
+          perType[type]?.call(fields);
+        }
+      }
+      for (final migrate in run.hooks.perEntity(from)) {
+        migrate(entity, json);
+      }
+    }
+    return json;
+  }
+
+  /// A body component's [fields] brought to v8, its entity's transform
+  /// [scale] as saved. [note] hears about a collider that was resized.
+  static void body(
+    Map<String, dynamic> fields,
+    Object? scale, {
+    String where = '',
+    void Function(String message)? note,
+  }) {
+    if (fields.remove('isStatic') == true) fields['bodyType'] = 'static';
+    if (fields.containsKey('categoryBits')) {
+      final bits = (fields.remove('categoryBits') as num?)?.toInt() ?? 1;
+      var layer = 0;
+      while (layer < 16 && (bits >> layer) & 1 == 0) {
+        layer++;
+      }
+      if (layer == 16) layer = 0;
+      if (bits & 0xFFFF != 1 << layer) {
+        note?.call(
+          '$where: its collision category was $bits, which is not one '
+          'layer; it is now on layer $layer.',
+        );
+      }
+      if (layer != 0) fields['layer'] = layer;
+    }
+    if (fields.containsKey('maskBits')) {
+      final mask =
+          ((fields.remove('maskBits') as num?)?.toInt() ?? 0xFFFF) & 0xFFFF;
+      if (mask != 0xFFFF) fields['collidesWith'] = mask;
+    }
+    fields.putIfAbsent('drag', () => 0.98);
+
+    if (scale is! Map) return;
+    final sx = (scale['x'] as num?)?.toDouble() ?? 1.0;
+    final sy = (scale['y'] as num?)?.toDouble() ?? 1.0;
+    if (sx == 1 && sy == 1) return;
+    final shape = fields['shape'];
+    if (shape is! Map || sx.abs() < 1e-9 || sy.abs() < 1e-9) return;
+    unscaleShape(shape, sx, sy);
+    note?.call(
+      '$where: a collider now grows with its entity\'s scale '
+      '(${_fmt(sx)} × ${_fmt(sy)}); its shape was divided by it to stay the '
+      'size it was.',
+    );
+  }
+
+  /// [shape], as saved, divided by ([sx], [sy]) — what, scaled again by the
+  /// physics system, is the shape it was. Neither may be zero.
+  static void unscaleShape(Map shape, double sx, double sy) {
+    final ax = sx.abs(), ay = sy.abs();
+    double d(Object? v, double fallback) => v is num ? v.toDouble() : fallback;
+    Map<String, double> point(Object? p) {
+      final m = p is Map ? p : const {};
+      return {'dx': d(m['dx'], 0) / sx, 'dy': d(m['dy'], 0) / sy};
+    }
+
+    List points(Object? v) {
+      final out = [
+        if (v is List)
+          for (final p in v) point(p),
+      ];
+      return sx * sy < 0 ? out.reversed.toList() : out;
+    }
+
+    switch (shape['kind']) {
+      case 'circle':
+        shape['radius'] = d(shape['radius'], 16) / (ax > ay ? ax : ay);
+        if (shape['center'] != null) shape['center'] = point(shape['center']);
+      case 'rectangle':
+        shape['width'] = d(shape['width'], 64) / ax;
+        shape['height'] = d(shape['height'], 64) / ay;
+      case 'polygon':
+        shape['vertices'] = points(shape['vertices']);
+      case 'rounded_polygon':
+        shape['vertices'] = points(shape['vertices']);
+        shape['cornerRadius'] =
+            d(shape['cornerRadius'], 6) / (ax < ay ? ax : ay);
+      case 'capsule':
+        final c1 = point(shape['center1']), c2 = point(shape['center2']);
+        final across = c1['dx'] == c2['dx']
+            ? ax
+            : c1['dy'] == c2['dy']
+            ? ay
+            : (ax > ay ? ax : ay);
+        shape
+          ..['center1'] = c1
+          ..['center2'] = c2
+          ..['radius'] = d(shape['radius'], 8) / across;
+      case 'segment':
+        shape
+          ..['point1'] = point(shape['point1'])
+          ..['point2'] = point(shape['point2'])
+          ..['thickness'] = d(shape['thickness'], 2) / (ax > ay ? ax : ay);
+      case 'chain':
+        shape
+          ..['vertices'] = points(shape['vertices'])
+          ..['thickness'] = d(shape['thickness'], 2) / (ax > ay ? ax : ay);
+    }
+  }
+
+  static String _fmt(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
+}
+
 /// Every migration, in order.
 abstract final class SceneMigrations {
+  /// v0 → v1 through v7 → v8, in order. `SceneFormat.migrate` runs each
+  /// step whose [SceneMigration.from] is the scene's version at that point,
+  /// on a deep copy, and bumps `version` after it.
   static const List<SceneMigration> chain = [
     V0ToV1(),
     V1ToV2(),
@@ -954,5 +1148,6 @@ abstract final class SceneMigrations {
     V4ToV5(),
     V5ToV6(),
     V6ToV7(),
+    V7ToV8(),
   ];
 }

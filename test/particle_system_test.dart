@@ -284,23 +284,6 @@ void main() {
       expect(emitter.isComplete, isTrue);
     });
 
-    test('GravityForce via gravity param (backward compat)', () {
-      // ignore: deprecated_member_use
-      final emitter = ParticleEmitter(
-        maxParticles: 5,
-        emissionRate: 0,
-        particleLifetime: 2.0,
-        startSize: 4.0,
-        endSize: 1.0,
-        startColor: Colors.white,
-        endColor: Colors.transparent,
-        // ignore: deprecated_member_use
-        gravity: const Offset(0, 100),
-      );
-      expect(emitter.forces.length, 1);
-      expect(emitter.forces.first, isA<GravityForce>());
-    });
-
     test('forces list is unmodifiable from outside', () {
       final emitter = ParticleEmitter(
         maxParticles: 5,

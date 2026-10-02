@@ -24,6 +24,8 @@ import 'dialogue_statement.dart';
 /// ===
 /// ```
 class DialogueNode {
+  /// The node called [title], running [statements] in order; no tags or
+  /// extra header metadata unless given.
   const DialogueNode({
     required this.title,
     this.tags = const [],
@@ -62,6 +64,8 @@ class DialogueNode {
 /// await runner.start('Start');
 /// ```
 class DialogueGraph {
+  /// A graph called [id] over [nodes], keyed by title; the map is copied
+  /// into an unmodifiable one.
   DialogueGraph({required this.id, required Map<String, DialogueNode> nodes})
     : _nodes = Map.unmodifiable(nodes);
 

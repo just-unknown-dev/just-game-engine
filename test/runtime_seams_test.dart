@@ -4,6 +4,9 @@ import 'dart:ui' show Canvas, Offset, PictureRecorder, Rect, Size;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
+/// The engine's own definitions, fresh for this file.
+final _coreDefinitions = ComponentDefinitionRegistry.core();
+
 class _Recorder extends SceneRenderer {
   _Recorder(this.name, this.log, {this.order = 0});
   final String name;
@@ -15,7 +18,7 @@ class _Recorder extends SceneRenderer {
   @override
   bool get enabled => on;
   @override
-  void render(Canvas canvas, RenderView view) {
+  void render(Canvas canvas, FrameView view) {
     log.add(name);
     seen = view.viewportSize;
   }
@@ -80,23 +83,19 @@ void main() {
   });
 
   group('the engine', () {
-    setUp(Engine.resetInstance);
-    tearDown(Engine.resetInstance);
-
     test('draws each plugin over the world exactly once a frame', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
       final plugin = _Counting();
       engine.plugins.register(plugin);
-      engine.rendering.render(
-        Canvas(PictureRecorder()),
-        const Size(100, 100),
-      );
+      engine.rendering.render(Canvas(PictureRecorder()), const Size(100, 100));
       expect(plugin.draws, 1);
     });
 
     test('builds the rendering engine it is given', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize(
         config: EngineConfig(createRendering: _MyRendering.new),
       );
@@ -180,10 +179,7 @@ void main() {
   });
 
   test('a flat extent is a box with no depth', () {
-    registerCoreCodecs();
-    final def = ComponentDefinitionRegistry.instance.definitionByType(
-      'RectangleComponent',
-    )!;
+    final def = _coreDefinitions.definitionByType('RectangleComponent')!;
     final box = Aabb3();
     expect(
       def.extent!.boundsInto(RectangleComponent(width: 40, height: 20), box),

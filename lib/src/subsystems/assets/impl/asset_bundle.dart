@@ -1,12 +1,20 @@
 part of '../asset_management.dart';
 
-/// Asset bundle for grouped loading
-class AssetBundle {
+/// A named group of assets that load and unload together.
+class GameAssetBundle {
+  /// What the group is called; the bundle itself does not use it.
   final String name;
+
+  /// The assets' paths, loaded in parallel by [load].
   final List<String> assetPaths;
+
+  /// Each asset's type, in the same order as [assetPaths].
   final List<AssetType> assetTypes;
 
-  AssetBundle({
+  /// A group named [name] of the assets at [assetPaths], each of the type
+  /// at the same index of [assetTypes]; the two lists must be the same
+  /// length (asserted).
+  GameAssetBundle({
     required this.name,
     required this.assetPaths,
     required this.assetTypes,
@@ -48,7 +56,7 @@ class AssetScope {
   final AssetManager _manager;
   final List<String> _ownedPaths = [];
 
-  /// Create a scope backed by [manager].
+  /// Create a scope backed by `manager`.
   AssetScope(this._manager);
 
   /// Acquire an asset, incrementing its reference count.

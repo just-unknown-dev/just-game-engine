@@ -1,6 +1,8 @@
 /// Physics — Movement, gravity, collision detection, and ray casting.
 library;
 
+export 'physics_layers.dart';
+
 export 'package:just_physics_engine/just_physics_engine.dart'
     show
         PhysicsEngine,
@@ -35,4 +37,3 @@ export 'package:just_physics_engine/just_physics_engine.dart'
         // engine's own barrel, even though PhysicsBodyComponent exposes both.
         BodyType,
         OneWayDirection;
-export 'impl/ray_casting.dart';

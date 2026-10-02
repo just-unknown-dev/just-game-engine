@@ -2,7 +2,7 @@ library;
 
 import '../../ecs.dart';
 import '../../components/components.dart';
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 
 /// ECS system that drives [ParticleEmitterComponent] entities every frame.
 ///
@@ -19,12 +19,13 @@ import '../system_priorities.dart';
 /// ```dart
 /// final world = World();
 /// world.addSystem(ParticleSystemECS());
-/// // Also add RenderSystem so the emitter renders each frame.
+/// // Also add RenderSystem: it draws every ParticleEmitterComponent's
+/// // emitter, sorted by the entity's LayerComponent like any renderable.
 /// ```
 ///
 /// ## Priority
 /// Runs at [SystemPriorities.particles] (48), which is:
-///   - **after** [hierarchy] (50) — so parent-propagated positions are final
+///   - **after** `hierarchy` (50) — so parent-propagated positions are final
 ///   - **before** [render] (40) — so particle state is current when drawn
 class ParticleSystemECS extends System {
   @override
@@ -41,8 +42,10 @@ class ParticleSystemECS extends System {
       // Sync position from transform if requested
       if (comp.syncPositionFromTransform) {
         final transform = entity.getComponent<TransformComponent>();
+        // Copied, not shared: sharing the transform's vector made anything
+        // that moved the emitter move the entity too.
         if (transform != null) {
-          comp.emitter.position = transform.position;
+          comp.emitter.position.setFrom(transform.position);
         }
       }
 

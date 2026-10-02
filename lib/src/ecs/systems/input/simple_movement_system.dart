@@ -3,12 +3,14 @@ import 'package:just_inputs/just_inputs.dart';
 
 import '../../ecs.dart';
 import '../../components/components.dart';
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 
 /// Applies a vector action straight to [TransformComponent].
 class SimpleMovementSystem extends System {
+  /// A system steering by the actions in [input].
   SimpleMovementSystem(this.input);
 
+  /// Where each [SimpleMovementComponent]'s vector action is read from.
   final InputService input;
 
   @override

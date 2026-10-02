@@ -17,6 +17,8 @@ import '../../ecs.dart';
 /// below the next layer's — and is hidden with it; `LevelMapSystem` keeps
 /// [layerId], [layer] and [zOrder] following the layer.
 class LayerComponent extends Component {
+  /// An entity on the `main` layer at draw order (0, 0), shown and
+  /// unlocked, on no map layer.
   LayerComponent({
     this.layerId = 'main',
     this.layer = 0,

@@ -53,8 +53,7 @@ void main() {
     TransformComponent(position: Vector3(at.dx, at.dy, 0)),
     VirtualCameraComponent(
       priority: priority,
-      followTag: followTag,
-      followName: followName,
+      follow: EntityTarget.fromNameOrTag(followName, followTag),
       zoom: zoom,
       standbyUpdate: standby,
     ),

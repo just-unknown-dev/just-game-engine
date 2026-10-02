@@ -11,6 +11,8 @@ import '../../ecs.dart';
 /// the authored entities or let it be picked, and a system that made it is
 /// responsible for destroying it again.
 class GeneratedEntityComponent extends Component {
+  /// Marks an entity built by [source] from the data of entity [ownerId]
+  /// (none when null).
   GeneratedEntityComponent({this.ownerId, this.source = ''});
 
   /// The entity whose data this one was built from, when there is one.

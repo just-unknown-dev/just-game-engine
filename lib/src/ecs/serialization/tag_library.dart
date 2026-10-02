@@ -4,9 +4,12 @@ library;
 import 'dart:ui' show Color;
 
 import '../ecs.dart' show TagNames;
+import '../../foundation/unsupported_format_version.dart';
 
 /// One tag a project knows: its name, and how an editor shows it.
 class TagDefinition {
+  /// The tag called [name]. By default it has no colour or description and
+  /// is a person's own, not declared by a package ([declaredBy]).
   const TagDefinition(
     this.name, {
     this.color,
@@ -14,11 +17,13 @@ class TagDefinition {
     this.declaredBy,
   });
 
+  /// The tag itself, as entities carry it and targets name it.
   final String name;
 
   /// The chip colour; [TagLibrary.colorFor] picks one when unset.
   final Color? color;
 
+  /// What the tag is for, for an editor to show; empty for nothing.
   final String description;
 
   /// The package whose code relies on this tag — `'just_game_engine'` — or
@@ -26,8 +31,11 @@ class TagDefinition {
   /// an editor does not let one be renamed or deleted.
   final String? declaredBy;
 
+  /// Whether code relies on the tag (see [declaredBy]).
   bool get isDeclared => declaredBy != null;
 
+  /// A copy with the values given replaced; [clearColor] removes the colour
+  /// instead. [declaredBy] is always kept.
   TagDefinition copyWith({
     String? name,
     Color? color,
@@ -48,6 +56,8 @@ class TagDefinition {
     if (description.isNotEmpty) 'description': description,
   };
 
+  /// Reads what [toJson] wrote, or a bare name string; the name is
+  /// trimmed. Null for anything with no name. Never marked declared.
   static TagDefinition? fromJson(Object? json) {
     if (json is String && json.trim().isNotEmpty) {
       return TagDefinition(json.trim());
@@ -86,28 +96,38 @@ class TagDefinition {
 /// is never read from it — packages say so in code, and [withDeclared]
 /// merges that in.
 class TagLibrary {
+  /// A library of [tags], in order; blank names are dropped, and of two
+  /// with one name only the first is kept.
   TagLibrary([Iterable<TagDefinition> tags = const []])
     : _tags = List.unmodifiable(_dedupe(tags));
 
+  /// The file format [toJson] writes; [fromJson] refuses newer ones.
   static const int formatVersion = 1;
 
   /// Where a project keeps its tags.
   static const String defaultPath = 'assets/project/tags.json';
 
+  /// A library with no tags.
   static final TagLibrary empty = TagLibrary();
 
   final List<TagDefinition> _tags;
 
+  /// Every tag, in list order. Unmodifiable.
   List<TagDefinition> get tags => _tags;
 
+  /// Every tag's name, in list order.
   Iterable<String> get names => _tags.map((t) => t.name);
 
+  /// Whether the library lists no tags.
   bool get isEmpty => _tags.isEmpty;
 
+  /// How many tags it lists.
   int get length => _tags.length;
 
+  /// Whether a tag called [name] is listed (names match exactly).
   bool contains(String name) => this[name] != null;
 
+  /// The tag called exactly [name], or null.
   TagDefinition? operator [](String name) {
     for (final t in _tags) {
       if (t.name == name) return t;
@@ -207,12 +227,28 @@ class TagLibrary {
     return missing.isEmpty ? this : TagLibrary([..._tags, ...missing]);
   }
 
+  /// The tag file: `{version, tags}`, each tag as [TagDefinition.toJson]
+  /// writes it.
   Map<String, dynamic> toJson() => {
     'version': formatVersion,
     'tags': [for (final t in _tags) t.toJson()],
   };
 
+  /// Reads what [toJson] wrote (or a bare list of tags, the oldest form).
+  ///
+  /// Throws [UnsupportedFormatVersionException] for a file saved in a
+  /// format newer than [formatVersion].
   static TagLibrary fromJson(Object? json) {
+    if (json is Map) {
+      final version = (json['version'] as num?)?.toInt() ?? formatVersion;
+      if (version > formatVersion) {
+        throw UnsupportedFormatVersionException(
+          'tag library',
+          version,
+          formatVersion,
+        );
+      }
+    }
     final list = json is Map ? json['tags'] : json;
     if (list is! List) return empty;
     return TagLibrary([for (final item in list) ?TagDefinition.fromJson(item)]);
@@ -270,6 +306,8 @@ abstract final class EngineTags {
   /// dialogue look for it unless told otherwise.
   static const String player = 'player';
 
+  /// The tags the engine declares — just [player] — as merged into a
+  /// project's library by [TagLibrary.withDeclared].
   static const List<TagDefinition> declared = [
     TagDefinition(
       player,

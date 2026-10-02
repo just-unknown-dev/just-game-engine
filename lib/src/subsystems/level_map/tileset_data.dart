@@ -4,6 +4,7 @@ library;
 import 'dart:math' as math;
 import 'dart:ui';
 
+import '../../foundation/unsupported_format_version.dart';
 import 'tile_properties.dart';
 
 // ── Collision ──────────────────────────────────────────────────────────────
@@ -19,8 +20,14 @@ sealed class TileShape {
   /// The shape with every point passed through [f].
   TileShape map(Offset Function(Offset p) f);
 
+  /// The saved form, a JSON map: `type` `rect` or `ellipse` with `x`, `y`,
+  /// `w` and `h`, or `type` `polygon` with a flat `points` list
+  /// `[x0, y0, x1, y1, ...]` — all in the tile image's pixels.
   Map<String, dynamic> toJson();
 
+  /// Reads what [toJson] wrote. Null for anything else: not a map, an
+  /// unknown `type`, a polygon of fewer than three points. A missing number
+  /// reads as 0.
   static TileShape? fromJson(Object? json) {
     if (json is! Map) return null;
     double n(String key) => (json[key] as num?)?.toDouble() ?? 0;
@@ -50,7 +57,10 @@ sealed class TileShape {
 
 /// An axis-aligned box.
 class TileRectShape extends TileShape {
+  /// A box covering [rect].
   const TileRectShape(this.rect);
+
+  /// The box, in the tile image's pixels.
   final Rect rect;
 
   @override
@@ -87,7 +97,10 @@ class TileRectShape extends TileShape {
 
 /// An ellipse inscribed in [bounds].
 class TileEllipseShape extends TileShape {
+  /// The ellipse that just fills [bounds].
   const TileEllipseShape(this.bounds);
+
+  /// The box the ellipse fills, in the tile image's pixels.
   final Rect bounds;
 
   @override
@@ -124,7 +137,11 @@ class TileEllipseShape extends TileShape {
 
 /// A polygon, convex or not; the collision builder splits it as needed.
 class TilePolygonShape extends TileShape {
+  /// The polygon through [points], in order.
   const TilePolygonShape(this.points);
+
+  /// The corners, in order, in the tile image's pixels; the outline closes
+  /// from the last back to the first.
   final List<Offset> points;
 
   @override
@@ -156,6 +173,8 @@ class TilePolygonShape extends TileShape {
 
 /// What a tile does when something runs into it.
 class TileCollision {
+  /// Collision of [kind] (`solid` unless said) made of [shapes]; none when
+  /// omitted.
   TileCollision({this.kind = 'solid', List<TileShape>? shapes})
     : shapes = shapes ?? [];
 
@@ -185,11 +204,15 @@ class TileCollision {
       (shapes.single as TileRectShape).rect ==
           Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble());
 
+  /// The saved form: a JSON map of `kind` and `shapes`, each shape as
+  /// [TileShape.toJson] writes it.
   Map<String, dynamic> toJson() => {
     'kind': kind,
     'shapes': [for (final s in shapes) s.toJson()],
   };
 
+  /// Reads what [toJson] wrote; null when [json] is not a map. A missing
+  /// kind is `solid`, and shapes that cannot be read are dropped.
   static TileCollision? fromJson(Object? json) {
     if (json is! Map) return null;
     return TileCollision(
@@ -201,6 +224,8 @@ class TileCollision {
     );
   }
 
+  /// A separate collision: a new list of shapes, the shapes themselves
+  /// shared.
   TileCollision copy() => TileCollision(kind: kind, shapes: [...shapes]);
 }
 
@@ -209,8 +234,13 @@ class TileCollision {
 /// One frame of an animated tile: which tile of the same tileset to show,
 /// and for how long.
 class TileFrame {
+  /// Tile [tileId], shown for [durationMs] milliseconds.
   const TileFrame(this.tileId, this.durationMs);
+
+  /// The tile shown, by its id in the same tileset.
   final int tileId;
+
+  /// How long it shows, in milliseconds; anything below 1 counts as 1.
   final int durationMs;
 
   @override
@@ -228,6 +258,8 @@ class TileFrame {
 /// What a tileset says about one of its tiles. Only tiles that say
 /// something have one.
 class TileDef {
+  /// A tile that says nothing unless told: no class, probability 1, and no
+  /// properties, collision or animation.
   TileDef({
     this.className = '',
     this.probability = 1,
@@ -244,6 +276,7 @@ class TileDef {
   /// to the others it could pick.
   double probability;
 
+  /// Custom properties a game reads — a spike's `damage`, say.
   TileProperties properties;
 
   /// Null for a tile nothing collides with.
@@ -252,6 +285,7 @@ class TileDef {
   /// Two frames or more make an animated tile.
   List<TileFrame> animation;
 
+  /// Whether [animation] has two frames or more.
   bool get isAnimated => animation.length > 1;
 
   /// Total length of one loop of the animation, in milliseconds.
@@ -279,6 +313,9 @@ class TileDef {
       collision == null &&
       animation.isEmpty;
 
+  /// The saved form: a JSON map of `class`, `probability`, `properties`,
+  /// `collision` and `animation` (a list of `[tileId, durationMs]` pairs),
+  /// each left out while it says nothing.
   Map<String, dynamic> toJson() => {
     if (className.isNotEmpty) 'class': className,
     if (probability != 1) 'probability': probability,
@@ -290,6 +327,8 @@ class TileDef {
       ],
   };
 
+  /// Reads what [toJson] wrote. Missing keys take their defaults; an
+  /// animation entry that is not a list of at least two is dropped.
   static TileDef fromJson(Map<String, dynamic> json) => TileDef(
     className: json['class'] as String? ?? '',
     probability: (json['probability'] as num?)?.toDouble() ?? 1,
@@ -302,6 +341,8 @@ class TileDef {
     ],
   );
 
+  /// A separate copy: properties, collision and the frame list are copied
+  /// too.
   TileDef copy() => TileDef(
     className: className,
     probability: probability,
@@ -324,12 +365,16 @@ enum WangType {
   /// Corners and edges together.
   mixed;
 
+  /// The type Tiled and a saved tileset call [name] (`corner`, `edge`,
+  /// `mixed`); [corner] for null or a name it does not know.
   static WangType fromName(String? name) =>
       values.firstWhere((t) => t.name == name, orElse: () => corner);
 }
 
 /// One terrain: grass, water, a road.
 class WangColorData {
+  /// A terrain called [name], shown in [color] (opaque red unless said),
+  /// with no tile standing for it and probability 1.
   WangColorData({
     this.name = '',
     this.color = 0xFFFF0000,
@@ -339,6 +384,7 @@ class WangColorData {
     TileProperties? properties,
   }) : properties = properties ?? TileProperties();
 
+  /// What the editor shows it as: `grass`, `water`.
   String name;
 
   /// ARGB, how the editor shows it.
@@ -350,9 +396,14 @@ class WangColorData {
   /// How often the brush picks tiles of it, relative to the others.
   double probability;
 
+  /// A free-form class, as in Tiled.
   String className;
+
+  /// Custom properties, as in Tiled.
   TileProperties properties;
 
+  /// The saved form: a JSON map with `name` and `color`, and `tile`,
+  /// `probability`, `class` and `properties` when not their defaults.
   Map<String, dynamic> toJson() => {
     'name': name,
     'color': color,
@@ -362,6 +413,7 @@ class WangColorData {
     if (properties.isNotEmpty) 'properties': properties.toJson(),
   };
 
+  /// Reads what [toJson] wrote; missing keys take their defaults.
   static WangColorData fromJson(Map<String, dynamic> json) => WangColorData(
     name: json['name'] as String? ?? '',
     color: (json['color'] as num?)?.toInt() ?? 0xFFFF0000,
@@ -371,6 +423,7 @@ class WangColorData {
     properties: TileProperties.fromJson(json['properties']),
   );
 
+  /// A separate copy, properties included.
   WangColorData copy() => WangColorData(
     name: name,
     color: color,
@@ -389,6 +442,8 @@ class WangColorData {
 /// 0 means "none". A corner set only uses the corner slots and an edge set
 /// only the edge slots.
 class WangSetData {
+  /// A set called [name], of [type] (a corner set unless said), with no
+  /// terrains and no tiles' Wang ids until given.
   WangSetData({
     this.name = '',
     this.type = WangType.corner,
@@ -403,22 +458,45 @@ class WangSetData {
 
   /// Slot indices.
   static const int top = 0;
+
+  /// The top-right corner's slot.
   static const int topRight = 1;
+
+  /// The right edge's slot.
   static const int right = 2;
+
+  /// The bottom-right corner's slot.
   static const int bottomRight = 3;
+
+  /// The bottom edge's slot.
   static const int bottom = 4;
+
+  /// The bottom-left corner's slot.
   static const int bottomLeft = 5;
+
+  /// The left edge's slot.
   static const int left = 6;
+
+  /// The top-left corner's slot.
   static const int topLeft = 7;
+
+  /// The four corner slots, clockwise from the top-right: the ones a corner
+  /// set uses.
   static const List<int> cornerSlots = [
     topRight,
     bottomRight,
     bottomLeft,
     topLeft,
   ];
+
+  /// The four edge slots, clockwise from the top: the ones an edge set
+  /// uses.
   static const List<int> edgeSlots = [top, right, bottom, left];
 
+  /// What the editor shows it as.
   String name;
+
+  /// What it matches tiles by — corners, edges or both; decides [slots].
   WangType type;
 
   /// A tile that stands for the set, or -1.
@@ -430,7 +508,10 @@ class WangSetData {
   /// Each tile's Wang id, by tile id.
   Map<int, List<int>> wangIds;
 
+  /// A free-form class, as in Tiled.
   String className;
+
+  /// Custom properties, as in Tiled.
   TileProperties properties;
 
   /// The slots this set's type uses.
@@ -440,6 +521,9 @@ class WangSetData {
     WangType.mixed => const [0, 1, 2, 3, 4, 5, 6, 7],
   };
 
+  /// The saved form: a JSON map with `name`, `type`, `colors` and `tiles`
+  /// (tile id, as a string, to its eight-slot Wang id), and `tile`, `class`
+  /// and `properties` when set. Shares no list with the set.
   Map<String, dynamic> toJson() => {
     'name': name,
     'type': type.name,
@@ -454,6 +538,9 @@ class WangSetData {
     if (properties.isNotEmpty) 'properties': properties.toJson(),
   };
 
+  /// Reads what [toJson] wrote; missing keys take their defaults. A Wang id
+  /// is padded with 0 or cut to eight slots, and a `tiles` entry whose key
+  /// is not a number is dropped.
   static WangSetData fromJson(Map<String, dynamic> json) => WangSetData(
     name: json['name'] as String? ?? '',
     type: WangType.fromName(json['type'] as String?),
@@ -476,6 +563,7 @@ class WangSetData {
     properties: TileProperties.fromJson(json['properties']),
   );
 
+  /// A deep copy: terrains, Wang ids and properties are all new.
   WangSetData copy() => WangSetData(
     name: name,
     type: type,
@@ -492,6 +580,7 @@ class WangSetData {
 /// Which ways a terrain brush may turn this tileset's tiles to find a
 /// match — Tiled's tileset transformations.
 class TileTransformations {
+  /// The transformations asked for; none unless said.
   const TileTransformations({
     this.hflip = false,
     this.vflip = false,
@@ -499,13 +588,24 @@ class TileTransformations {
     this.preferUntransformed = false,
   });
 
+  /// Whether tiles may be mirrored left to right.
   final bool hflip;
+
+  /// Whether tiles may be mirrored top to bottom.
   final bool vflip;
+
+  /// Whether tiles may be turned by quarter turns.
   final bool rotate;
+
+  /// Whether an untransformed tile wins over a transformed one that fits
+  /// as well.
   final bool preferUntransformed;
 
+  /// Whether any way of turning tiles is allowed ([preferUntransformed]
+  /// aside).
   bool get any => hflip || vflip || rotate;
 
+  /// The saved form: a JSON map naming only the flags that are true.
   Map<String, dynamic> toJson() => {
     if (hflip) 'hflip': true,
     if (vflip) 'vflip': true,
@@ -513,6 +613,8 @@ class TileTransformations {
     if (preferUntransformed) 'preferUntransformed': true,
   };
 
+  /// Reads what [toJson] wrote: a flag is set only by `true`, and anything
+  /// but a map is no transformations.
   static TileTransformations fromJson(Object? json) => json is Map
       ? TileTransformations(
           hflip: json['hflip'] == true,
@@ -532,6 +634,8 @@ class TileTransformations {
 /// rather than worked out from the image, because a tileset whose image
 /// grows wider would otherwise renumber every tile painted with it.
 class TilesetData {
+  /// A tileset with no tiles until told: 32 × 32 pixel tiles, no margin or
+  /// spacing, no image. [TilesetData.fromImage] works out the grid.
   TilesetData({
     this.name = '',
     this.image = '',
@@ -593,6 +697,7 @@ class TilesetData {
   /// Version of the saved form.
   static const int format = 1;
 
+  /// What the editor shows it as.
   String name;
 
   /// The image, project-relative.
@@ -600,31 +705,57 @@ class TilesetData {
 
   /// The image's size, as last seen.
   int imageWidth;
+
+  /// The image's height, in pixels, as last seen.
   int imageHeight;
 
+  /// Width of one tile in the image, in pixels. Need not match the map's
+  /// grid: a tile is drawn from its cell's bottom-left, at its own size.
   int tileWidth;
+
+  /// Height of one tile in the image, in pixels; a tile taller than the
+  /// map's cells rises above its cell.
   int tileHeight;
+
+  /// Pixels from the image's left and top edges to the first tile.
   int margin;
+
+  /// Pixels between neighbouring tiles in the image.
   int spacing;
+
+  /// Tiles per row of the image — kept, not worked out from the image (see
+  /// the class doc). 0 finds no tile at all.
   int columns;
+
+  /// How many tiles it has: ids run from 0 to one less than this.
   int tileCount;
 
   /// Where tiles draw relative to their cell, in pixels.
   double tileOffsetX;
+
+  /// How far below their usual place tiles draw, in pixels (negative is
+  /// up); see [tileOffsetX].
   double tileOffsetY;
 
+  /// A free-form class, as in Tiled.
   String className;
+
+  /// Custom properties, as in Tiled.
   TileProperties properties;
 
   /// What each tile that says something says.
   Map<int, TileDef> tiles;
 
+  /// Its terrain sets.
   List<WangSetData> wangSets;
+
+  /// How a terrain brush may turn its tiles to find a match.
   TileTransformations transformations;
 
   /// Bumped by whoever changes the tileset, so the maps drawing it know.
   int revision = 0;
 
+  /// Marks a change: bumps [revision].
   void touch() => revision++;
 
   /// Rows of tiles.
@@ -657,6 +788,9 @@ class TilesetData {
     if (tiles[id]?.isDefault ?? false) tiles.remove(id);
   }
 
+  /// The saved `.tileset.json` form, a JSON map. Tiles that say nothing and
+  /// settings at their defaults are left out; `tileOffset` is an `[x, y]`
+  /// pair.
   Map<String, dynamic> toJson() => {
     'format': format,
     'name': name,
@@ -682,7 +816,18 @@ class TilesetData {
     if (wangSets.isNotEmpty) 'wangSets': [for (final w in wangSets) w.toJson()],
   };
 
+  /// Reads what [toJson] wrote. Throws an [UnsupportedFormatVersionException]
+  /// for a tileset saved by a newer engine (a [format] above this one's)
+  /// rather than misread it.
   static TilesetData fromJson(Map<String, dynamic> json) {
+    final version = json['format'];
+    if (version is num && version > format) {
+      throw UnsupportedFormatVersionException(
+        'tileset',
+        version.toInt(),
+        format,
+      );
+    }
     final offset = json['tileOffset'];
     return TilesetData(
       name: json['name'] as String? ?? '',
@@ -718,5 +863,7 @@ class TilesetData {
     );
   }
 
+  /// A deep copy, by a round trip through [toJson] — so tiles that say
+  /// nothing are dropped — with the same [revision].
   TilesetData copy() => TilesetData.fromJson(toJson())..revision = revision;
 }

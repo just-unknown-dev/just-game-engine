@@ -9,13 +9,20 @@ import 'subtitle_controller.dart';
 /// via [AnimatedSwitcher].  Only rebuilds when the active cue changes,
 /// so frame-rate is unaffected during cue-stable periods.
 class SubtitleOverlay extends StatelessWidget {
+  /// [child] with [controller]'s current subtitle over it: white text in a
+  /// dark rounded panel 48 px above the bottom edge and 24 px in from the
+  /// sides, fading from cue to cue over 300 ms.
   const SubtitleOverlay({
     super.key,
     required this.controller,
     required this.child,
   });
 
+  /// Where the text shown comes from; the panel rebuilds only when its
+  /// [SubtitleController.currentText] changes.
   final SubtitleController controller;
+
+  /// The content the subtitles are drawn over.
   final Widget child;
 
   @override

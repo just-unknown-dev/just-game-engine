@@ -11,11 +11,27 @@ import 'tile_cell.dart';
 
 /// Sixteen by sixteen cells of one layer.
 class TileChunkData {
+  /// Chunk ([cx], [cy]) holding [cells] — kept, not copied — or all empty
+  /// cells when null. Throws an [ArgumentError] when [cells] is not
+  /// [TileChunkStore.cellsPerChunk] long.
   TileChunkData(this.cx, this.cy, [Uint32List? cells])
-    : cells = cells ?? Uint32List(TileChunkStore.cellsPerChunk);
+    : cells = _checked(cells) ?? Uint32List(TileChunkStore.cellsPerChunk);
+
+  static Uint32List? _checked(Uint32List? cells) {
+    if (cells != null && cells.length != TileChunkStore.cellsPerChunk) {
+      throw ArgumentError.value(
+        cells.length,
+        'cells',
+        'A chunk holds exactly ${TileChunkStore.cellsPerChunk} cells',
+      );
+    }
+    return cells;
+  }
 
   /// Which chunk: the cell (cx * 16, cy * 16) is its top-left.
   final int cx;
+
+  /// The chunk's row, counted in chunks; see [cx].
   final int cy;
 
   /// Row by row. Write through [TileChunkStore.setCell] so the revision
@@ -36,6 +52,8 @@ class TileChunkData {
     return true;
   }
 
+  /// A separate chunk: its own copy of the cells, with the same [revision]
+  /// and [encoded] form.
   TileChunkData copy() => TileChunkData(cx, cy, Uint32List.fromList(cells))
     ..revision = revision
     ..encoded = encoded;
@@ -54,6 +72,7 @@ class TileChunkData {
 /// map — shared with every other user of the file, or the editor's document
 /// — stays as it was.
 class TileChunkStore {
+  /// An empty store of its own, reading through to nothing.
   TileChunkStore() : base = null;
 
   /// A store whose writes land in its own copies of [base]'s chunks.
@@ -70,6 +89,15 @@ class TileChunkStore {
 
   final Map<int, TileChunkData> _own = {};
 
+  /// Saved chunks that could not be read, by the key they were saved
+  /// under, exactly as saved: written back unchanged, so saving a map does
+  /// not erase what this version could not read.
+  final Map<String, String> _unreadable = {};
+
+  /// The chunks [_own] spans, far edges exclusive; meaningless while
+  /// [_own] is empty.
+  int _cx0 = 0, _cy0 = 0, _cx1 = 0, _cy1 = 0;
+
   /// Bumped on every change to any cell: a cheap "has anything changed".
   int revision = 0;
 
@@ -85,6 +113,47 @@ class TileChunkStore {
   /// The chunk ([cx], [cy]), or null where nothing was ever painted.
   TileChunkData? chunk(int cx, int cy) =>
       _own[keyOf(cx, cy)] ?? base?.chunk(cx, cy);
+
+  void _put(TileChunkData c) {
+    if (_own.isEmpty) {
+      _cx0 = c.cx;
+      _cy0 = c.cy;
+      _cx1 = c.cx + 1;
+      _cy1 = c.cy + 1;
+    } else {
+      if (c.cx < _cx0) _cx0 = c.cx;
+      if (c.cy < _cy0) _cy0 = c.cy;
+      if (c.cx >= _cx1) _cx1 = c.cx + 1;
+      if (c.cy >= _cy1) _cy1 = c.cy + 1;
+    }
+    _own[keyOf(c.cx, c.cy)] = c;
+  }
+
+  /// The chunks there are, own and read through to, as chunk indices —
+  /// `cx0` to `cx1` and `cy0` to `cy1`, far edges exclusive — or null when
+  /// there are none. A chunk painted and later emptied still counts. What a
+  /// renderer walks instead of every chunk.
+  ({int cx0, int cy0, int cx1, int cy1})? get chunkBounds {
+    final below = base?.chunkBounds;
+    if (_own.isEmpty) return below;
+    if (below == null) return (cx0: _cx0, cy0: _cy0, cx1: _cx1, cy1: _cy1);
+    return (
+      cx0: _cx0 < below.cx0 ? _cx0 : below.cx0,
+      cy0: _cy0 < below.cy0 ? _cy0 : below.cy0,
+      cx1: _cx1 > below.cx1 ? _cx1 : below.cx1,
+      cy1: _cy1 > below.cy1 ? _cy1 : below.cy1,
+    );
+  }
+
+  /// How many chunks there are, own and read through to — counting one
+  /// this store has copied from its base twice, which is near enough for
+  /// choosing how to walk them.
+  int get chunkCount => _own.length + (base?.chunkCount ?? 0);
+
+  /// The keys of saved chunks that could not be read (corrupt, or written
+  /// by a newer engine). They are kept and saved back as they were; a chunk
+  /// painted in their place replaces them.
+  Iterable<String> get unreadableChunks => _unreadable.keys;
 
   /// The cell at ([x], [y]); [TileCell.empty] where nothing is.
   int cellAt(int x, int y) {
@@ -104,7 +173,8 @@ class TileChunkStore {
       final current = inherited?.cells[index] ?? TileCell.empty;
       if (current == cell) return false;
       target = inherited?.copy() ?? TileChunkData(cx, cy);
-      _own[key] = target;
+      _put(target);
+      if (_unreadable.isNotEmpty) _unreadable.remove('$cx,$cy');
     } else if (target.cells[index] == cell) {
       return false;
     }
@@ -160,10 +230,12 @@ class TileChunkStore {
     );
   }
 
-  /// Removes every cell. An overlay then reads through to its base again.
+  /// Removes every cell, and any saved chunks that could not be read. An
+  /// overlay then reads through to its base again.
   void clear() {
-    if (_own.isEmpty) return;
+    if (_own.isEmpty && _unreadable.isEmpty) return;
     _own.clear();
+    _unreadable.clear();
     revision++;
   }
 
@@ -171,9 +243,30 @@ class TileChunkStore {
   TileChunkStore copy() {
     final out = TileChunkStore();
     for (final c in chunks) {
-      out._own[keyOf(c.cx, c.cy)] = c.copy();
+      out._put(c.copy());
     }
+    out._unreadable.addAll(_allUnreadable());
     return out;
+  }
+
+  /// The unreadable chunks of this store and what it reads through to,
+  /// less those a readable chunk of its own has taken the place of.
+  Map<String, String> _allUnreadable() {
+    final below = base?._allUnreadable();
+    if (below == null || below.isEmpty) return _unreadable;
+    return {
+      for (final e in below.entries)
+        if (!_ownsKey(e.key)) e.key: e.value,
+      ..._unreadable,
+    };
+  }
+
+  bool _ownsKey(String key) {
+    final parts = key.split(',');
+    if (parts.length != 2) return false;
+    final cx = int.tryParse(parts[0]);
+    final cy = int.tryParse(parts[1]);
+    return cx != null && cy != null && _own.containsKey(keyOf(cx, cy));
   }
 
   // ── The saved form ─────────────────────────────────────────────────────
@@ -184,7 +277,8 @@ class TileChunkStore {
   // than it would seem: on save, when play starts, and whenever an undo
   // step snapshots the entity the map is on.
 
-  /// The cells as they are saved.
+  /// The cells as they are saved. Saved chunks that could not be read
+  /// ([unreadableChunks]) are written back as they were read.
   Map<String, String> toJson() {
     final out = <String, String>{};
     final ordered = chunks.toList()
@@ -195,24 +289,32 @@ class TileChunkStore {
       if (c.isEmpty) continue;
       out['${c.cx},${c.cy}'] = c.encoded ??= _encode(c.cells);
     }
+    for (final e in _allUnreadable().entries) {
+      out.putIfAbsent(e.key, () => e.value);
+    }
     return out;
   }
 
-  /// Reads what [toJson] wrote. A chunk that cannot be read is skipped
-  /// rather than failing the whole map.
+  /// Reads what [toJson] wrote. A chunk that cannot be read does not fail
+  /// the whole map: it is left out of the cells, and kept as it was saved
+  /// ([unreadableChunks]) so the next save writes it back.
   static TileChunkStore fromJson(Object? json) {
     final store = TileChunkStore();
     if (json is! Map) return store;
     for (final entry in json.entries) {
-      final parts = '${entry.key}'.split(',');
-      if (parts.length != 2) continue;
-      final cx = int.tryParse(parts[0]);
-      final cy = int.tryParse(parts[1]);
+      final key = '${entry.key}';
+      final parts = key.split(',');
+      final cx = parts.length == 2 ? int.tryParse(parts[0]) : null;
+      final cy = parts.length == 2 ? int.tryParse(parts[1]) : null;
       final text = entry.value;
-      if (cx == null || cy == null || text is! String) continue;
-      final cells = _decode(text);
-      if (cells == null) continue;
-      store._own[keyOf(cx, cy)] = TileChunkData(cx, cy, cells)..encoded = text;
+      // Never written as anything but a string: something else is noise.
+      if (text is! String) continue;
+      final cells = cx == null || cy == null ? null : _decode(text);
+      if (cells == null) {
+        store._unreadable[key] = text;
+        continue;
+      }
+      store._put(TileChunkData(cx!, cy!, cells)..encoded = text);
     }
     return store;
   }
@@ -237,9 +339,8 @@ class TileChunkStore {
         out[i] = view.getUint32(i * 4, Endian.little);
       }
       return out;
-    } on FormatException {
-      return null;
     } catch (_) {
+      // Not base64, not zlib, or not a chunk's worth: unreadable.
       return null;
     }
   }

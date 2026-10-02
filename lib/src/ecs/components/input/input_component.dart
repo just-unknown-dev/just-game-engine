@@ -8,6 +8,8 @@ import '../../ecs.dart';
 /// the input system, by action name — so gameplay reads `input.isDown('jump')`
 /// and never asks which device or which player.
 class InputComponent extends Component {
+  /// Input for player [playerIndex]: 0 for player 1, -1 for every device at
+  /// once. Empty until the input system first fills it.
   InputComponent({this.playerIndex = 0});
 
   /// Whose input: 0 for player 1. -1 reads the shared actions — every
@@ -25,14 +27,31 @@ class InputComponent extends Component {
 
   /// Buttons pressed, released, and actions performed this step.
   final Set<String> pressed = {};
+
+  /// Buttons let go this step.
   final Set<String> released = {};
+
+  /// Actions performed this step — for a plain button, when it went down;
+  /// for one with an interaction (hold, tap), when that completed.
   final Set<String> performed = {};
 
+  /// The vector action [action]'s value, y down; zero when it has none.
   Offset vector(String action) => vectors[action] ?? Offset.zero;
+
+  /// How far the axis or button action [action] is pushed; 0 when it has
+  /// no value.
   double axis(String action) => axes[action] ?? 0;
+
+  /// Whether the button [action] is held; false when it has no value.
   bool isDown(String action) => down[action] ?? false;
+
+  /// Whether [action] went down this step.
   bool wasPressed(String action) => pressed.contains(action);
+
+  /// Whether [action] was let go this step.
   bool wasReleased(String action) => released.contains(action);
+
+  /// Whether [action] was performed this step (see [performed]).
   bool wasPerformed(String action) => performed.contains(action);
 
   /// Sets a vector by hand — for tests, and for input from elsewhere.
