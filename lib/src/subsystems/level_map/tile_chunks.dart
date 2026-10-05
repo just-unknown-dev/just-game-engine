@@ -5,7 +5,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui';
 
-import 'package:archive/archive.dart';
+import 'package:just_deflate/just_deflate.dart';
 
 import 'tile_cell.dart';
 
@@ -324,13 +324,16 @@ class TileChunkStore {
     for (var i = 0; i < cells.length; i++) {
       bytes.setUint32(i * 4, cells[i], Endian.little);
     }
-    return base64Encode(ZLibEncoder().encodeBytes(bytes.buffer.asUint8List()));
+    return base64Encode(const ZlibCodec().encode(bytes.buffer.asUint8List()));
   }
 
   static Uint32List? _decode(String text) {
     try {
-      final bytes = Uint8List.fromList(
-        ZLibDecoder().decodeBytes(base64Decode(text)),
+      // No chunk is bigger than this: anything more is damaged, and the
+      // limit stops it unpacking without end.
+      final bytes = const ZlibCodec().decode(
+        base64Decode(text),
+        maxOutputSize: cellsPerChunk * 4,
       );
       if (bytes.length != cellsPerChunk * 4) return null;
       final view = ByteData.sublistView(bytes);

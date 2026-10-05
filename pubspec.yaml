@@ -57,10 +57,10 @@ dependencies:
   just_database: ^1.4.2
   just_signals: ^1.0.2
   just_memory: ^0.1.0
-  just_tiled: ^0.4.0
-  # zlib for tile map chunks: pure Dart, with a separate web implementation.
-  archive: ^4.0.4
-  just_dart: ^0.1.1
+  just_tiled: ^0.4.1
+  # zlib for tile map chunks: pure Dart, the same bytes on every platform.
+  just_deflate: ^0.1.0
+  just_dart: ^0.2.0
   meta: ^1.9.0
 
 dev_dependencies:
