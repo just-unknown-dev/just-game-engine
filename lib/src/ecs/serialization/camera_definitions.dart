@@ -84,7 +84,8 @@ abstract final class CameraDefinitions {
 
   /// Definition of [VirtualCameraComponent] (one shot the brain can show),
   /// saved as `VirtualCameraComponent`.
-  static final virtualCamera = ComponentDefinition<VirtualCameraComponent>(
+  static ComponentDefinition<VirtualCameraComponent>
+  get virtualCamera => ComponentDefinition<VirtualCameraComponent>(
     type: 'VirtualCameraComponent',
     hints: const ComponentHints(
       name: 'Virtual Camera',
@@ -221,303 +222,308 @@ abstract final class CameraDefinitions {
 
   /// Definition of [CameraFramingComponent] (dead-zone framing), saved as
   /// `CameraFramingComponent`. 2-D only.
-  static final framing = ComponentDefinition<CameraFramingComponent>(
-    type: 'CameraFramingComponent',
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Camera Framing',
-      group: _group,
-      description:
-          'Keeps the followed entity inside a dead zone on screen, easing '
-          'when it leaves.',
-      icon: Icons.center_focus_strong,
-      accentColor: _accent,
-      fieldGroups: {
-        'Composition': [
-          'screenX',
-          'screenY',
-          'deadZoneWidth',
-          'deadZoneHeight',
-          'softZoneWidth',
-          'softZoneHeight',
-        ],
-        'Easing': ['dampingX', 'dampingY'],
-        'Lookahead': ['lookaheadTime', 'lookaheadSmoothing'],
-        'Axes': ['followX', 'followY'],
-      },
-      fieldRows: [
-        FieldRowHint('Screen position', {'screenX': 'X', 'screenY': 'Y'}),
-        FieldRowHint('Dead zone', {
-          'deadZoneWidth': 'W',
-          'deadZoneHeight': 'H',
-        }),
-        FieldRowHint('Soft zone', {
-          'softZoneWidth': 'W',
-          'softZoneHeight': 'H',
-        }),
-        FieldRowHint('Damping (s)', {'dampingX': 'X', 'dampingY': 'Y'}),
-      ],
-      fields: {
-        'screenX': FieldHint(label: 'X', scrub: _fraction),
-        'screenY': FieldHint(label: 'Y', scrub: _fraction),
-        'deadZoneWidth': FieldHint(label: 'Width', scrub: _fraction),
-        'deadZoneHeight': FieldHint(label: 'Height', scrub: _fraction),
-        'softZoneWidth': FieldHint(label: 'Width', scrub: _fraction),
-        'softZoneHeight': FieldHint(label: 'Height', scrub: _fraction),
-        'dampingX': FieldHint(label: 'X (s)', scrub: _seconds),
-        'dampingY': FieldHint(label: 'Y (s)', scrub: _seconds),
-        'lookaheadTime': FieldHint(label: 'Time (s)', scrub: _seconds),
-        'lookaheadSmoothing': FieldHint(
-          label: 'Smoothing (s)',
-          scrub: _seconds,
-        ),
-        'followX': FieldHint(label: 'Follow X'),
-        'followY': FieldHint(label: 'Follow Y'),
-      },
-    ),
-    create: CameraFramingComponent.new,
-    fields: [
-      _d<CameraFramingComponent>(
-        'screenX',
-        (c) => c.screenX,
-        (c, v) => c.screenX = v,
-        min: -0.5,
-        max: 0.5,
-      ),
-      _d<CameraFramingComponent>(
-        'screenY',
-        (c) => c.screenY,
-        (c, v) => c.screenY = v,
-        min: -0.5,
-        max: 0.5,
-      ),
-      _d<CameraFramingComponent>(
-        'deadZoneWidth',
-        (c) => c.deadZoneWidth,
-        (c, v) => c.deadZoneWidth = v,
-        min: 0,
-        max: 2,
-      ),
-      _d<CameraFramingComponent>(
-        'deadZoneHeight',
-        (c) => c.deadZoneHeight,
-        (c, v) => c.deadZoneHeight = v,
-        min: 0,
-        max: 2,
-      ),
-      _d<CameraFramingComponent>(
-        'softZoneWidth',
-        (c) => c.softZoneWidth,
-        (c, v) => c.softZoneWidth = v,
-        min: 0,
-        max: 2,
-      ),
-      _d<CameraFramingComponent>(
-        'softZoneHeight',
-        (c) => c.softZoneHeight,
-        (c, v) => c.softZoneHeight = v,
-        min: 0,
-        max: 2,
-      ),
-      _d<CameraFramingComponent>(
-        'dampingX',
-        (c) => c.dampingX,
-        (c, v) => c.dampingX = v,
-        min: 0,
-      ),
-      _d<CameraFramingComponent>(
-        'dampingY',
-        (c) => c.dampingY,
-        (c, v) => c.dampingY = v,
-        min: 0,
-      ),
-      _d<CameraFramingComponent>(
-        'lookaheadTime',
-        (c) => c.lookaheadTime,
-        (c, v) => c.lookaheadTime = v,
-        min: 0,
-      ),
-      _d<CameraFramingComponent>(
-        'lookaheadSmoothing',
-        (c) => c.lookaheadSmoothing,
-        (c, v) => c.lookaheadSmoothing = v,
-        min: 0,
-      ),
-      _b<CameraFramingComponent>(
-        'followX',
-        (c) => c.followX,
-        (c, v) => c.followX = v,
-      ),
-      _b<CameraFramingComponent>(
-        'followY',
-        (c) => c.followY,
-        (c, v) => c.followY = v,
-      ),
-    ],
-  );
-
-  /// Definition of [CameraConfinerComponent], saved as
-  /// `CameraConfinerComponent`. 2-D only.
-  static final confiner = ComponentDefinition<CameraConfinerComponent>(
-    type: 'CameraConfinerComponent',
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Camera Confiner',
-      group: _group,
-      description:
-          'Keeps the whole view inside the bounds of the entity it names.',
-      icon: Icons.crop_free,
-      accentColor: _accent,
-      fields: {
-        'boundsName': FieldHint(label: 'Bounds'),
-        'damping': FieldHint(label: 'Damping (s)', scrub: _seconds),
-      },
-    ),
-    create: CameraConfinerComponent.new,
-    fields: [
-      _s<CameraConfinerComponent>(
-        'boundsName',
-        (c) => c.boundsName,
-        (c, v) => c.boundsName = v,
-        kind: FieldTypes.entityRef,
-      ),
-      _d<CameraConfinerComponent>(
-        'damping',
-        (c) => c.damping,
-        (c, v) => c.damping = v,
-        min: 0,
-      ),
-    ],
-  );
-
-  /// Definition of [CameraBoundsComponent] (the rectangle a confiner
-  /// names), saved as `CameraBoundsComponent`. 2-D only.
-  static final bounds = ComponentDefinition<CameraBoundsComponent>(
-    type: 'CameraBoundsComponent',
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Camera Bounds',
-      group: _group,
-      description:
-          'A rectangle, centred on this entity, that a confiner can name.',
-      icon: Icons.border_outer,
-      accentColor: _accent,
-      fieldRows: [
-        FieldRowHint('Size', {'width': 'W', 'height': 'H'}),
-      ],
-      fields: {
-        'width': FieldHint(
-          label: 'Width',
-          scrub: ScrubHint(step: 32, fractionDigits: 0),
-        ),
-        'height': FieldHint(
-          label: 'Height',
-          scrub: ScrubHint(step: 32, fractionDigits: 0),
-        ),
-      },
-    ),
-    create: CameraBoundsComponent.new,
-    extent: const _BoundsExtent(),
-    fields: [
-      _d<CameraBoundsComponent>(
-        'width',
-        (c) => c.width,
-        (c, v) => c.width = v,
-        min: 1,
-      ),
-      _d<CameraBoundsComponent>(
-        'height',
-        (c) => c.height,
-        (c, v) => c.height = v,
-        min: 1,
-      ),
-    ],
-  );
-
-  /// Definition of [CameraNoiseComponent] (handheld shake), saved as
-  /// `CameraNoiseComponent`. 2-D only.
-  static final noise = ComponentDefinition<CameraNoiseComponent>(
-    type: 'CameraNoiseComponent',
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Camera Noise',
-      group: _group,
-      description: 'Continuous handheld motion over the settled shot.',
-      icon: Icons.waves,
-      accentColor: _accent,
-      fields: {
-        'preset': FieldHint(label: 'Profile'),
-        'amplitudeGain': FieldHint(label: 'Amplitude', scrub: _fraction),
-        'frequencyGain': FieldHint(label: 'Frequency', scrub: _fraction),
-      },
-    ),
-    create: CameraNoiseComponent.new,
-    fields: [
-      SchemaField(
-        name: 'preset',
-        kind: const EnumFieldType(
-          CameraNoisePreset.values,
-          fallback: CameraNoisePreset.handheldNormal,
-          id: 'camera.noisePreset',
-        ),
-        read: (c) => (c as CameraNoiseComponent).preset,
-        write: (c, v) =>
-            (c as CameraNoiseComponent).preset = v as CameraNoisePreset,
-      ),
-      _d<CameraNoiseComponent>(
-        'amplitudeGain',
-        (c) => c.amplitudeGain,
-        (c, v) => c.amplitudeGain = v,
-        min: 0,
-      ),
-      _d<CameraNoiseComponent>(
-        'frequencyGain',
-        (c) => c.frequencyGain,
-        (c, v) => c.frequencyGain = v,
-        min: 0,
-      ),
-    ],
-  );
-
-  /// Definition of [CameraImpulseListenerComponent], saved as
-  /// `CameraImpulseListenerComponent`. 2-D only.
-  static final impulseListener =
-      ComponentDefinition<CameraImpulseListenerComponent>(
-        type: 'CameraImpulseListenerComponent',
+  static ComponentDefinition<CameraFramingComponent> get framing =>
+      ComponentDefinition<CameraFramingComponent>(
+        type: 'CameraFramingComponent',
         hints: const ComponentHints(
           dimensions: Dimensions.twoD,
-          name: 'Camera Impulse Listener',
+          name: 'Camera Framing',
           group: _group,
-          description: 'Lets this shot feel the impulses emitted near it.',
-          icon: Icons.hearing,
+          description:
+              'Keeps the followed entity inside a dead zone on screen, easing '
+              'when it leaves.',
+          icon: Icons.center_focus_strong,
           accentColor: _accent,
+          fieldGroups: {
+            'Composition': [
+              'screenX',
+              'screenY',
+              'deadZoneWidth',
+              'deadZoneHeight',
+              'softZoneWidth',
+              'softZoneHeight',
+            ],
+            'Easing': ['dampingX', 'dampingY'],
+            'Lookahead': ['lookaheadTime', 'lookaheadSmoothing'],
+            'Axes': ['followX', 'followY'],
+          },
+          fieldRows: [
+            FieldRowHint('Screen position', {'screenX': 'X', 'screenY': 'Y'}),
+            FieldRowHint('Dead zone', {
+              'deadZoneWidth': 'W',
+              'deadZoneHeight': 'H',
+            }),
+            FieldRowHint('Soft zone', {
+              'softZoneWidth': 'W',
+              'softZoneHeight': 'H',
+            }),
+            FieldRowHint('Damping (s)', {'dampingX': 'X', 'dampingY': 'Y'}),
+          ],
           fields: {
-            'gain': FieldHint(label: 'Gain', scrub: _fraction),
-            'channels': FieldHint(
-              label: 'Channels',
-              scrub: ScrubHint(integer: true),
+            'screenX': FieldHint(label: 'X', scrub: _fraction),
+            'screenY': FieldHint(label: 'Y', scrub: _fraction),
+            'deadZoneWidth': FieldHint(label: 'Width', scrub: _fraction),
+            'deadZoneHeight': FieldHint(label: 'Height', scrub: _fraction),
+            'softZoneWidth': FieldHint(label: 'Width', scrub: _fraction),
+            'softZoneHeight': FieldHint(label: 'Height', scrub: _fraction),
+            'dampingX': FieldHint(label: 'X (s)', scrub: _seconds),
+            'dampingY': FieldHint(label: 'Y (s)', scrub: _seconds),
+            'lookaheadTime': FieldHint(label: 'Time (s)', scrub: _seconds),
+            'lookaheadSmoothing': FieldHint(
+              label: 'Smoothing (s)',
+              scrub: _seconds,
             ),
+            'followX': FieldHint(label: 'Follow X'),
+            'followY': FieldHint(label: 'Follow Y'),
           },
         ),
-        create: CameraImpulseListenerComponent.new,
+        create: CameraFramingComponent.new,
         fields: [
-          _d<CameraImpulseListenerComponent>(
-            'gain',
-            (c) => c.gain,
-            (c, v) => c.gain = v,
+          _d<CameraFramingComponent>(
+            'screenX',
+            (c) => c.screenX,
+            (c, v) => c.screenX = v,
+            min: -0.5,
+            max: 0.5,
+          ),
+          _d<CameraFramingComponent>(
+            'screenY',
+            (c) => c.screenY,
+            (c, v) => c.screenY = v,
+            min: -0.5,
+            max: 0.5,
+          ),
+          _d<CameraFramingComponent>(
+            'deadZoneWidth',
+            (c) => c.deadZoneWidth,
+            (c, v) => c.deadZoneWidth = v,
+            min: 0,
+            max: 2,
+          ),
+          _d<CameraFramingComponent>(
+            'deadZoneHeight',
+            (c) => c.deadZoneHeight,
+            (c, v) => c.deadZoneHeight = v,
+            min: 0,
+            max: 2,
+          ),
+          _d<CameraFramingComponent>(
+            'softZoneWidth',
+            (c) => c.softZoneWidth,
+            (c, v) => c.softZoneWidth = v,
+            min: 0,
+            max: 2,
+          ),
+          _d<CameraFramingComponent>(
+            'softZoneHeight',
+            (c) => c.softZoneHeight,
+            (c, v) => c.softZoneHeight = v,
+            min: 0,
+            max: 2,
+          ),
+          _d<CameraFramingComponent>(
+            'dampingX',
+            (c) => c.dampingX,
+            (c, v) => c.dampingX = v,
             min: 0,
           ),
-          _i<CameraImpulseListenerComponent>(
-            'channels',
-            (c) => c.channels,
-            (c, v) => c.channels = v,
+          _d<CameraFramingComponent>(
+            'dampingY',
+            (c) => c.dampingY,
+            (c, v) => c.dampingY = v,
+            min: 0,
+          ),
+          _d<CameraFramingComponent>(
+            'lookaheadTime',
+            (c) => c.lookaheadTime,
+            (c, v) => c.lookaheadTime = v,
+            min: 0,
+          ),
+          _d<CameraFramingComponent>(
+            'lookaheadSmoothing',
+            (c) => c.lookaheadSmoothing,
+            (c, v) => c.lookaheadSmoothing = v,
+            min: 0,
+          ),
+          _b<CameraFramingComponent>(
+            'followX',
+            (c) => c.followX,
+            (c, v) => c.followX = v,
+          ),
+          _b<CameraFramingComponent>(
+            'followY',
+            (c) => c.followY,
+            (c, v) => c.followY = v,
           ),
         ],
       );
 
+  /// Definition of [CameraConfinerComponent], saved as
+  /// `CameraConfinerComponent`. 2-D only.
+  static ComponentDefinition<CameraConfinerComponent> get confiner =>
+      ComponentDefinition<CameraConfinerComponent>(
+        type: 'CameraConfinerComponent',
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Camera Confiner',
+          group: _group,
+          description:
+              'Keeps the whole view inside the bounds of the entity it names.',
+          icon: Icons.crop_free,
+          accentColor: _accent,
+          fields: {
+            'boundsName': FieldHint(label: 'Bounds'),
+            'damping': FieldHint(label: 'Damping (s)', scrub: _seconds),
+          },
+        ),
+        create: CameraConfinerComponent.new,
+        fields: [
+          _s<CameraConfinerComponent>(
+            'boundsName',
+            (c) => c.boundsName,
+            (c, v) => c.boundsName = v,
+            kind: FieldTypes.entityRef,
+          ),
+          _d<CameraConfinerComponent>(
+            'damping',
+            (c) => c.damping,
+            (c, v) => c.damping = v,
+            min: 0,
+          ),
+        ],
+      );
+
+  /// Definition of [CameraBoundsComponent] (the rectangle a confiner
+  /// names), saved as `CameraBoundsComponent`. 2-D only.
+  static ComponentDefinition<CameraBoundsComponent> get bounds =>
+      ComponentDefinition<CameraBoundsComponent>(
+        type: 'CameraBoundsComponent',
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Camera Bounds',
+          group: _group,
+          description:
+              'A rectangle, centred on this entity, that a confiner can name.',
+          icon: Icons.border_outer,
+          accentColor: _accent,
+          fieldRows: [
+            FieldRowHint('Size', {'width': 'W', 'height': 'H'}),
+          ],
+          fields: {
+            'width': FieldHint(
+              label: 'Width',
+              scrub: ScrubHint(step: 32, fractionDigits: 0),
+            ),
+            'height': FieldHint(
+              label: 'Height',
+              scrub: ScrubHint(step: 32, fractionDigits: 0),
+            ),
+          },
+        ),
+        create: CameraBoundsComponent.new,
+        extent: const _BoundsExtent(),
+        fields: [
+          _d<CameraBoundsComponent>(
+            'width',
+            (c) => c.width,
+            (c, v) => c.width = v,
+            min: 1,
+          ),
+          _d<CameraBoundsComponent>(
+            'height',
+            (c) => c.height,
+            (c, v) => c.height = v,
+            min: 1,
+          ),
+        ],
+      );
+
+  /// Definition of [CameraNoiseComponent] (handheld shake), saved as
+  /// `CameraNoiseComponent`. 2-D only.
+  static ComponentDefinition<CameraNoiseComponent> get noise =>
+      ComponentDefinition<CameraNoiseComponent>(
+        type: 'CameraNoiseComponent',
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Camera Noise',
+          group: _group,
+          description: 'Continuous handheld motion over the settled shot.',
+          icon: Icons.waves,
+          accentColor: _accent,
+          fields: {
+            'preset': FieldHint(label: 'Profile'),
+            'amplitudeGain': FieldHint(label: 'Amplitude', scrub: _fraction),
+            'frequencyGain': FieldHint(label: 'Frequency', scrub: _fraction),
+          },
+        ),
+        create: CameraNoiseComponent.new,
+        fields: [
+          SchemaField(
+            name: 'preset',
+            kind: const EnumFieldType(
+              CameraNoisePreset.values,
+              fallback: CameraNoisePreset.handheldNormal,
+              id: 'camera.noisePreset',
+            ),
+            read: (c) => (c as CameraNoiseComponent).preset,
+            write: (c, v) =>
+                (c as CameraNoiseComponent).preset = v as CameraNoisePreset,
+          ),
+          _d<CameraNoiseComponent>(
+            'amplitudeGain',
+            (c) => c.amplitudeGain,
+            (c, v) => c.amplitudeGain = v,
+            min: 0,
+          ),
+          _d<CameraNoiseComponent>(
+            'frequencyGain',
+            (c) => c.frequencyGain,
+            (c, v) => c.frequencyGain = v,
+            min: 0,
+          ),
+        ],
+      );
+
+  /// Definition of [CameraImpulseListenerComponent], saved as
+  /// `CameraImpulseListenerComponent`. 2-D only.
+  static ComponentDefinition<CameraImpulseListenerComponent>
+  get impulseListener => ComponentDefinition<CameraImpulseListenerComponent>(
+    type: 'CameraImpulseListenerComponent',
+    hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
+      name: 'Camera Impulse Listener',
+      group: _group,
+      description: 'Lets this shot feel the impulses emitted near it.',
+      icon: Icons.hearing,
+      accentColor: _accent,
+      fields: {
+        'gain': FieldHint(label: 'Gain', scrub: _fraction),
+        'channels': FieldHint(
+          label: 'Channels',
+          scrub: ScrubHint(integer: true),
+        ),
+      },
+    ),
+    create: CameraImpulseListenerComponent.new,
+    fields: [
+      _d<CameraImpulseListenerComponent>(
+        'gain',
+        (c) => c.gain,
+        (c, v) => c.gain = v,
+        min: 0,
+      ),
+      _i<CameraImpulseListenerComponent>(
+        'channels',
+        (c) => c.channels,
+        (c, v) => c.channels = v,
+      ),
+    ],
+  );
+
   /// Definition of [CameraImpulseSourceComponent], saved as
   /// `CameraImpulseSourceComponent`. 2-D only.
-  static final impulseSource = ComponentDefinition<CameraImpulseSourceComponent>(
+  static ComponentDefinition<CameraImpulseSourceComponent>
+  get impulseSource => ComponentDefinition<CameraImpulseSourceComponent>(
     type: 'CameraImpulseSourceComponent',
     hints: const ComponentHints(
       dimensions: Dimensions.twoD,
@@ -569,50 +575,53 @@ abstract final class CameraDefinitions {
 
   /// Definition of [CameraTargetGroupComponent], saved as
   /// `CameraTargetGroupComponent`.
-  static final targetGroup = ComponentDefinition<CameraTargetGroupComponent>(
-    type: 'CameraTargetGroupComponent',
-    hints: const ComponentHints(
-      name: 'Camera Target Group',
-      group: _group,
-      description:
-          'Moves this entity to the weighted centre of its members, so a '
-          'camera that follows it frames them all.',
-      icon: Icons.group_work_outlined,
-      accentColor: _accent,
-      fields: {
-        'members': FieldHint(
-          label: 'Members',
+  static ComponentDefinition<CameraTargetGroupComponent> get targetGroup =>
+      ComponentDefinition<CameraTargetGroupComponent>(
+        type: 'CameraTargetGroupComponent',
+        hints: const ComponentHints(
+          name: 'Camera Target Group',
+          group: _group,
           description:
-              'Who the group keeps in shot: an entity by name, or every '
-              'entity with a tag.',
-          itemTemplate: {
-            'target': {'tag': 'player'},
-            'weight': 1.0,
-            'radius': 0.0,
+              'Moves this entity to the weighted centre of its members, so a '
+              'camera that follows it frames them all.',
+          icon: Icons.group_work_outlined,
+          accentColor: _accent,
+          fields: {
+            'members': FieldHint(
+              label: 'Members',
+              description:
+                  'Who the group keeps in shot: an entity by name, or every '
+                  'entity with a tag.',
+              itemTemplate: {
+                'target': {'tag': 'player'},
+                'weight': 1.0,
+                'radius': 0.0,
+              },
+              itemKinds: {'target': FieldTypes.target},
+            ),
           },
-          itemKinds: {'target': FieldTypes.target},
         ),
-      },
-    ),
-    create: CameraTargetGroupComponent.new,
-    fields: [
-      SchemaField(
-        name: 'members',
-        kind: FieldTypes.list,
-        read: (c) => [
-          for (final m in (c as CameraTargetGroupComponent).members) m.toJson(),
+        create: CameraTargetGroupComponent.new,
+        fields: [
+          SchemaField(
+            name: 'members',
+            kind: FieldTypes.list,
+            read: (c) => [
+              for (final m in (c as CameraTargetGroupComponent).members)
+                m.toJson(),
+            ],
+            write: (c, v) => (c as CameraTargetGroupComponent).members = [
+              for (final m in (v as List?) ?? const [])
+                if (m is Map) CameraGroupMember.fromJson(m),
+            ],
+          ),
         ],
-        write: (c, v) => (c as CameraTargetGroupComponent).members = [
-          for (final m in (v as List?) ?? const [])
-            if (m is Map) CameraGroupMember.fromJson(m),
-        ],
-      ),
-    ],
-  );
+      );
 
   /// Definition of [CameraGroupFramingComponent], saved as
   /// `CameraGroupFramingComponent`. 2-D only.
-  static final groupFraming = ComponentDefinition<CameraGroupFramingComponent>(
+  static ComponentDefinition<CameraGroupFramingComponent>
+  get groupFraming => ComponentDefinition<CameraGroupFramingComponent>(
     type: 'CameraGroupFramingComponent',
     hints: const ComponentHints(
       dimensions: Dimensions.twoD,
@@ -663,7 +672,8 @@ abstract final class CameraDefinitions {
 
   /// Definition of [CameraTriggerComponent], saved as
   /// `CameraTriggerComponent`. 2-D only.
-  static final trigger = ComponentDefinition<CameraTriggerComponent>(
+  static ComponentDefinition<CameraTriggerComponent>
+  get trigger => ComponentDefinition<CameraTriggerComponent>(
     type: 'CameraTriggerComponent',
     hints: ComponentHints(
       dimensions: Dimensions.twoD,
@@ -762,69 +772,71 @@ abstract final class CameraDefinitions {
 
   /// Definition of [CameraDollyComponent] (a camera on a track), saved as
   /// `CameraDollyComponent`. 2-D only.
-  static final dolly = ComponentDefinition<CameraDollyComponent>(
-    type: 'CameraDollyComponent',
-    hints: ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Camera Dolly',
-      group: _group,
-      description:
-          'Rides a track: to the point nearest the followed entity, or '
-          'wherever Position says.',
-      icon: Icons.timeline,
-      accentColor: _accent,
-      fields: {
-        'waypoints': const FieldHint(label: 'Track'),
-        'closed': const FieldHint(label: 'Closed'),
-        'autoDolly': const FieldHint(label: 'Auto dolly'),
-        // A position is only read when the target is not choosing it.
-        'pathPosition': FieldHint(
-          label: 'Position',
-          scrub: _fraction,
-          visibleWhen: (c) => !(c as CameraDollyComponent).autoDolly,
+  static ComponentDefinition<CameraDollyComponent> get dolly =>
+      ComponentDefinition<CameraDollyComponent>(
+        type: 'CameraDollyComponent',
+        hints: ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Camera Dolly',
+          group: _group,
+          description:
+              'Rides a track: to the point nearest the followed entity, or '
+              'wherever Position says.',
+          icon: Icons.timeline,
+          accentColor: _accent,
+          fields: {
+            'waypoints': const FieldHint(label: 'Track'),
+            'closed': const FieldHint(label: 'Closed'),
+            'autoDolly': const FieldHint(label: 'Auto dolly'),
+            // A position is only read when the target is not choosing it.
+            'pathPosition': FieldHint(
+              label: 'Position',
+              scrub: _fraction,
+              visibleWhen: (c) => !(c as CameraDollyComponent).autoDolly,
+            ),
+            'damping': const FieldHint(label: 'Damping (s)', scrub: _seconds),
+          },
         ),
-        'damping': const FieldHint(label: 'Damping (s)', scrub: _seconds),
-      },
-    ),
-    create: CameraDollyComponent.new,
-    fields: [
-      SchemaField(
-        name: 'waypoints',
-        kind: FieldTypes.offsetList,
-        read: (c) => (c as CameraDollyComponent).waypoints,
-        write: (c, v) => (c as CameraDollyComponent).waypoints = [
-          ...?(v as List?)?.cast<Offset>(),
+        create: CameraDollyComponent.new,
+        fields: [
+          SchemaField(
+            name: 'waypoints',
+            kind: FieldTypes.offsetList,
+            read: (c) => (c as CameraDollyComponent).waypoints,
+            write: (c, v) => (c as CameraDollyComponent).waypoints = [
+              ...?(v as List?)?.cast<Offset>(),
+            ],
+          ),
+          _b<CameraDollyComponent>(
+            'closed',
+            (c) => c.closed,
+            (c, v) => c.closed = v,
+          ),
+          _b<CameraDollyComponent>(
+            'autoDolly',
+            (c) => c.autoDolly,
+            (c, v) => c.autoDolly = v,
+          ),
+          _d<CameraDollyComponent>(
+            'pathPosition',
+            (c) => c.pathPosition,
+            (c, v) => c.pathPosition = v,
+            min: 0,
+            max: 1,
+          ),
+          _d<CameraDollyComponent>(
+            'damping',
+            (c) => c.damping,
+            (c, v) => c.damping = v,
+            min: 0,
+          ),
         ],
-      ),
-      _b<CameraDollyComponent>(
-        'closed',
-        (c) => c.closed,
-        (c, v) => c.closed = v,
-      ),
-      _b<CameraDollyComponent>(
-        'autoDolly',
-        (c) => c.autoDolly,
-        (c, v) => c.autoDolly = v,
-      ),
-      _d<CameraDollyComponent>(
-        'pathPosition',
-        (c) => c.pathPosition,
-        (c, v) => c.pathPosition = v,
-        min: 0,
-        max: 1,
-      ),
-      _d<CameraDollyComponent>(
-        'damping',
-        (c) => c.damping,
-        (c, v) => c.damping = v,
-        min: 0,
-      ),
-    ],
-  );
+      );
 
   /// Definition of [CameraStateDrivenComponent] (a manager camera picking a
   /// child by state), saved as `CameraStateDrivenComponent`.
-  static final stateDriven = ComponentDefinition<CameraStateDrivenComponent>(
+  static ComponentDefinition<CameraStateDrivenComponent>
+  get stateDriven => ComponentDefinition<CameraStateDrivenComponent>(
     type: 'CameraStateDrivenComponent',
     hints: const ComponentHints(
       name: 'Camera State-Driven',
@@ -880,95 +892,106 @@ abstract final class CameraDefinitions {
 
   /// Definition of [CameraStateComponent] (the state a state-driven camera
   /// reads), saved as `CameraStateComponent`.
-  static final cameraState = ComponentDefinition<CameraStateComponent>(
-    type: 'CameraStateComponent',
-    hints: const ComponentHints(
-      name: 'Camera State',
-      group: _group,
-      description:
-          'A named state the game sets, for a state-driven camera to read.',
-      icon: Icons.label_outline,
-      accentColor: _accent,
-      fields: {'state': FieldHint(label: 'State')},
-    ),
-    create: CameraStateComponent.new,
-    fields: [
-      _s<CameraStateComponent>('state', (c) => c.state, (c, v) => c.state = v),
-    ],
-  );
+  static ComponentDefinition<CameraStateComponent> get cameraState =>
+      ComponentDefinition<CameraStateComponent>(
+        type: 'CameraStateComponent',
+        hints: const ComponentHints(
+          name: 'Camera State',
+          group: _group,
+          description:
+              'A named state the game sets, for a state-driven camera to read.',
+          icon: Icons.label_outline,
+          accentColor: _accent,
+          fields: {'state': FieldHint(label: 'State')},
+        ),
+        create: CameraStateComponent.new,
+        fields: [
+          _s<CameraStateComponent>(
+            'state',
+            (c) => c.state,
+            (c, v) => c.state = v,
+          ),
+        ],
+      );
 
   /// Definition of [CameraBlendListComponent] (a manager camera playing
   /// its children in sequence), saved as `CameraBlendListComponent`.
-  static final blendList = ComponentDefinition<CameraBlendListComponent>(
-    type: 'CameraBlendListComponent',
-    hints: const ComponentHints(
-      name: 'Camera Blend List',
-      group: _group,
-      description:
-          'Manager: plays its child cameras as a sequence of held shots, '
-          'starting over each time it goes live.',
-      icon: Icons.playlist_play,
-      accentColor: _accent,
-      fields: {
-        'steps': FieldHint(
-          label: 'Steps',
+  static ComponentDefinition<CameraBlendListComponent> get blendList =>
+      ComponentDefinition<CameraBlendListComponent>(
+        type: 'CameraBlendListComponent',
+        hints: const ComponentHints(
+          name: 'Camera Blend List',
+          group: _group,
           description:
-              'The shots, in order: a child camera, how long it is '
-              'held, and the blend into it.',
-          itemTemplate: {'child': '', 'hold': 1.0, 'blend': 0.5},
+              'Manager: plays its child cameras as a sequence of held shots, '
+              'starting over each time it goes live.',
+          icon: Icons.playlist_play,
+          accentColor: _accent,
+          fields: {
+            'steps': FieldHint(
+              label: 'Steps',
+              description:
+                  'The shots, in order: a child camera, how long it is '
+                  'held, and the blend into it.',
+              itemTemplate: {'child': '', 'hold': 1.0, 'blend': 0.5},
+            ),
+            'loop': FieldHint(label: 'Loop'),
+          },
         ),
-        'loop': FieldHint(label: 'Loop'),
-      },
-    ),
-    create: CameraBlendListComponent.new,
-    fields: [
-      SchemaField(
-        name: 'steps',
-        kind: FieldTypes.list,
-        read: (c) => [
-          for (final s in (c as CameraBlendListComponent).steps) s.toJson(),
+        create: CameraBlendListComponent.new,
+        fields: [
+          SchemaField(
+            name: 'steps',
+            kind: FieldTypes.list,
+            read: (c) => [
+              for (final s in (c as CameraBlendListComponent).steps) s.toJson(),
+            ],
+            write: (c, v) => (c as CameraBlendListComponent).steps = [
+              for (final s in (v as List?) ?? const [])
+                if (s is Map) CameraBlendStep.fromJson(s),
+            ],
+          ),
+          _b<CameraBlendListComponent>(
+            'loop',
+            (c) => c.loop,
+            (c, v) => c.loop = v,
+          ),
         ],
-        write: (c, v) => (c as CameraBlendListComponent).steps = [
-          for (final s in (v as List?) ?? const [])
-            if (s is Map) CameraBlendStep.fromJson(s),
-        ],
-      ),
-      _b<CameraBlendListComponent>('loop', (c) => c.loop, (c, v) => c.loop = v),
-    ],
-  );
+      );
 
   /// Definition of [CameraMixerComponent] (a weighted mix of its child
   /// cameras), saved as `CameraMixerComponent`.
-  static final mixer = ComponentDefinition<CameraMixerComponent>(
-    type: 'CameraMixerComponent',
-    hints: const ComponentHints(
-      name: 'Camera Mixer',
-      group: _group,
-      description: 'Manager: a weighted mix of its child cameras.',
-      icon: Icons.tune,
-      accentColor: _accent,
-      fields: {
-        'weights': FieldHint(
-          label: 'Weights',
-          description: 'Child camera → how much of it is in the mix.',
-          itemTemplate: 1.0,
+  static ComponentDefinition<CameraMixerComponent> get mixer =>
+      ComponentDefinition<CameraMixerComponent>(
+        type: 'CameraMixerComponent',
+        hints: const ComponentHints(
+          name: 'Camera Mixer',
+          group: _group,
+          description: 'Manager: a weighted mix of its child cameras.',
+          icon: Icons.tune,
+          accentColor: _accent,
+          fields: {
+            'weights': FieldHint(
+              label: 'Weights',
+              description: 'Child camera → how much of it is in the mix.',
+              itemTemplate: 1.0,
+            ),
+          },
         ),
-      },
-    ),
-    create: CameraMixerComponent.new,
-    fields: [
-      SchemaField(
-        name: 'weights',
-        kind: FieldTypes.map,
-        read: (c) =>
-            Map<Object?, Object?>.of((c as CameraMixerComponent).weights),
-        write: (c, v) => (c as CameraMixerComponent).weights = {
-          for (final e in ((v as Map?) ?? const {}).entries)
-            if (e.value is num) '${e.key}': (e.value as num).toDouble(),
-        },
-      ),
-    ],
-  );
+        create: CameraMixerComponent.new,
+        fields: [
+          SchemaField(
+            name: 'weights',
+            kind: FieldTypes.map,
+            read: (c) =>
+                Map<Object?, Object?>.of((c as CameraMixerComponent).weights),
+            write: (c, v) => (c as CameraMixerComponent).weights = {
+              for (final e in ((v as Map?) ?? const {}).entries)
+                if (e.value is num) '${e.key}': (e.value as num).toDouble(),
+            },
+          ),
+        ],
+      );
 
   /// Every camera definition, in picker order.
   static List<ComponentDefinition> get all => [

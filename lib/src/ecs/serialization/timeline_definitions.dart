@@ -25,101 +25,103 @@ abstract final class TimelineDefinitions {
 
   /// Definition of [TimelineTriggerComponent], saved as
   /// `TimelineTriggerComponent`.
-  static final trigger = ComponentDefinition<TimelineTriggerComponent>(
-    type: 'TimelineTriggerComponent',
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Timeline Trigger',
-      group: 'Animation',
-      description:
-          'A rectangle that plays a timeline when a target walks into it.',
-      icon: Icons.sensors,
-      accentColor: _accent,
-      fieldGroups: {
-        'Area': ['width', 'height'],
-        'Set off by': ['target'],
-        'Does': ['playerName', 'onEnter', 'onExit', 'oneShot'],
-      },
-      fieldRows: [
-        FieldRowHint('Size', {'width': 'W', 'height': 'H'}),
-      ],
-      fields: {
-        'width': FieldHint(
-          label: 'Width',
-          scrub: ScrubHint(step: 32, fractionDigits: 0),
+  static ComponentDefinition<TimelineTriggerComponent> get trigger =>
+      ComponentDefinition<TimelineTriggerComponent>(
+        type: 'TimelineTriggerComponent',
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Timeline Trigger',
+          group: 'Animation',
+          description:
+              'A rectangle that plays a timeline when a target walks into it.',
+          icon: Icons.sensors,
+          accentColor: _accent,
+          fieldGroups: {
+            'Area': ['width', 'height'],
+            'Set off by': ['target'],
+            'Does': ['playerName', 'onEnter', 'onExit', 'oneShot'],
+          },
+          fieldRows: [
+            FieldRowHint('Size', {'width': 'W', 'height': 'H'}),
+          ],
+          fields: {
+            'width': FieldHint(
+              label: 'Width',
+              scrub: ScrubHint(step: 32, fractionDigits: 0),
+            ),
+            'height': FieldHint(
+              label: 'Height',
+              scrub: ScrubHint(step: 32, fractionDigits: 0),
+            ),
+            'target': FieldHint(
+              label: 'Target',
+              description: 'An entity by name, or any entity with a tag.',
+            ),
+            'playerName': FieldHint(
+              label: 'Player',
+              description: 'Empty: the Timeline Player on this entity.',
+            ),
+            'onEnter': FieldHint(label: 'On enter'),
+            'onExit': FieldHint(label: 'On exit'),
+            'oneShot': FieldHint(label: 'One shot'),
+          },
         ),
-        'height': FieldHint(
-          label: 'Height',
-          scrub: ScrubHint(step: 32, fractionDigits: 0),
-        ),
-        'target': FieldHint(
-          label: 'Target',
-          description: 'An entity by name, or any entity with a tag.',
-        ),
-        'playerName': FieldHint(
-          label: 'Player',
-          description: 'Empty: the Timeline Player on this entity.',
-        ),
-        'onEnter': FieldHint(label: 'On enter'),
-        'onExit': FieldHint(label: 'On exit'),
-        'oneShot': FieldHint(label: 'One shot'),
-      },
-    ),
-    create: TimelineTriggerComponent.new,
-    extent: const _TriggerExtent(),
-    fields: [
-      SchemaField(
-        name: 'width',
-        kind: FieldTypes.decimal,
-        read: (c) => (c as TimelineTriggerComponent).width,
-        write: (c, v) =>
-            (c as TimelineTriggerComponent).width = (v as num).toDouble(),
-        min: 1,
-      ),
-      SchemaField(
-        name: 'height',
-        kind: FieldTypes.decimal,
-        read: (c) => (c as TimelineTriggerComponent).height,
-        write: (c, v) =>
-            (c as TimelineTriggerComponent).height = (v as num).toDouble(),
-        min: 1,
-      ),
-      SchemaField(
-        name: 'target',
-        kind: FieldTypes.target,
-        read: (c) => (c as TimelineTriggerComponent).target,
-        write: (c, v) => (c as TimelineTriggerComponent).target =
-            v as EntityTarget? ?? EntityTarget.none,
-      ),
-      SchemaField(
-        name: 'playerName',
-        kind: FieldTypes.entityRef,
-        read: (c) => (c as TimelineTriggerComponent).playerName,
-        write: (c, v) =>
-            (c as TimelineTriggerComponent).playerName = v as String? ?? '',
-      ),
-      SchemaField(
-        name: 'onEnter',
-        kind: _actions,
-        read: (c) => (c as TimelineTriggerComponent).onEnter,
-        write: (c, v) => (c as TimelineTriggerComponent).onEnter =
-            v as TimelineTriggerAction,
-      ),
-      SchemaField(
-        name: 'onExit',
-        kind: _actions,
-        read: (c) => (c as TimelineTriggerComponent).onExit,
-        write: (c, v) =>
-            (c as TimelineTriggerComponent).onExit = v as TimelineTriggerAction,
-      ),
-      SchemaField(
-        name: 'oneShot',
-        kind: FieldTypes.boolean,
-        read: (c) => (c as TimelineTriggerComponent).oneShot,
-        write: (c, v) => (c as TimelineTriggerComponent).oneShot = v as bool,
-      ),
-    ],
-  );
+        create: TimelineTriggerComponent.new,
+        extent: const _TriggerExtent(),
+        fields: [
+          SchemaField(
+            name: 'width',
+            kind: FieldTypes.decimal,
+            read: (c) => (c as TimelineTriggerComponent).width,
+            write: (c, v) =>
+                (c as TimelineTriggerComponent).width = (v as num).toDouble(),
+            min: 1,
+          ),
+          SchemaField(
+            name: 'height',
+            kind: FieldTypes.decimal,
+            read: (c) => (c as TimelineTriggerComponent).height,
+            write: (c, v) =>
+                (c as TimelineTriggerComponent).height = (v as num).toDouble(),
+            min: 1,
+          ),
+          SchemaField(
+            name: 'target',
+            kind: FieldTypes.target,
+            read: (c) => (c as TimelineTriggerComponent).target,
+            write: (c, v) => (c as TimelineTriggerComponent).target =
+                v as EntityTarget? ?? EntityTarget.none,
+          ),
+          SchemaField(
+            name: 'playerName',
+            kind: FieldTypes.entityRef,
+            read: (c) => (c as TimelineTriggerComponent).playerName,
+            write: (c, v) =>
+                (c as TimelineTriggerComponent).playerName = v as String? ?? '',
+          ),
+          SchemaField(
+            name: 'onEnter',
+            kind: _actions,
+            read: (c) => (c as TimelineTriggerComponent).onEnter,
+            write: (c, v) => (c as TimelineTriggerComponent).onEnter =
+                v as TimelineTriggerAction,
+          ),
+          SchemaField(
+            name: 'onExit',
+            kind: _actions,
+            read: (c) => (c as TimelineTriggerComponent).onExit,
+            write: (c, v) => (c as TimelineTriggerComponent).onExit =
+                v as TimelineTriggerAction,
+          ),
+          SchemaField(
+            name: 'oneShot',
+            kind: FieldTypes.boolean,
+            read: (c) => (c as TimelineTriggerComponent).oneShot,
+            write: (c, v) =>
+                (c as TimelineTriggerComponent).oneShot = v as bool,
+          ),
+        ],
+      );
 
   /// Every definition above — a new list on each call.
   static List<ComponentDefinition> get all => [trigger];

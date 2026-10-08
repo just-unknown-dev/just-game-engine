@@ -39,7 +39,8 @@ void main() {
   });
 
   test('re-registering the same instance is a no-op', () {
-    expect(() => registry.register(CoreDefinitions.health), returnsNormally);
+    final health = registry.definitionByType('HealthComponent')!;
+    expect(() => registry.register(health), returnsNormally);
   });
 
   test('a different definition for the same type throws unless overridden', () {
@@ -62,7 +63,7 @@ void main() {
     final json = registry.encode(health)!;
     expect(json.keys, unorderedEquals(['type', 'fields']));
     expect(json['fields'], containsPair('maxHealth', 5.0));
-    expect(registry.definitionFor(health), same(CoreDefinitions.health));
+    expect(registry.definitionFor(health)?.type, CoreDefinitions.health.type);
   });
 
   test('aliases resolve to the definition', () {
@@ -85,15 +86,16 @@ void main() {
     expect(registry.forComponent(c), isNull);
     expect(registry.definitionFor(c), isNull);
     expect(
-      registry.nearestFor(c),
-      same(CoreDefinitions.health),
+      registry.nearestFor(c)?.type,
+      CoreDefinitions.health.type,
       reason: 'so the editor can name the base it would lose fields to',
     );
   });
 
   test('extend() round-trips the subclass fields', () {
+    final health = CoreDefinitions.health;
     final def = ComponentDefinition<ShieldedHealth>.extend(
-      CoreDefinitions.health,
+      health,
       type: 'ShieldedHealth',
       create: ShieldedHealth.new,
       extraFields: [
@@ -109,7 +111,7 @@ void main() {
     final source = ShieldedHealth(maxHealth: 40, shield: 9)..health = 12;
     final back = registry.decode(registry.encode(source)!)! as ShieldedHealth;
     expect((back.maxHealth, back.health, back.shield), (40.0, 12.0, 9.0));
-    expect(def.parent, same(CoreDefinitions.health));
+    expect(def.parent, same(health));
     expect(def.hints.group, 'Gameplay', reason: 'inherited');
   });
 

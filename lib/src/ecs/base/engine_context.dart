@@ -63,6 +63,20 @@ abstract interface class ContextExtension {
   void install(EngineContext context);
 }
 
+/// A [ContextExtension] that can put its definitions in place again, as
+/// the code now makes them, after a hot reload — so an editor shows a field
+/// just added to one of its components. See
+/// [EngineContext.refreshDefinitions].
+///
+/// [refresh] must be safe to call any number of times: register with
+/// [ComponentDefinitionRegistry.refresh] and other replace-by-key calls,
+/// never anything that appends (a migration, a listener).
+abstract interface class RefreshableExtension implements ContextExtension {
+  /// Puts what [install] registered in place again, from the code as it
+  /// now is.
+  void refresh(EngineContext context);
+}
+
 /// State a package keeps per context (see [EngineContext.slot]) that must
 /// be released with it.
 abstract interface class ContextResource {
@@ -101,7 +115,8 @@ final class EngineContext {
        collisionKinds = MapCollisionKinds(withBuiltIns: withBuiltIns),
        effectTypes = EffectTypes(withBuiltIns: withBuiltIns),
        bundle = bundle ?? rootBundle,
-       assets = AssetManager(bundle: bundle) {
+       assets = AssetManager(bundle: bundle),
+       _withBuiltIns = withBuiltIns {
     sprites = _bundleSprites = BundleSpriteAssetLoader(assets);
     animatorGraphs = _bundleGraph;
     timelines = _bundleTimeline;
@@ -283,6 +298,24 @@ final class EngineContext {
   void installAll(Iterable<ContextExtension> extensions) {
     for (final extension in extensions) {
       install(extension);
+    }
+  }
+
+  final bool _withBuiltIns;
+
+  /// Puts every component definition in place again as the code now makes
+  /// it: the engine's own, then each installed [RefreshableExtension]'s, in
+  /// install order. A project's deliberate replacement of a definition
+  /// stays (see [ComponentDefinitionRegistry.refresh]).
+  ///
+  /// For an editor, after a hot reload: definitions are built once at boot,
+  /// so without this a field added to a component would not be seen until
+  /// a restart. An extension that is not refreshable is left as installed.
+  /// A game never calls this.
+  void refreshDefinitions() {
+    if (_withBuiltIns) refreshCoreCodecs(definitions);
+    for (final extension in _installed.values) {
+      if (extension is RefreshableExtension) extension.refresh(this);
     }
   }
 

@@ -36,6 +36,13 @@ class Entity {
   /// Row index within [_archetype]'s dense arrays.
   int _archetypeRow = -1;
 
+  /// This entity's component types in its own order: as they were added,
+  /// unless [reorderComponents] said otherwise. Its archetype is shared with
+  /// every entity of the same types, so it cannot keep one entity's order.
+  /// Never changed in place — replaced — so an iteration over [components]
+  /// is not disturbed by a change. Null with no components.
+  List<Type>? _order;
+
   bool _isActive = true;
 
   String? _name;
@@ -107,10 +114,47 @@ class Entity {
     return _archetype?._typeSet.contains(type) ?? false;
   }
 
-  /// Get all components
+  /// Every component, in this entity's order: as they were added — a scene's
+  /// as its file lists them — unless [reorderComponents] put them otherwise.
+  /// A scene saves them in this order. Systems find components by type, so
+  /// the order changes nothing in how the game runs.
   Iterable<Component> get components {
-    if (_archetype == null || _archetypeRow < 0) return const [];
-    return _archetype!.getComponents(_archetypeRow);
+    final archetype = _archetype;
+    final row = _archetypeRow;
+    if (archetype == null || row < 0) return const [];
+    final order = _order;
+    if (order == null || order.length != archetype._typeSet.length) {
+      return archetype.getComponents(row);
+    }
+    return order.map((type) => archetype._columns[type]![row]);
+  }
+
+  /// The types [components] are filed under (`Component.componentType`), in
+  /// the same order.
+  List<Type> get componentTypes {
+    final order = _order;
+    if (order != null) return order;
+    return List.unmodifiable(_archetype?._typeList ?? const <Type>[]);
+  }
+
+  /// Puts this entity's components in the order of [types] — each a
+  /// `Component.componentType` — those listed first, as listed, then the
+  /// rest as they were. Types it has no component of are passed over.
+  ///
+  /// For an editor that lets components be rearranged: what [components]
+  /// lists, and so what a scene file saves. Nothing else changes — not the
+  /// components, not which systems see the entity.
+  void reorderComponents(Iterable<Type> types) {
+    final current = _order;
+    if (current == null) return;
+    final placed = <Type>{};
+    final next = <Type>[
+      for (final type in types)
+        if (current.contains(type) && placed.add(type)) type,
+      for (final type in current)
+        if (!placed.contains(type)) type,
+    ];
+    _order = List.unmodifiable(next);
   }
 
   /// Check if entity has all specified component types

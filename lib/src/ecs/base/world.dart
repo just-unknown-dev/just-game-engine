@@ -251,6 +251,11 @@ class World {
         : null;
 
     _move(entity, to, type, component);
+    // A new type goes after the entity's others; a replaced one keeps its
+    // place.
+    if (!identical(to, from)) {
+      entity._order = List.unmodifiable([...?entity._order, type]);
+    }
     if (from != null && !identical(from, to)) _touch(from);
     _touch(to);
     _structureVersion++;
@@ -268,6 +273,13 @@ class World {
     final to = _withoutType(from, type);
 
     _move(entity, to, null, null);
+    final order = entity._order;
+    entity._order = to == null || order == null
+        ? null
+        : List.unmodifiable([
+            for (final t in order)
+              if (t != type) t,
+          ]);
     _touch(from);
     if (to != null) _touch(to);
     _structureVersion++;
@@ -426,6 +438,9 @@ class World {
       }
       entity._archetype = archetype;
       entity._archetypeRow = archetype._appendRow(entity, scratch);
+      // In the order given — a scene's as its file lists them — whatever
+      // order the shared archetype keeps.
+      entity._order = List.unmodifiable(compMap.keys);
       scratch.clear();
       _touch(archetype);
 
@@ -514,6 +529,7 @@ class World {
       _touch(archetype);
       entity._archetype = null;
       entity._archetypeRow = -1;
+      entity._order = null;
     }
 
     if (!entity._isActive) _inactiveCount--;
@@ -560,6 +576,7 @@ class World {
       entity._world = null;
       entity._archetype = null;
       entity._archetypeRow = -1;
+      entity._order = null;
       entity._isActive = false;
     }
     _entities.clear();
@@ -596,6 +613,13 @@ class World {
 
     system.onAddedToWorld();
   }
+
+  /// Puts the systems in priority order again. They are sorted as each is
+  /// added; a [System.priority] that changed since — edited code after a
+  /// hot reload — takes effect only once this runs. Not while systems are
+  /// being updated.
+  void sortSystems() =>
+      _systems.sort((a, b) => b.priority.compareTo(a.priority));
 
   /// Remove a system from the world
   void removeSystem(System system) {

@@ -19,3 +19,13 @@ void registerCoreCodecs(ComponentDefinitionRegistry registry) {
     ..registerAll(CoreDefinitions.all, ifAbsent: true)
     ..registerAll(CoreComponentSchemas.all, ifAbsent: true);
 }
+
+/// Puts the engine's own definitions in [registry] again as the code now
+/// makes them, leaving a project's replacements alone — see
+/// [ComponentDefinitionRegistry.refresh]. For a hot reload; a game never
+/// needs it.
+void refreshCoreCodecs(ComponentDefinitionRegistry registry) {
+  registry
+    ..refresh(CoreDefinitions.all)
+    ..refresh(CoreComponentSchemas.all);
+}

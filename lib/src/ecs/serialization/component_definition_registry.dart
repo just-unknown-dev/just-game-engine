@@ -38,9 +38,15 @@ class ComponentDefinitionRegistry {
   final Map<Type, ComponentCodec> _wireByType = {};
   final Map<String, String> _aliases = {};
 
+  /// Types whose registration a project chose on purpose — with `override`,
+  /// or by being there first when an `ifAbsent` registration came — and
+  /// which [refresh] therefore leaves alone.
+  final Set<String> _kept = {};
+
   /// Registers [codec] — a definition, or a plain codec that becomes the
   /// wire format for its type.
   void register(ComponentCodec codec, {bool override = false}) {
+    if (override) _kept.add(codec.type);
     if (codec is ComponentDefinition) {
       _put(_definitions, _definitionsByType, codec, override);
       for (final alias in codec.aliases) {
@@ -78,7 +84,11 @@ class ComponentDefinitionRegistry {
     bool ifAbsent = false,
   }) {
     for (final codec in codecs) {
-      if (ifAbsent && _has(codec)) continue;
+      if (ifAbsent && _has(codec)) {
+        // Someone else's is in place, and is to stay in place.
+        if (!identical(_existing(codec), codec)) _kept.add(codec.type);
+        continue;
+      }
       register(codec, override: override);
     }
   }
@@ -86,6 +96,46 @@ class ComponentDefinitionRegistry {
   bool _has(ComponentCodec codec) => codec is ComponentDefinition
       ? _definitions.containsKey(codec.type)
       : _wire.containsKey(codec.type);
+
+  ComponentCodec? _existing(ComponentCodec codec) => codec is ComponentDefinition
+      ? _definitions[codec.type]
+      : _wire[codec.type];
+
+  /// Puts [codecs] in place as the code now makes them — for a hot reload,
+  /// where definitions built again from edited code take the place of the
+  /// ones the engine was booted with, so what reads them (an editor's
+  /// inspector, a scene codec) sees the new fields.
+  ///
+  /// A type not yet registered is added; one that is, replaced, with its
+  /// aliases. A type a project replaced on purpose stays as the project has
+  /// it, unless [override] — which the project's own refresh passes.
+  ///
+  /// A game never needs this: it registers once, at boot.
+  void refresh(Iterable<ComponentCodec> codecs, {bool override = false}) {
+    for (final codec in codecs) {
+      final old = _existing(codec);
+      if (identical(old, codec)) continue;
+      if (old != null && !override && _kept.contains(codec.type)) continue;
+      if (codec is ComponentDefinition) {
+        if (old != null &&
+            identical(_definitionsByType[old.componentType], old)) {
+          _definitionsByType.remove(old.componentType);
+        }
+        _aliases.removeWhere((_, target) => target == codec.type);
+        _definitions[codec.type] = codec;
+        _definitionsByType[codec.componentType] = codec;
+        for (final alias in codec.aliases) {
+          _aliases[alias] = codec.type;
+        }
+      } else {
+        if (old != null && identical(_wireByType[old.componentType], old)) {
+          _wireByType.remove(old.componentType);
+        }
+        _wire[codec.type] = codec;
+        _wireByType[codec.componentType] = codec;
+      }
+    }
+  }
 
   /// Forgets everything registered under [type] (definition and wire codec).
   void unregister(String type) {
@@ -96,10 +146,12 @@ class ComponentDefinitionRegistry {
     }
     final w = _wire.remove(type);
     if (w != null) _wireByType.remove(w.componentType);
+    _kept.remove(type);
   }
 
   /// Removes every registration. Mainly for tests.
   void clear() {
+    _kept.clear();
     _definitions.clear();
     _definitionsByType.clear();
     _wire.clear();

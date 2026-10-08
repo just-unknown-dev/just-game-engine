@@ -97,70 +97,72 @@ abstract final class CoreDefinitions {
   /// Definition of [TransformComponent], saved as `TransformComponent`:
   /// `position`, `rotation` (Euler angles in radians) and `scale`. It
   /// cannot be removed in the inspector.
-  static final transform = ComponentDefinition<TransformComponent>(
-    type: 'TransformComponent',
-    hints: const ComponentHints(
-      name: 'Transform',
-      group: 'Core',
-      description: 'Position, rotation, and scale.',
-      icon: Icons.open_with,
-      accentColor: Color(0xFF607D8B),
-      deletable: false,
-      fieldGroups: {
-        'Position': ['position'],
-        'Rotation': ['rotation'],
-        'Scale': ['scale'],
-      },
-      fields: {
-        'position': FieldHint(
-          label: 'Position',
-          scrub: ScrubHint(fractionDigits: 1),
+  static ComponentDefinition<TransformComponent> get transform =>
+      ComponentDefinition<TransformComponent>(
+        type: 'TransformComponent',
+        hints: const ComponentHints(
+          name: 'Transform',
+          group: 'Core',
+          description: 'Position, rotation, and scale.',
+          icon: Icons.open_with,
+          accentColor: Color(0xFF607D8B),
+          deletable: false,
+          fieldGroups: {
+            'Position': ['position'],
+            'Rotation': ['rotation'],
+            'Scale': ['scale'],
+          },
+          fields: {
+            'position': FieldHint(
+              label: 'Position',
+              scrub: ScrubHint(fractionDigits: 1),
+            ),
+            // Three angles; a 2-D scene shows only the one about Z.
+            'rotation': FieldHint(
+              label: 'Rotation',
+              unit: AngleUnit.degrees,
+              scrub: ScrubHint(fractionDigits: 1),
+            ),
+            'scale': FieldHint(
+              label: 'Scale',
+              scrub: ScrubHint(step: 0.05, fractionDigits: 3),
+            ),
+          },
         ),
-        // Three angles; a 2-D scene shows only the one about Z.
-        'rotation': FieldHint(
-          label: 'Rotation',
-          unit: AngleUnit.degrees,
-          scrub: ScrubHint(fractionDigits: 1),
-        ),
-        'scale': FieldHint(
-          label: 'Scale',
-          scrub: ScrubHint(step: 0.05, fractionDigits: 3),
-        ),
-      },
-    ),
-    create: TransformComponent.new,
-    // A loaded transform has not moved yet: its previous pose is the one
-    // just read. Left at the origin, render interpolation would draw a
-    // physics body sliding in from (0, 0) until its first physics step.
-    afterDecode: (c) => (c as TransformComponent).capturePrevious(),
-    fields: [
-      SchemaField(
-        name: 'position',
-        kind: FieldTypes.vector3,
-        read: (c) => Vector3.copy((c as TransformComponent).position),
-        write: (c, v) =>
-            (c as TransformComponent).position.setFrom(v as Vector3),
-      ),
-      SchemaField(
-        name: 'rotation',
-        kind: FieldTypes.euler,
-        read: (c) {
-          final t = c as TransformComponent;
-          return Vector3(t.eulerX, t.eulerY, t.angle);
-        },
-        write: (c, v) {
-          final e = v as Vector3;
-          (c as TransformComponent).setEuler(e.x, e.y, e.z);
-        },
-      ),
-      SchemaField(
-        name: 'scale',
-        kind: FieldTypes.vector3,
-        read: (c) => (c as TransformComponent).scale,
-        write: (c, v) => (c as TransformComponent).scale.setFrom(v as Vector3),
-      ),
-    ],
-  );
+        create: TransformComponent.new,
+        // A loaded transform has not moved yet: its previous pose is the one
+        // just read. Left at the origin, render interpolation would draw a
+        // physics body sliding in from (0, 0) until its first physics step.
+        afterDecode: (c) => (c as TransformComponent).capturePrevious(),
+        fields: [
+          SchemaField(
+            name: 'position',
+            kind: FieldTypes.vector3,
+            read: (c) => Vector3.copy((c as TransformComponent).position),
+            write: (c, v) =>
+                (c as TransformComponent).position.setFrom(v as Vector3),
+          ),
+          SchemaField(
+            name: 'rotation',
+            kind: FieldTypes.euler,
+            read: (c) {
+              final t = c as TransformComponent;
+              return Vector3(t.eulerX, t.eulerY, t.angle);
+            },
+            write: (c, v) {
+              final e = v as Vector3;
+              (c as TransformComponent).setEuler(e.x, e.y, e.z);
+            },
+          ),
+          SchemaField(
+            name: 'scale',
+            kind: FieldTypes.vector3,
+            read: (c) => (c as TransformComponent).scale,
+            write: (c, v) =>
+                (c as TransformComponent).scale.setFrom(v as Vector3),
+          ),
+        ],
+      );
 
   static List<SchemaField> _styleFields<T extends Component>(
     ShapePaintStyle Function(T) fill,
@@ -189,363 +191,382 @@ abstract final class CoreDefinitions {
 
   /// Definition of [RectangleComponent], saved as `RectangleComponent`; a
   /// new one is 64 × 64. 2-D only.
-  static final rectangle = ComponentDefinition<RectangleComponent>(
-    type: 'RectangleComponent',
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Rectangle',
-      group: 'Rendering',
-      description: 'A filled or outlined rectangle.',
-      icon: Icons.rectangle_outlined,
-      accentColor: Color(0xFF42A5F5),
-      fieldGroups: {
-        'Size': ['width', 'height', 'cornerRadius'],
-        'Appearance': ['filled', 'fillStyle', 'strokeStyle', 'strokeWidth'],
-      },
-      fieldRows: [
-        FieldRowHint('Size', {'width': 'W', 'height': 'H'}),
-      ],
-      fields: {
-        'width': FieldHint(label: 'W', scrub: ScrubHint(fractionDigits: 1)),
-        'height': FieldHint(label: 'H', scrub: ScrubHint(fractionDigits: 1)),
-        'cornerRadius': FieldHint(
-          label: 'CR',
-          scrub: ScrubHint(step: 0.5, fractionDigits: 1),
+  static ComponentDefinition<RectangleComponent> get rectangle =>
+      ComponentDefinition<RectangleComponent>(
+        type: 'RectangleComponent',
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Rectangle',
+          group: 'Rendering',
+          description: 'A filled or outlined rectangle.',
+          icon: Icons.rectangle_outlined,
+          accentColor: Color(0xFF42A5F5),
+          fieldGroups: {
+            'Size': ['width', 'height', 'cornerRadius'],
+            'Appearance': ['filled', 'fillStyle', 'strokeStyle', 'strokeWidth'],
+          },
+          fieldRows: [
+            FieldRowHint('Size', {'width': 'W', 'height': 'H'}),
+          ],
+          fields: {
+            'width': FieldHint(label: 'W', scrub: ScrubHint(fractionDigits: 1)),
+            'height': FieldHint(
+              label: 'H',
+              scrub: ScrubHint(fractionDigits: 1),
+            ),
+            'cornerRadius': FieldHint(
+              label: 'CR',
+              scrub: ScrubHint(step: 0.5, fractionDigits: 1),
+            ),
+            ..._styleHints,
+          },
         ),
-        ..._styleHints,
-      },
-    ),
-    create: () => RectangleComponent(width: 64, height: 64),
-    fields: [
-      _d(
-        'width',
-        (c) => (c as RectangleComponent).width,
-        (c, v) => (c as RectangleComponent).width = v,
-        min: 1,
-      ),
-      _d(
-        'height',
-        (c) => (c as RectangleComponent).height,
-        (c, v) => (c as RectangleComponent).height = v,
-        min: 1,
-      ),
-      ..._styleFields<RectangleComponent>(
-        (c) => c.fillStyle,
-        (c, v) => c.fillStyle = v,
-        (c) => c.strokeStyle,
-        (c, v) => c.strokeStyle = v,
-        (c) => c.filled,
-        (c, v) => c.filled = v,
-        (c) => c.strokeWidth,
-        (c, v) => c.strokeWidth = v,
-      ),
-      _d(
-        'cornerRadius',
-        (c) => (c as RectangleComponent).cornerRadius,
-        (c, v) => (c as RectangleComponent).cornerRadius = v,
-        min: 0,
-      ),
-    ],
-    extent: const _RectangleExtent(),
-  );
+        create: () => RectangleComponent(width: 64, height: 64),
+        fields: [
+          _d(
+            'width',
+            (c) => (c as RectangleComponent).width,
+            (c, v) => (c as RectangleComponent).width = v,
+            min: 1,
+          ),
+          _d(
+            'height',
+            (c) => (c as RectangleComponent).height,
+            (c, v) => (c as RectangleComponent).height = v,
+            min: 1,
+          ),
+          ..._styleFields<RectangleComponent>(
+            (c) => c.fillStyle,
+            (c, v) => c.fillStyle = v,
+            (c) => c.strokeStyle,
+            (c, v) => c.strokeStyle = v,
+            (c) => c.filled,
+            (c, v) => c.filled = v,
+            (c) => c.strokeWidth,
+            (c, v) => c.strokeWidth = v,
+          ),
+          _d(
+            'cornerRadius',
+            (c) => (c as RectangleComponent).cornerRadius,
+            (c, v) => (c as RectangleComponent).cornerRadius = v,
+            min: 0,
+          ),
+        ],
+        extent: const _RectangleExtent(),
+      );
 
   /// Definition of [CircleComponent], saved as `CircleComponent`; a new one
   /// has radius 32. 2-D only.
-  static final circle = ComponentDefinition<CircleComponent>(
-    type: 'CircleComponent',
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Circle',
-      group: 'Rendering',
-      description: 'A filled or outlined circle.',
-      icon: Icons.circle_outlined,
-      accentColor: Color(0xFF42A5F5),
-      fieldGroups: {
-        'Size': ['radius'],
-        'Appearance': ['filled', 'fillStyle', 'strokeStyle', 'strokeWidth'],
-      },
-      fields: {
-        'radius': FieldHint(
-          label: 'Radius',
-          scrub: ScrubHint(step: 0.5, fractionDigits: 1),
+  static ComponentDefinition<CircleComponent> get circle =>
+      ComponentDefinition<CircleComponent>(
+        type: 'CircleComponent',
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Circle',
+          group: 'Rendering',
+          description: 'A filled or outlined circle.',
+          icon: Icons.circle_outlined,
+          accentColor: Color(0xFF42A5F5),
+          fieldGroups: {
+            'Size': ['radius'],
+            'Appearance': ['filled', 'fillStyle', 'strokeStyle', 'strokeWidth'],
+          },
+          fields: {
+            'radius': FieldHint(
+              label: 'Radius',
+              scrub: ScrubHint(step: 0.5, fractionDigits: 1),
+            ),
+            ..._styleHints,
+          },
         ),
-        ..._styleHints,
-      },
-    ),
-    create: () => CircleComponent(radius: 32),
-    fields: [
-      _d(
-        'radius',
-        (c) => (c as CircleComponent).radius,
-        (c, v) => (c as CircleComponent).radius = v,
-        min: 1,
-      ),
-      ..._styleFields<CircleComponent>(
-        (c) => c.fillStyle,
-        (c, v) => c.fillStyle = v,
-        (c) => c.strokeStyle,
-        (c, v) => c.strokeStyle = v,
-        (c) => c.filled,
-        (c, v) => c.filled = v,
-        (c) => c.strokeWidth,
-        (c, v) => c.strokeWidth = v,
-      ),
-    ],
-    extent: const _CircleExtent(),
-  );
+        create: () => CircleComponent(radius: 32),
+        fields: [
+          _d(
+            'radius',
+            (c) => (c as CircleComponent).radius,
+            (c, v) => (c as CircleComponent).radius = v,
+            min: 1,
+          ),
+          ..._styleFields<CircleComponent>(
+            (c) => c.fillStyle,
+            (c, v) => c.fillStyle = v,
+            (c) => c.strokeStyle,
+            (c, v) => c.strokeStyle = v,
+            (c) => c.filled,
+            (c, v) => c.filled = v,
+            (c) => c.strokeWidth,
+            (c, v) => c.strokeWidth = v,
+          ),
+        ],
+        extent: const _CircleExtent(),
+      );
 
   /// Definition of [CapsuleComponent], saved as `CapsuleComponent`; a new
   /// one is 32 wide, 64 high. 2-D only.
-  static final capsule = ComponentDefinition<CapsuleComponent>(
-    type: 'CapsuleComponent',
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Capsule',
-      group: 'Rendering',
-      description: 'A filled or outlined capsule.',
-      icon: Icons.crop_portrait,
-      accentColor: Color(0xFF42A5F5),
-      fieldGroups: {
-        'Size': ['width', 'height'],
-        'Appearance': ['filled', 'fillStyle', 'strokeStyle', 'strokeWidth'],
-      },
-      fieldRows: [
-        FieldRowHint('Size', {'width': 'W', 'height': 'H'}),
-      ],
-      fields: {
-        'width': FieldHint(label: 'W', scrub: ScrubHint(fractionDigits: 1)),
-        'height': FieldHint(label: 'H', scrub: ScrubHint(fractionDigits: 1)),
-        ..._styleHints,
-      },
-    ),
-    create: () => CapsuleComponent(width: 32, height: 64),
-    fields: [
-      _d(
-        'width',
-        (c) => (c as CapsuleComponent).width,
-        (c, v) => (c as CapsuleComponent).width = v,
-        min: 1,
-      ),
-      _d(
-        'height',
-        (c) => (c as CapsuleComponent).height,
-        (c, v) => (c as CapsuleComponent).height = v,
-        min: 1,
-      ),
-      ..._styleFields<CapsuleComponent>(
-        (c) => c.fillStyle,
-        (c, v) => c.fillStyle = v,
-        (c) => c.strokeStyle,
-        (c, v) => c.strokeStyle = v,
-        (c) => c.filled,
-        (c, v) => c.filled = v,
-        (c) => c.strokeWidth,
-        (c, v) => c.strokeWidth = v,
-      ),
-    ],
-    extent: const _CapsuleExtent(),
-  );
+  static ComponentDefinition<CapsuleComponent> get capsule =>
+      ComponentDefinition<CapsuleComponent>(
+        type: 'CapsuleComponent',
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Capsule',
+          group: 'Rendering',
+          description: 'A filled or outlined capsule.',
+          icon: Icons.crop_portrait,
+          accentColor: Color(0xFF42A5F5),
+          fieldGroups: {
+            'Size': ['width', 'height'],
+            'Appearance': ['filled', 'fillStyle', 'strokeStyle', 'strokeWidth'],
+          },
+          fieldRows: [
+            FieldRowHint('Size', {'width': 'W', 'height': 'H'}),
+          ],
+          fields: {
+            'width': FieldHint(label: 'W', scrub: ScrubHint(fractionDigits: 1)),
+            'height': FieldHint(
+              label: 'H',
+              scrub: ScrubHint(fractionDigits: 1),
+            ),
+            ..._styleHints,
+          },
+        ),
+        create: () => CapsuleComponent(width: 32, height: 64),
+        fields: [
+          _d(
+            'width',
+            (c) => (c as CapsuleComponent).width,
+            (c, v) => (c as CapsuleComponent).width = v,
+            min: 1,
+          ),
+          _d(
+            'height',
+            (c) => (c as CapsuleComponent).height,
+            (c, v) => (c as CapsuleComponent).height = v,
+            min: 1,
+          ),
+          ..._styleFields<CapsuleComponent>(
+            (c) => c.fillStyle,
+            (c, v) => c.fillStyle = v,
+            (c) => c.strokeStyle,
+            (c, v) => c.strokeStyle = v,
+            (c) => c.filled,
+            (c, v) => c.filled = v,
+            (c) => c.strokeWidth,
+            (c, v) => c.strokeWidth = v,
+          ),
+        ],
+        extent: const _CapsuleExtent(),
+      );
 
   /// Definition of [VelocityComponent], saved as `VelocityComponent`.
-  static final velocity = ComponentDefinition<VelocityComponent>(
-    type: 'VelocityComponent',
-    hints: const ComponentHints(
-      name: 'Velocity',
-      group: 'Core',
-      description: 'Linear velocity.',
-      icon: Icons.speed,
-      accentColor: Color(0xFF607D8B),
-      fieldGroups: {
-        'Velocity': ['velocity'],
-        'Settings': ['maxSpeed'],
-      },
-      fields: {
-        'velocity': FieldHint(
-          label: 'Velocity',
-          scrub: ScrubHint(fractionDigits: 1),
+  static ComponentDefinition<VelocityComponent> get velocity =>
+      ComponentDefinition<VelocityComponent>(
+        type: 'VelocityComponent',
+        hints: const ComponentHints(
+          name: 'Velocity',
+          group: 'Core',
+          description: 'Linear velocity.',
+          icon: Icons.speed,
+          accentColor: Color(0xFF607D8B),
+          fieldGroups: {
+            'Velocity': ['velocity'],
+            'Settings': ['maxSpeed'],
+          },
+          fields: {
+            'velocity': FieldHint(
+              label: 'Velocity',
+              scrub: ScrubHint(fractionDigits: 1),
+            ),
+            'maxSpeed': FieldHint(
+              label: 'Max Speed',
+              scrub: ScrubHint(fractionDigits: 1),
+            ),
+          },
         ),
-        'maxSpeed': FieldHint(
-          label: 'Max Speed',
-          scrub: ScrubHint(fractionDigits: 1),
-        ),
-      },
-    ),
-    create: VelocityComponent.new,
-    fields: [
-      SchemaField(
-        name: 'velocity',
-        kind: FieldTypes.vector3,
-        read: (c) => Vector3.copy((c as VelocityComponent).velocity),
-        write: (c, v) =>
-            (c as VelocityComponent).velocity.setFrom(v as Vector3),
-      ),
-      _d(
-        'maxSpeed',
-        (c) => (c as VelocityComponent).maxSpeed,
-        (c, v) => (c as VelocityComponent).maxSpeed = v,
-        min: 0,
-      ),
-    ],
-  );
+        create: VelocityComponent.new,
+        fields: [
+          SchemaField(
+            name: 'velocity',
+            kind: FieldTypes.vector3,
+            read: (c) => Vector3.copy((c as VelocityComponent).velocity),
+            write: (c, v) =>
+                (c as VelocityComponent).velocity.setFrom(v as Vector3),
+          ),
+          _d(
+            'maxSpeed',
+            (c) => (c as VelocityComponent).maxSpeed,
+            (c, v) => (c as VelocityComponent).maxSpeed = v,
+            min: 0,
+          ),
+        ],
+      );
 
   /// Definition of [HealthComponent], saved as `HealthComponent`; a new one
   /// has 100 max health.
-  static final health = ComponentDefinition<HealthComponent>(
-    type: 'HealthComponent',
-    hints: const ComponentHints(
-      name: 'Health',
-      group: 'Gameplay',
-      description: 'Hit points and invulnerability.',
-      icon: Icons.favorite,
-      accentColor: Color(0xFF66BB6A),
-      fieldGroups: {
-        'Health': ['health', 'maxHealth'],
-        'State': ['isInvulnerable'],
-      },
-      fieldRows: [
-        FieldRowHint('Health', {'health': 'HP', 'maxHealth': 'Max'}),
-      ],
-      fields: {
-        'health': FieldHint(label: 'HP', scrub: ScrubHint(fractionDigits: 1)),
-        'maxHealth': FieldHint(
-          label: 'Max',
-          scrub: ScrubHint(fractionDigits: 1),
+  static ComponentDefinition<HealthComponent> get health =>
+      ComponentDefinition<HealthComponent>(
+        type: 'HealthComponent',
+        hints: const ComponentHints(
+          name: 'Health',
+          group: 'Gameplay',
+          description: 'Hit points and invulnerability.',
+          icon: Icons.favorite,
+          accentColor: Color(0xFF66BB6A),
+          fieldGroups: {
+            'Health': ['health', 'maxHealth'],
+            'State': ['isInvulnerable'],
+          },
+          fieldRows: [
+            FieldRowHint('Health', {'health': 'HP', 'maxHealth': 'Max'}),
+          ],
+          fields: {
+            'health': FieldHint(
+              label: 'HP',
+              scrub: ScrubHint(fractionDigits: 1),
+            ),
+            'maxHealth': FieldHint(
+              label: 'Max',
+              scrub: ScrubHint(fractionDigits: 1),
+            ),
+            'isInvulnerable': FieldHint(label: 'Invulnerable'),
+          },
         ),
-        'isInvulnerable': FieldHint(label: 'Invulnerable'),
-      },
-    ),
-    create: () => HealthComponent(maxHealth: 100),
-    fields: [
-      _d(
-        'health',
-        (c) => (c as HealthComponent).health,
-        (c, v) => (c as HealthComponent).health = v,
-        min: 0,
-      ),
-      _d(
-        'maxHealth',
-        (c) => (c as HealthComponent).maxHealth,
-        (c, v) => (c as HealthComponent).maxHealth = v,
-        min: 0,
-      ),
-      _b(
-        'isInvulnerable',
-        (c) => (c as HealthComponent).isInvulnerable,
-        (c, v) => (c as HealthComponent).isInvulnerable = v,
-      ),
-    ],
-  );
+        create: () => HealthComponent(maxHealth: 100),
+        fields: [
+          _d(
+            'health',
+            (c) => (c as HealthComponent).health,
+            (c, v) => (c as HealthComponent).health = v,
+            min: 0,
+          ),
+          _d(
+            'maxHealth',
+            (c) => (c as HealthComponent).maxHealth,
+            (c, v) => (c as HealthComponent).maxHealth = v,
+            min: 0,
+          ),
+          _b(
+            'isInvulnerable',
+            (c) => (c as HealthComponent).isInvulnerable,
+            (c, v) => (c as HealthComponent).isInvulnerable = v,
+          ),
+        ],
+      );
 
   /// Definition of [LifetimeComponent], saved as `LifetimeComponent`; a new
   /// one lasts 3 seconds.
-  static final lifetime = ComponentDefinition<LifetimeComponent>(
-    type: 'LifetimeComponent',
-    hints: const ComponentHints(
-      name: 'Lifetime',
-      group: 'Gameplay',
-      description: 'Destroys the entity after a delay.',
-      icon: Icons.timer,
-      accentColor: Color(0xFF66BB6A),
-      fields: {
-        'initialLifetime': FieldHint(
-          label: 'Duration (s)',
-          scrub: ScrubHint(step: 0.1, fractionDigits: 2),
+  static ComponentDefinition<LifetimeComponent> get lifetime =>
+      ComponentDefinition<LifetimeComponent>(
+        type: 'LifetimeComponent',
+        hints: const ComponentHints(
+          name: 'Lifetime',
+          group: 'Gameplay',
+          description: 'Destroys the entity after a delay.',
+          icon: Icons.timer,
+          accentColor: Color(0xFF66BB6A),
+          fields: {
+            'initialLifetime': FieldHint(
+              label: 'Duration (s)',
+              scrub: ScrubHint(step: 0.1, fractionDigits: 2),
+            ),
+          },
         ),
-      },
-    ),
-    create: () => LifetimeComponent(3.0),
-    fields: [
-      _d('initialLifetime', (c) => (c as LifetimeComponent).initialLifetime, (
-        c,
-        v,
-      ) {
-        (c as LifetimeComponent)
-          ..initialLifetime = v
-          ..timeRemaining = v;
-      }, min: 0),
-    ],
-  );
+        create: () => LifetimeComponent(3.0),
+        fields: [
+          _d(
+            'initialLifetime',
+            (c) => (c as LifetimeComponent).initialLifetime,
+            (c, v) {
+              (c as LifetimeComponent)
+                ..initialLifetime = v
+                ..timeRemaining = v;
+            },
+            min: 0,
+          ),
+        ],
+      );
 
   /// Definition of [SpriteComponent], saved as `SpriteComponent`. 2-D
   /// only.
-  static final sprite = ComponentDefinition<SpriteComponent>(
-    type: 'SpriteComponent',
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Sprite',
-      group: 'Rendering',
-      description: 'An image, or one region of a sprite atlas.',
-      icon: Icons.image,
-      accentColor: Color(0xFF42A5F5),
-      fieldGroups: {
-        'Sprite': ['spritePath'],
-        'From an atlas': ['atlasPath', 'region'],
-        'Options': ['flipX', 'flipY', 'tint', 'pixelArt'],
-      },
-      fields: {
-        'spritePath': FieldHint(label: 'Path'),
-        'atlasPath': FieldHint(label: 'Atlas', fileExtensions: ['json']),
-        'region': FieldHint(
-          label: 'Region',
-          description: 'Empty shows the first.',
+  static ComponentDefinition<SpriteComponent> get sprite =>
+      ComponentDefinition<SpriteComponent>(
+        type: 'SpriteComponent',
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Sprite',
+          group: 'Rendering',
+          description: 'An image, or one region of a sprite atlas.',
+          icon: Icons.image,
+          accentColor: Color(0xFF42A5F5),
+          fieldGroups: {
+            'Sprite': ['spritePath'],
+            'From an atlas': ['atlasPath', 'region'],
+            'Options': ['flipX', 'flipY', 'tint', 'pixelArt'],
+          },
+          fields: {
+            'spritePath': FieldHint(label: 'Path'),
+            'atlasPath': FieldHint(label: 'Atlas', fileExtensions: ['json']),
+            'region': FieldHint(
+              label: 'Region',
+              description: 'Empty shows the first.',
+            ),
+            'pixelArt': FieldHint(
+              label: 'Pixel art',
+              description: 'No smoothing when scaled.',
+            ),
+            'flipX': FieldHint(label: 'Flip X'),
+            'flipY': FieldHint(label: 'Flip Y'),
+            'tint': FieldHint(label: 'Tint'),
+          },
         ),
-        'pixelArt': FieldHint(
-          label: 'Pixel art',
-          description: 'No smoothing when scaled.',
-        ),
-        'flipX': FieldHint(label: 'Flip X'),
-        'flipY': FieldHint(label: 'Flip Y'),
-        'tint': FieldHint(label: 'Tint'),
-      },
-    ),
-    create: () => SpriteComponent(spritePath: ''),
-    fields: [
-      SchemaField(
-        name: 'spritePath',
-        kind: FieldTypes.assetRef,
-        read: (c) => (c as SpriteComponent).spritePath,
-        write: (c, v) => (c as SpriteComponent).spritePath = v as String,
-      ),
-      SchemaField(
-        name: 'atlasPath',
-        kind: FieldTypes.assetRef,
-        read: (c) => (c as SpriteComponent).atlasPath,
-        write: (c, v) => (c as SpriteComponent).atlasPath = v as String,
-      ),
-      SchemaField(
-        name: 'region',
-        kind: FieldTypes.text,
-        read: (c) => (c as SpriteComponent).region,
-        write: (c, v) => (c as SpriteComponent).region = v as String,
-      ),
-      _b(
-        'flipX',
-        (c) => (c as SpriteComponent).flipX,
-        (c, v) => (c as SpriteComponent).flipX = v,
-      ),
-      _b(
-        'flipY',
-        (c) => (c as SpriteComponent).flipY,
-        (c, v) => (c as SpriteComponent).flipY = v,
-      ),
-      SchemaField(
-        name: 'tint',
-        kind: FieldTypes.color,
-        read: (c) => (c as SpriteComponent).tint,
-        write: (c, v) => (c as SpriteComponent).tint = v as Color?,
-      ),
-      _b(
-        'pixelArt',
-        (c) => (c as SpriteComponent).pixelArt,
-        (c, v) => (c as SpriteComponent).pixelArt = v,
-      ),
-    ],
-    extent: const _SpriteExtent(),
-  );
+        create: () => SpriteComponent(spritePath: ''),
+        fields: [
+          SchemaField(
+            name: 'spritePath',
+            kind: FieldTypes.assetRef,
+            read: (c) => (c as SpriteComponent).spritePath,
+            write: (c, v) => (c as SpriteComponent).spritePath = v as String,
+          ),
+          SchemaField(
+            name: 'atlasPath',
+            kind: FieldTypes.assetRef,
+            read: (c) => (c as SpriteComponent).atlasPath,
+            write: (c, v) => (c as SpriteComponent).atlasPath = v as String,
+          ),
+          SchemaField(
+            name: 'region',
+            kind: FieldTypes.text,
+            read: (c) => (c as SpriteComponent).region,
+            write: (c, v) => (c as SpriteComponent).region = v as String,
+          ),
+          _b(
+            'flipX',
+            (c) => (c as SpriteComponent).flipX,
+            (c, v) => (c as SpriteComponent).flipX = v,
+          ),
+          _b(
+            'flipY',
+            (c) => (c as SpriteComponent).flipY,
+            (c, v) => (c as SpriteComponent).flipY = v,
+          ),
+          SchemaField(
+            name: 'tint',
+            kind: FieldTypes.color,
+            read: (c) => (c as SpriteComponent).tint,
+            write: (c, v) => (c as SpriteComponent).tint = v as Color?,
+          ),
+          _b(
+            'pixelArt',
+            (c) => (c as SpriteComponent).pixelArt,
+            (c, v) => (c as SpriteComponent).pixelArt = v,
+          ),
+        ],
+        extent: const _SpriteExtent(),
+      );
 
   /// Definition of [PhysicsBodyComponent], saved as `PhysicsBodyComponent`;
   /// a new one is a dynamic body with a 64 × 64 rectangle shape. 2-D only.
-  static final physicsBody = ComponentDefinition<PhysicsBodyComponent>(
+  static ComponentDefinition<PhysicsBodyComponent>
+  get physicsBody => ComponentDefinition<PhysicsBodyComponent>(
     type: 'PhysicsBodyComponent',
     hints: ComponentHints(
       dimensions: Dimensions.twoD,
@@ -857,173 +878,180 @@ abstract final class CoreDefinitions {
 
   /// Definition of [SpawnComponent] (a spawn point), saved as
   /// `SpawnComponent`.
-  static final spawn = ComponentDefinition<SpawnComponent>(
-    type: 'SpawnComponent',
-    hints: const ComponentHints(
-      name: 'Spawn Point',
-      group: 'Gameplay',
-      description: 'Where the game creates something when the level starts.',
-      icon: Icons.person_pin_circle_rounded,
-      accentColor: Color(0xFFFFB74D),
-      fields: {
-        'spawner': FieldHint(
-          label: 'Spawns',
+  static ComponentDefinition<SpawnComponent> get spawn =>
+      ComponentDefinition<SpawnComponent>(
+        type: 'SpawnComponent',
+        hints: const ComponentHints(
+          name: 'Spawn Point',
+          group: 'Gameplay',
           description:
-              'What is created here, from the spawners the game '
-              'registers.',
+              'Where the game creates something when the level starts.',
+          icon: Icons.person_pin_circle_rounded,
+          accentColor: Color(0xFFFFB74D),
+          fields: {
+            'spawner': FieldHint(
+              label: 'Spawns',
+              description:
+                  'What is created here, from the spawners the game '
+                  'registers.',
+            ),
+          },
         ),
-      },
-    ),
-    create: SpawnComponent.new,
-    // Saved as `tag` until scene format 7.
-    fields: [
-      SchemaField(
-        name: 'spawner',
-        kind: FieldTypes.spawnerRef,
-        read: (c) => (c as SpawnComponent).spawner,
-        write: (c, v) => (c as SpawnComponent).spawner = v as String? ?? '',
-      ),
-    ],
-  );
+        create: SpawnComponent.new,
+        // Saved as `tag` until scene format 7.
+        fields: [
+          SchemaField(
+            name: 'spawner',
+            kind: FieldTypes.spawnerRef,
+            read: (c) => (c as SpawnComponent).spawner,
+            write: (c, v) => (c as SpawnComponent).spawner = v as String? ?? '',
+          ),
+        ],
+      );
 
   /// Definition of [TagComponent], saved as `TagComponent` with its tags as
   /// a `tags` list.
-  static final tag = ComponentDefinition<TagComponent>(
-    type: 'TagComponent',
-    hints: const ComponentHints(
-      name: 'Tag',
-      group: 'Gameplay',
-      description:
-          'Labels cameras, triggers and systems find this entity by. An '
-          'entity can carry several.',
-      icon: Icons.label,
-      accentColor: Color(0xFF66BB6A),
-      fields: {'tags': FieldHint(label: 'Tags')},
-    ),
-    create: TagComponent.new,
-    // Saved as one `tag` until scene format 7.
-    fields: [
-      SchemaField(
-        name: 'tags',
-        kind: FieldTypes.tagList,
-        read: (c) => (c as TagComponent).tags.toList(),
-        write: (c, v) => (c as TagComponent).tags = [
-          for (final t in v as List? ?? const []) '$t',
+  static ComponentDefinition<TagComponent> get tag =>
+      ComponentDefinition<TagComponent>(
+        type: 'TagComponent',
+        hints: const ComponentHints(
+          name: 'Tag',
+          group: 'Gameplay',
+          description:
+              'Labels cameras, triggers and systems find this entity by. An '
+              'entity can carry several.',
+          icon: Icons.label,
+          accentColor: Color(0xFF66BB6A),
+          fields: {'tags': FieldHint(label: 'Tags')},
+        ),
+        create: TagComponent.new,
+        // Saved as one `tag` until scene format 7.
+        fields: [
+          SchemaField(
+            name: 'tags',
+            kind: FieldTypes.tagList,
+            read: (c) => (c as TagComponent).tags.toList(),
+            write: (c, v) => (c as TagComponent).tags = [
+              for (final t in v as List? ?? const []) '$t',
+            ],
+          ),
         ],
-      ),
-    ],
-  );
+      );
 
   /// Definition of [InputComponent], saved as `InputComponent`: its
   /// `playerIndex` (-1 reads every device).
-  static final input = ComponentDefinition<InputComponent>(
-    type: 'InputComponent',
-    hints: const ComponentHints(
-      name: 'Input',
-      group: 'Input',
-      description: "A player's actions, by name, for this entity.",
-      icon: Icons.keyboard,
-      accentColor: Color(0xFFEF5350),
-      fields: {
-        'playerIndex': FieldHint(
-          label: 'Player',
-          description:
-              '0 is player 1. -1 reads every device, whoever is playing.',
+  static ComponentDefinition<InputComponent> get input =>
+      ComponentDefinition<InputComponent>(
+        type: 'InputComponent',
+        hints: const ComponentHints(
+          name: 'Input',
+          group: 'Input',
+          description: "A player's actions, by name, for this entity.",
+          icon: Icons.keyboard,
+          accentColor: Color(0xFFEF5350),
+          fields: {
+            'playerIndex': FieldHint(
+              label: 'Player',
+              description:
+                  '0 is player 1. -1 reads every device, whoever is playing.',
+            ),
+          },
         ),
-      },
-    ),
-    create: InputComponent.new,
-    fields: [
-      _i(
-        'playerIndex',
-        (c) => (c as InputComponent).playerIndex,
-        (c, v) => (c as InputComponent).playerIndex = v,
-      ),
-    ],
-  );
+        create: InputComponent.new,
+        fields: [
+          _i(
+            'playerIndex',
+            (c) => (c as InputComponent).playerIndex,
+            (c, v) => (c as InputComponent).playerIndex = v,
+          ),
+        ],
+      );
 
   /// Definition of [EffectComponent], saved as `EffectComponent` with no
   /// fields: its effect queue is not saved, so a loaded one starts empty.
-  static final effect = ComponentDefinition<EffectComponent>(
-    type: 'EffectComponent',
-    hints: const ComponentHints(
-      name: 'Effects',
-      group: 'Effects',
-      icon: Icons.auto_awesome,
-      accentColor: Color(0xFFFF4081),
-    ),
-    create: EffectComponent.new,
-    fields: const [],
-  );
+  static ComponentDefinition<EffectComponent> get effect =>
+      ComponentDefinition<EffectComponent>(
+        type: 'EffectComponent',
+        hints: const ComponentHints(
+          name: 'Effects',
+          group: 'Effects',
+          icon: Icons.auto_awesome,
+          accentColor: Color(0xFFFF4081),
+        ),
+        create: EffectComponent.new,
+        fields: const [],
+      );
 
   /// Definition of [SimpleMovementComponent], saved as
   /// `SimpleMovementComponent`. 2-D only.
-  static final simpleMovement = ComponentDefinition<SimpleMovementComponent>(
-    type: 'SimpleMovementComponent',
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Simple Movement',
-      group: 'Input',
-      description: 'Moves straight from a vector action, no physics.',
-      icon: Icons.directions_run,
-      accentColor: Color(0xFFEF5350),
-      fieldGroups: {
-        'Movement': ['speed', 'deadZone', 'normalizeDiagonal'],
-        'Input': ['action', 'playerIndex'],
-      },
-      fields: {
-        'speed': FieldHint(
-          label: 'Speed',
-          scrub: ScrubHint(step: 5, fractionDigits: 1),
+  static ComponentDefinition<SimpleMovementComponent> get simpleMovement =>
+      ComponentDefinition<SimpleMovementComponent>(
+        type: 'SimpleMovementComponent',
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Simple Movement',
+          group: 'Input',
+          description: 'Moves straight from a vector action, no physics.',
+          icon: Icons.directions_run,
+          accentColor: Color(0xFFEF5350),
+          fieldGroups: {
+            'Movement': ['speed', 'deadZone', 'normalizeDiagonal'],
+            'Input': ['action', 'playerIndex'],
+          },
+          fields: {
+            'speed': FieldHint(
+              label: 'Speed',
+              scrub: ScrubHint(step: 5, fractionDigits: 1),
+            ),
+            'deadZone': FieldHint(
+              label: 'Dead Zone',
+              scrub: ScrubHint(step: 0.01, fractionDigits: 2),
+            ),
+            'normalizeDiagonal': FieldHint(label: 'Normalize Diagonal'),
+            'action': FieldHint(label: 'Action'),
+            'playerIndex': FieldHint(
+              label: 'Player',
+              description: '0 is player 1. -1 reads every device.',
+            ),
+          },
         ),
-        'deadZone': FieldHint(
-          label: 'Dead Zone',
-          scrub: ScrubHint(step: 0.01, fractionDigits: 2),
-        ),
-        'normalizeDiagonal': FieldHint(label: 'Normalize Diagonal'),
-        'action': FieldHint(label: 'Action'),
-        'playerIndex': FieldHint(
-          label: 'Player',
-          description: '0 is player 1. -1 reads every device.',
-        ),
-      },
-    ),
-    create: SimpleMovementComponent.new,
-    fields: [
-      _d(
-        'speed',
-        (c) => (c as SimpleMovementComponent).speed,
-        (c, v) => (c as SimpleMovementComponent).speed = v,
-        min: 0,
-      ),
-      _s(
-        'action',
-        (c) => (c as SimpleMovementComponent).action,
-        (c, v) => (c as SimpleMovementComponent).action = v,
-      ),
-      _i(
-        'playerIndex',
-        (c) => (c as SimpleMovementComponent).playerIndex,
-        (c, v) => (c as SimpleMovementComponent).playerIndex = v,
-      ),
-      _b(
-        'normalizeDiagonal',
-        (c) => (c as SimpleMovementComponent).normalizeDiagonal,
-        (c, v) => (c as SimpleMovementComponent).normalizeDiagonal = v,
-      ),
-      _d(
-        'deadZone',
-        (c) => (c as SimpleMovementComponent).deadZone,
-        (c, v) => (c as SimpleMovementComponent).deadZone = v,
-        min: 0,
-        max: 1,
-      ),
-    ],
-  );
+        create: SimpleMovementComponent.new,
+        fields: [
+          _d(
+            'speed',
+            (c) => (c as SimpleMovementComponent).speed,
+            (c, v) => (c as SimpleMovementComponent).speed = v,
+            min: 0,
+          ),
+          _s(
+            'action',
+            (c) => (c as SimpleMovementComponent).action,
+            (c, v) => (c as SimpleMovementComponent).action = v,
+          ),
+          _i(
+            'playerIndex',
+            (c) => (c as SimpleMovementComponent).playerIndex,
+            (c, v) => (c as SimpleMovementComponent).playerIndex = v,
+          ),
+          _b(
+            'normalizeDiagonal',
+            (c) => (c as SimpleMovementComponent).normalizeDiagonal,
+            (c, v) => (c as SimpleMovementComponent).normalizeDiagonal = v,
+          ),
+          _d(
+            'deadZone',
+            (c) => (c as SimpleMovementComponent).deadZone,
+            (c, v) => (c as SimpleMovementComponent).deadZone = v,
+            min: 0,
+            max: 1,
+          ),
+        ],
+      );
 
   /// Definition of [ChildrenComponent], saved as `ChildrenComponent`. Its
   /// `childIds` are saved for reference only and never read back.
-  static final children = ComponentDefinition<ChildrenComponent>(
+  static ComponentDefinition<ChildrenComponent>
+  get children => ComponentDefinition<ChildrenComponent>(
     type: 'ChildrenComponent',
     hints: const ComponentHints(
       name: 'Children',
@@ -1047,30 +1075,31 @@ abstract final class CoreDefinitions {
 
   /// Definition of [ParentComponent], saved as `ParentComponent`. Its
   /// `parentId` is saved for reference only; no local transform is saved.
-  static final parent = ComponentDefinition<ParentComponent>(
-    type: 'ParentComponent',
-    hints: const ComponentHints(
-      name: 'Parent',
-      group: 'Hierarchy',
-      description:
-          'Hangs this entity under another: it moves, turns and scales '
-          'with it. The local values are worked out from where things are.',
-      icon: Icons.link,
-      accentColor: Color(0xFF26A69A),
-      fields: {'parentId': FieldHint(label: 'Parent', editable: false)},
-    ),
-    create: ParentComponent.new,
-    fields: [
-      // Re-linked by name on load; see childIds.
-      SchemaField(
-        name: 'parentId',
-        kind: FieldTypes.integer,
-        read: (c) => (c as ParentComponent).parentId,
-      ),
-      // Nothing local is saved: the offset from the parent follows from
-      // the world transforms, which are what the file means.
-    ],
-  );
+  static ComponentDefinition<ParentComponent> get parent =>
+      ComponentDefinition<ParentComponent>(
+        type: 'ParentComponent',
+        hints: const ComponentHints(
+          name: 'Parent',
+          group: 'Hierarchy',
+          description:
+              'Hangs this entity under another: it moves, turns and scales '
+              'with it. The local values are worked out from where things are.',
+          icon: Icons.link,
+          accentColor: Color(0xFF26A69A),
+          fields: {'parentId': FieldHint(label: 'Parent', editable: false)},
+        ),
+        create: ParentComponent.new,
+        fields: [
+          // Re-linked by name on load; see childIds.
+          SchemaField(
+            name: 'parentId',
+            kind: FieldTypes.integer,
+            read: (c) => (c as ParentComponent).parentId,
+          ),
+          // Nothing local is saved: the offset from the parent follows from
+          // the world transforms, which are what the file means.
+        ],
+      );
 
   static List<SchemaField> _jointCommon<T extends Component>(
     String Function(T) target,
@@ -1092,287 +1121,291 @@ abstract final class CoreDefinitions {
 
   /// Definition of [DistanceJointComponent], saved as
   /// `DistanceJointComponent`. 2-D only.
-  static final distanceJoint = ComponentDefinition<DistanceJointComponent>(
-    type: 'DistanceJointComponent',
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Distance Joint',
-      group: 'Physics',
-      description: 'Keeps two bodies a set distance apart.',
-      icon: Icons.hub_outlined,
-      accentColor: Color(0xFFFF7043),
-      fieldGroups: {
-        'Joint': [
-          'targetEntityName',
-          'localAnchorA',
-          'localAnchorB',
-          'length',
-          'collideConnected',
+  static ComponentDefinition<DistanceJointComponent> get distanceJoint =>
+      ComponentDefinition<DistanceJointComponent>(
+        type: 'DistanceJointComponent',
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Distance Joint',
+          group: 'Physics',
+          description: 'Keeps two bodies a set distance apart.',
+          icon: Icons.hub_outlined,
+          accentColor: Color(0xFFFF7043),
+          fieldGroups: {
+            'Joint': [
+              'targetEntityName',
+              'localAnchorA',
+              'localAnchorB',
+              'length',
+              'collideConnected',
+            ],
+            'Spring': ['stiffness', 'damping'],
+          },
+          fields: {
+            ..._jointHints,
+            'length': FieldHint(
+              label: 'Length',
+              scrub: ScrubHint(fractionDigits: 2),
+            ),
+            'stiffness': FieldHint(
+              label: 'Stiffness',
+              scrub: ScrubHint(fractionDigits: 2),
+            ),
+            'damping': FieldHint(
+              label: 'Damping',
+              scrub: ScrubHint(step: 0.05, fractionDigits: 2),
+            ),
+          },
+        ),
+        create: DistanceJointComponent.new,
+        fields: [
+          ..._jointCommon<DistanceJointComponent>(
+            (c) => c.targetEntityName,
+            (c, v) => c.targetEntityName = v,
+            (c) => c.collideConnected,
+            (c, v) => c.collideConnected = v,
+          ),
+          _o(
+            'localAnchorA',
+            (c) => (c as DistanceJointComponent).localAnchorA,
+            (c, v) => (c as DistanceJointComponent).localAnchorA = v,
+          ),
+          _o(
+            'localAnchorB',
+            (c) => (c as DistanceJointComponent).localAnchorB,
+            (c, v) => (c as DistanceJointComponent).localAnchorB = v,
+          ),
+          _d(
+            'length',
+            (c) => (c as DistanceJointComponent).length,
+            (c, v) => (c as DistanceJointComponent).length = v,
+            min: 0,
+          ),
+          _d(
+            'stiffness',
+            (c) => (c as DistanceJointComponent).stiffness,
+            (c, v) => (c as DistanceJointComponent).stiffness = v,
+            min: 0,
+          ),
+          _d(
+            'damping',
+            (c) => (c as DistanceJointComponent).damping,
+            (c, v) => (c as DistanceJointComponent).damping = v,
+            min: 0,
+          ),
         ],
-        'Spring': ['stiffness', 'damping'],
-      },
-      fields: {
-        ..._jointHints,
-        'length': FieldHint(
-          label: 'Length',
-          scrub: ScrubHint(fractionDigits: 2),
-        ),
-        'stiffness': FieldHint(
-          label: 'Stiffness',
-          scrub: ScrubHint(fractionDigits: 2),
-        ),
-        'damping': FieldHint(
-          label: 'Damping',
-          scrub: ScrubHint(step: 0.05, fractionDigits: 2),
-        ),
-      },
-    ),
-    create: DistanceJointComponent.new,
-    fields: [
-      ..._jointCommon<DistanceJointComponent>(
-        (c) => c.targetEntityName,
-        (c, v) => c.targetEntityName = v,
-        (c) => c.collideConnected,
-        (c, v) => c.collideConnected = v,
-      ),
-      _o(
-        'localAnchorA',
-        (c) => (c as DistanceJointComponent).localAnchorA,
-        (c, v) => (c as DistanceJointComponent).localAnchorA = v,
-      ),
-      _o(
-        'localAnchorB',
-        (c) => (c as DistanceJointComponent).localAnchorB,
-        (c, v) => (c as DistanceJointComponent).localAnchorB = v,
-      ),
-      _d(
-        'length',
-        (c) => (c as DistanceJointComponent).length,
-        (c, v) => (c as DistanceJointComponent).length = v,
-        min: 0,
-      ),
-      _d(
-        'stiffness',
-        (c) => (c as DistanceJointComponent).stiffness,
-        (c, v) => (c as DistanceJointComponent).stiffness = v,
-        min: 0,
-      ),
-      _d(
-        'damping',
-        (c) => (c as DistanceJointComponent).damping,
-        (c, v) => (c as DistanceJointComponent).damping = v,
-        min: 0,
-      ),
-    ],
-  );
+      );
 
   /// Definition of [WeldJointComponent], saved as `WeldJointComponent`.
   /// 2-D only.
-  static final weldJoint = ComponentDefinition<WeldJointComponent>(
-    type: 'WeldJointComponent',
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Weld Joint',
-      group: 'Physics',
-      description: 'Fixes two bodies together.',
-      icon: Icons.hub_outlined,
-      accentColor: Color(0xFFFF7043),
-      fields: {..._jointHints},
-    ),
-    create: WeldJointComponent.new,
-    fields: [
-      ..._jointCommon<WeldJointComponent>(
-        (c) => c.targetEntityName,
-        (c, v) => c.targetEntityName = v,
-        (c) => c.collideConnected,
-        (c, v) => c.collideConnected = v,
-      ),
-      _o(
-        'localAnchorA',
-        (c) => (c as WeldJointComponent).localAnchorA,
-        (c, v) => (c as WeldJointComponent).localAnchorA = v,
-      ),
-      _o(
-        'localAnchorB',
-        (c) => (c as WeldJointComponent).localAnchorB,
-        (c, v) => (c as WeldJointComponent).localAnchorB = v,
-      ),
-    ],
-  );
+  static ComponentDefinition<WeldJointComponent> get weldJoint =>
+      ComponentDefinition<WeldJointComponent>(
+        type: 'WeldJointComponent',
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Weld Joint',
+          group: 'Physics',
+          description: 'Fixes two bodies together.',
+          icon: Icons.hub_outlined,
+          accentColor: Color(0xFFFF7043),
+          fields: {..._jointHints},
+        ),
+        create: WeldJointComponent.new,
+        fields: [
+          ..._jointCommon<WeldJointComponent>(
+            (c) => c.targetEntityName,
+            (c, v) => c.targetEntityName = v,
+            (c) => c.collideConnected,
+            (c, v) => c.collideConnected = v,
+          ),
+          _o(
+            'localAnchorA',
+            (c) => (c as WeldJointComponent).localAnchorA,
+            (c, v) => (c as WeldJointComponent).localAnchorA = v,
+          ),
+          _o(
+            'localAnchorB',
+            (c) => (c as WeldJointComponent).localAnchorB,
+            (c, v) => (c as WeldJointComponent).localAnchorB = v,
+          ),
+        ],
+      );
 
   /// Definition of [PrismaticJointComponent], saved as
   /// `PrismaticJointComponent`. 2-D only.
-  static final prismaticJoint = ComponentDefinition<PrismaticJointComponent>(
-    type: 'PrismaticJointComponent',
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Prismatic Joint',
-      group: 'Physics',
-      description: 'Slides along one axis.',
-      icon: Icons.sync_alt,
-      accentColor: Color(0xFFFF7043),
-      fieldGroups: {
-        'Joint': ['targetEntityName', 'axis', 'collideConnected'],
-        'Motor': ['enableMotor', 'motorSpeed', 'maxMotorForce'],
-        'Limits': ['enableLimit', 'lowerTranslation', 'upperTranslation'],
-      },
-      fieldRows: [
-        FieldRowHint('Range', {
-          'lowerTranslation': 'Min',
-          'upperTranslation': 'Max',
-        }),
-      ],
-      fields: {
-        ..._jointHints,
-        'axis': FieldHint(label: 'Axis'),
-        'enableMotor': FieldHint(label: 'Enable Motor'),
-        'motorSpeed': FieldHint(
-          label: 'Motor Speed',
-          scrub: ScrubHint(step: 0.5, fractionDigits: 2),
+  static ComponentDefinition<PrismaticJointComponent> get prismaticJoint =>
+      ComponentDefinition<PrismaticJointComponent>(
+        type: 'PrismaticJointComponent',
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Prismatic Joint',
+          group: 'Physics',
+          description: 'Slides along one axis.',
+          icon: Icons.sync_alt,
+          accentColor: Color(0xFFFF7043),
+          fieldGroups: {
+            'Joint': ['targetEntityName', 'axis', 'collideConnected'],
+            'Motor': ['enableMotor', 'motorSpeed', 'maxMotorForce'],
+            'Limits': ['enableLimit', 'lowerTranslation', 'upperTranslation'],
+          },
+          fieldRows: [
+            FieldRowHint('Range', {
+              'lowerTranslation': 'Min',
+              'upperTranslation': 'Max',
+            }),
+          ],
+          fields: {
+            ..._jointHints,
+            'axis': FieldHint(label: 'Axis'),
+            'enableMotor': FieldHint(label: 'Enable Motor'),
+            'motorSpeed': FieldHint(
+              label: 'Motor Speed',
+              scrub: ScrubHint(step: 0.5, fractionDigits: 2),
+            ),
+            'maxMotorForce': FieldHint(
+              label: 'Max Force',
+              scrub: ScrubHint(step: 5, fractionDigits: 2),
+            ),
+            'enableLimit': FieldHint(label: 'Enable Limit'),
+            'lowerTranslation': FieldHint(
+              label: 'Lower',
+              scrub: ScrubHint(fractionDigits: 2),
+            ),
+            'upperTranslation': FieldHint(
+              label: 'Upper',
+              scrub: ScrubHint(fractionDigits: 2),
+            ),
+          },
         ),
-        'maxMotorForce': FieldHint(
-          label: 'Max Force',
-          scrub: ScrubHint(step: 5, fractionDigits: 2),
-        ),
-        'enableLimit': FieldHint(label: 'Enable Limit'),
-        'lowerTranslation': FieldHint(
-          label: 'Lower',
-          scrub: ScrubHint(fractionDigits: 2),
-        ),
-        'upperTranslation': FieldHint(
-          label: 'Upper',
-          scrub: ScrubHint(fractionDigits: 2),
-        ),
-      },
-    ),
-    create: PrismaticJointComponent.new,
-    fields: [
-      ..._jointCommon<PrismaticJointComponent>(
-        (c) => c.targetEntityName,
-        (c, v) => c.targetEntityName = v,
-        (c) => c.collideConnected,
-        (c, v) => c.collideConnected = v,
-      ),
-      _o(
-        'axis',
-        (c) => (c as PrismaticJointComponent).axis,
-        (c, v) => (c as PrismaticJointComponent).axis = v,
-      ),
-      _b(
-        'enableLimit',
-        (c) => (c as PrismaticJointComponent).enableLimit,
-        (c, v) => (c as PrismaticJointComponent).enableLimit = v,
-      ),
-      _d(
-        'lowerTranslation',
-        (c) => (c as PrismaticJointComponent).lowerTranslation,
-        (c, v) => (c as PrismaticJointComponent).lowerTranslation = v,
-      ),
-      _d(
-        'upperTranslation',
-        (c) => (c as PrismaticJointComponent).upperTranslation,
-        (c, v) => (c as PrismaticJointComponent).upperTranslation = v,
-      ),
-      _b(
-        'enableMotor',
-        (c) => (c as PrismaticJointComponent).enableMotor,
-        (c, v) => (c as PrismaticJointComponent).enableMotor = v,
-      ),
-      _d(
-        'motorSpeed',
-        (c) => (c as PrismaticJointComponent).motorSpeed,
-        (c, v) => (c as PrismaticJointComponent).motorSpeed = v,
-      ),
-      _d(
-        'maxMotorForce',
-        (c) => (c as PrismaticJointComponent).maxMotorForce,
-        (c, v) => (c as PrismaticJointComponent).maxMotorForce = v,
-        min: 0,
-      ),
-    ],
-  );
+        create: PrismaticJointComponent.new,
+        fields: [
+          ..._jointCommon<PrismaticJointComponent>(
+            (c) => c.targetEntityName,
+            (c, v) => c.targetEntityName = v,
+            (c) => c.collideConnected,
+            (c, v) => c.collideConnected = v,
+          ),
+          _o(
+            'axis',
+            (c) => (c as PrismaticJointComponent).axis,
+            (c, v) => (c as PrismaticJointComponent).axis = v,
+          ),
+          _b(
+            'enableLimit',
+            (c) => (c as PrismaticJointComponent).enableLimit,
+            (c, v) => (c as PrismaticJointComponent).enableLimit = v,
+          ),
+          _d(
+            'lowerTranslation',
+            (c) => (c as PrismaticJointComponent).lowerTranslation,
+            (c, v) => (c as PrismaticJointComponent).lowerTranslation = v,
+          ),
+          _d(
+            'upperTranslation',
+            (c) => (c as PrismaticJointComponent).upperTranslation,
+            (c, v) => (c as PrismaticJointComponent).upperTranslation = v,
+          ),
+          _b(
+            'enableMotor',
+            (c) => (c as PrismaticJointComponent).enableMotor,
+            (c, v) => (c as PrismaticJointComponent).enableMotor = v,
+          ),
+          _d(
+            'motorSpeed',
+            (c) => (c as PrismaticJointComponent).motorSpeed,
+            (c, v) => (c as PrismaticJointComponent).motorSpeed = v,
+          ),
+          _d(
+            'maxMotorForce',
+            (c) => (c as PrismaticJointComponent).maxMotorForce,
+            (c, v) => (c as PrismaticJointComponent).maxMotorForce = v,
+            min: 0,
+          ),
+        ],
+      );
 
   /// Definition of [WheelJointComponent], saved as `WheelJointComponent`.
   /// 2-D only.
-  static final wheelJoint = ComponentDefinition<WheelJointComponent>(
-    type: 'WheelJointComponent',
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Wheel Joint',
-      group: 'Physics',
-      description: 'A wheel on a suspension.',
-      icon: Icons.trip_origin,
-      accentColor: Color(0xFFFF7043),
-      fieldGroups: {
-        'Joint': ['targetEntityName', 'suspensionAxis', 'collideConnected'],
-        'Motor': ['enableMotor', 'motorSpeed', 'maxMotorTorque'],
-        'Spring': ['stiffness', 'damping'],
-      },
-      fields: {
-        ..._jointHints,
-        'suspensionAxis': FieldHint(label: 'Suspension Axis'),
-        'enableMotor': FieldHint(label: 'Enable Motor'),
-        'motorSpeed': FieldHint(
-          label: 'Motor Speed',
-          scrub: ScrubHint(step: 0.5, fractionDigits: 2),
+  static ComponentDefinition<WheelJointComponent> get wheelJoint =>
+      ComponentDefinition<WheelJointComponent>(
+        type: 'WheelJointComponent',
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Wheel Joint',
+          group: 'Physics',
+          description: 'A wheel on a suspension.',
+          icon: Icons.trip_origin,
+          accentColor: Color(0xFFFF7043),
+          fieldGroups: {
+            'Joint': ['targetEntityName', 'suspensionAxis', 'collideConnected'],
+            'Motor': ['enableMotor', 'motorSpeed', 'maxMotorTorque'],
+            'Spring': ['stiffness', 'damping'],
+          },
+          fields: {
+            ..._jointHints,
+            'suspensionAxis': FieldHint(label: 'Suspension Axis'),
+            'enableMotor': FieldHint(label: 'Enable Motor'),
+            'motorSpeed': FieldHint(
+              label: 'Motor Speed',
+              scrub: ScrubHint(step: 0.5, fractionDigits: 2),
+            ),
+            'maxMotorTorque': FieldHint(
+              label: 'Max Torque',
+              scrub: ScrubHint(step: 5, fractionDigits: 2),
+            ),
+            'stiffness': FieldHint(
+              label: 'Stiffness',
+              scrub: ScrubHint(fractionDigits: 2),
+            ),
+            'damping': FieldHint(
+              label: 'Damping',
+              scrub: ScrubHint(step: 0.05, fractionDigits: 2),
+            ),
+          },
         ),
-        'maxMotorTorque': FieldHint(
-          label: 'Max Torque',
-          scrub: ScrubHint(step: 5, fractionDigits: 2),
-        ),
-        'stiffness': FieldHint(
-          label: 'Stiffness',
-          scrub: ScrubHint(fractionDigits: 2),
-        ),
-        'damping': FieldHint(
-          label: 'Damping',
-          scrub: ScrubHint(step: 0.05, fractionDigits: 2),
-        ),
-      },
-    ),
-    create: WheelJointComponent.new,
-    fields: [
-      ..._jointCommon<WheelJointComponent>(
-        (c) => c.targetEntityName,
-        (c, v) => c.targetEntityName = v,
-        (c) => c.collideConnected,
-        (c, v) => c.collideConnected = v,
-      ),
-      _o(
-        'suspensionAxis',
-        (c) => (c as WheelJointComponent).suspensionAxis,
-        (c, v) => (c as WheelJointComponent).suspensionAxis = v,
-      ),
-      _d(
-        'stiffness',
-        (c) => (c as WheelJointComponent).stiffness,
-        (c, v) => (c as WheelJointComponent).stiffness = v,
-        min: 0,
-      ),
-      _d(
-        'damping',
-        (c) => (c as WheelJointComponent).damping,
-        (c, v) => (c as WheelJointComponent).damping = v,
-        min: 0,
-      ),
-      _b(
-        'enableMotor',
-        (c) => (c as WheelJointComponent).enableMotor,
-        (c, v) => (c as WheelJointComponent).enableMotor = v,
-      ),
-      _d(
-        'motorSpeed',
-        (c) => (c as WheelJointComponent).motorSpeed,
-        (c, v) => (c as WheelJointComponent).motorSpeed = v,
-      ),
-      _d(
-        'maxMotorTorque',
-        (c) => (c as WheelJointComponent).maxMotorTorque,
-        (c, v) => (c as WheelJointComponent).maxMotorTorque = v,
-        min: 0,
-      ),
-    ],
-  );
+        create: WheelJointComponent.new,
+        fields: [
+          ..._jointCommon<WheelJointComponent>(
+            (c) => c.targetEntityName,
+            (c, v) => c.targetEntityName = v,
+            (c) => c.collideConnected,
+            (c, v) => c.collideConnected = v,
+          ),
+          _o(
+            'suspensionAxis',
+            (c) => (c as WheelJointComponent).suspensionAxis,
+            (c, v) => (c as WheelJointComponent).suspensionAxis = v,
+          ),
+          _d(
+            'stiffness',
+            (c) => (c as WheelJointComponent).stiffness,
+            (c, v) => (c as WheelJointComponent).stiffness = v,
+            min: 0,
+          ),
+          _d(
+            'damping',
+            (c) => (c as WheelJointComponent).damping,
+            (c, v) => (c as WheelJointComponent).damping = v,
+            min: 0,
+          ),
+          _b(
+            'enableMotor',
+            (c) => (c as WheelJointComponent).enableMotor,
+            (c, v) => (c as WheelJointComponent).enableMotor = v,
+          ),
+          _d(
+            'motorSpeed',
+            (c) => (c as WheelJointComponent).motorSpeed,
+            (c, v) => (c as WheelJointComponent).motorSpeed = v,
+          ),
+          _d(
+            'maxMotorTorque',
+            (c) => (c as WheelJointComponent).maxMotorTorque,
+            (c, v) => (c as WheelJointComponent).maxMotorTorque = v,
+            min: 0,
+          ),
+        ],
+      );
 
   /// Every definition above.
   static List<ComponentDefinition> get all => [
