@@ -1,86 +1,17 @@
+/// Moved to `package:just_game_engine_formats`, which is pure Dart so the
+/// editor and the `just` tool share it. Re-exported here so the engine's own
+/// imports and its public API stay as they were.
 library;
 
-import 'migration_hooks.dart';
-import 'scene_migrations.dart';
-import '../../foundation/unsupported_format_version.dart';
-
-export 'migration_hooks.dart';
-export '../../foundation/unsupported_format_version.dart';
-
-/// The saved scene format's version, and how older files are brought up to
-/// date.
-///
-/// A file without a `version` key is v0: the original format, where the
-/// core components were stored flat (`{type, width, height, ...}`) and the
-/// rest under `fields` with a `customComponentId`. v1 stores every component
-/// as `{type, fields}`.
-///
-/// Migration happens in memory on every load — the engine's scene loader
-/// and the editor's — and never rewrites a file by itself. A migrated scene
-/// is written in the current format the next time it is saved.
-abstract final class SceneFormat {
-  /// The version this engine writes.
-  static const int current = 8;
-
-  /// The version [json] declares; 0 when it declares none.
-  static int versionOf(Map<String, dynamic> json) =>
-      (json['version'] as num?)?.toInt() ?? 0;
-
-  /// [json] brought up to [current], applying each [SceneMigration] in turn
-  /// with the packages' rules in [hooks] (none when null — only the engine's
-  /// own). Returns the input unchanged if it is already current. Never
-  /// mutates the input.
-  ///
-  /// Throws [UnsupportedFormatVersionException] for a scene saved by a newer
-  /// engine (a version above [current]) rather than reading it as though it
-  /// were this one's.
-  static Map<String, dynamic> migrate(
-    Map<String, dynamic> json, {
-    MigrationHooks? hooks,
-  }) => migrateWithReport(json, hooks: hooks).scene;
-
-  /// [migrate], and what the migration found: entities that need an atlas
-  /// exported, and the notes a person may want to read.
-  static MigrationResult migrateWithReport(
-    Map<String, dynamic> json, {
-    MigrationHooks? hooks,
-  }) {
-    final from = versionOf(json);
-    var version = from;
-    if (version > current) {
-      throw UnsupportedFormatVersionException('scene', version, current);
-    }
-    if (version == current) {
-      return MigrationResult(scene: json, fromVersion: from);
-    }
-    final run = MigrationRun(hooks ?? MigrationHooks.none);
-    var out = json;
-    for (final step in SceneMigrations.chain) {
-      if (step.from != version) continue;
-      out = step.apply(_deepCopy(out), run);
-      version = step.from + 1;
-      out['version'] = version;
-    }
-    if (version != current) {
-      throw StateError('No migration from scene format v$version to v$current');
-    }
-    return MigrationResult(
-      scene: out,
-      fromVersion: from,
-      needsAtlas: List.unmodifiable(run.needsAtlas),
-      notes: List.unmodifiable(run.notes),
-    );
-  }
-
-  // Typed as a JSON decoder would type them, so a migrated scene casts the
-  // same way a freshly decoded one does.
-  static Map<String, dynamic> _deepCopy(Map m) => <String, dynamic>{
-    for (final e in m.entries) e.key as String: _copyValue(e.value),
-  };
-
-  static Object? _copyValue(Object? v) => switch (v) {
-    Map() => _deepCopy(v),
-    List() => <dynamic>[for (final x in v) _copyValue(x)],
-    _ => v,
-  };
-}
+export 'package:just_game_engine_formats/just_game_engine_formats.dart'
+    show
+        SceneFormat,
+        SceneManifest,
+        SceneNames,
+        SceneStarters,
+        FieldMigration,
+        MigrationHooks,
+        MigrationNote,
+        MigrationRun,
+        MigrationResult,
+        UnsupportedFormatVersionException;

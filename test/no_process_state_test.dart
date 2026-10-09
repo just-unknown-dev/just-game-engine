@@ -19,9 +19,6 @@ const Map<String, String> _allowed = {
   'ecs/serialization/tag_library.dart:empty': 'an empty, immutable library',
   'subsystems/physics/physics_layers.dart:defaults':
       'the default layers; immutable',
-  'ecs/serialization/migration_hooks.dart:none': 'frozen, empty hooks',
-  'ecs/serialization/scene_migrations.dart:_core':
-      "the engine's own v0 rules; private, never written",
   'ecs/components/animation/animator_bindings.dart:builtIn': 'frozen registry',
   'ecs/components/animation/animator_bindings.dart:_engine':
       "the engine's own bindings; private, never written",
@@ -66,8 +63,6 @@ const Map<String, String> _allowed = {
       'per-Type query hash keys: which key a type gets varies with order, '
       'what a query returns does not',
   'ecs/base/world.dart:_zodRng': "the zobrist keys' seeded source",
-  'subsystems/animation/animator/animator_graph.dart:_indexes':
-      'an Expando: per-graph index, weakly held',
   'subsystems/sprite_atlas/impl/atlas_animation_clip.dart:_timings':
       'an Expando: per-clip timings, weakly held',
 
