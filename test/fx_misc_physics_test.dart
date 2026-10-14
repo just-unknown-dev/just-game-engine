@@ -391,8 +391,7 @@ void main() {
       expect(physics.joints, hasLength(1));
     });
 
-    test('on Box2D, a joint that went with its body is not destroyed '
-        'again', () {
+    test('on Box2D, a joint goes with its body, once', () {
       final (:world, :physics) = _setUp(gravityY: 0, joints: true);
       _box(world, extra: [DistanceJoint2D(connectedBody: const EntityTarget.name('B'))]);
       final b = _box(world, x: 40, name: 'B');
@@ -400,15 +399,14 @@ void main() {
       final joint = physics.joints.single;
       expect(joint, isA<Box2DJoint>());
 
-      // Box2D destroys B's joints with B's body; destroying this one as well
-      // would free it twice.
+      // B's joints go with B's body; destroying this one again does nothing.
       world.destroyEntity(b);
       _step(world);
       expect(physics.joints, isEmpty);
-      expect((joint as Box2DJoint).isDestroyed, isFalse);
+      expect((joint as Box2DJoint).isDestroyed, isTrue);
     });
 
-    test('on Box2D, clearing the systems leaves no joint to destroy twice', () {
+    test('on Box2D, clearing the systems destroys the joints', () {
       final (:world, :physics) = _setUp(gravityY: 0, joints: true);
       _box(world, extra: [FixedJoint2D(connectedBody: const EntityTarget.name('B'))]);
       _box(world, x: 30, name: 'B');
@@ -417,11 +415,10 @@ void main() {
 
       world.clearSystems();
       expect(physics.joints, isEmpty);
-      expect(joint.isDestroyed, isFalse);
+      expect(joint.isDestroyed, isTrue);
     });
 
-    test('on Box2D, removing the physics system alone leaves no joint to '
-        'destroy twice', () {
+    test('on Box2D, removing the physics system alone takes the joints', () {
       final (:world, :physics) = _setUp(gravityY: 0, joints: true);
       _box(world, extra: [FixedJoint2D(connectedBody: const EntityTarget.name('B'))]);
       _box(world, x: 30, name: 'B');
@@ -431,7 +428,7 @@ void main() {
       world.removeSystem(world.getSystem<PhysicsSystem>()!);
       _step(world); // the joint system finds its bodies gone
       expect(physics.joints, isEmpty);
-      expect(joint.isDestroyed, isFalse);
+      expect(joint.isDestroyed, isTrue);
     });
 
     test('on Box2D, removing the joint system alone destroys its joints', () {

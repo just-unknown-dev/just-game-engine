@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:flutter/painting.dart';
 import 'package:just_physics_engine/just_physics_engine.dart';
 
@@ -171,11 +170,8 @@ class PhysicsJointBindingSystem extends System {
   ) {
     switch (comp) {
       case DistanceJoint2D():
-        // TODO(just_physics_engine): on the native Box2D backend the spring
-        // is never switched on (b2w_setDistanceSpring sets its hertz and
-        // damping but never calls b2DistanceJoint_EnableSpring), so the
-        // joint holds its length rigidly; anchors and collideConnected have
-        // no parameter to pass them through yet.
+        // TODO(just_physics_engine): anchors and collideConnected have no
+        // parameter to pass them through yet.
         final joint = physics.addDistanceJoint(
           bodyA,
           bodyB,
@@ -190,11 +186,6 @@ class PhysicsJointBindingSystem extends System {
         return _WeldBinding(bodyA, bodyB, [joint], comp);
 
       case SliderJoint2D():
-        // TODO(just_physics_engine): Box2DPhysicsEngine does not override
-        // addPrismaticJoint, so with native Box2D running this makes a Dart
-        // joint its native step never applies (createPrismaticJoint exists
-        // natively but not on the web stub, so it cannot be called here).
-        _warnIfPrismaticIsInert();
         final joint = physics.addPrismaticJoint(
           bodyA,
           bodyB,
@@ -271,37 +262,12 @@ class PhysicsJointBindingSystem extends System {
     return [wheel];
   }
 
-  bool _warnedPrismatic = false;
-
-  /// Says once, in debug builds, that a slider joint will not act: the
-  /// native Box2D backend is running, and it cannot make one yet.
-  void _warnIfPrismaticIsInert() {
-    if (!kDebugMode || _warnedPrismatic) return;
-    final physics = this.physics;
-    if (physics is! Box2DPhysicsEngine) return;
-    if (physics.stats['backend'] != 'box2d_v3') return;
-    _warnedPrismatic = true;
-    debugPrint(
-      'PhysicsJointBindingSystem: slider joints do not act on the native '
-      'Box2D backend yet (just_physics_engine has no native addPrismaticJoint); '
-      'the bodies slide freely.',
-    );
-  }
-
-  /// Destroys [binding]'s joints — natively only while both bodies are still
-  /// in the simulation. Removing a body destroys its joints with it on the
-  /// Box2D backend, and destroying one of those again freed memory twice.
-  ///
-  /// The physics system that made the bodies is the one asked — also after
-  /// it has left the world, when it keeps no bodies at all.
+  /// Destroys [binding]'s joints. On the Box2D backend one that went with
+  /// its body (removing a body takes its joints) is gone already, and
+  /// destroying it again does nothing: just_box_2d checks every handle.
   void _destroyBinding(_JointBinding binding) {
-    final owner = binding.owner;
-    final bodiesAlive =
-        owner == null ||
-        (owner.entityForBody(binding.bodyA) != null &&
-            owner.entityForBody(binding.bodyB) != null);
     for (final joint in binding.joints) {
-      if (bodiesAlive && joint is Box2DJoint) joint.destroy();
+      if (joint is Box2DJoint) joint.destroy();
       physics.removeJoint(joint);
     }
   }
