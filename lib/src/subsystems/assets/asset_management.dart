@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart' show AssetBundle, rootBundle;
+import 'package:just_dart/just_dart.dart' show Aabb3;
 import 'package:just_memory/just_memory.dart';
 
 part 'base/asset.dart';
@@ -13,6 +14,7 @@ part 'impl/json_asset.dart';
 part 'impl/binary_asset.dart';
 part 'impl/asset_loaders.dart';
 part 'impl/asset_bundle.dart';
+part 'impl/model_asset.dart';
 
 /// Main asset manager class
 ///

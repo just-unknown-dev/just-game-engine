@@ -288,9 +288,11 @@ void main() {
         child: TransformComponent(position: Vector3(10, 0, 0)),
       );
       addTearDown(world.dispose);
-      child.addComponent(
-        PhysicsBodyComponent(shape: CircleShape(2), showDebugOutline: false),
-      );
+      child
+        ..addComponent(RigidBody2D())
+        ..addComponent(
+          Collider2D(shape: ColliderShape2D.circle, radius: 2, showDebugOutline: false),
+        );
       world.addSystem(PhysicsSystem(physics));
       for (var i = 0; i < 30; i++) {
         world.update(1 / 60);

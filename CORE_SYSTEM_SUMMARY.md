@@ -1,242 +1,69 @@
-# Just Game Engine - Core System Summary
+# Just Game Engine — status summary, 2.0.0
 
-## ✅ Core System Implementation Complete
+What the engine contains at 2.0.0, with numbers counted on the release tree on 2026-10-01. This file lives only in the repository (it is excluded from the pub.dev package). What changed since 1.x is in [CHANGELOG.md](CHANGELOG.md) and [MIGRATION.md](MIGRATION.md); how it is built is in [ARCHITECTURE.md](ARCHITECTURE.md); the public API is mapped in [API.md](API.md) and documented in full on [pub.dev](https://pub.dev/documentation/just_game_engine/latest/).
 
-The core system has been successfully implemented with a professional, production-ready architecture.
+## What it is
 
-## 📁 File Structure
+A 2-D game engine for Flutter. Transforms, cameras and the renderer seam are 3-D ready; drawing is 2-D, on Flutter's `Canvas`. A game makes one `Engine`, awaits `initialize()`, and shows it in a `GameWidget`. Everything an engine knows (component definitions, loaders, registries, migration hooks) lives in its `EngineContext`, so two engines in one process share nothing; `test/no_process_state_test.dart` fails when a `static` field that is not `const` appears under `lib/src` without a reason on its allow-list.
 
-```
-lib/src/core/
-├── core.dart              # Main export file
-├── engine.dart            # Main engine class with state management
-├── game_loop.dart         # Fixed timestep game loop implementation
-├── time_manager.dart      # Time tracking and time scale management
-├── system_manager.dart    # System registry and coordination
-├── lifecycle.dart         # Lifecycle interfaces and mixins
-└── compute_helper.dart    # Background isolate helpers
-```
+## What it contains
 
-## 🎯 Key Features Implemented
+| Area | Contents |
+|---|---|
+| Core | `Engine` lifecycle (`initialize` / `start` / `dispose`, a `failed` state with `EngineInitException`), fixed-step `GameLoop`, `TimeManager`, `GameWidget` and `GameLayers` (Flutter widgets over the game), plugins, `EngineService`s, opt-in default systems |
+| ECS | Archetype `World`, systems run by priority, `CommandBuffer`, `EventBus`, 3-D `TransformComponent` with a parent–child hierarchy, multi-tag entities, `EntityTarget`, spawners |
+| Scenes | JSON scene format v7 with a migration chain from v0; `ComponentDefinition`s per context; `SceneLoader` |
+| Rendering | `RenderSystem` with layer / z-order sorting, shapes, sprites and sprite batching, optional off-screen culling, fragment-shader post-processing, parallax backgrounds |
+| Sprites and animation | Atlases (TexturePacker, Aseprite, grid sheets), clip playback with frame events, animator state machines (`.animator.json`, format 1) |
+| Timelines | `.timeline.json` (format 2) with 7 track kinds: property, event, sprite clip, camera shot, audio, activation, nested timeline |
+| Cameras | Virtual cameras and a `CameraBrain` with blends; framing, confiner, noise, dolly and group stages; impulses; blend-list, mixer and state-driven managers; fade, letterbox and motion-blur effects |
+| Level maps | Orthogonal, isometric, staggered and hexagonal tile maps; the engine's own map and tileset JSON and Tiled `.tmx` / `.tmj`; Wang terrain; collision kinds; tile changes at run time |
+| Physics | `just_physics_engine`: bodies, joints, sensors, one-way platforms, ray casts |
+| Input | `just_inputs` action assets (`.input.json`), local multiplayer, rebinding saved in the engine's storage |
+| Audio | `just_audio_engine`: music, sound effects, channels, 3-D sources and listener, audio components |
+| Particles and effects | Emitters, forces and presets; 11 deterministic tick-based effects with snapshots |
+| Narrative and localization | Yarn Spinner 2 dialogue, string tables per locale, subtitles |
+| Assets, memory, storage | Reference-counted `AssetManager`; `CacheManager` with the engine's own key-value store and binary database |
+| Screen widgets | `package:just_game_engine/widgets.dart`: dialogue box, subtitles, localized text, camera zoom controls, on-screen controls, rebinding list |
 
-### 1. **Engine Class** (`engine.dart`)
-- ✅ Singleton pattern for global access
-- ✅ Complete lifecycle management (initialize, start, pause, resume, stop, dispose)
-- ✅ State machine with 6 states (uninitialized, initializing, initialized, running, paused, error)
-- ✅ Automatic subsystem initialization and coordination
-- ✅ System manager integration
-- ✅ Error handling and state validation
+Achievements, sign-in, leaderboards, currency, inventory and ads are not part of the engine; they are `EngineService`s in the separate package `just_game_services`.
 
-### 2. **Game Loop** (`game_loop.dart`)
-- ✅ Fixed timestep updates (configurable UPS, default 60)
-- ✅ Variable timestep rendering
-- ✅ Frame accumulation for frame rate independence
-- ✅ Spiral of death prevention (clamped accumulator)
-- ✅ FPS calculation
-- ✅ Pause/resume support with accumulator reset on resume
-- ✅ Interpolation factor for smooth rendering
+## Numbers
 
-### 3. **Time Manager** (`time_manager.dart`)
-- ✅ Delta time tracking (scaled and unscaled)
-- ✅ Total elapsed time
-- ✅ Time scale for slow motion/fast forward
-- ✅ Frame counting
-- ✅ FPS calculation
-- ✅ Maximum delta time clamping
-- ✅ Convenience methods (pause, slowMotion, fastForward)
+| What | Count |
+|---|---|
+| Dart files in `lib/` | 317 |
+| Lines in `lib/` (with comments and blank lines) | 56,568 |
+| Names exported by `just_game_engine.dart` | 679: 577 declared by the engine, 102 re-exported from `just_inputs`, `just_physics_engine`, `just_audio_engine`, `just_memory`, `just_dart` |
+| Names exported by `widgets.dart` | 17 |
+| Component classes | 64 |
+| System classes | 33: 31 concrete (one of them, `HierarchySystem`, deprecated) and 2 abstract bases (`ReactiveSystem`, `AutoSyncSystem`) |
+| Default systems | 9 `DefaultSystem` sets, adding 16 systems |
+| Test files (`*_test.dart`) | 119 |
+| Tests (`flutter test`) | 1,490 passed, 0 skipped, 0 failed |
+| `flutter analyze` / `dart format` | no issues / no changes |
 
-### 4. **System Manager** (`system_manager.dart`)
-- ✅ System registration by name and type
-- ✅ Type-safe system retrieval
-- ✅ System existence checking
-- ✅ Automatic lifecycle management
-- ✅ System enumeration and debugging
-- ✅ Frame scheduler via `registerUpdateTask` / `runUpdateCycle` — per-task timing captured each frame
-- ✅ `schedulerStats` exposes `lastFrameMs`, `taskTimesMs`, `systemCount`, `updateTaskCount`
-- ✅ `Engine.systemManager` getter exposed publicly for external tooling and benchmarks
+How they were counted, from the package root:
 
-### 5. **Lifecycle Interfaces** (`lifecycle.dart`)
-- ✅ `ILifecycle` - Basic initialization and disposal
-- ✅ `IUpdatable` - Per-frame update support
-- ✅ `IRenderable` - Rendering support
-- ✅ `IPausable` - Pause/resume support
-- ✅ `IEnableable` - Enable/disable support
-- ✅ `LifecycleStateMixin` - State tracking with validation
+- files and lines: `find lib -name '*.dart' | wc -l` and `find lib -name '*.dart' -exec cat {} + | wc -l`;
+- exported names, and component and system classes (subclasses of `Component` and `System` among the exported classes): an analyzer dump of the two libraries' export namespaces;
+- tests: `flutter test` on Windows with Flutter 3.47.5 (Dart 3.13.4).
 
-## 🏗️ Architecture Highlights
+`test/perf/transform_hot_path_test.dart` prints two timings. Medians of five runs on a quiet machine: 10,000 moving shapes, update and render, 12.9 ms per frame (runs ranged from 10.7 to 15.6 ms); 2,000 physics bodies, step and transform sync, 1.56 ms per frame (1.34 to 1.75 ms). Before this release's rendering work the shapes figure was about 19.5 ms. They come from `flutter test` (JIT, not a release build) on one development machine, so compare them only with runs on the same machine.
 
-### Design Patterns
-1. **Singleton Pattern** - Ensures single engine instance
-2. **Service Locator** - System manager for subsystem access
-3. **Game Loop Pattern** - Fixed timestep for deterministic updates
-4. **State Pattern** - Clean engine state management
-5. **Interface Segregation** - Multiple small interfaces for flexibility
+## Platforms
 
-### Performance Optimizations
-- Fixed timestep prevents physics instability
-- Accumulator spiral-of-death capped at `3×fixedDt` (was 5×)
-- Frame time clamping prevents burst catch-up on resume
-- Efficient update batching via SystemManager frame scheduler
-- Minimal allocation during game loop (pre-allocated collision buffers, reused Stopwatch fields)
-- Sub-frame render interpolation via `GameLoop.interpolation` → `RenderSystem`
-- Incremental `SpatialGrid` body tracking — avoids full clear/reinsert each frame
-- Quadtree caching in `RenderingEngine` — rebuilds only when scene bounds change
+`pubspec.yaml` declares Android, iOS, Linux, macOS, Windows and web. The minimum SDKs are Dart 3.12 and Flutter 3.44.
 
-### Code Quality
-- ✅ Comprehensive documentation (200+ lines)
-- ✅ Type safety throughout
-- ✅ Error handling and validation
-- ✅ Clear separation of concerns
-- ✅ Extensible design
-- ✅ Production-ready code
+- `lib/` imports `dart:io` in one file, `lib/src/memory/engine_storage_io.dart`, and only through a conditional import; nothing imports `dart:html`. The engine therefore compiles for the web with both dart2js and dart2wasm. On 2026-10-01 a small web app depending on the engine was built with `flutter build web --wasm` without errors.
+- Physics: Box2D through FFI where its native library loads; otherwise, and always on the web, the pure-Dart backend of `just_physics_engine`.
+- Audio: on the web the audio engine starts at the first key or pointer press, because browsers keep audio suspended until a user gesture (`EngineConfig.deferAudioUntilInput`).
+- Shaders: a fragment shader used as an image filter (post-process passes, `ShaderComponent`) needs Impeller. On the web and on Skia the effect is skipped and the content draws unshaded (`ShaderFilterSupport`).
+- Gamepads come from `just_gamepads` through `just_inputs`; its own documentation says which platforms it supports.
+- Storage: native platforms keep the engine's settings in `<application support>/just_game_engine/just_storage.json`; on the web they go in local storage, under the `just_game_engine/` namespace.
 
-## 📚 Documentation
+There is no CI workflow in this repository; the checks above were run locally.
 
-### Created Documentation
-1. **README.md** - 300+ lines of comprehensive documentation covering:
-   - Architecture overview
-   - Component descriptions
-   - Usage examples
-   - Design patterns
-   - Performance considerations
-   - Extension points
-   - Best practices
+## Dependencies
 
-2. **Example File** - 250+ lines of working examples demonstrating:
-   - Basic usage
-   - Time management
-   - Engine states
-   - Subsystem access
-   - Custom game loops
-   - Lifecycle interfaces
-
-### Documentation Features
-- Clear API documentation with examples
-- Architecture explanations
-- Best practices guide
-- Extension points
-- Performance tips
-- Future enhancement notes
-
-## 🔧 Integration with Existing Systems
-
-The core system properly integrates with all subsystems:
-- ✅ Rendering Engine (post-process pass stack, Quadtree culling, SpriteBatch)
-- ✅ Physics Engine (Vector2-based, incremental SpatialGrid, ray casting)
-- ✅ Input Management (keyboard, mouse, touch, controller, virtual joystick)
-- ✅ Audio Engine (via `just_audio_engine`; graceful degradation in headless/test env)
-- ✅ Scene Editor
-- ✅ Animation System (subsystem + `AnimationSystemECS`)
-- ✅ Asset Management (LRU binary caching)
-- ✅ Cache Manager (memory fallback when plugin unavailable)
-- ✅ Camera System
-- ✅ ECS World (CommandBuffer, EventBus, EntityPrefab, generational IDs, Zobrist query keys)
-- ✅ Math Module (Vector2/Vector3 via just_dart, Quadtree)
-- ✅ Memory Management (ObjectPool, CacheManager)
-- ✅ Post-Processing (full-screen FragmentShader passes + per-entity `ShaderComponent`)
-- ✅ Parallax Backgrounds (multi-layer scrolling, auto-scroll, `ParallaxComponent`)
-- ✅ Sprite Atlas (TexturePacker / Aseprite auto-detection, named clips)
-- ✅ Deterministic Effects (11 tick-based effects, serialization, rollback support)
-- ✅ Localization (namespace + fallback chain + ICU-lite plurals, `LocalizationManager`)
-- ✅ Narrative / Dialogue (Yarn Spinner 2.x parser + runner, ECS bridge, UI widgets)
-- ✅ Networking (stub)
-
-All subsystems are:
-- Registered in the system manager
-- Initialized in correct order
-- Updated in the game loop
-- Properly disposed
-
-## 📊 Code Metrics
-
-- **Total Lines**: ~20,000+ lines across all subsystems
-- **Files Created**: 7 core files + 130+ subsystem/ECS files
-- **Classes**: 5 core classes + 26+ components + 17+ systems
-- **Interfaces**: 5 interfaces + 1 mixin
-- **Tests**: Passing in current 1.6.1 branch validation
-- **CI**: GitHub Actions (`flutter analyze --fatal-infos` + `flutter test`)
-- **Documentation**: 500+ lines
-- **Examples**: 250+ lines
-- **Zero Errors**: ✅ All code compiles cleanly
-
-## 🚀 Usage
-
-```dart
-import 'package:just_game_engine/just_game_engine.dart';
-
-void main() async {
-  // Get engine instance
-  final engine = Engine();
-  
-  // Initialize
-  await engine.initialize();
-  
-  // Start the game loop
-  engine.start();
-  
-  // Access subsystems
-  final physics = engine.physics;
-  final rendering = engine.rendering;
-  final time = engine.time;
-  final cache = engine.cache;
-  final world = engine.world;
-  
-  // Use time management
-  print('FPS: ${time.fps}');
-  print('Delta time: ${time.deltaTime}');
-  
-  // Control engine
-  engine.pause();
-  engine.resume();
-  engine.stop();
-  
-  // Cleanup
-  engine.dispose();
-}
-```
-
-## ✨ What's Shipped (v1.6.1)
-
-All core systems and subsystems are implemented:
-1. ✅ Core engine, game loop, and time management
-2. ✅ Rendering engine with SpriteBatch, Quadtree culling, and instrumented performance stats
-3. ✅ Physics engine with Vector2 hot-path, collision events, incremental SpatialGrid, and ray casting
-4. ✅ Entity-Component System with CommandBuffer, EventBus, EntityPrefab, and generational IDs
-5. ✅ Reactive ECS layer with signal-driven change tracking
-6. ✅ Scene graph and level editor
-7. ✅ Asset management with LRU binary caching
-8. ✅ Animation system (subsystem + ECS `AnimationSystemECS`)
-9. ✅ Audio engine via `just_audio_engine` with graceful headless degradation
-10. ✅ Input system with virtual joystick and ECS `InputSystem` bridge
-11. ✅ Math module (Vector2/Vector3, Quadtree)
-12. ✅ Memory management (ObjectPool, CacheManager with memory fallback)
-13. ✅ 26+ built-in ECS components and 17+ built-in systems
-14. ✅ Tiled map ECS integration (TileMapRenderSystem, TiledCollisionSystem)
-15. ✅ Post-processing (full-screen shader passes + per-entity `ShaderComponent`)
-16. ✅ Parallax backgrounds (`ParallaxBackground`, `ParallaxLayer`, `ParallaxComponent`)
-17. ✅ Sprite Atlas (TexturePacker / Aseprite auto-detection, named clips, `AtlasSpriteAnimation`)
-18. ✅ Deterministic Effects system (11 tick-based effects, wire serialization, rollback stubs)
-19. ✅ Localization subsystem (`LocalizationManager`, ICU-lite plurals, Flutter widgets)
-20. ✅ Narrative / Dialogue system (Yarn Spinner 2.x, ECS bridge, ready-made UI widgets)
-21. ✅ SystemManager promoted to frame scheduler with per-task timing diagnostics
-22. ✅ GitHub Actions CI + phase-benchmarks in `performance_test.dart`
-23. ✅ Service layer additions: Achievements, Auth, Leaderboards, Currency, Inventory
-24. ✅ Developer UX additions: in-game terminal + subtitle subsystem + ads subsystem
-25. ✅ Unified shape styling (`ShapePaintStyle` + `ShapeGradient`) across all shape components
-26. ✅ Entity runtime-type component API (`removeComponentByType`, `hasComponentByType`)
-
-## 🎓 Key Takeaways
-
-This core system provides:
-- **Professional Architecture** - Industry-standard game loop pattern
-- **Production Ready** - Proper error handling and state management
-- **Well Documented** - Comprehensive documentation and examples
-- **Extensible** - Easy to add new systems and features
-- **Performance Focused** - Optimized for real-time game development
-- **Type Safe** - Full Dart type safety throughout
-
----
-
-**Status**: ✅ **COMPLETE AND READY FOR USE**
-
-The core system is fully implemented, documented, and ready for the next phase of development!
+`just_physics_engine`, `just_inputs`, `just_audio_engine`, `just_storage`, `just_database`, `just_signals`, `just_memory`, `just_tiled`, `just_dart`, `just_deflate`, `path_provider`, `meta`, and the Flutter SDK packages `flutter` and `flutter_web_plugins`. Versions are in [pubspec.yaml](pubspec.yaml).

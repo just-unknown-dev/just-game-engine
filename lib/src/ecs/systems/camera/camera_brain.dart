@@ -2,9 +2,11 @@
 library;
 
 import 'package:flutter/painting.dart' show Offset, Size;
+import 'package:just_dart/just_dart.dart';
 
 import '../../components/components.dart';
 import '../../ecs.dart';
+import '../../base/engine_context.dart';
 import '../../../subsystems/camera/camera_impulse.dart';
 import 'camera_manager.dart';
 import 'camera_stage.dart';
@@ -16,6 +18,67 @@ import 'stages/dolly_stage.dart';
 import 'stages/extension_stages.dart';
 import 'stages/framing_stage.dart';
 import 'stages/group_framing_stage.dart';
+import 'stages/rig_3d_stages.dart';
+
+/// When the brain thinks.
+enum CameraUpdateMode {
+  /// On each fixed update, with the simulation (the default; what 2-D
+  /// cameras have always done).
+  fixed,
+
+  /// Once per rendered frame, after the fixed updates, following targets
+  /// blended between their last two updates — smooth at any frame rate.
+  /// Needs the engine's per-frame phase (`FrameSystem`).
+  frame,
+}
+
+/// The camera stages and managers an engine's brains run: one set per
+/// [EngineContext] ([of]), so a kit's [ContextExtension] can register its
+/// own once for every brain.
+class CameraRegistries {
+  /// Registries holding the engine's own stages (group framing, framing,
+  /// dolly, orbit follow, first person, look at, noise, impulse listener,
+  /// confiner) and managers (state-driven, blend list, mixer).
+  CameraRegistries() {
+    stages.registerAll(const [
+      GroupFramingStage(),
+      FramingStage(),
+      DollyStage(),
+      OrbitFollowStage(),
+      FirstPersonStage(),
+      LookAtStage(),
+      NoiseStage(),
+      ImpulseListenerStage(),
+      ConfinerStage(),
+    ]);
+    managers.registerAll(const [
+      StateDrivenManager(),
+      BlendListManager(),
+      MixerManager(),
+    ]);
+  }
+
+  /// The registries of [context], made on first use.
+  static CameraRegistries of(EngineContext context) =>
+      context.slot(CameraRegistries, CameraRegistries.new);
+
+  /// Which stage runs for which component type.
+  final CameraStageRegistry stages = CameraStageRegistry();
+
+  /// Which manager runs for which component type.
+  final CameraManagerRegistry managers = CameraManagerRegistry();
+}
+
+/// A target's pose at the last two fixed updates, for following it between
+/// them.
+class _TargetPose {
+  final Vector3 previous = Vector3.zero();
+  final Vector3 current = Vector3.zero();
+  final Quaternion previousRotation = Quaternion.identity();
+  final Quaternion currentRotation = Quaternion.identity();
+  bool sampled = false;
+  int seen = 0;
+}
 
 /// A blend in progress.
 class ActiveCameraBlend {
@@ -56,34 +119,29 @@ class ActiveCameraBlend {
 /// virtual camera in the world it does nothing at all, so a game that moves
 /// the output camera by hand is left alone.
 class CameraBrain {
-  /// A brain driving [output], with the engine's stages (group framing,
-  /// framing, dolly, noise, impulse listener, confiner) and managers
-  /// (state-driven, blend list, mixer) already registered.
-  CameraBrain(this.output) {
-    stages.registerAll(const [
-      GroupFramingStage(),
-      FramingStage(),
-      DollyStage(),
-      NoiseStage(),
-      ImpulseListenerStage(),
-      ConfinerStage(),
-    ]);
-    managers.registerAll(const [
-      StateDrivenManager(),
-      BlendListManager(),
-      MixerManager(),
-    ]);
-  }
+  /// A brain driving [output] with [registries]' stages and managers — an
+  /// engine passes its context's ([CameraRegistries.of]); without, the
+  /// brain makes a set of its own with the engine's built-ins.
+  CameraBrain(this.output, {CameraRegistries? registries})
+    : registries = registries ?? CameraRegistries();
 
   /// The camera everything renders through.
   final Camera output;
 
-  /// The stage that runs for each component type. Register a kit's own here.
-  final CameraStageRegistry stages = CameraStageRegistry();
+  /// The stages and managers this brain runs.
+  final CameraRegistries registries;
+
+  /// The stage that runs for each component type. Register a kit's own here
+  /// (or, for every brain of an engine, in `CameraRegistries.of(context)`).
+  CameraStageRegistry get stages => registries.stages;
 
   /// The manager that runs for each component type: cameras whose shot
   /// comes from their child cameras.
-  final CameraManagerRegistry managers = CameraManagerRegistry();
+  CameraManagerRegistry get managers => registries.managers;
+
+  /// Whether the brain runs on fixed updates or once per rendered frame;
+  /// see [CameraUpdateMode].
+  CameraUpdateMode updateMode = CameraUpdateMode.fixed;
 
   /// Looks up follow targets and named entities for this frame; stages and
   /// managers resolve through it.
@@ -119,6 +177,8 @@ class CameraBrain {
   void Function(Entity? from, Entity to)? onCameraActivated;
 
   final Map<EntityId, CameraRigMemory> _memory = {};
+  final Map<EntityId, _TargetPose> _poses = {};
+  int _sample = 0;
   final Map<EntityId, CameraState> _states = {};
   final Map<EntityId, int> _activation = {};
   int _activationCounter = 0;
@@ -131,6 +191,9 @@ class CameraBrain {
   Entity? _live;
   CameraState? _liveState;
   ActiveCameraBlend? _blend;
+  double _alpha = 1;
+  final Vector3 _targetAt = Vector3.zero();
+  final Quaternion _targetTurn = Quaternion.identity();
 
   /// The virtual camera that is live, or null when the world has none.
   Entity? get liveCamera => _live;
@@ -173,9 +236,43 @@ class CameraBrain {
     return true;
   }
 
+  /// Records where every followed target is, once per fixed update, so a
+  /// brain running per frame ([CameraUpdateMode.frame]) can follow it
+  /// between updates. The brain's system calls this.
+  void sampleTargets(World world) {
+    targets.beginFrame(world);
+    _sample++;
+    for (final camera in world.query([TransformComponent, VirtualCameraComponent])) {
+      final vcam = camera.getComponent<VirtualCameraComponent>()!;
+      if (!camera.isActive || !vcam.enabled || !vcam.hasTarget) continue;
+      final target = targets.resolveTarget(vcam.follow, owner: camera);
+      final transform = target?.getComponent<TransformComponent>();
+      if (target == null || transform == null) continue;
+      final pose = _poses.putIfAbsent(target.id, _TargetPose.new);
+      if (pose.seen == _sample) continue;
+      // A target missed for a sample (it went away and came back) starts
+      // again from where it is.
+      final continuous = pose.sampled && pose.seen == _sample - 1;
+      pose.seen = _sample;
+      if (continuous) {
+        pose.previous.setFrom(pose.current);
+        pose.previousRotation.setFrom(pose.currentRotation);
+      }
+      pose.current.setFrom(transform.position);
+      transform.rotationInto(pose.currentRotation);
+      if (!continuous) {
+        pose.previous.setFrom(pose.current);
+        pose.previousRotation.setFrom(pose.currentRotation);
+      }
+      pose.sampled = true;
+    }
+    _poses.removeWhere((_, pose) => pose.seen < _sample - 1);
+  }
+
   /// Forgets everything: call when the world's entities are replaced.
   void reset() {
     impulses.clear();
+    _poses.clear();
     _memory.clear();
     _states.clear();
     _activation.clear();
@@ -190,7 +287,12 @@ class CameraBrain {
   /// [snap] skips damping and blends: every camera jumps to where it wants to
   /// be. That is what an editor asks for while the game is frozen, and what a
   /// game asks for after teleporting the player.
-  void evaluate(World world, double dt, {bool snap = false}) {
+  ///
+  /// [alpha] is how far between the last two fixed updates this evaluation
+  /// is (see [CameraUpdateMode.frame]); targets sampled with [sampleTargets]
+  /// are followed blended by it.
+  void evaluate(World world, double dt, {bool snap = false, double alpha = 1}) {
+    _alpha = alpha;
     targets.beginFrame(world);
     impulses.update(dt);
 
@@ -342,6 +444,27 @@ class CameraBrain {
     final target = vcam.hasTarget
         ? targets.resolveTarget(vcam.follow, owner: camera)
         : null;
+    final targetTransform = target?.getComponent<TransformComponent>();
+    Vector3? at;
+    Quaternion? turn;
+    Offset? blended;
+    if (targetTransform != null) {
+      final pose = _alpha < 1 ? _poses[target!.id] : null;
+      if (pose != null && pose.sampled) {
+        _targetAt.setValues(
+          pose.previous.x + (pose.current.x - pose.previous.x) * _alpha,
+          pose.previous.y + (pose.current.y - pose.previous.y) * _alpha,
+          pose.previous.z + (pose.current.z - pose.previous.z) * _alpha,
+        );
+        _targetTurn.setSlerp(pose.previousRotation, pose.currentRotation, _alpha);
+        blended = Offset(_targetAt.x, _targetAt.y);
+      } else {
+        _targetAt.setFrom(targetTransform.position);
+        targetTransform.rotationInto(_targetTurn);
+      }
+      at = Vector3.copy(_targetAt);
+      turn = Quaternion.copy(_targetTurn);
+    }
     final context = CameraStageContext(
       brain: this,
       world: world,
@@ -353,10 +476,13 @@ class CameraBrain {
       target: target,
       targetPosition: target == null
           ? null
-          : CameraTargetResolver.positionOf(target),
+          : blended ?? CameraTargetResolver.positionOf(target),
       targetVelocity: target == null
           ? Offset.zero
           : CameraTargetResolver.velocityOf(target) ?? Offset.zero,
+      targetPosition3: at,
+      targetRotation: turn,
+      alpha: _alpha,
     );
     var state = CameraState(
       position: transform.position.toOffset(),

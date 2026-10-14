@@ -1,693 +1,321 @@
 # Just Game Engine
 
-A comprehensive 2D game engine built for Flutter, providing everything you need to create high-performance games with rich visual effects, animations, and physics.
+A game engine for Flutter: 2D, with 3D graphics and physics to opt into. A game is entities, components and systems (ECS) in a `World`; its levels are JSON scenes loaded at runtime. The engine brings level maps, sprites and animator graphs, timelines, virtual cameras, physics, particles, audio and action-based input, and draws inside an ordinary Flutter widget. It runs on Android, iOS, Windows, macOS, Linux and the web (JavaScript or WebAssembly).
 
-## 📚 Documentation
+2.0.0 is a breaking release. Coming from 1.x? Read [MIGRATION.md](MIGRATION.md).
 
-- **[Quick Start Guide](QUICKSTART.md)** - Get started in 5 minutes
-- **[API Reference](API.md)** - Detailed API documentation for all classes
-- **[ESP Architecture](ESP_ARCHITECTURE.md)** - Recommended Engine · Signal · Presentation app structure
-- **[Documentation](https://engine.justunknown.com/docs/getting-started)** - Just Game Engine documentation.
-- **[Discord](https://discord.gg/VXFxVj4Y)** - Join our community
-
-## Screenshots
-
-| | | | | |
+| Sprite animation | Particles | Physics | Sprites | Level maps |
 |---|---|---|---|---|
-| ![Animation](assets/screenshots/jge_animation_system.png) | ![Particles](assets/screenshots/jge_particle_system.png) | ![Physics](assets/screenshots/jge_physics_engine.png) | ![Sprites](assets/screenshots/jge_sprite_system.png) | ![Tiled Maps](assets/screenshots/jge_tile_map.png) |
+| ![Sprite animation](assets/screenshots/jge_animation_system.png) | ![Particles](assets/screenshots/jge_particle_system.png) | ![Physics](assets/screenshots/jge_physics_engine.png) | ![Sprites](assets/screenshots/jge_sprite_system.png) | ![A level map](assets/screenshots/jge_tile_map.png) |
 
-## Features
-
-Just Game Engine is a complete game development framework with 20+ major subsystems:
-
-### 🎮 Core Engine
-- **Game Loop**: Fixed timestep (60 UPS) with variable rendering for consistent gameplay
-- **State Management**: Full lifecycle management (initialize, start, pause, resume, stop)
-- **Time Management**: Delta time, time scaling, FPS tracking
-- **System Coordination**: Centralized management of all subsystems
-- **Developer Terminal**: `GameTerminal` for in-game debug commands, cheats, and diagnostics
-
-### 🎨 Rendering Engine
-- **2D Canvas-Based Rendering**: High-performance drawing with Flutter's Canvas API
-- **Renderable Objects**: Circles, rectangles, lines, text, and custom renderables
-- **Ray Renderable**: `RayRenderable` draws a glowing beam / laser / bullet trail with a two-layer glow effect and configurable fade lifetime
-- **Camera System**: Pan, zoom, and rotation with smooth transforms
-- **Layer Management**: Z-order sorting for proper depth rendering
-- **ECS Integration**: `GameWidget` automatically renders ECS entities via `RenderSystem` alongside the classic pipeline
-
-### 🖼️ Sprite System
-- **Image Rendering**: Load and display images with easy asset management
-- **Sprite Sheets**: Efficiently manage multiple sprites in a single texture
-- **Sprite Batching**: `SpriteBatch` submits all sprites sharing an atlas in a single `Canvas.drawAtlas()` call for dramatic draw-call reduction
-- **Nine-Slice Scaling**: Scalable UI elements that maintain corner details
-- **Flipping**: Horizontal and vertical sprite flipping
-
-### ✨ Animation System
-- **Sprite Animations**: Frame-based animations from sprite sheets with customizable frame rates
-  - `SpriteAnimation` class for sprite sheet playback
-  - `fromSpriteSheet()` factory for easy sprite animation creation
-  - Independent frame count and duration per animation
-  - Automatic frame calculation from sprite dimensions
-- **Property Tweening**: Animate position, rotation, scale, opacity, and color
-- **Easing Functions**: 15+ built-in easing curves (linear, quad, cubic, elastic, bounce, etc.)
-- **Animation Sequences**: Chain animations to play one after another
-- **Animation Groups**: Run multiple animations in parallel
-- **Loop and Ping-Pong**: Repeat animations infinitely or bounce back and forth
-- **Speed Control**: Adjust animation playback speed dynamically (0.1x - 5.0x)
-
-### 💥 Particle Effects
-- **Particle Emitters**: Configurable emission rate, lifetime, and spawning
-- **Visual Properties**: Size gradients, color gradients, velocity, and gravity
-- **Particle Shapes**: Circles, squares, and stars
-- **Built-in Presets**: Explosion, fire, smoke, sparkle, rain, and snow effects
-- **Custom Particles**: Create your own particle systems
-
-### ⚛️ Physics Engine
-- **Rigid Body Dynamics**: Semi-implicit Euler integration for reliable mass, drag, torque, and inertia simulation
-- **Advanced Collision Shapes**: Circles, Rectangles, and arbitrary complex Polygons via SAT calculation
-- **True Impulse Resolution**: Elastic collisions resolving linear constraints and Coulomb surface friction
-- **Broad-Phase Optimization**: Performant $O(n)$ Spatial Grid queries with Object Sleeping features
-- **Physics Caching**: Triangulation and expensive geometry processing can be reliably disk-cached
-- **Sensor Events**: ECS sensor overlap events (`SensorEnterEvent` / `SensorExitEvent`) for trigger gameplay
-
-### 🔦 Ray Casting & Tracing
-- **Ray**: 2D ray descriptor with origin, normalised direction, and max-distance; `Ray.fromPoints()` convenience constructor
-- **RaycastColliderComponent**: ECS component marking an entity as hittable — configurable `radius`, `tag`, `isBlocker`, `isReflective`, and `reflectivity`
-- **RaycastSystem**: Query-only ECS system — `castRay()` (closest hit), `castRayAll()` (all hits sorted nearest-first), and `hasLineOfSight()` for LOS checks
-- **RayTracer**: Multi-bounce ray tracing against reflective surfaces — configurable `maxBounces` and `minReflectivity`; returns a `RayTrace` containing every path segment
-
-### 🌳 Scene Graph
-- **Hierarchical Structure**: Parent-child node relationships
-- **Transform Propagation**: Automatic world-space transform calculation
-- **Scene Management**: Create, load, and manage multiple scenes
-- **Node Queries**: Find nodes by name or traverse the tree
-- **Attachable Renderables**: Link visual objects to scene nodes
-
-### 🗺️ Tiled Map Support (via `just_tiled`)
-- **TMX / TSX Parsing**: Full support for Tiled map editor files — orthogonal, isometric, staggered, and hexagonal orientations
-- **Tile Layers, Object Layers, Image Layers & Group Layers**: Complete layer hierarchy with custom properties
-- **GPU-Batched Rendering**: `TileMapRenderer` uses `Canvas.drawRawAtlas` to submit all tiles in a single draw call for maximum throughput
-- **Texture Atlas**: `TextureAtlas.fromTileMap()` builds a packed atlas from any loaded `TileMap`
-- **Animated Tiles**: Per-tile animation sequences driven by the engine game loop
-- **Spatial Hash Grid**: `SpatialHashGrid<T>` enables $O(1)$ AABB, point, and radius queries against map objects
-- **Encodings & Compression**: CSV, Base64, and XML tile data; GZIP, Zlib, and Zstandard compression (via `just_zstd`)
-
-### 🧩 Entity-Component System (ECS)
-- **Data-Oriented Architecture**: Composition over inheritance for flexible entity design
-- **Entity Management**: Create and destroy entities with generational IDs for use-after-destroy safety
-- **Component System**: 34+ built-in components (Transform, Velocity, Physics, Health, RaycastCollider, Shape, UI, Audio, Tiled, Effect, Shader, Parallax, Particle, etc.)
-- **System Processing**: 17+ built-in systems with standardized priorities for movement, rendering, physics, input, audio, ray casting, effects, post-processing, and more
-- **Query System**: Find entities by component types with selective cache invalidation and integer-based hashing
-- **World Management**: Centralized entity and system coordination with `LinkedHashSet` for $O(1)$ entity removal
-- **Command Buffer**: Deferred entity mutations via `world.commands` — safe to call from within system updates
-- **Event Bus**: Typed inter-system messaging via `world.events` — subscribe with `on<T>()`, dispatch with `fire()`
-- **Entity Prefabs**: Reusable entity blueprints via `EntityPrefab` — batch-spawn with `world.instantiate()`
-- **Hierarchy Support**: Parent-child entity relationships
-- **Reactive ECS** (`src/reactive/`): Signal-driven wrappers powered by `just_signals` — `ComponentSignal`, `EntitySignal`, `WorldSignal`, `ReactiveSystem`, and `ReactiveComponent` enable surgical UI updates without polling
-- **Built-in Components (34+)**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `SpriteComponent`, `PhysicsBodyComponent`, `PhysicsBodyRefComponent`, `RaycastColliderComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `JoystickInputComponent`, `AnimationStateComponent`, `AudioSourceComponent`, `AudioPlayComponent`, `TileMapLayerComponent`, `TiledObjectComponent`, `UIComponent`, `TextComponent`, `ButtonComponent`, `LinearProgressComponent`, `CircularProgressComponent`, `EffectComponent`, `ShaderComponent`, `ParallaxComponent`, `ParticleEmitterComponent`, `CameraFollowComponent`, `CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent`
-- **Built-in Systems (17+)**: `InputSystem` (100), `PhysicsSystem` (90), `PhysicsBridgeSystem` (89), `MovementSystem` (80), `AnimationSystemECS` (70), `EffectSystemECS` (65), `GameplaySystem` (60), `HierarchySystem` (50), `RenderSystem` (40), `PostProcessSystem` (35), `BoundarySystem` (30), `ParticleSystemECS`, `CameraFollowSystem`, `LifetimeSystem`, `HealthSystem`, `AudioSystem`, `RaycastSystem`, `TileMapRenderSystem`, `TiledCollisionSystem`
-
-### Shape Components
-
-- **Self-Rendering ECS Components**: Five components that extend `RenderableComponent` and draw themselves every frame - no additional system beyond `RenderSystem` required
-
-- **Unified Shape Styling**: All shape components now use engine-specific `ShapePaintStyle` (color + optional `ShapeGradient` + blend mode) so color and gradient are combined consistently
-
-- **`CircleComponent`**: Circle centered on the entity's transform. Properties: `radius`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`
-
-- **`RectangleComponent`**: Axis-aligned rectangle with optional rounded corners. Properties: `width`, `height`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`, `cornerRadius`. Convenience `size` getter
-
-- **`PolygonComponent`**: Convex or concave polygon defined by local-space `vertices` (`List<Offset>`). Properties: `vertices`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`
-
-- **`LineComponent`**: Straight line segment in local space. Properties: `start`, `end`, `strokeStyle`, `strokeWidth`, `roundCaps`. Convenience `length` getter
-
-- **`CapsuleComponent`**: Rectangle with semicircular end caps (orientation auto-flips based on aspect ratio). Properties: `width`, `height`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`. Computed `capRadius` getter
-
-```dart
-// Unified shape style = color tint + optional engine gradient.
-const linearStyle = ShapePaintStyle(
-  color: Color(0xFF9ED8FF),
-  gradient: ShapeGradient.linear(
-    colors: [Color(0xFF10293D), Color(0xFF2B8AC3)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  ),
-);
-
-const radialStyle = ShapePaintStyle(
-  color: Color(0xFFFFC483),
-  gradient: ShapeGradient.radial(
-    colors: [Color(0xFFFFFFFF), Color(0xFF6A3C00)],
-    radius: 0.9,
-  ),
-);
-
-const sweepStyle = ShapePaintStyle(
-  color: Color(0xFFFF7BE1),
-  gradient: ShapeGradient.sweep(
-    colors: [Color(0xFF3A0842), Color(0xFFAF31C8), Color(0xFF3A0842)],
-  ),
-);
-
-world.createEntityWithComponents([
-  TransformComponent(position: Vector3.fromXY(200, 120)),
-  CircleComponent(radius: 42, fillStyle: radialStyle, strokeStyle: sweepStyle),
-]);
-world.createEntityWithComponents([
-  TransformComponent(position: Vector3.fromXY(370, 120)),
-  RectangleComponent(width: 120, height: 72, fillStyle: linearStyle),
-]);
-world.createEntityWithComponents([
-  TransformComponent(position: Vector3.fromXY(520, 120)),
-  LineComponent(
-    start: const Offset(-60, 0),
-    end: const Offset(60, 0),
-    strokeStyle: linearStyle,
-    strokeWidth: 10,
-  ),
-]);
-```
-
-### Input Management
-- **Keyboard Input**: Key press, hold, and release detection with axis support
-- **Mouse Input**: Position tracking, button states, scroll wheel, and delta movement
-- **Touch Input**: Multi-touch support with pressure and size tracking
-- **Controller/Gamepad**: Analog sticks, triggers, buttons, and D-pad support
-- **Virtual Joystick**: Touch-based virtual joystick widget with `JoystickInputComponent` ECS integration
-- **Event System**: Callbacks for custom input handling
-- **Dead Zone**: Configurable dead zones for analog inputs
-- **ECS Bridge**: `InputSystem` automatically maps `InputManager` state to `InputComponent` and `JoystickInputComponent` each frame
-- **Integrated**: Automatic event capture through GameWidget with Focus and Listener
-
-### 🏆 Services & Economy
-- **Achievements**: `AchievementManager` with provider-based platform integration and ECS event hooks
-- **Authentication**: `AuthManager` for platform sign-in flows (for example Play Games/Game Center style providers)
-- **Leaderboards**: `LeaderboardManager` for score submission and provider-backed leaderboard UI bridging
-- **Currency**: `CurrencyManager` for wallet-like balances and economy events
-- **Inventory**: `InventoryManager` for stackable item/state tracking with ECS integration
-- **Ads**: `AdsManager` bridge for banner/interstitial/rewarded/app-open ad providers
-
-### 🧭 Gameplay Checkpoints
-- **CheckpointComponent**: Marks checkpoint entities and stores `Vector3` respawn positions
-- **CheckpointSystem**: Handles checkpoint activation and respawn flow via ECS events
-- **Checkpoint Events**: `CheckpointActivatedEvent` and `PlayerRespawnEvent` for gameplay orchestration
-
-### 📝 Subtitles
-- **SubtitleController**: Timeline-driven subtitle playback
-- **SubtitleTrack / SubtitleCue**: Structured subtitle data model for cue ranges and text
-- **SubtitleOverlay**: Ready-to-use Flutter widget for rendering timed subtitles
-
-### 🎵 Additional Systems
-- **Audio Engine**: Complete audio playback system with multi-channel mixing
-  - **Multi-Channel**: Master, Music, SFX, Voice, and Ambient channels with independent volume control
-  - **Sound Effects**: Unlimited concurrent SFX via SoLoud's native voice management with automatic cleanup
-  - **Music**: Background music with fade in/out effects and seamless looping
-  - **Audio Mixer**: Per-channel volume control, mute/unmute, and master volume
-  - **Integration**: Built on `just_audio_engine` for low-latency, game-grade audio
-
-- **Asset Management**: Efficient loading and caching of game resources
-  - **Image Assets**: Load PNG/JPG images with memory tracking
-  - **Audio Assets**: Load MP3/WAV/OGG/FLAC audio files as binary data
-  - **Text Assets**: Load plain text files from asset bundle
-  - **JSON Assets**: Load and parse JSON configuration files
-  - **Binary Assets**: Load raw binary data for custom formats
-  - **Caching**: Automatic asset caching with memory usage statistics
-  - **Asset Bundles**: Group multiple assets for batch loading/unloading
-
-- **Networking**: Multiplayer and server communication (Not Implemented Yet)
-
-### 🎬 Post-Processing
-- **Full-Screen Shader Passes**: `PostProcessPass` wraps the rendered scene in an offscreen layer and composites it through a custom `FragmentShader`
-- **Pass Ordering**: Multiple passes chained by `passOrder` — lower order is innermost (closest to scene), higher is outermost
-- **Per-Entity Shaders**: `ShaderComponent(isPostProcess: false)` wraps individual entities in a `canvas.saveLayer` with a custom shader
-- **ECS Integration**: `PostProcessSystem` (priority 35) bridges `ShaderComponent` entities to `RenderingEngine.addPostProcessPass` / `removePostProcessPass` each frame
-- **Time Uniform**: `RenderingEngine.elapsedSeconds` supplies a time value for animated shader effects via `setUniforms` callback
-
-### 🌅 Parallax Backgrounds
-- **Multi-Layer Scrolling**: `ParallaxBackground` composites any number of `ParallaxLayer` instances using configurable `scrollFactorX` / `scrollFactorY` per layer
-- **Auto-Scroll**: Layers scroll continuously via `velocityX` / `velocityY` independent of camera movement (great for drifting clouds or rivers)
-- **Tiling**: Each layer can repeat seamlessly to fill the viewport (`repeat: true`)
-- **Visual Controls**: Per-layer `scale`, `opacity`, `tint`, and `offset`
-- **ECS Integration**: `ParallaxComponent` attaches a `ParallaxBackground` to any entity; `RenderSystem` renders it automatically
-
-### 🗂 Sprite Atlas
-- **Multi-Format Parsing**: `AtlasParser` auto-detects TexturePacker JSON Array, JSON Hash, multi-page, and Aseprite export formats — no manual selection needed
-- **Named Regions**: Look up any frame by name via `atlas.createSprite('hero_idle_0')` for one-liner sprite creation
-- **Animation Clips**: Define and register named `AtlasAnimationClip` objects; drive a `Sprite` through variable-duration frames via `AtlasSpriteAnimation`
-- **Draw-Call Reduction**: All sprites from the same atlas share a single GPU texture — combine with `SpriteBatch` for maximum throughput
-- **Quick Start**: `SpriteAtlas.fromAsset('assets/heroes.json')` loads and caches the atlas through `AssetManager`
-
-### ✨ Deterministic Effects
-- **Multiplayer-Ready**: 11 tick-based effects (`MoveEffect`, `ScaleEffect`, `RotateEffect`, `FadeEffect`, `ColorTintEffect`, `SequenceEffect`, `ParallelEffect`, `DelayEffect`, `RepeatEffect`, `ShakeEffect`, `PathEffect`) reproduce identically from integer ticks alone
-- **Pure-Delta Contract**: `applyTick(ctx, prevElapsed, currElapsed)` is additive — two effects on the same entity stack correctly; fast-forward via `applyTick(ctx, 0, N)` for late-join reconnect
-- **Serialization**: `EffectSerializer` (JSON factory registry) and `EffectBinaryCodec` (little-endian v1 wire format) enable snapshot send over the network
-- **ECS Integration**: `EffectSystemECS` (priority 65) manages per-entity `EffectPlayer` queues; schedule effects via `effectSystem.scheduleEffect(entity: e, effect: ...)`)
-- **Rollback Support**: `EffectSnapshot` captures mid-flight effect state; `PredictionEffectRuntime` documents the rollback API contract
-
-### 🌍 Localization
-- **Engine-Wide i18n**: `LocalizationManager` serves string lookups to all subsystems including Narrative/Dialogue
-- **Namespaces**: Organize strings by domain (`ns: 'ui'`, `ns: 'game'`) — load separate JSON files per namespace and locale
-- **Fallback Chain**: For locale `fr_CA`, lookups cascade `fr_CA → fr → en` (configurable `fallbackLocale`) before returning the raw key
-- **ICU-lite Templating**: `StringInterpolator` resolves `{var}` substitutions, `{count, plural, =0{…} =1{…} other{…}}` plurals, and `{gender, select, …}` selects
-- **Signal-Driven**: `LocalizationManager.localeSignal` (a `Signal<Locale>`) lets widgets rebuild only when the locale changes
-- **Flutter Widgets**: `LocalizationScope`, `LocalizationBuilder`, `LocalizedText`, `LocaleSelector`, and `L10nContext` extension for `BuildContext`
-
-### 💬 Narrative / Dialogue
-- **Yarn Spinner 2.x**: Full parser and runtime for `.yarn` script files — linear dialogue, branching choices, hub-and-spoke, and cutscene patterns
-- **Condition & Command Registries**: Register Dart callbacks for `<<if>>` conditions and `<<command>>` blocks at runtime
-- **Expression Evaluator**: Handles variables, comparisons, and arithmetic in Yarn if-conditions
-- **Localization Bridge**: `DialogueLocalizer` delegates all storage and signal handling to `LocalizationManager` under namespace `'dialogue'`
-- **ECS Integration**: `DialogueComponent` + `TriggerComponent` + `DialogueSystem` let entities own and trigger scripted dialogue
-- **UI Widgets**: `DialogueBoxWidget` and `DialogueChoicesWidget` for ready-made in-game dialogue UI; fully composable
-
-### 🧮 Math Module
-- **Vec2**: Mutable 2D vector type for zero-allocation hot-path physics — in-place `add()`, `sub()`, `addScaled()`, `scale()`, `setZero()`, and `Offset` interop
-- **Quadtree**: Spatial indexing for viewport culling with configurable `maxItems` and `maxDepth`
-
-### 🗄️ Memory Management
-- **Object Pool**: Generic `ObjectPool<T>` with configurable `maxSize`, `acquire()`/`release()` lifecycle, and `totalAcquired`/`peakAvailable` statistics
-- **Cache Manager**: Multi-tier caching via `just_storage` (key-value) and `just_database` (binary) with LRU eviction, SQL-safe key validation, and configurable `maxBinaryEntries`
-
-## Just Game Engine vs. Flame Engine
-
-Both engines are strong options for Flutter game development, but they optimize for different workflows. Just Game Engine emphasizes explicit ECS/data-oriented control and a fixed-timestep simulation core, while Flame emphasizes a component-tree workflow and a broad ecosystem.
-
-| Feature | Just Game Engine | Flame Engine |
-| :--- | :--- | :--- |
-| **Architecture** | ECS-first with scene graph support and explicit system ordering; includes a reactive ECS layer (`just_signals`). | Flame Component System (component tree + lifecycle) with optional ECS-style integrations via ecosystem packages. |
-| **Game Loop** | Built-in fixed-timestep simulation with accumulator clamping and interpolation support. | Default game loop updates with frame delta (`dt`); fixed-step behavior is typically implemented at game/app level when needed. |
-| **Physics** | Built-in impulse-based 2D physics (SAT, broad-phase spatial grid, sleeping, ray queries). | Core includes collision systems; full rigid-body physics is commonly done with `flame_forge2d` (Forge2D/Box2D lineage). |
-| **Performance Model** | Predictable simulation cadence from fixed updates; optimized for low-allocation hot paths and spatial partitioning. | Strong production performance; behavior depends on component counts, effect usage, and whether Forge2D/extra modules are in play. |
-| **Input Handling** | Unified input manager with polling APIs (`isKeyDown`, mouse/touch/controller state) integrated each update tick. | Primarily callback/mixin-driven input APIs; can also track state depending on architecture. |
-| **Ecosystem** | Focused engine package with sibling packages (`just_tiled`, `just_signals`, etc.) for targeted expansion. | Large, mature ecosystem (audio, tiled, physics, svg, spine, rive, and more) with extensive examples/community resources. |
-| **Learning Curve** | Great for developers who want direct control and clear data flow through systems. | Great for developers who want fast iteration with established patterns, docs, and community support. |
-
-## Getting Started
-
-### Prerequisites
-
-- Flutter SDK 3.11.0 or higher
-- Dart 3.11.0 or higher
-
-### Installation
-
-Add this to your package's `pubspec.yaml` file:
+## Install
 
 ```yaml
 dependencies:
-  just_game_engine: ^1.6.1
+  just_game_engine: ^2.0.0
 ```
 
-Then run:
+Needs Flutter 3.47.1 or newer (Dart 3.12).
 
-```bash
-flutter pub get
+## Quick start
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:just_game_engine/just_game_engine.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // The engine, with its standard systems (see "Default systems").
+  final engine = Engine(
+    config: const EngineConfig(defaultSystems: DefaultSystems.all),
+  );
+  await engine.initialize();
+
+  // A floor and a ball that falls onto it. y points down, and (0, 0) is
+  // the middle of the screen until a virtual camera takes over.
+  engine.world
+    ..createEntityWithComponents([
+      TransformComponent(position: Vector3(0, 200, 0)),
+      RectangleComponent(width: 600, height: 24),
+      // A collider alone is a static body; this one is the drawn rectangle.
+      Collider2D(shape: ColliderShape2D.matchShape),
+    ], name: 'Floor')
+    ..createEntityWithComponents([
+      TransformComponent(position: Vector3(0, -150, 0)),
+      CircleComponent(radius: 24),
+      RigidBody2D(),
+      Collider2D(shape: ColliderShape2D.matchShape),
+    ], name: 'Ball');
+
+  engine.start();
+  runApp(MaterialApp(home: GameWidget(engine: engine)));
+}
 ```
 
-## Architecture
+- `Engine()` makes a new engine each time. `initialize()` builds its subsystems and world; finish it before using the engine. If a stage fails, it undoes what it built and throws an `EngineInitException`.
+- `engine.start()` starts the game loop. `GameWidget` runs it on Flutter's frame ticker, draws the world, and passes keys and pointers to `engine.input`.
+- When you are done, `await engine.dispose()`. Disposal is final: to start over, make a new `Engine()`.
 
-```
-Just Game Engine
-├── Core Engine
-│   ├── Engine (Main orchestrator + performanceStats)
-│   ├── GameLoop (Fixed timestep loop)
-│   ├── TimeManager (Delta time tracking)
-│   ├── SystemManager (Subsystem coordination + frame scheduler)
-│   └── GameTerminal (In-game command terminal)
-├── Math Module
-│   ├── Vec2 (Mutable 2D vector for hot-path code)
-│   └── Quadtree (Spatial indexing for culling; cached bounds)
-├── Memory Management
-│   ├── ObjectPool (GC-friendly object recycling)
-│   └── CacheManager (LRU binary caching via just_storage/just_database; memory fallback)
-├── Rendering Engine
-│   ├── RenderingEngine (Canvas rendering + post-process pass stack)
-│   ├── Camera / CameraSystem (View transformation)
-│   ├── Renderable (Base class)
-│   ├── SpriteBatch (Canvas.drawAtlas batching)
-│   └── GameWidget (Flutter integration)
-├── Post-Processing
-│   ├── PostProcessPass (Full-screen FragmentShader pass)
-│   └── PostProcessSystem (ECS bridge; priority 35)
-├── Sprite System
-│   ├── Sprite (Image rendering)
-│   ├── SpriteSheet (Texture atlas frames)
-│   └── NineSliceSprite (Scalable UI)
-├── Sprite Atlas
-│   ├── SpriteAtlas (Named-region lookup + animation clips)
-│   ├── AtlasParser (Auto-detect TexturePacker / Aseprite formats)
-│   └── AtlasSpriteAnimation (Variable-duration frame animation)
-├── Parallax Backgrounds
-│   ├── ParallaxBackground (Multi-layer compositor)
-│   └── ParallaxLayer (Per-layer scroll factor + auto-scroll velocity)
-├── Animation System
-│   ├── Animation (Base class)
-│   ├── SpriteAnimation (Frame-based)
-│   ├── TweenAnimation (Property lerp)
-│   └── Easings (Curve functions)
-├── Deterministic Effects
-│   ├── DeterministicEffect (Abstract tick-based base)
-│   ├── Effect types (Move, Scale, Rotate, Fade, ColorTint, Sequence, Parallel, Delay, Repeat, Shake, Path)
-│   ├── EffectSystemECS (priority 65)
-│   ├── EffectSerializer + EffectBinaryCodec (network wire format)
-│   └── EffectSnapshot + PredictionEffectRuntime (rollback support)
-├── Particle Effects
-│   ├── ParticleEmitter (Emission control)
-│   ├── Particle (Individual particle)
-│   └── ParticleEffects (Presets)
-├── Physics Engine
-│   ├── PhysicsEngine (Vec2-based simulation)
-│   ├── PhysicsBody (Rigid body with Vec2 internals)
-│   ├── CollisionEvent (Typed physics event)
-│   └── SensorEnterEvent / SensorExitEvent (Trigger overlap events)
-├── Ray Casting & Tracing
-│   ├── Ray (Origin + direction descriptor)
-│   ├── RaycastColliderComponent (ECS hittable marker)
-│   ├── RaycastSystem (castRay / castRayAll / hasLineOfSight)
-│   ├── RaycastHit (Intersection result)
-│   └── RayTracer / RayTrace (Multi-bounce reflection)
-├── Tiled Map Support (just_tiled)
-│   ├── TileMapParser (async TMX/TSX parser)
-│   ├── TileMapRenderer (GPU-batched Canvas.drawRawAtlas)
-│   ├── TextureAtlas (Packed atlas builder)
-│   ├── SpatialHashGrid (O(1) spatial queries)
-│   └── TileMap / Layer / MapObject (Data model)
-├── Scene Graph
-│   ├── SceneEditor (Scene management)
-│   ├── Scene (Node container)
-│   └── SceneNode (Transform hierarchy)
-├── Entity-Component System
-│   ├── World (Entity management + CommandBuffer + EventBus)
-│   ├── Entity (Generational IDs, component container)
-│   ├── Component (Data storage + lifecycle callbacks)
-│   ├── System (Priority-ordered processing logic)
-│   ├── EntityPrefab (Reusable entity blueprints)
-│   ├── Built-in Components (34+):
-│   │   ├── TransformComponent, VelocityComponent
-│   │   ├── RenderableComponent, SpriteComponent
-│   │   ├── ShaderComponent, ParallaxComponent, ParticleEmitterComponent
-│   │   ├── PhysicsBodyComponent, PhysicsBodyRefComponent
-│   │   ├── HealthComponent, LifetimeComponent, TagComponent
-│   │   ├── ParentComponent, ChildrenComponent
-│   │   ├── InputComponent, JoystickInputComponent, CameraFollowComponent
-│   │   ├── AnimationStateComponent, RaycastColliderComponent
-│   │   ├── AudioSourceComponent, AudioPlayComponent
-│   │   ├── TileMapLayerComponent, TiledObjectComponent
-│   │   ├── EffectComponent
-│   │   ├── CheckpointComponent
-│   │   ├── CircleComponent, RectangleComponent, PolygonComponent
-│   │   ├── LineComponent, CapsuleComponent
-│   │   └── UIComponent, TextComponent, ButtonComponent,
-│   │     LinearProgressComponent, CircularProgressComponent
-│   └── Built-in Systems (17+):
-│       ├── InputSystem (priority 100)
-│       ├── PhysicsSystem (priority 90)
-│       ├── PhysicsBridgeSystem (priority 89)
-│       ├── MovementSystem (priority 80)
-│       ├── AnimationSystemECS (priority 70)
-│       ├── EffectSystemECS (priority 65)
-│       ├── HealthSystem (priority 60)
-│       ├── CheckpointSystem (priority 58)
-│       ├── HierarchySystem (priority 50)
-│       ├── RenderSystem (priority 40)
-│       ├── PostProcessSystem (priority 35)
-│       ├── BoundarySystem (priority 30)
-│       ├── ParticleSystemECS, CameraFollowSystem
-│       ├── AudioSystem, RaycastSystem, LifetimeSystem
-│       └── TileMapRenderSystem, TiledCollisionSystem
-├── Reactive ECS
-│   ├── ComponentSignal (Typed property signal)
-│   ├── EntitySignal (Entity-level change tracking)
-│   ├── WorldSignal (Global world state signals)
-│   ├── ReactiveSystem (Dirty-only entity processing)
-│   └── ReactiveComponent (Mixin with notifyChange)
-├── Input Management
-│   ├── InputManager (Main coordinator)
-│   ├── KeyboardInput (Key states)
-│   ├── MouseInput (Position, buttons, scroll)
-│   ├── TouchInput (Multi-touch)
-│   ├── ControllerInput (Gamepad support)
-│   └── VirtualJoystick (Touch joystick widget)
-├── Asset Management
-│   ├── AssetManager (Loading & caching)
-│   ├── ImageAsset (PNG/JPG)
-│   ├── AudioAsset (MP3/WAV/OGG/FLAC)
-│   ├── TextAsset (Plain text)
-│   ├── JsonAsset (JSON config)
-│   ├── BinaryAsset (Raw data)
-│   └── AssetBundle (Grouped loading)
-├── Audio Engine
-│   ├── AudioEngine (Multi-channel mixer)
-│   ├── AudioClip (Playback control)
-│   ├── SoundEffectManager (SFX)
-│   ├── MusicManager (Background music)
-│   └── AudioMixer (Volume control)
-├── Localization
-│   ├── LocalizationManager (Namespace + fallback chain + plurals)
-│   ├── LocaleStringTable (Per-locale flat string map)
-│   ├── StringInterpolator ({var}, plural, select templates)
-│   └── Flutter Widgets (LocalizationScope, LocalizedText, LocaleSelector)
-├── Services & Economy
-│   ├── AchievementManager (Achievement tracking + provider bridge)
-│   ├── AuthManager (Platform sign-in orchestration)
-│   ├── LeaderboardManager (Score submission + provider bridge)
-│   ├── CurrencyManager (Wallet/economy state)
-│   └── InventoryManager (Item ownership and quantities)
-├── Subtitle
-│   ├── SubtitleController (Cue timeline playback)
-│   ├── SubtitleTrack / SubtitleCue (Subtitle data model)
-│   └── SubtitleOverlay (Flutter subtitle rendering widget)
-├── Narrative / Dialogue
-│   ├── DialogueManager (Yarn Spinner facade)
-│   ├── YarnTokenizer + YarnParser (Yarn Spinner 2.x)
-│   ├── DialogueRunner (Condition + command registries)
-│   ├── DialogueLocalizer (delegates to LocalizationManager)
-│   ├── ECS (DialogueComponent, TriggerComponent, DialogueSystem)
-│   └── UI (DialogueBoxWidget, DialogueChoicesWidget)
-└── Additional Systems
-  ├── AdsManager (Provider bridge for banner/interstitial/rewarded/app-open)
-  └── Networking (Not Implemented)
+[example/example.dart](example/example.dart) goes further: a level from scene JSON, input actions, a virtual camera and a system of the game's own.
+
+## Loading a level
+
+Levels are scene files: `assets/scenes/<name>.scene.json`, listed in play order in `assets/scenes/scenes.json`. Declare the folder under `assets:` in your `pubspec.yaml`.
+
+```dart
+Future<void> loadFirstLevel(Engine engine) async {
+  final world = engine.world;
+  final names = await SceneLoader.loadManifest(); // assets/scenes/scenes.json
+  await SceneLoader.loadAsset(world, SceneAssets.pathFor(names.first));
+  // Load the level's maps and tilesets before the first frame, so nothing
+  // falls through ground whose collision is still loading.
+  await LevelMaps.preload(world);
+}
 ```
 
-## ESP Architecture (Recommended App Structure)
+- A component in a scene is read through its `ComponentDefinition` in `engine.context`. The engine's own components are always known. A package's components are known once its `ContextExtension` is listed in `EngineConfig(extensions: [...])`. An unknown component type stops the load with an `UnknownComponentTypeException` naming the type and the entity.
+- The current scene format is 9 (`SceneFormat.current`). Older files are migrated in memory as they load (`onMigrated` reports what changed); a file from a newer engine throws `UnsupportedFormatVersionException`.
+- `SceneLoader.loadString` and `SceneLoader.load` take JSON text or a decoded map.
 
-**E**ngine · **S**ignal · **P**resentation — a three-layer pattern for structuring an app on top of Just Game Engine, built entirely from pieces the engine already ships (`EventBus`, the Reactive ECS's `Signal`/`ComponentSignal`, `just_signals`' `SignalBuilder`). See **[ESP_ARCHITECTURE.md](ESP_ARCHITECTURE.md)** for the full write-up: the layer diagram, pros/cons with mitigations, and pattern-specific performance tips.
+## Default systems
 
-## Performance Tips
+`EngineConfig.defaultSystems` is empty unless you set it, so a world starts with no systems. Each `DefaultSystem` adds:
 
-1. **Use Object Pooling**: Reuse particles and projectiles instead of creating new ones
-2. **Limit Renderables**: Only render what's visible on screen
-3. **Batch Rendering**: Group similar draw calls together
-4. **Profile Regularly**: Use Flutter DevTools to identify bottlenecks
-5. **Optimize Collision Detection**: Use spatial partitioning for many objects
-6. **Cache Calculations**: Store frequently used values like cos/sin results
+| `DefaultSystem` | Systems |
+|---|---|
+| `input` | `InputSystem` (the `player` map's actions onto each `InputComponent`) |
+| `physics` | `PhysicsSystem` |
+| `movement` | `MovementSystem` |
+| `audio` | `AudioSystem` |
+| `rendering` | `RenderSystem`, `ParallaxRenderSystem` |
+| `sprites` | `SpriteLoadSystem`, `AnimatorSystem`, `SpriteAnimationSystem`, `TimelineTriggerSystem`, `TimelineSystem` |
+| `levelMaps` | `LevelMapSystem` |
+| `mapCollision` | `MapCollisionSystem` |
+| `cameras` | `CameraTargetGroupSystem`, `CameraTriggerSystem`, `CameraBrainSystem` |
 
-## Examples
+`DefaultSystems.all` is every one; `DefaultSystems.headless` leaves out `rendering` and `audio` (for a server, a simulation or a test). `registerDefaultSystems(world, engine, include: ...)` adds them to any world and skips systems it already has, so a game can add its own configured instance first.
 
-- Check out this page for all the examples showcase. (https://examples.engine.justunknown.com)
-- Check out this repo for all the examples codes. (https://github.com/just-unknown-dev/just-game-engine-examples)
+Add these yourself when you use them: `ParticleSystemECS`, `EffectSystemECS`, `PostProcessSystem`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `RaycastSystem`, `DialogueSystem`, `PhysicsJointBindingSystem`, `ViewCullingSystem`. Systems run in priority order (`SystemPriorities`), not in the order they were added.
 
+## Features
 
-## API Reference
+### World and scenes
 
-### Core Classes
+- `World`, `Entity`, `Component`, `System`, with archetype storage and cached queries (`world.query`). `world.events` is a typed `EventBus`; `world.commands` defers changes made during an update; `EntityPrefab` and `world.instantiate` stamp out copies.
+- Parents and children with a live transform hierarchy: a `ParentComponent` hangs an entity under another, and the world keeps the parent's `ChildrenComponent` in step. `TransformComponent.position` and `scale` are `Vector3`; `angle` is the 2-D turn.
+- A `ComponentDefinition` describes a component's fields once, for saving, loading and editor inspectors. Each engine keeps its definitions, loaders and registries in its `EngineContext` (`engine.context`).
+- Signal-based views of the ECS, on `just_signals`: `ComponentSignal`, `EntitySignal`, `WorldSignal`, `ReactiveSystem`.
 
-- `Engine` - Main engine singleton
-- `GameLoop` - Game loop with fixed timestep
-- `TimeManager` - Time tracking and delta time
-- `GameTerminal` - In-game command terminal for debug/admin commands
+### Level maps
 
-### Rendering Classes
+- `LevelMapComponent`: a map of tile layers at its entity's position, saved in the scene, in its own `.map.json`, or read from a Tiled `.tmx` / `.tmj`. `TiledInterop` imports and exports Tiled maps and tilesets.
+- Orthogonal, isometric, staggered and hexagonal maps (`MapGeometry`); animated, flipped and rotated tiles; layers that sort among the level's sprites, with parallax, tint and opacity.
+- Collision from the tiles' shapes (`MapCollisionSystem`), with `solid` and `oneWay` built in and a game's own kinds in `MapCollisionKinds`.
+- Entities on a map layer (`LayerComponent.mapLayer`) draw between that layer's tiles and the next layer's.
+- Change tiles while the game runs: `LevelMaps.of(world, entity)` returns a `LevelMapHandle` (`setTile`, `setTerrain`); collision follows.
+- Terrain painting with Wang sets (`WangFiller`), and a built-in tileset of basic shapes (`BuiltInTilesets.basicShapes`) to block out a level before there is art.
 
-- `RenderingEngine` - 2D rendering system
-- `Camera` - Camera transformation and controls
-- `Renderable` - Base class for all renderables
-- `CircleRenderable`, `RectangleRenderable`, `LineRenderable`, `TextRenderable`, `CustomRenderable`
+### Sprites and animation
 
-### Animation Classes
+- `SpriteComponent` for one image; `SpriteAnimationComponent` plays clips from an atlas; `AnimatorComponent` runs an `AnimatorGraph`, a state machine over clips driven by parameters.
+- Atlases from TexturePacker (JSON array or hash, multi-page) and Aseprite (`SpriteAtlas`, `AtlasParser`); `SpriteBatch` draws many sprites of one atlas in one call.
+- Shapes that draw themselves: `RectangleComponent`, `CircleComponent`, `CapsuleComponent`, `PolygonComponent`, `LineComponent`, styled with `ShapePaintStyle` and `ShapeGradient`.
 
-- `Animation` - Base animation class
-- `SpriteAnimation` - Frame-based sprite animation
-- `PositionTween`, `RotationTween`, `ScaleTween`, `OpacityTween`, `ColorTween`
-- `AnimationSequence` - Sequential animations
-- `AnimationGroup` - Parallel animations
-- `Easings` - Easing function library
+### Timelines
 
-### Particle Classes
+- A `TimelineAsset` animates any saved component field with keyframes and curves, and plays sprite clips, camera shots, audio, activation, nested timelines and events.
+- Play one with `TimelinePlayerComponent`; start one when something enters an area with `TimelineTriggerComponent`.
 
-- `ParticleEmitter` - Particle emission controller
-- `Particle` - Individual particle instance
-- `ParticleEffects` - Built-in effect presets
+### Cameras
 
-### Physics Classes
+- A shot is an entity with a `VirtualCameraComponent`. The camera brain shows the enabled one with the highest priority and blends between shots.
+- Components on the same entity shape the shot: framing with dead and soft zones (`CameraFramingComponent`), confining to bounds, noise, impulses, target groups, trigger areas, a dolly path, and state-driven, blend-list and mixer cameras.
+- With no virtual camera in the world, `engine.cameraSystem.mainCamera` is yours to move.
 
-- `PhysicsEngine` - Physics simulation
-- `PhysicsBody` - Rigid body with collision
-- `CollisionEvent` - Physics collision event published on the ECS event bus
-- `SensorEnterEvent` / `SensorExitEvent` - Sensor overlap events for trigger zones
+```dart
+void addCameras(Engine engine) {
+  final world = engine.world;
+  world.createEntityWithComponents([
+    TransformComponent(),
+    VirtualCameraComponent(follow: const EntityTarget.tag('player')),
+    CameraFramingComponent(deadZoneWidth: 0.1, lookaheadTime: 0.25),
+    CameraImpulseListenerComponent(),
+  ], name: 'MainCamera');
 
-### Ray Casting & Tracing Classes
+  // Blend shots over 0.6 s, and shake the cameras that listen for impulses.
+  engine.cameraSystem.brain
+    ..defaultBlend = const CameraBlend(duration: 0.6)
+    ..emitImpulse(CameraImpulse(position: Offset.zero, amplitude: 24));
+}
+```
 
-- `Ray` - 2D ray descriptor (origin, direction, maxDistance)
-- `RaycastColliderComponent` - ECS component marking an entity as hittable
-- `RaycastHit` - Intersection result (entity, point, distance, normal)
-- `RaycastSystem` - On-demand query system (`castRay`, `castRayAll`, `hasLineOfSight`)
-- `RayTracer` / `RayTrace` / `RayTraceSegment` - Multi-bounce reflective ray tracing
-- `RayRenderable` - Glowing beam/laser visual with configurable fade lifetime
+### Physics
 
-### Tiled Map Classes (via `just_tiled`)
-
-- `TileMapParser` - Async parser for `.tmx` / `.tsx` files (CSV, Base64, XML; GZIP, Zlib, Zstd)
-- `TileMap` - Parsed map data model with layers, tilesets, and properties
-- `TileLayer`, `ObjectLayer`, `ImageLayer`, `GroupLayer` - Layer hierarchy
-- `TileMapRenderer` - GPU-batched renderer using `Canvas.drawRawAtlas`
-- `TextureAtlas` - Packed texture atlas built from a `TileMap`
-- `SpatialHashGrid<T>` - Generic $O(1)$ spatial hash for AABB, point, and radius queries
-- `MapObject` - Tiled object with geometry, type, and custom properties
-
-### Scene Classes
-
-- `SceneEditor` - Scene management
-- `Scene` - Scene container
-- `SceneNode` - Hierarchical transform node
-
-### ECS Classes
-
-- `World` - Entity and system manager
-- `Entity` - Component container with unique ID
-- `Component` - Base class for data components
-- `System` - Base class for processing systems
-- **Built-in Components (34+)**: `TransformComponent`, `VelocityComponent`, `RenderableComponent`, `SpriteComponent`, `ShaderComponent`, `ParallaxComponent`, `ParticleEmitterComponent`, `PhysicsBodyComponent`, `PhysicsBodyRefComponent`, `RaycastColliderComponent`, `HealthComponent`, `LifetimeComponent`, `TagComponent`, `ParentComponent`, `ChildrenComponent`, `InputComponent`, `JoystickInputComponent`, `CameraFollowComponent`, `AnimationStateComponent`, `AudioSourceComponent`, `AudioPlayComponent`, `TileMapLayerComponent`, `TiledObjectComponent`, `EffectComponent`, `CheckpointComponent`, `UIComponent`, `TextComponent`, `ButtonComponent`, `LinearProgressComponent`, `CircularProgressComponent`, `CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent`
-- **Built-in Systems (17+)**: `InputSystem`, `PhysicsSystem`, `PhysicsBridgeSystem`, `MovementSystem`, `AnimationSystemECS`, `EffectSystemECS`, `HealthSystem`, `CheckpointSystem`, `HierarchySystem`, `RenderSystem`, `PostProcessSystem`, `BoundarySystem`, `ParticleSystemECS`, `CameraFollowSystem`, `RaycastSystem`, `LifetimeSystem`, `AudioSystem`, `TileMapRenderSystem`, `TiledCollisionSystem`
-
-### Gameplay / Checkpoint Classes
-
-- `CheckpointComponent` - ECS marker/config component for checkpoint entities and respawn positions
-- `CheckpointSystem` - ECS gameplay system for checkpoint activation and respawn management
-- `CheckpointActivatedEvent` - Event fired when a checkpoint is activated
-- `PlayerRespawnEvent` - Event fired when respawn is requested/applied
-
-### Shape Component Classes
-
-- `ShapePaintStyle` — Unified shape paint config that combines `color` tint and optional engine-specific `ShapeGradient` with a `blendMode`
-- `ShapeGradient` — Engine-specific gradient descriptor with `ShapeGradient.linear`, `ShapeGradient.radial`, and `ShapeGradient.sweep`
-- `CircleComponent` — Circle centered on the entity's transform; extends `RenderableComponent`. Properties: `radius`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`
-- `RectangleComponent` — Axis-aligned rectangle with optional rounded corners; extends `RenderableComponent`. Properties: `width`, `height`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`, `cornerRadius`. `size` getter returns a `Size`
-- `PolygonComponent` — Convex or concave polygon from local-space `vertices`; extends `RenderableComponent`. Properties: `vertices`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`
-- `LineComponent` — Straight line segment in local space; extends `RenderableComponent`. Properties: `start`, `end`, `strokeStyle`, `strokeWidth`, `roundCaps`. `length` getter for segment distance
-- `CapsuleComponent` — Rectangle with semicircular end caps (orientation flips by aspect ratio); extends `RenderableComponent`. Properties: `width`, `height`, `fillStyle`, `strokeStyle`, `filled`, `strokeWidth`. `capRadius` getter (half the shorter side)
-
-### Input Classes
-
-- `InputManager` - Main input coordinator with keyboard, mouse, touch, and controller access
-- `KeyboardInput` - Key press/hold/release detection with axis support
-- `MouseInput` - Mouse position, buttons, scroll, and delta tracking
-- `TouchInput` - Multi-touch support with touch points
-- `ControllerInput` - Gamepad analog sticks, triggers, and buttons
-- `MouseButton` - Mouse button constants (left, right, middle)
-- `GamepadButton` - Gamepad button constants (A, B, X, Y, etc.)
-- `GamepadAxis` - Gamepad axis identifiers (left stick, right stick, triggers)
-
-### Asset Management Classes
-
-- `AssetManager` - Asset loading and caching coordinator
-- `Asset` - Base class for all asset types
-- `ImageAsset` - Image asset loader (PNG/JPG)
-- `AudioAsset` - Audio asset loader (MP3/WAV/OGG/FLAC)
-- `TextAsset` - Plain text file loader
-- `JsonAsset` - JSON configuration file loader
-- `BinaryAsset` - Raw binary data loader
-- `AssetBundle` - Grouped asset loading/unloading
-
-### Audio Engine Classes
-
-- `AudioEngine` - Multi-channel audio playback coordinator
-- `AudioClip` - Individual audio source controller
-- `SoundEffectManager` - Sound effect playback wrapper
-- `MusicManager` - Background music control with fade effects
-- `AudioMixer` - Volume and mute control interface
-- `AudioChannel` - Audio channel enum (master, music, sfx, voice, ambient)
-- `AudioState` - Playback state enum (stopped, playing, paused)
-
-### Services & Economy Classes
-
-- `AchievementManager` - Achievement tracking and provider orchestration
-- `AuthManager` - Authentication lifecycle and provider bridge
-- `LeaderboardManager` - Leaderboard score submission and provider bridge
-- `CurrencyManager` - Currency balances and economy event helpers
-- `InventoryManager` - Inventory state and item quantity management
-
-### Ads Classes
-
-- `AdsManager` - Ads facade for provider registration, consent, and ad lifecycles
-
-### Subtitle Classes
-
-- `SubtitleController` - Controls subtitle playback over time
-- `SubtitleTrack` - Ordered subtitle cue collection
-- `SubtitleCue` - Single subtitle cue with start/end timing and text
-- `SubtitleOverlay` - Flutter widget for on-screen subtitle display
-
-### Post-Processing Classes
-
-- `PostProcessPass` - Full-screen `FragmentShader` pass with `passOrder` and `setUniforms` callback
-- `ShaderComponent` - ECS component for per-entity or post-process shaders
-- `PostProcessSystem` - ECS system bridging `ShaderComponent` entities to `RenderingEngine` (priority 35)
-
-### Parallax Classes
-
-- `ParallaxBackground` - Multi-layer parallax compositor
-- `ParallaxLayer` - Single layer with `scrollFactorX/Y`, `velocityX/Y`, `repeat`, `opacity`, `tint`
-- `ParallaxComponent` - ECS component attaching a `ParallaxBackground` to an entity
-
-### Sprite Atlas Classes
-
-- `SpriteAtlas` - Named-region lookup, clip registration, and sprite/animation creation
-- `AtlasParser` - Auto-detecting parser for TexturePacker JSON Array, JSON Hash, multi-page, and Aseprite formats
-- `AtlasAnimationClip` - Named clip with a list of `AtlasFrame` entries (region name + duration)
-- `AtlasSpriteAnimation` - Frame-by-frame animation that drives a `Sprite` through an `AtlasAnimationClip`
-
-### Deterministic Effects Classes
-
-- `DeterministicEffect` - Abstract base; all effects implement `applyTick(ctx, prevElapsed, currElapsed)`
-- Effect types: `MoveEffect`, `ScaleEffect`, `RotateEffect`, `FadeEffect`, `ColorTintEffect`, `SequenceEffect`, `ParallelEffect`, `DelayEffect`, `RepeatEffect`, `ShakeEffect`, `PathEffect`
-- `EffectComponent` - ECS component storing an entity's `EffectPlayer` queue
-- `EffectSystemECS` - Advances all in-flight effects each tick (priority 65)
-- `EffectSerializer` - JSON factory registry for serializing/deserializing effects
-- `EffectBinaryCodec` - Little-endian v1 binary wire format
-- `EffectSnapshot` - Mid-flight state capture for lock-step or rollback
-
-### Localization Classes
-
-- `LocalizationManager` - Central i18n service with namespace support, fallback chain, and `localeSignal`
-- `LocaleStringTable` - Immutable per-locale flat string map with nested JSON flattening
-- `StringInterpolator` - ICU-lite template engine: `{var}`, `{plural}`, `{select}`
-- `LocalizationScope` - `InheritedWidget` exposing `LocalizationManager` to the widget tree
-- `LocalizationBuilder` - Rebuilds on locale change; exposes `t()` helper
-- `LocalizedText` - Drop-in `Text` replacement that resolves keys via `LocalizationManager`
-- `LocaleSelector` - Ready-made locale-switching UI widget
-
-### Narrative / Dialogue Classes
-
-- `DialogueManager` - High-level facade for loading and running `.yarn` scripts
-- `YarnTokenizer` / `YarnParser` - Full Yarn Spinner 2.x parser
-- `DialogueRunner` - Executes a parsed dialogue graph; exposes condition and command registries
-- `DialogueGraph` / `DialogueNode` - Parsed script data model
-- `DialogueLocalizer` - Bridges dialogue string keys to `LocalizationManager`
-- `DialogueComponent` / `TriggerComponent` - ECS components for in-world dialogue ownership
-- `DialogueSystem` - ECS system processing trigger conditions each frame
-- `DialogueBoxWidget` / `DialogueChoicesWidget` - Ready-made Flutter UI widgets for in-game dialogue
+- The same model as 3-D (`package:just_game_engine/physics_3d.dart`), with a `2D` suffix: `RigidBody2D` is how a body moves (static, kinematic or dynamic; mass, friction, bounce, damping, gravity scale, sensor, layer and filter) and `Collider2D` its shape (box, circle, capsule, polygon, segment, chain, or *match shape*: whatever the entity draws; offset, rotation, one-way). A collider alone is a static body. `PhysicsSystem` steps `engine.physics` and syncs transforms and velocities back.
+- Push a body from code with `addForce`, `addImpulse`, `addTorque`, `setVelocity` and the rest on `RigidBody2D`; it reports `isGrounded`, `groundNormal` and its velocities after each step.
+- `CharacterBody2D` is a character gameplay moves instead (3-D's `CharacterBody3D`): set its `moveVelocity`, call `jump`, and it walks slopes, climbs steps, rides platforms and stands on one-way ones, the same on every platform. It needs no rigid body or collider.
+- Physics comes from `just_physics_engine`: Box2D v3 through FFI where its native library loads, and a pure-Dart engine with the same API on the web or wherever it does not.
+- Joints (`DistanceJoint2D`, `FixedJoint2D`, `SliderJoint2D`, `WheelJoint2D`), queries through `Physics2DQueries` (raycast, circle cast, overlaps, by layer), and ECS events: `CollisionEnter2DEvent`, `CollisionStay2DEvent` (opt in with `PhysicsSystem.reportContactStay`), `CollisionExit2DEvent`, `SensorEnter2DEvent`, `SensorExit2DEvent`. Some joint options wait on the physics engine; see the [known limitations](MIGRATION.md#known-limitations-in-200).
 
 
-## Contributing
+### 3-D graphics
 
-Contributions are welcome! This engine is in active development. Join us on [Discord](https://discord.gg/VXFxVj4Y) to discuss ideas, ask questions, and connect with other developers.
+```dart
+import 'package:just_game_engine/graphics_3d.dart';
+
+final engine = Engine(config: EngineConfig(graphics3D: Graphics3D()));
+await engine.initialize();
+await SceneLoader.loadAsset(engine.world, 'assets/scenes/level.scene.json');
+
+// A perspective camera, in metres (+Y is down, so -Y is up).
+engine.rendering.camera
+  ..lens = const CameraLens.perspective(near: 0.1, far: 500)
+  ..position = const Offset(0, -3)
+  ..z = -8
+  ..pitch = -0.36;
+engine.start();
+```
+
+- `EngineConfig(graphics3D: Graphics3D())`, from `package:just_game_engine/graphics_3d.dart`, draws 3-D scenes with [just_graphics_engine](https://pub.dev/packages/just_graphics_engine) on Flutter GPU: `ModelComponent` (a `.glb` or `.gltf` model; its `bounds` fill in once it loads), `LightComponent` (directional, point or spot, shining along the entity's +Z; a scene with no lights gets a default sun), `EnvironmentComponent` (a gradient sky or an `.hdr` skybox, ambient light, reflections, fog, exposure), `AnimationPlayerComponent` (glTF clips with crossfades and blends; animator graphs and timelines play on a model's skeleton) and `SocketComponent` (pins a child entity to a joint).
+- Eleven shapes made from their own sizes, no model file: `Cube3D`, `Sphere3D`, `Plane3D`, `Cylinder3D`, `Capsule3D`, `Cone3D`, `Torus3D`, `Ramp3D`, `Stairs3D`, `Arch3D` and `Polygon3D` (base `Primitive3D`), each with a material (colour, metallic, roughness, glow, opacity, unlit, a texture tiled per face or per metre). Equal shapes share a mesh and a material, so a hundred equal crates are one draw, and `Collider3D(shape: ColliderShape3D.matchShape)` gives one the same shape in 3-D physics.
+- Bodies and characters moved by physics are drawn between their last two poses, so they move smoothly at any frame rate.
+- Flutter GPU must be switched on in each platform's runner: see just_graphics_engine's README (Getting started).
+- `engine.graphics3D` is the one given: its `renderer` (`renderer.stats` tells what the last frame did), `models` and `sceneRenderer` (`dynamicResolution`). `Graphics3D(renderScale: 0.75)` renders fewer pixels.
+- A game without a `Graphics3D` is 2-D only: it makes no GPU device and loads no shaders, and a scene holding 3-D components fails to load, saying how to turn 3-D on. Where Flutter GPU can't draw (the web, Android without Vulkan) the game runs anyway: scenes and models load, the 3-D view shows a short note, `unsupportedReason` says why and `Graphics3D(onUnsupported: ...)` hears it.
+
+### 3-D physics
+
+- `EngineConfig(physics3D: Physics3D())`, from `package:just_game_engine/physics_3d.dart`: `RigidBody3D`, `Collider3D` (box, sphere, capsule, cylinder, convex hull, mesh, height field, or matching a 3-D shape), `CharacterBody3D` and six joints, simulated on Jolt Physics, with the same names, fields and events as 2-D (`3D` for `2D`).
+- The app's pubspec builds Jolt:
+
+  ```yaml
+  hooks:
+    user_defines:
+      just_jolt:
+        build: true
+  ```
+
+- A game without a `Physics3D` is 2-D only: its release build holds no 3-D code and no Jolt. The 3-D world is made with the first 3-D body. Where 3-D cannot run (the web, Jolt not built), `initialize()` fails with a `Physics3DUnsupportedError`; `Physics3D.isSupported` asks first.
+
+### Particles, effects and post-processing
+
+- `ParticleEmitter` with forces, sub-emitters and renderers; `ParticleEffects` has presets (explosion, fire, smoke, rain, snow, …). Put one on an entity with `ParticleEmitterComponent` and add `ParticleSystemECS`.
+- Deterministic, tick-based effects (`MoveEffect`, `ScaleEffect`, `FadeEffect`, `ShakeEffect`, `SequenceEffect`, …) that serialize for networking and rollback; run by `EffectSystemECS`.
+- Fragment-shader passes over the frame (`PostProcessPass`) and per entity (`ShaderComponent`). They need Impeller; on the web and on Skia they are skipped and the content draws unshaded.
+- Parallax backgrounds: `ParallaxComponent`, drawn by `ParallaxRenderSystem`.
+
+### Audio
+
+- `engine.audio`, `engine.music` and `engine.sfx`, from `just_audio_engine`: channels, buses, effects, streams and 3-D sound. `AudioSourceComponent` and `AudioSystem` play sound from entities.
+- On the web, audio starts at the first key or pointer press, because browsers keep audio made before a user gesture silent (`EngineConfig.deferAudioUntilInput`).
+
+### Input
+
+`engine.input` is an `InputService` from `just_inputs`: named actions bound to keyboard, mouse, gamepads and touch, read the same whatever the device. Actions and bindings live in an input asset (a `.input.json` file). It also handles local multiplayer (`PlayerInputManager`), rebinding with saved overrides, and on-screen touch controls.
+
+```dart
+Future<void> setUpInput(Engine engine) async {
+  final text = await rootBundle.loadString('assets/input/game.input.json');
+  engine.input.loadAsset(InputActionAsset.parse(text));
+  await engine.input.attachGamepads(); // opt-in
+}
+
+// In a system of your own: InputSystem has copied the player's actions
+// onto the entity's InputComponent, by name.
+void control(Entity player) {
+  final input = player.getComponent<InputComponent>()!;
+  final velocity = player.getComponent<VelocityComponent>()!.velocity;
+  velocity.x = input.vector('move').dx * 250; // y points down
+  if (input.wasPressed('jump')) velocity.y = -600;
+}
+```
+
+`rootBundle` comes from `package:flutter/services.dart`. The engine re-exports the parts of `just_inputs` a game uses at run time; the asset-building types (`InputActionDef`, …) and validation are in `package:just_inputs/just_inputs.dart`.
+
+### Tags, targets and spawners
+
+- An entity has any number of tags (`TagComponent`); `world.findTagged` and `world.allTagged` read an index instead of scanning.
+- An `EntityTarget` points at an entity by name, by tag or at itself, so a camera or trigger in a level can name a player that is spawned later.
+- A spawn point (`SpawnComponent`) names a `Spawner` the game provides; `SpawnPoints.spawnAll` calls the right one for every spawn point.
+- A project's tags, colours and descriptions live in `assets/project/tags.json` (`TagLibrary`).
+
+```dart
+void spawnPlayers(World world, Entity Function(World, Entity) makePlayer) {
+  final spawners = [
+    Spawner(
+      id: 'player',
+      label: 'Player',
+      tags: const {'player'}, // the tags makePlayer gives it, for editors
+      spawn: makePlayer,
+    ),
+  ];
+  SpawnPoints.spawnAll(world, spawners);
+  final player = world.findTagged('player');
+  player?.addTag('hero');
+}
+```
+
+### In a Flutter app
+
+- `GameWidget` hosts the game: FPS counter (`showFPS`), ECS debugger (`showDebug`), developer terminal (`showTerminal`, commands registered on `engine.terminal`), and an `overlay` for your own widgets.
+- `engine.layers` (`GameLayers`) lets a package draw real Flutter widgets over every `GameWidget` showing the engine, with focus for text fields and menus. The `just_ui_editor` package draws its HUDs and menus this way.
+- `package:just_game_engine/widgets.dart` has ready-made screen widgets: dialogue boxes, subtitles, localized text, camera zoom controls, on-screen touch controls and rebinding lists. Import it only if you use them.
+
+### Also included
+
+- Localization (`LocalizationManager`, set as `engine.context.localization`), with namespaces, fallbacks, plurals and selects.
+- Dialogue from Yarn Spinner 2.x scripts (`DialogueManager`, `DialogueRunner`, `DialogueSystem`) and timed subtitles (`SubtitleController`).
+- Assets (`engine.assets`, an `AssetManager`) and storage (`engine.cache`, a `CacheManager`); the engine keeps its data in a store of its own, apart from the app's.
+- `EngineService`: things that start and stop with the engine (`EngineConfig.services`, `engine.service<T>()`). Plugins (`engine.plugins`, `EnginePlugin`) receive every update, for editors and profilers.
+- `engine.performanceStats` and per-subsystem stats; see [STATS.md](STATS.md).
+
+### Ready for 3-D
+
+The engine's foundations do not assume 2-D: transforms have three axes and Euler rotations, a scene says whether it is `2d` or `3d` (`SceneMode`), cameras can use a perspective projection (`CameraProjection.perspective`) with frustum culling, and a `SceneRenderer` draws a scene beneath the 2-D world: `Graphics3D` draws 3-D through one (above).
+
+### Web and WebAssembly
+
+The library has no `dart:io` outside one conditional import, so a game builds for the web with JavaScript or WebAssembly. On the web, physics is pure Dart, audio waits for the first input, shaders are skipped (above), gamepads work in JavaScript builds only (`just_gamepads` has no WebAssembly backend yet), and 3-D scenes load but are not drawn (Flutter GPU is not on the web; the 3-D view says so).
+
+## Upgrading from 1.x
+
+The biggest changes; [MIGRATION.md](MIGRATION.md) covers every one.
+
+- `Engine()` makes a new engine each call; `Engine.instance` is gone. `await engine.initialize()` before use; `dispose()` is async and final.
+- Standard systems are opt-in: `EngineConfig(defaultSystems: DefaultSystems.all)`.
+- Achievements, sign-in, leaderboards, currency, inventory and ads moved to the `just_game_services` package.
+- Registries and loaders belong to each engine (`engine.context`), not to the process; packages install themselves with `EngineConfig.extensions`.
+- Transforms are 3-D (`Vector3` position and scale; the 2-D turn is `angle`), cameras are virtual cameras, and input is `just_inputs` actions (`engine.input` is an `InputService`).
+- UI widgets moved to `package:just_game_engine/widgets.dart`, and the re-exports of `just_inputs`, `just_dart`, `just_memory` and `just_audio_engine` are limited to what a game uses through the engine.
+- Removed: the scene graph (`SceneEditor`, `Scene`, `SceneNode`), the tween animation system, the networking stub. Renamed: `AssetBundle` to `GameAssetBundle`, `Easing` to `EasingFunction`.
+
+## Related packages
+
+- [just_game_services](https://pub.dev/packages/just_game_services) (pub.dev): achievements, sign-in, leaderboards, currency, inventory and ads as opt-in `EngineService`s.
+- `just_ui_editor` (not published): in-game screens saved as `.ui.json`, drawn as Flutter widgets, and their editor.
+- `just_platformer_kit` (not published): platformer components and systems.
+- `just_game_engine_editor` (not published): the level editor.
+
+The engine is built on `just_physics_engine`, `just_graphics_engine`, `just_inputs`, `just_audio_engine`, `just_tiled`, `just_signals`, `just_memory`, `just_storage`, `just_database` and `just_dart`.
+
+## Documentation
+
+- [QUICKSTART.md](QUICKSTART.md): a first game, step by step.
+- [MIGRATION.md](MIGRATION.md): upgrading from 1.x.
+- [ARCHITECTURE.md](ARCHITECTURE.md): how the engine is put together.
+- [ESP_ARCHITECTURE.md](ESP_ARCHITECTURE.md): a suggested app structure (Engine · Signal · Presentation).
+- [CHANGELOG.md](CHANGELOG.md).
+- [API map](https://github.com/just-unknown-dev/just-game-engine/blob/main/API.md): the public API by area (in the repository, not in the package).
+- [API reference](https://pub.dev/documentation/just_game_engine/latest/).
+
+## Links
+
+- Website: <https://engine.justunknown.com/>
+- Examples, written for 1.x: <https://examples.engine.justunknown.com> and <https://github.com/just-unknown-dev/just-game-engine-examples>
+- Discord: <https://discord.gg/VXFxVj4Y>
+- Issues: <https://github.com/just-unknown-dev/just-game-engine/issues>
 
 ## License
 
-This project is licensed under the BSD-3-Clause License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Built with Flutter
-- Inspired by Unity, Godot, and Flame engines
+BSD-3-Clause; see [LICENSE](LICENSE).

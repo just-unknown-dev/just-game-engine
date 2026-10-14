@@ -11,6 +11,7 @@ import '../ecs/systems/core/movement_system.dart';
 import '../ecs/systems/input/input_system.dart';
 import '../ecs/systems/level_map/level_map_system.dart';
 import '../ecs/systems/level_map/map_collision_system.dart';
+import '../ecs/systems/physics/physics_joint_binding_system.dart';
 import '../ecs/systems/physics/physics_system.dart';
 import '../ecs/systems/rendering/parallax_render_system.dart';
 import '../ecs/systems/rendering/render_system.dart';
@@ -20,7 +21,8 @@ enum DefaultSystem {
   /// `InputSystem`: the engine's input actions onto input components.
   input,
 
-  /// `PhysicsSystem`: steps the engine's physics and syncs bodies.
+  /// `PhysicsSystem`: steps the engine's physics and syncs bodies; and
+  /// `PhysicsJointBindingSystem`: the joints between them.
   physics,
 
   /// `MovementSystem`: velocities onto transforms.
@@ -102,8 +104,13 @@ void registerDefaultSystems(
 
   add(DefaultSystem.input, () => InputSystem(engine.input, maps: inputMaps));
   add(DefaultSystem.physics, () => PhysicsSystem(engine.physics, camera: view));
+  // The 2-D joints, between the bodies PhysicsSystem makes.
+  add(DefaultSystem.physics, () => PhysicsJointBindingSystem(engine.physics));
   add(DefaultSystem.movement, MovementSystem.new);
-  add(DefaultSystem.audio, () => AudioSystem(engine: engine.audio));
+  add(
+    DefaultSystem.audio,
+    () => AudioSystem(engine: engine.audio, camera: engine.cameraSystem.mainCamera),
+  );
   add(
     DefaultSystem.rendering,
     () => RenderSystem(camera: view, statsSink: engine.rendering),

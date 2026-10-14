@@ -4,6 +4,7 @@ library;
 import 'dart:math' as math;
 
 import 'package:flutter/painting.dart' show Offset, Size;
+import 'package:just_dart/just_dart.dart';
 
 import '../../components/camera/virtual_camera_component.dart';
 import '../../ecs.dart';
@@ -78,6 +79,9 @@ class CameraStageContext {
     this.target,
     this.targetPosition,
     this.targetVelocity = Offset.zero,
+    this.targetPosition3,
+    this.targetRotation,
+    this.alpha = 1,
   });
 
   /// The brain running the pipeline: its target resolver, impulses and
@@ -115,6 +119,20 @@ class CameraStageContext {
   /// [target]'s velocity, in world units per second, when it reports one;
   /// [Offset.zero] otherwise.
   final Offset targetVelocity;
+
+  /// Where [target] is in 3-D (its transform's position), or null. When the
+  /// brain runs per rendered frame ([CameraUpdateMode.frame]) this is
+  /// blended between the target's last two fixed updates by [alpha], so a
+  /// camera follows a body smoothly between physics steps.
+  final Vector3? targetPosition3;
+
+  /// [target]'s rotation, blended like [targetPosition3]; null without a
+  /// target.
+  final Quaternion? targetRotation;
+
+  /// How far this evaluation lies between the last two fixed updates: 1
+  /// when the brain runs on fixed updates.
+  final double alpha;
 
   /// The part of the world in view at [zoom], in world units.
   Size viewAt(double zoom) => zoom <= 0 || viewportSize.isEmpty

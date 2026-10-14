@@ -45,11 +45,8 @@ Future<Engine> createGame() async {
       cornerRadius: 6,
       fillStyle: const ShapePaintStyle(color: Color(0xFF4FC3F7)),
     ),
-    PhysicsBodyComponent(
-      shape: RectangleShape(32, 48),
-      restitution: 0,
-      fixedRotation: true, // stays upright
-    ),
+    RigidBody2D(restitution: 0, lockRotation: true), // stays upright
+    Collider2D(shape: ColliderShape2D.matchShape), // the rectangle drawn
     InputComponent(), // player 1's actions, copied in by InputSystem
     TagComponent('player'),
   ], name: 'Player');
@@ -63,7 +60,8 @@ Future<Engine> createGame() async {
         height: 40,
         fillStyle: const ShapePaintStyle(color: Color(0xFFFFB74D)),
       ),
-      PhysicsBodyComponent(shape: RectangleShape(40, 40), restitution: 0.1),
+      RigidBody2D(restitution: 0.1),
+      Collider2D(shape: ColliderShape2D.matchShape),
     ], name: 'Crate $i');
   }
   world.createEntityWithComponents([
@@ -72,7 +70,8 @@ Future<Engine> createGame() async {
       radius: 18,
       fillStyle: const ShapePaintStyle(color: Color(0xFFE57373)),
     ),
-    PhysicsBodyComponent(shape: CircleShape(18), restitution: 0.6),
+    RigidBody2D(restitution: 0.6),
+    Collider2D(shape: ColliderShape2D.matchShape),
   ], name: 'Ball');
 
   // The game's own rule, as a system of its own.
@@ -102,8 +101,10 @@ class PlayerControlSystem extends System {
       final input = entity.getComponent<InputComponent>()!;
       final velocity = entity.getComponent<VelocityComponent>()!.velocity;
       velocity.x = input.vector('move').dx * speed;
-      // y points down. Only jump when not already rising or falling.
-      if (input.wasPressed('jump') && velocity.y.abs() < 1) {
+      // y points down. Only jump from the ground: the physics system keeps
+      // the body's isGrounded.
+      final grounded = entity.getComponent<RigidBody2D>()?.isGrounded ?? false;
+      if (input.wasPressed('jump') && grounded) {
         velocity.y = -jumpSpeed;
       }
     }
@@ -141,7 +142,7 @@ class ExampleApp extends StatelessWidget {
 /// their defaults.
 const levelScene = '''
 {
-  "version": 7,
+  "version": 9,
   "name": "example",
   "entities": [
     {
@@ -151,9 +152,8 @@ const levelScene = '''
          "fields": {"position": {"x": 0, "y": 200, "z": 0}}},
         {"type": "RectangleComponent",
          "fields": {"width": 1200, "height": 40}},
-        {"type": "PhysicsBodyComponent",
-         "fields": {"shape": {"kind": "rectangle", "width": 1200, "height": 40},
-                    "isStatic": true}}
+        {"type": "RigidBody2D", "fields": {"bodyType": "static"}},
+        {"type": "Collider2D", "fields": {"shape": "matchShape"}}
       ]
     },
     {
@@ -163,9 +163,8 @@ const levelScene = '''
          "fields": {"position": {"x": 320, "y": 60, "z": 0}}},
         {"type": "RectangleComponent",
          "fields": {"width": 200, "height": 20}},
-        {"type": "PhysicsBodyComponent",
-         "fields": {"shape": {"kind": "rectangle", "width": 200, "height": 20},
-                    "isStatic": true}}
+        {"type": "RigidBody2D", "fields": {"bodyType": "static"}},
+        {"type": "Collider2D", "fields": {"shape": "matchShape"}}
       ]
     },
     {

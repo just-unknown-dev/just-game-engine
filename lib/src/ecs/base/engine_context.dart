@@ -11,6 +11,7 @@ import '../serialization/component_definition_registry.dart';
 import '../serialization/core_codecs.dart';
 import '../serialization/field_type.dart';
 import '../serialization/migration_hooks.dart';
+import '../components/animation/animation_targets.dart';
 import '../components/animation/animator_bindings.dart';
 import '../../subsystems/sprite_atlas/sprite_asset_loader.dart';
 import '../../subsystems/animation/animator/animator_graph.dart';
@@ -146,6 +147,10 @@ final class EngineContext {
 
   /// What an animator graph's parameters can be bound to.
   final AnimatorBindings animatorBindings;
+
+  /// What animator graphs play on besides sprites: a package registers its
+  /// own (a 3-D model's skeleton) from its extension.
+  final AnimationTargets animationTargets = AnimationTargets();
 
   /// The collision kinds a tile can have; `solid` and `oneWay` are always
   /// there.

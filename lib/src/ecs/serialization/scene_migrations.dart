@@ -16,4 +16,5 @@ export 'package:just_game_engine_formats/just_game_engine_formats.dart'
         V5ToV6,
         V6ToV7,
         V7ToV8,
+        V8ToV9,
         SceneMigrations;

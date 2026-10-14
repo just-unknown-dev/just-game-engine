@@ -15,6 +15,11 @@ typedef UpdateCallback = void Function(double deltaTime);
 /// Type definition for render callback
 typedef RenderCallback = void Function();
 
+/// Called once per rendered frame, after its fixed updates: [deltaTime] is
+/// the frame's length in seconds (scaled by the time scale), [alpha] how far
+/// the frame lies between the last two fixed updates (0..1).
+typedef FrameCallback = void Function(double deltaTime, double alpha);
+
 /// Main game loop implementation
 ///
 /// This class manages the game's update-render cycle with proper timing.
@@ -30,6 +35,11 @@ class GameLoop {
   /// Render callback function (kept for headless compatibility — a no-op when
   /// rendering is handled by Flutter's `CustomPainter`).
   final RenderCallback? onRender;
+
+  /// Called once per frame after the fixed updates, while not paused: the
+  /// per-frame phase (a camera following between physics steps, a look that
+  /// reads this frame's mouse movement).
+  final FrameCallback? onFrame;
 
   /// Time manager for tracking time
   final TimeManager timeManager;
@@ -81,11 +91,13 @@ class GameLoop {
   ///
   /// [onUpdate] - Called at fixed intervals for game logic
   /// [onRender] - Optional render callback (no-op when a widget drives rendering)
+  /// [onFrame] - Optional per-frame callback, after the fixed updates
   /// [timeManager] - Time manager instance
   /// [targetUPS] - Target updates per second (default: 60)
   GameLoop({
     required this.onUpdate,
     this.onRender,
+    this.onFrame,
     required this.timeManager,
     this.targetUPS = 60,
   }) {
@@ -114,7 +126,7 @@ class GameLoop {
     _lastFrameMicros = 0;
     _lastTickMicros = null;
 
-    debugPrint('Game loop started (Target UPS: $targetUPS)');
+    if (kDebugMode) debugPrint('Game loop started (Target UPS: $targetUPS)');
   }
 
   /// Pause the game loop
@@ -124,7 +136,7 @@ class GameLoop {
     }
 
     _isPaused = true;
-    debugPrint('Game loop paused');
+    if (kDebugMode) debugPrint('Game loop paused');
   }
 
   /// Resume the game loop
@@ -139,7 +151,7 @@ class GameLoop {
     // Reset accumulator to prevent a burst of fixed-timestep updates after
     // a long pause.
     _accumulator = 0.0;
-    debugPrint('Game loop resumed');
+    if (kDebugMode) debugPrint('Game loop resumed');
   }
 
   /// Stop the game loop
@@ -152,7 +164,7 @@ class GameLoop {
     _isPaused = false;
     _clock.stop();
 
-    debugPrint('Game loop stopped');
+    if (kDebugMode) debugPrint('Game loop stopped');
   }
 
   /// Advance the game loop by one frame.
@@ -213,6 +225,8 @@ class GameLoop {
         onUpdate(_fixedDeltaTime * timeManager.timeScale);
         _accumulator -= _fixedDeltaTime;
       }
+
+      onFrame?.call(frameSeconds * timeManager.timeScale, interpolation);
     }
 
     // Optional render callback (no-op when CustomPainter renders).

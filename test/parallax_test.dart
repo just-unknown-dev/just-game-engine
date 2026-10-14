@@ -150,10 +150,9 @@ void main() {
     });
   });
 
-  // Engine integration tests require native audio plugin (just_audio)
-  // which is unavailable in the unit-test environment. These tests pass when
-  // run on a device/emulator or when the audio subsystem is mocked.
-  group('Engine integration', skip: 'Requires just_audio native plugin', () {
+  // A real Engine: without the audio plugin (as in a unit test) it starts
+  // with audio skipped.
+  group('Engine integration', () {
     test('Engine exposes parallax subsystem after init', () async {
       final engine = Engine();
       addTearDown(engine.dispose);

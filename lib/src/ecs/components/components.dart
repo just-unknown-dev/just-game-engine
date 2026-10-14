@@ -19,13 +19,10 @@ export 'rendering/parallax_component.dart';
 export 'rendering/shader_component.dart';
 
 // Physics components
-export 'physics/physics_body_component.dart';
+export 'physics/physics_components_2d.dart';
 export 'physics/physics_body_ref_component.dart';
 export 'physics/raycast_collider_component.dart';
-export 'physics/joints/distance_joint_component.dart';
-export 'physics/joints/prismatic_joint_component.dart';
-export 'physics/joints/weld_joint_component.dart';
-export 'physics/joints/wheel_joint_component.dart';
+export 'physics/joints_2d.dart';
 
 // Gameplay components
 export 'gameplay/health_component.dart';
@@ -45,6 +42,7 @@ export 'animation/animation_event.dart';
 export 'animation/timeline_player_component.dart';
 export 'animation/timeline_trigger_component.dart';
 export 'animation/animator_component.dart';
+export 'animation/animation_targets.dart';
 export 'animation/animator_bindings.dart';
 
 // Audio components
@@ -67,6 +65,7 @@ export 'camera/camera_confiner_components.dart';
 export 'camera/camera_noise_components.dart';
 export 'camera/camera_target_components.dart';
 export 'camera/camera_manager_components.dart';
+export 'camera/camera_rig_3d_components.dart';
 
 // Culling components
 export 'culling/cull_state_component.dart';

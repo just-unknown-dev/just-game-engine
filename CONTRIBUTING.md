@@ -1,19 +1,18 @@
 # Contributing to Just Game Engine
 
-Thank you for your interest in contributing to **Just Game Engine**! We welcome all contributions — bug fixes, new features, documentation improvements, and more.
+Thank you for your interest in contributing to **Just Game Engine**. Bug fixes, features, tests and documentation are all welcome.
 
 ---
 
 ## Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
-- [How to Contribute](#how-to-contribute)
-  - [Reporting Bugs](#reporting-bugs)
-  - [Suggesting Features](#suggesting-features)
-  - [Submitting a Pull Request](#submitting-a-pull-request)
+- [Reporting Bugs and Suggesting Features](#reporting-bugs-and-suggesting-features)
 - [Development Setup](#development-setup)
+- [Working Against Unpublished Dependencies](#working-against-unpublished-dependencies)
+- [Running the Tests](#running-the-tests)
 - [Coding Guidelines](#coding-guidelines)
+- [Submitting a Pull Request](#submitting-a-pull-request)
 - [Commit Message Convention](#commit-message-convention)
 - [License](#license)
 
@@ -21,102 +20,135 @@ Thank you for your interest in contributing to **Just Game Engine**! We welcome 
 
 ## Code of Conduct
 
-This project follows our [Code of Conduct](CODE_OF_CONDUCT.md). By participating you agree to abide by its terms. Please report unacceptable behaviour to the maintainers.
+This project follows our [Code of Conduct](CODE_OF_CONDUCT.md). By taking part you agree to its terms. Please report unacceptable behaviour to the maintainers.
 
 ---
 
-## Getting Started
+## Reporting Bugs and Suggesting Features
 
-1. **Fork** the repository on GitHub.
-2. **Clone** your fork locally:
-   ```bash
-   git clone https://github.com/just-unknown-dev/just-game-engine.git
-   cd just-game-engine
-   ```
-3. **Install dependencies:**
-   ```bash
-   flutter pub get
-   ```
-4. **Run the tests** to make sure everything is green before you start:
-   ```bash
-   flutter test
-   ```
+Before opening an issue, search the [existing issues](https://github.com/just-unknown-dev/just-game-engine/issues) and check that the problem happens on the latest version.
 
----
+A bug report should have:
 
-## How to Contribute
+- a clear title;
+- steps to reproduce, and what you expected instead of what happened;
+- the output of `flutter --version`, and the platform (Android, iOS, Linux, macOS, Windows, web; for the web, whether it was a JavaScript or a WebAssembly build);
+- a minimal code sample, or a link to a repository that shows the problem.
 
-### Reporting Bugs
-
-Before opening an issue please:
-- Search [existing issues](../../issues) to avoid duplicates.
-- Confirm the bug is reproducible on the latest version.
-
-When opening a bug report, include:
-- A clear, descriptive title.
-- Steps to reproduce the problem.
-- Expected vs. actual behaviour.
-- Flutter/Dart SDK versions (`flutter --version`).
-- A minimal code sample or link to a reproduction repo if possible.
-
-### Suggesting Features
-
-- Open a [GitHub Discussion](../../discussions) or issue labelled **`enhancement`**.
-- Describe the problem your feature solves and how you'd like it to behave.
-- Check that the feature aligns with the engine's scope (2D game development for Flutter).
-
-### Submitting a Pull Request
-
-1. Create a topic branch from `main`:
-   ```bash
-   git checkout -b feat/my-new-feature
-   ```
-2. Make your changes, following the [Coding Guidelines](#coding-guidelines).
-3. Add or update tests for any changed behaviour.
-4. Ensure all tests pass:
-   ```bash
-   flutter test
-   flutter analyze
-   ```
-5. Commit with a [conventional commit message](#commit-message-convention).
-6. Push to your fork and open a Pull Request against `main`.
-7. Fill in the PR template — describe what changed and why.
-8. Address any review feedback promptly.
-
-> **Small PRs are easier to review.** If your change is large, consider opening an issue first to discuss the approach.
+For a feature, open an issue labelled **`enhancement`** that describes the problem it solves and how it should behave. The engine's scope is 2-D games in Flutter. For a large change, open the issue first so the approach can be agreed before you write it.
 
 ---
 
 ## Development Setup
 
-| Tool | Minimum version | Recommended version |
-|------|-----------------| --------------------|
-| Flutter | 1.17.0 | 3.41.1 |
-| Dart SDK | 3.11.0 | 3.11.0 |
+| Tool | Minimum version |
+|------|-----------------|
+| Flutter | 3.44 |
+| Dart | 3.12 (comes with Flutter 3.44) |
 
-The repository is a **Flutter package**. You can develop and test it using the companion admin app located at the workspace root.
+This repository **is** the `just_game_engine` package. There is no app to run here: you work on the package, its tests and `example/example.dart`. To try a change in a real game, add the engine to a Flutter app as a path dependency (`path: ../just-game-engine`).
 
 ```bash
-# Run the admin app (from the repo root)
-flutter run
+git clone https://github.com/just-unknown-dev/just-game-engine.git
+cd just-game-engine
+flutter pub get
+flutter test
+```
 
-# Run unit tests (from packages/just_game_engine)
+---
+
+## Working Against Unpublished Dependencies
+
+The engine depends on several `just_*` packages from pub.dev: `just_physics_engine`, `just_inputs`, `just_audio_engine`, `just_storage`, `just_database`, `just_signals`, `just_memory`, `just_tiled` and `just_dart`. When a change needs an unreleased version of one of them, check that package out next to this repository and point the engine at it with a `pubspec_overrides.yaml` in the repository root:
+
+```yaml
+# pubspec_overrides.yaml — local only; .gitignore keeps it out of commits.
+dependency_overrides:
+  just_inputs:
+    path: ../just_inputs
+  # A dependency of a dependency is overridden the same way:
+  just_gamepads:
+    path: ../just_gamepads
+```
+
+Then run `flutter pub get`. Delete the file (or the entry) and run `flutter pub get` again to go back to the published versions.
+
+Do not change `pubspec.yaml` to a path dependency. If your pull request needs a version of a dependency that is not published yet, say which one in the pull request: the engine can only be released after it.
+
+---
+
+## Running the Tests
+
+Run every command from the repository root. Some tests read `lib/` from disk and expect that working directory.
+
+```bash
+# The whole suite.
 flutter test
 
-# Lint
-flutter analyze
+# One file.
+flutter test test/engine_lifecycle_test.dart
 ```
+
+**The process-state guard.** `test/no_process_state_test.dart` fails when a `static` field that is not `const` appears under `lib/src` and is not on the test's allow-list. A static field is shared by every engine and every test in the process, so per-engine state belongs in `EngineContext` (a registry, or `context.slot(...)` for a package's own state) and per-world state in `World`. Add a field to the allow-list only when it really is immutable, and write down why next to it.
+
+```bash
+flutter test test/no_process_state_test.dart
+```
+
+**The performance benchmark.** `test/perf/transform_hot_path_test.dart` times the paths that touch every transform every frame and prints lines such as `PERF shapes10k: … ms/frame` and `PERF physics2k: … ms/frame`. It only asserts generous ceilings, because timings on a shared machine are noisy. For a change to rendering, the ECS core, physics sync or the transform hierarchy, run it before and after the change on the same machine and put both numbers in the pull request.
+
+```bash
+flutter test test/perf/transform_hot_path_test.dart
+```
+
+`test/performance_test.dart` holds further timing checks (engine start-up, rendering, physics, particles, ECS queries, the frame scheduler); it runs with the rest of the suite.
 
 ---
 
 ## Coding Guidelines
 
-- Follow the official [Dart style guide](https://dart.dev/guides/language/effective-dart/style).
-- All public APIs must have **doc comments** (`///`).
-- Prefer `const` constructors wherever possible.
-- Do not introduce new dependencies without prior discussion in an issue.
-- Keep subsystems decoupled — changes to one engine module should not break others.
-- Match the existing file and folder structure under `lib/src/`.
+- **Formatting.** Code is formatted with `dart format`. This must report no changes:
+
+  ```bash
+  dart format --output=none --set-exit-if-changed lib test example
+  ```
+
+- **Analysis.** `flutter analyze` must report no issues at all — errors, warnings or infos. The rules are in `analysis_options.yaml`: `flutter_lints` plus a few additions.
+- **Web and WebAssembly.** The engine runs on every Flutter platform, including web builds compiled to JavaScript and to WebAssembly. Nothing in `lib/` may import `dart:io` or `dart:html` directly. Platform-specific code goes in a pair of files chosen by a conditional import, the way `lib/src/memory/engine_storage.dart` picks its storage:
+
+  ```dart
+  import 'engine_storage_web.dart'
+      if (dart.library.io) 'engine_storage_io.dart'
+      as platform;
+  ```
+
+  Today `lib/src/memory/engine_storage_io.dart` is the only file that imports `dart:io`. Check with `grep -rnE "import 'dart:(io|html)'" lib` before you open a pull request.
+- **No process-wide state.** See the guard above: keep state in `EngineContext` or `World`, never in a mutable `static` field.
+- **Documentation.** Give every public API you add a `///` doc comment. If you add, rename or remove a public type, update [API.md](API.md), and describe user-visible changes in [CHANGELOG.md](CHANGELOG.md).
+- **Tests.** Add or update tests for any behaviour you change.
+- **Dependencies.** Do not add a dependency without discussing it in an issue first.
+- **Structure.** Match the existing folders under `lib/src/`. Export new public API through `lib/just_game_engine.dart` (or `lib/widgets.dart` for optional screen widgets); other code imports that library, not files under `lib/src/`.
+
+---
+
+## Submitting a Pull Request
+
+1. Create a topic branch from `main`:
+   ```bash
+   git checkout -b feat/my-new-feature
+   ```
+2. Make your change, following the [Coding Guidelines](#coding-guidelines).
+3. Check that everything passes:
+   ```bash
+   dart format --output=none --set-exit-if-changed lib test example
+   flutter analyze
+   flutter test
+   ```
+4. Commit with a [conventional commit message](#commit-message-convention).
+5. Push to your fork and open a pull request against `main`. Say what changed and why, and list any unpublished dependency versions it needs.
+6. Answer review feedback.
+
+Small pull requests are easier to review.
 
 ---
 
@@ -134,6 +166,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 | `fix` | Bug fix |
 | `docs` | Documentation only |
 | `refactor` | Code change that neither fixes a bug nor adds a feature |
+| `perf` | Performance improvement |
 | `test` | Adding or updating tests |
 | `chore` | Build process, tooling, dependencies |
 
@@ -141,7 +174,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 ```
 feat(physics): add mass-proportional collision resolution
 fix(rendering): correct camera transform for non-square viewports
-docs(contributing): add development setup section
+docs(contributing): explain pubspec_overrides.yaml
 ```
 
 ---

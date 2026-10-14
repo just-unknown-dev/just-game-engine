@@ -20,23 +20,49 @@ T roundTrip<T extends Component>(T component) {
 }
 
 void main() {
-  test('PhysicsBodyComponent keeps its body type and rotation lock', () {
+  test('RigidBody2D keeps its body type and rotation lock', () {
     final back = roundTrip(
-      PhysicsBodyComponent(
-        shape: RectangleShape(40, 12),
+      RigidBody2D(
         bodyType: BodyType.kinematic,
-        fixedRotation: true,
+        lockRotation: true,
         gravityScale: 0.25,
-        oneWayDirection: OneWayDirection.fromBelow,
-        isOneWay: true,
         restitution: 0.1,
+        linearDamping: 0.5,
+        continuousCollision: true,
+        collidesWith: 6,
       ),
     );
     expect(back.bodyType, BodyType.kinematic);
-    expect(back.fixedRotation, isTrue);
+    expect(back.lockRotation, isTrue);
     expect(back.gravityScale, 0.25);
+    expect(back.restitution, 0.1);
+    expect(back.linearDamping, 0.5);
+    expect(back.continuousCollision, isTrue);
+    expect(back.collidesWith, 6);
+  });
+
+  test('Collider2D keeps its shape, placement and one-way side', () {
+    final back = roundTrip(
+      Collider2D(
+        shape: ColliderShape2D.capsule,
+        radius: 6,
+        height: 30,
+        offset: const Offset(2, 3),
+        rotation: 0.5,
+        scale: Vector2(2, 1),
+        oneWay: true,
+        oneWayDirection: OneWayDirection.fromBelow,
+        points: const [Offset(1, 2), Offset(3, 4)],
+      ),
+    );
+    expect(back.shape, ColliderShape2D.capsule);
+    expect((back.radius, back.height), (6.0, 30.0));
+    expect(back.offset, const Offset(2, 3));
+    expect(back.rotation, 0.5);
+    expect((back.scale.x, back.scale.y), (2.0, 1.0));
+    expect(back.oneWay, isTrue);
     expect(back.oneWayDirection, OneWayDirection.fromBelow);
-    expect(back.isOneWay, isTrue);
+    expect(back.points, const [Offset(1, 2), Offset(3, 4)]);
   });
 
   test('a virtual camera keeps its target, lens and standby mode', () {
@@ -110,19 +136,37 @@ void main() {
     expect(back.vertices, triangle);
   });
 
-  test('a save from before these fields existed loads as it always did', () {
-    final old =
-        _coreDefinitions.decode({
+  test('a body saved before 2-D and 3-D physics matched loads as both parts', () {
+    final scene = SceneFormat.migrate({
+      'version': 8,
+      'entities': [
+        {
+          'name': 'Box',
+          'components': [
+            {
               'type': 'PhysicsBodyComponent',
-              'shape': {'kind': 'rectangle', 'width': 32.0, 'height': 48.0},
-              'mass': 1.0,
-              'isStatic': false,
-            })!
-            as PhysicsBodyComponent;
-    expect(old.bodyType, BodyType.dynamic);
-    expect(old.fixedRotation, isFalse);
-    expect(old.gravityScale, 1.0);
-    expect(old.oneWayDirection, OneWayDirection.fromAbove);
+              'fields': {
+                'shape': {'kind': 'rectangle', 'width': 32.0, 'height': 48.0},
+                'bodyType': 'kinematic',
+                'fixedRotation': true,
+                'drag': 0.5,
+                'isOneWay': true,
+              },
+            },
+          ],
+        },
+      ],
+    });
+    final components = (scene['entities'] as List).single['components'] as List;
+    final rigid = _coreDefinitions.decode(components[0] as Map<String, dynamic>)! as RigidBody2D;
+    final collider = _coreDefinitions.decode(components[1] as Map<String, dynamic>)! as Collider2D;
+    expect(rigid.bodyType, BodyType.kinematic);
+    expect(rigid.lockRotation, isTrue);
+    expect(rigid.linearDamping, 0.5);
+    expect(rigid.restitution, 0.8, reason: 'the default it was saved with');
+    expect(collider.shape, ColliderShape2D.box);
+    expect((collider.size.x, collider.size.y), (32.0, 48.0));
+    expect(collider.oneWay, isTrue);
   });
 
   test('every core component type has a codec', () {
@@ -133,7 +177,12 @@ void main() {
       'RectangleComponent',
       'CircleComponent',
       'CapsuleComponent',
-      'PhysicsBodyComponent',
+      'RigidBody2D',
+      'Collider2D',
+      'DistanceJoint2D',
+      'FixedJoint2D',
+      'SliderJoint2D',
+      'WheelJoint2D',
       'SpriteComponent',
       // Text and buttons are just_ui_editor's.
       'LineComponent',
@@ -147,10 +196,6 @@ void main() {
       'TagComponent',
       'ParentComponent',
       'ChildrenComponent',
-      'DistanceJointComponent',
-      'PrismaticJointComponent',
-      'WeldJointComponent',
-      'WheelJointComponent',
       'SimpleMovementComponent',
     };
     expect(_coreDefinitions.types.toSet(), containsAll(expected));

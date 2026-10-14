@@ -2,10 +2,11 @@
 /// decides what it shows.
 library;
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:flutter/painting.dart' show Offset;
 
 import '../../../subsystems/camera/camera_system.dart';
+import '../../base/engine_context.dart';
 import 'camera_brain.dart';
 
 /// Owns the output [mainCamera] and the [brain] that drives it.
@@ -26,13 +27,17 @@ class CameraSystem {
   bool get isInitialized => _initialized;
 
   /// Makes a fresh [mainCamera] at the origin, zoom 1, and a [brain]
-  /// driving it. Does nothing when already initialized.
-  void initialize() {
+  /// driving it — with [context]'s camera stages and managers when given
+  /// (see [CameraRegistries.of]). Does nothing when already initialized.
+  void initialize({EngineContext? context}) {
     if (_initialized) return;
     mainCamera = Camera(position: Offset.zero, zoom: 1.0);
-    brain = CameraBrain(mainCamera);
+    brain = CameraBrain(
+      mainCamera,
+      registries: context == null ? null : CameraRegistries.of(context),
+    );
     _initialized = true;
-    debugPrint('Camera System initialized');
+    if (kDebugMode) debugPrint('Camera System initialized');
   }
 
   /// Advances [mainCamera]'s post effects by [deltaTime] seconds. Does

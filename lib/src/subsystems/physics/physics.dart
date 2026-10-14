@@ -34,6 +34,9 @@ export 'package:just_physics_engine/just_physics_engine.dart'
         Box2DJoint,
         // Added in just_physics_engine 1.3.0. Without these in the show list a
         // game cannot name a kinematic body or a one-way direction through the
-        // engine's own barrel, even though PhysicsBodyComponent exposes both.
+        // engine's own barrel, even though RigidBody2D and Collider2D expose both.
         BodyType,
-        OneWayDirection;
+        OneWayDirection,
+        // What a CharacterBody2D reads and is moved as.
+        GroundState2D,
+        MoverShape;

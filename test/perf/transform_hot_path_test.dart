@@ -70,7 +70,8 @@ void main() {
         TransformComponent(
           position: Vector3((i % 50) * 40.0, (i ~/ 50) * 40.0, 0),
         ),
-        PhysicsBodyComponent(shape: CircleShape(4), showDebugOutline: false),
+        RigidBody2D(),
+        Collider2D(shape: ColliderShape2D.circle, radius: 4, showDebugOutline: false),
       ]);
     }
 

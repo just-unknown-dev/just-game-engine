@@ -34,14 +34,15 @@ Entity _box(
 }) => world.createEntityWithComponents([
   TransformComponent(position: Vector3(x, 0, 0)),
   VelocityComponent(),
-  PhysicsBodyComponent(shape: RectangleShape(20, 20), restitution: 0),
+  RigidBody2D(restitution: 0),
+  Collider2D(size: Vector2(20, 20)),
   ...extra,
 ], name: name);
 
 void main() {
   test('F21 a weld is made again when its second anchor changes', () {
     final (:world, :physics) = _setUp();
-    final weld = WeldJointComponent(targetEntityName: 'B');
+    final weld = FixedJoint2D(connectedBody: const EntityTarget.name('B'));
     _box(world, extra: [weld]);
     _box(world, x: 30, name: 'B');
     world.update(_frame);
@@ -51,7 +52,7 @@ void main() {
     world.update(_frame);
     expect(physics.joints.single, same(first), reason: 'nothing changed');
 
-    weld.localAnchorB = const Offset(4, 0);
+    weld.connectedAnchor = const Offset(4, 0);
     world.update(_frame);
     expect(physics.joints, hasLength(1));
     expect(physics.joints.single, isNot(same(first)));
@@ -79,12 +80,12 @@ void main() {
     _box(
       world,
       extra: [
-        WheelJointComponent(
-          targetEntityName: 'Wheel',
+        WheelJoint2D(
+          connectedBody: const EntityTarget.name('Wheel'),
           stiffness: 30,
           damping: 0.5,
           motorSpeed: 7,
-          maxMotorTorque: 90,
+          motorMaxTorque: 90,
         ),
       ],
     );
@@ -126,16 +127,18 @@ void main() {
     });
   });
 
-  test('F29 a collision event is made without a penetration', () {
+  test('F29 a collision event is made without a depth', () {
     final world = World()..initialize();
     addTearDown(world.dispose);
     final a = world.createEntity();
     final b = world.createEntity();
-    final event = CollisionEvent(
+    final event = CollisionEnter2DEvent(
       entityA: a,
       entityB: b,
+      point: Offset.zero,
       normal: const Offset(0, 1),
     );
     expect(event.normal, const Offset(0, 1));
+    expect(event.depth, 0);
   });
 }

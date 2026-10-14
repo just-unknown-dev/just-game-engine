@@ -58,11 +58,50 @@ class UnknownComponentTypeException implements Exception {
   /// The entity it was attached to, when known.
   final String? entityName;
 
+  /// How to make [type] known when the engine has it built in, opt-in: the
+  /// 3-D graphics and 3-D physics components. Null for any other type.
+  static String? builtInHint(String type) => switch (type) {
+    'ModelComponent' ||
+    'LightComponent' ||
+    'EnvironmentComponent' ||
+    'AnimationPlayerComponent' ||
+    'SocketComponent' ||
+    'Cube3D' ||
+    'Sphere3D' ||
+    'Plane3D' ||
+    'Cylinder3D' ||
+    'Capsule3D' ||
+    'Cone3D' ||
+    'Torus3D' ||
+    'Ramp3D' ||
+    'Stairs3D' ||
+    'Arch3D' ||
+    'Polygon3D' =>
+      'It is a 3-D graphics component: give the engine '
+          'EngineConfig(graphics3D: Graphics3D()) '
+          '(package:just_game_engine/graphics_3d.dart).',
+    'RigidBody3D' ||
+    'Collider3D' ||
+    'CharacterBody3D' ||
+    'FixedJoint3D' ||
+    'PointJoint3D' ||
+    'HingeJoint3D' ||
+    'SliderJoint3D' ||
+    'DistanceJoint3D' ||
+    'SixDofJoint3D' ||
+    'CameraCollision3D' =>
+      'It is a 3-D physics component: give the engine '
+          'EngineConfig(physics3D: Physics3D()) '
+          '(package:just_game_engine/physics_3d.dart).',
+    _ => null,
+  };
+
   @override
   String toString() =>
       'UnknownComponentTypeException: no codec registered for "$type"'
       '${entityName == null ? '' : ' (on entity "$entityName")'}. '
-      'Install the owning package\'s extension into world.context '
-      '(EngineConfig(extensions: [...]) or context.install(...)), or '
-      'register a definition with world.context.definitions.register.';
+      '${builtInHint(type) ?? 'Install the owning package\'s extension into '
+              'world.context (EngineConfig(extensions: [...]) or '
+              'context.install(...)), or register a definition with '
+              'world.context.definitions.register.'}';
 }

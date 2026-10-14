@@ -8,6 +8,8 @@ analyzer:
     # Treat use of @experimental members as warnings so callers are clearly
     # notified that an API is a stub (networking, saveScene, etc.).
     invalid_use_of_visible_for_testing_member: warning
+  exclude:
+    - build/**
 
 linter:
   rules:

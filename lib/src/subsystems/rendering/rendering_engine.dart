@@ -6,6 +6,7 @@ library;
 
 import 'dart:collection';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'render_hook_chain.dart';
 import 'render_stats.dart';
@@ -132,11 +133,15 @@ class RenderingEngine implements RenderStatsSink {
   final FrameView _view = FrameView();
   bool _viewStale = true;
 
+  /// How far between two fixed steps the coming frame is drawn (0..1), set
+  /// each tick by the game widget from the game loop. [view] passes it on.
+  double interpolation = 1.0;
+
   /// The camera of the frame being drawn, as matrices — filled at most once
   /// a frame, and only when read, so a 2-D game pays nothing for it.
   FrameView get view {
     if (_viewStale) {
-      _view.update(camera, camera.viewportSize);
+      _view.update(camera, camera.viewportSize, interpolation: interpolation);
       _viewStale = false;
     }
     return _view;
@@ -330,7 +335,7 @@ class RenderingEngine implements RenderStatsSink {
     if (_initialized) return;
 
     _initialized = true;
-    debugPrint('Rendering Engine initialized');
+    if (kDebugMode) debugPrint('Rendering Engine initialized');
   }
 
   // ── Managed particle emitters ──────────────────────────────────────────────
@@ -881,7 +886,7 @@ class RenderingEngine implements RenderStatsSink {
   void dispose() {
     clear();
     _initialized = false;
-    debugPrint('Rendering Engine disposed');
+    if (kDebugMode) debugPrint('Rendering Engine disposed');
   }
 
   /// Get the number of renderables

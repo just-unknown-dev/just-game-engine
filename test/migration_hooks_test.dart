@@ -69,7 +69,7 @@ void main() {
       () => MigrationHooks.none.v0Components['x'] = (c) => c,
       throwsUnsupportedError,
     );
-    expect(() => MigrationHooks().perEntity(8), throwsRangeError);
+    expect(() => MigrationHooks().perEntity(9), throwsRangeError);
   });
 
   test("a context's rules reach its loader, and no other engine's", () {

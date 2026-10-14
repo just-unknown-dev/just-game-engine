@@ -3,6 +3,8 @@ library;
 import 'dart:math' as math;
 import 'dart:ui' show Rect;
 
+import 'package:just_dart/just_dart.dart' show Aabb3, Frustum, Matrix4, Vector3;
+
 import '../../ecs.dart';
 import '../../components/components.dart';
 import '../../../interfaces/interfaces.dart';
@@ -98,8 +100,17 @@ class ViewCullingSystem extends System {
   // The entity being tested's extent, as plain numbers — no Rect per entity.
   double _left = 0.0, _top = 0.0, _right = 0.0, _bottom = 0.0;
 
+  /// For a camera in space (not [GameCamera.isPlanar]): how far from the
+  /// camera, in world units, an entity out of view stays active. Inside the
+  /// frustum an entity is always active.
+  double activeDistance = 100.0;
+
   @override
   void update(double deltaTime) {
+    if (!camera.isPlanar) {
+      _update3D();
+      return;
+    }
     final visible = camera.getVisibleBounds();
     final cx = visible.center.dx, cy = visible.center.dy;
 
@@ -134,6 +145,76 @@ class ViewCullingSystem extends System {
         cull.isVisible = show;
         cull.isActive = _overlaps(al, at, ar, ab);
 
+        if (renderable == null) continue;
+        if (!show) {
+          if (!cull.hidesRenderable && renderable.visible) {
+            renderable.visible = false;
+            cull.hidesRenderable = true;
+          }
+        } else if (cull.hidesRenderable) {
+          renderable.visible = true;
+          cull.hidesRenderable = false;
+        }
+      }
+    }
+  }
+
+  // ── A camera in space ─────────────────────────────────────────────────
+
+  final Frustum _frustum = Frustum();
+  final Matrix4 _matrix = Matrix4.identity();
+  final Aabb3 _local = Aabb3();
+  final Aabb3 _part = Aabb3();
+  final Aabb3 _box = Aabb3();
+  final Vector3 _eye = Vector3.zero();
+  final Vector3 _centre = Vector3.zero();
+
+  /// Culls against the camera's frustum. An entity's box is the union of
+  /// its components' 3-D extents (see `ComponentExtent.boundsInto`) placed
+  /// by its full transform, or a 1×1×1 box at its position when none has
+  /// an extent.
+  void _update3D() {
+    camera.viewProjectionInto(_matrix);
+    _frustum.setFromViewProjection(_matrix);
+    camera.viewMatrixInto(_matrix);
+    _matrix.invert();
+    _eye.setValues(_matrix.storage[12], _matrix.storage[13], _matrix.storage[14]);
+    final m = hysteresisMargin;
+    final definitions = world.context.definitions;
+
+    for (final archetype in world.queryArchetypes(requiredComponents)) {
+      final transforms = archetype.getColumn(TransformComponent)!;
+      final culls = archetype.getColumn(CullStateComponent)!;
+      final renderables = archetype.getColumn(RenderableComponent);
+      for (var i = 0; i < transforms.length; i++) {
+        final entity = archetype.entityAt(i);
+        if (!entity.isActive) continue;
+        final cull = culls[i] as CullStateComponent;
+        final transform = transforms[i] as TransformComponent;
+
+        _local.setEmpty();
+        for (final component in entity.components) {
+          final extent = definitions.definitionFor(component)?.extent;
+          if (extent != null && extent.boundsInto(component, _part)) {
+            _local.addBox(_part);
+          }
+        }
+        if (_local.isEmpty) _local.setValues(-0.5, -0.5, -0.5, 0.5, 0.5, 0.5);
+        transform.localToWorldInto(_matrix);
+        _local.transformInto(_matrix, _box);
+
+        if (cull.isVisible) {
+          _box.min.setValues(_box.min.x - m, _box.min.y - m, _box.min.z - m);
+          _box.max.setValues(_box.max.x + m, _box.max.y + m, _box.max.z + m);
+        }
+        final show = _frustum.intersectsAabb(_box);
+        _box.centerInto(_centre);
+        cull.isVisible = show;
+        cull.isActive =
+            show || _centre.distanceTo(_eye) <= activeDistance;
+
+        final renderable =
+            (renderables?[i] as RenderableComponent?)?.renderable;
         if (renderable == null) continue;
         if (!show) {
           if (!cull.hidesRenderable && renderable.visible) {

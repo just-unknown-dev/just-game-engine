@@ -7,7 +7,7 @@ import '../../ecs.dart';
 /// the entity's `TransformComponent.position`.
 ///
 /// Deliberately a separate opt-in component rather than "any static
-/// `PhysicsBodyComponent`": some static bodies (e.g. the player's own,
+/// `RigidBody2D`": some static bodies (e.g. the player's own,
 /// immovable-by-design body) must *not* become obstacles — the player is the
 /// pathfinding target, and marking its own cell unwalkable would break the
 /// field.

@@ -3,7 +3,7 @@ library;
 
 import 'dart:ui';
 
-import 'package:just_dart/just_dart.dart' show Vector3;
+import 'package:just_dart/just_dart.dart' show Vector2, Vector3;
 import 'package:just_physics_engine/just_physics_engine.dart';
 
 import '../../../subsystems/level_map/collision/tile_collision_builder.dart';
@@ -18,8 +18,9 @@ import '../../base/system_priorities.dart';
 /// Gives every map layer marked *collides* the static bodies its tiles'
 /// collision shapes describe.
 ///
-/// Bodies are ordinary entities — a transform, a static `PhysicsBodyComponent`,
-/// a [MapBodyComponent] saying what they are — so contacts with them are
+/// Bodies are ordinary entities — a transform, a static `RigidBody2D` and a
+/// `Collider2D`, a [MapBodyComponent] saying what they are — so contacts
+/// with them are
 /// reported like any other, and standing on them grounds a character. They
 /// carry a `GeneratedEntityComponent`: built from the map, never saved.
 ///
@@ -145,19 +146,28 @@ class MapCollisionSystem extends System {
     final at = origin + spec.center;
     final body = world.createEntityWithComponents([
       TransformComponent(position: Vector3(at.dx, at.dy, 0)),
-      PhysicsBodyComponent(
-        shape: spec.isBox
-            ? RectangleShape(spec.size!.width, spec.size!.height)
-            : PolygonShape([...spec.polygon!]),
+      // The level does not bounce what lands on it, and a level's worth of
+      // collider outlines is noise.
+      RigidBody2D(
         bodyType: BodyType.static,
-        isOneWay: kind.oneWay,
         isSensor: kind.sensor,
-        fixedRotation: true,
-        // The level does not bounce what lands on it, and a level's worth of
-        // collider outlines is noise.
+        lockRotation: true,
+        // The friction tile ground has always had, so games play the same.
+        friction: 0.2,
         restitution: 0,
-        showDebugOutline: false,
       ),
+      spec.isBox
+          ? Collider2D(
+              size: Vector2(spec.size!.width, spec.size!.height),
+              oneWay: kind.oneWay,
+              showDebugOutline: false,
+            )
+          : Collider2D(
+              shape: ColliderShape2D.polygon,
+              points: [...spec.polygon!],
+              oneWay: kind.oneWay,
+              showDebugOutline: false,
+            ),
       MapBodyComponent(
         mapEntityId: map.id,
         layerId: layer.id,

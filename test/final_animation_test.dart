@@ -29,7 +29,15 @@ void main() {
     test('writes its version and reads a file without one as current', () {
       final graph = AnimatorGraph(states: const [AnimatorState(name: 'idle')]);
       final json = graph.toJson();
-      expect(json['version'], AnimatorGraph.formatVersion);
+      // Format 2 adds crossfades and blend trees; a graph using neither is
+      // still written as format 1, so older engines read it.
+      expect(json['version'], 1);
+      expect(
+        graph
+            .copyWith(transitions: const [AnimatorTransition(from: 'idle', to: 'idle', duration: 0.1)])
+            .toJson()['version'],
+        AnimatorGraph.formatVersion,
+      );
       final versionless = Map<String, dynamic>.of(json)..remove('version');
       expect(AnimatorGraph.fromJson(versionless).states.single.name, 'idle');
     });

@@ -39,7 +39,9 @@ class _Running {
 
 /// Runs every [AnimatorComponent]: fills its bound parameters, takes the
 /// transition that should fire, and tells the entity's
-/// [SpriteAnimationComponent] which clip to play.
+/// [SpriteAnimationComponent] which clip to play — or, for an entity
+/// without one, the first of the context's [AnimationTarget]s that drives
+/// it (a 3-D model's skeleton).
 class AnimatorSystem extends System {
   /// A system that reads each graph with [loader] — the world context's
   /// `animatorGraphs` when null — once per path, shared by every animator
@@ -75,10 +77,7 @@ class AnimatorSystem extends System {
   int get priority => SystemPriorities.animation;
 
   @override
-  List<Type> get requiredComponents => [
-    AnimatorComponent,
-    SpriteAnimationComponent,
-  ];
+  List<Type> get requiredComponents => [AnimatorComponent];
 
   /// The graph [entity] is running, once loaded.
   AnimatorGraph? graphOf(Entity entity) => _running[entity]?.graph;
@@ -106,6 +105,12 @@ class AnimatorSystem extends System {
 
     forEach((entity) {
       final animator = entity.getComponent<AnimatorComponent>()!;
+      // A sprite plays as it always has; anything else on a target.
+      final sprite = entity.getComponent<SpriteAnimationComponent>();
+      final target = sprite == null
+          ? world.context.animationTargets.targetFor(entity)
+          : null;
+      if (sprite == null && target == null) return;
       final path = animator.graphPath.trim();
       var running = _running[entity];
       if (running == null || running.path != path) {
@@ -117,9 +122,8 @@ class AnimatorSystem extends System {
       seen++;
       final graph = running.graph;
       if (graph == null || !animator.enabled) return;
-      final sprite = entity.getComponent<SpriteAnimationComponent>()!;
 
-      if (animator.faceVelocity) {
+      if (sprite != null && animator.faceVelocity) {
         final vx = entity.getComponent<VelocityComponent>()?.velocity.x ?? 0;
         if (vx.abs() > facingDeadZone) sprite.flipX = vx < 0;
       }
@@ -136,20 +140,26 @@ class AnimatorSystem extends System {
       if (graph.stateNamed(animator.currentState) == null) {
         final entry = graph.entryState;
         if (entry == null) return;
-        _enter(entity, animator, sprite, entry);
+        _enter(entity, animator, sprite, target, entry);
+        _blend(entity, animator, sprite, target, entry, 0);
         return;
       }
       animator.stateTime += deltaTime;
 
-      final next = _transitionToTake(entity, graph, animator, sprite);
-      if (next == null) return;
+      final next = _transitionToTake(entity, graph, animator, sprite, target);
+      if (next == null) {
+        _blend(entity, animator, sprite, target, graph.stateNamed(animator.currentState)!, deltaTime);
+        return;
+      }
       for (final c in next.conditions) {
         if (graph.parameterNamed(c.parameter)?.type ==
             AnimatorParameterType.trigger) {
           animator.parameters[c.parameter] = false;
         }
       }
-      _enter(entity, animator, sprite, graph.stateNamed(next.to)!);
+      final entered = graph.stateNamed(next.to)!;
+      _enter(entity, animator, sprite, target, entered, fade: next.duration);
+      _blend(entity, animator, sprite, target, entered, 0);
     });
 
     // An animator not run this frame — its entity destroyed, switched off
@@ -183,7 +193,8 @@ class AnimatorSystem extends System {
     Entity entity,
     AnimatorGraph graph,
     AnimatorComponent animator,
-    SpriteAnimationComponent sprite,
+    SpriteAnimationComponent? sprite,
+    AnimationTarget? target,
   ) {
     // Any State first, then this state's own; within each, the highest
     // priority, and the one listed first among equals.
@@ -197,8 +208,16 @@ class AnimatorSystem extends System {
             (graph.stateNamed(animator.currentState)?.timeline ?? '').isEmpty
             ? null
             : entity.getComponent<TimelinePlayerComponent>();
-        progress ??= player?.progress ?? _progress(entity, sprite);
-        final done = player?.isFinished ?? sprite.isComplete;
+        final state = graph.stateNamed(animator.currentState)!;
+        progress ??=
+            player?.progress ??
+            (sprite != null
+                ? _progress(entity, sprite)
+                : target!.progress(entity, animator, state));
+        final done =
+            player?.isFinished ??
+            sprite?.isComplete ??
+            target!.isComplete(entity, state);
         if (progress < t.exitTime && !done) continue;
       }
       var holds = true;
@@ -236,23 +255,68 @@ class AnimatorSystem extends System {
   void _enter(
     Entity entity,
     AnimatorComponent animator,
-    SpriteAnimationComponent sprite,
-    AnimatorState state,
-  ) {
+    SpriteAnimationComponent? sprite,
+    AnimationTarget? target,
+    AnimatorState state, {
+    double fade = 0,
+  }) {
     final from = animator.currentState;
     animator
       ..previousState = from
       ..currentState = state.name
       ..stateTime = 0.0;
-    sprite
-      ..speed = state.speed
-      ..switchClip(state.clipName, restartIfSame: true, loop: state.loop);
+    if (sprite != null) {
+      // A sprite can't blend: a blend tree plays its heaviest motion.
+      final clip = state.blend == null
+          ? state.clipName
+          : _heaviest(state.blend!, animator) ?? state.clipName;
+      sprite
+        ..speed = state.speed
+        ..switchClip(clip, restartIfSame: true, loop: state.loop);
+    } else {
+      target!.enter(entity, state, fade: fade);
+    }
     if (state.timeline.isNotEmpty) {
       entity.getComponent<TimelinePlayerComponent>()?.playTimeline(
         state.timeline,
       );
     }
     _changes.add(AnimatorStateChange(entity, from, state.name));
+  }
+
+  /// Keeps a blend tree's weights up to date: a target blends its
+  /// motions; a sprite switches to the heaviest when that changes.
+  void _blend(
+    Entity entity,
+    AnimatorComponent animator,
+    SpriteAnimationComponent? sprite,
+    AnimationTarget? target,
+    AnimatorState state,
+    double deltaTime,
+  ) {
+    if (target != null) {
+      target.update(entity, animator, state, deltaTime);
+      return;
+    }
+    final tree = state.blend;
+    if (tree == null || sprite == null) return;
+    final clip = _heaviest(tree, animator);
+    if (clip != null && clip != sprite.clip) {
+      sprite.switchClip(clip, restartIfSame: false, loop: state.loop);
+    }
+  }
+
+  /// The clip of [tree]'s heaviest motion for [animator]'s parameters.
+  static String? _heaviest(AnimatorBlendTree tree, AnimatorComponent animator) {
+    if (tree.motions.isEmpty) return null;
+    final x = AnimatorParameter.asNumber(animator.parameters[tree.parameter]);
+    final y = AnimatorParameter.asNumber(animator.parameters[tree.parameterY]);
+    final weights = tree.weights(x, y);
+    var best = 0;
+    for (var i = 1; i < weights.length; i++) {
+      if (weights[i] > weights[best]) best = i;
+    }
+    return tree.motions[best].clip;
   }
 
   @override

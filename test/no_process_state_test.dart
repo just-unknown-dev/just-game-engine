@@ -43,11 +43,14 @@ const Map<String, String> _allowed = {
   // Scratch space for single-threaded math: overwritten before every read.
   'ecs/base/transform/euler_rotation.dart:_scratch': 'scratch',
   'ecs/base/transform/transform_component.dart:_scratch': 'scratch',
+  'ecs/base/transform/transform_component.dart:_scratchTurn': 'scratch',
   'ecs/base/transform/hierarchy_math.dart:_qa': 'scratch',
   'ecs/base/transform/hierarchy_math.dart:_qb': 'scratch',
   'ecs/base/transform/hierarchy_math.dart:_v': 'scratch',
   'subsystems/camera/camera_system.dart:_zero': 'a constant vector',
   'subsystems/camera/camera_system.dart:_one': 'a constant vector',
+  'physics_3d/physics_system_3d.dart:_zero': 'a constant vector',
+  'physics_3d/physics_system_3d.dart:_scratch': 'scratch',
 
   // Paints for debug outlines: configured once, never changed.
   'ecs/systems/gameplay/checkpoint_system.dart:_inactivePaint': 'paint',
@@ -57,6 +60,8 @@ const Map<String, String> _allowed = {
   'ecs/systems/physics/physics_system.dart:_debugSensorPaint': 'paint',
   'ecs/systems/physics/physics_system.dart:_debugKinematicPaint': 'paint',
   'ecs/systems/physics/physics_system.dart:_debugSleepingPaint': 'paint',
+  'ecs/systems/physics/physics_system.dart:_debugCharacterPaint': 'paint',
+  'ecs/systems/physics/physics_system.dart:_debugCharacterAirPaint': 'paint',
 
   // Caches keyed by object identity or type, invisible from outside.
   'ecs/base/world.dart:_zobristKeys':

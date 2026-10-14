@@ -45,8 +45,20 @@ class FrameView {
   /// Whether the camera is a plain 2-D one.
   bool isPlanar = true;
 
-  /// How far between two physics steps this frame is drawn (0..1).
+  /// How far between two physics steps this frame is drawn (0..1): blend a
+  /// moving thing's previous pose towards its current one by this much.
   double interpolation = 1.0;
+
+  /// What the camera sees, as six planes — for culling things in 3-D.
+  final Frustum frustum = Frustum();
+
+  /// Where the camera is, in world space.
+  final Vector3 cameraPosition = Vector3.zero();
+
+  /// The direction the camera looks, in world space (unit length).
+  final Vector3 cameraForward = Vector3(0, 0, 1);
+
+  final Matrix4 _inverseView = Matrix4.identity();
 
   /// Fill from [camera], drawing into [size].
   void update(GameCamera camera, Size size, {double interpolation = 1.0}) {
@@ -59,5 +71,14 @@ class FrameView {
     lens = camera.lens;
     isPlanar = camera.isPlanar;
     this.interpolation = interpolation;
+    frustum.setFromViewProjection(viewProjection);
+    // The view matrix is rigid, so its inverse holds the camera's pose:
+    // column 3 is its position and column 2 the way it looks (+Z forward).
+    _inverseView.copyInverse(view);
+    final m = _inverseView.storage;
+    cameraPosition.setValues(m[12], m[13], m[14]);
+    cameraForward
+      ..setValues(m[8], m[9], m[10])
+      ..normalize();
   }
 }

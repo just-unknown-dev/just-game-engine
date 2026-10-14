@@ -9,13 +9,16 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart'
     show GestureBinding, PointerDownEvent, PointerEvent;
-import 'package:flutter/services.dart' show HardwareKeyboard, KeyEvent;
+import 'package:flutter/services.dart'
+    show HardwareKeyboard, KeyEvent, MouseCursor, SystemMouseCursors;
 import 'package:just_inputs/just_inputs.dart';
 import 'package:just_physics_engine/just_physics_engine.dart';
 
 import '../ecs/ecs.dart';
 import 'register_default_systems.dart';
 import '../memory/cache_manager.dart';
+import '../graphics_3d/graphics_3d.dart' show Graphics3D;
+import '../physics_3d/physics_3d.dart' show Physics3D;
 import '../subsystems/assets/asset_management.dart';
 import '../subsystems/audio/audio.dart';
 import '../ecs/systems/camera/camera_system.dart';
@@ -61,10 +64,23 @@ class Engine {
     : _config = config,
       context = context ?? EngineContext(),
       _ownsContext = context == null {
-    this.context.installAll(config.extensions);
+    _adopt(config);
+  }
+
+  /// Installs [config]'s extensions (and its 3-D graphics and physics) and
+  /// queues its services: 3-D graphics first, so a service can load models,
+  /// and 3-D physics last.
+  void _adopt(EngineConfig config) {
+    context.installAll(config.extensions);
+    final graphics3D = config.graphics3D;
+    if (graphics3D != null) context.install(graphics3D);
+    final physics3D = config.physics3D;
+    if (physics3D != null) context.install(physics3D);
+    if (graphics3D != null) unawaited(services.add(graphics3D));
     for (final service in config.services) {
       unawaited(services.add(service));
     }
+    if (physics3D != null) unawaited(services.add(physics3D));
   }
 
   EngineConfig _config;
@@ -105,6 +121,13 @@ class Engine {
   /// Register commands via [GameTerminal.registerCommand] before calling
   /// `GameWidget` so the commands are available when the terminal opens.
   final GameTerminal terminal = GameTerminal();
+
+  /// The mouse cursor over the game; every `GameWidget` showing this engine
+  /// follows it. Set it to [SystemMouseCursors.none] to hide the cursor
+  /// (mouse-look). Like [stateListenable], it is never disposed.
+  final ValueNotifier<MouseCursor> cursor = ValueNotifier(
+    SystemMouseCursors.basic,
+  );
 
   // ── State ───────────────────────────────────────────────────────────────
 
@@ -180,7 +203,8 @@ class Engine {
   RenderingEngine get rendering => _ready(_rendering, 'rendering');
 
   /// The physics simulation — Box2D FFI on native platforms, pure-Dart on
-  /// web. [PhysicsEngine.initialize] runs in [initialize], so bodies can be
+  /// web, or whatever [EngineConfig.createPhysics] makes.
+  /// [PhysicsEngine.initialize] runs in [initialize], so bodies can be
   /// added before any [PhysicsSystem] exists, but **stepping**
   /// (`physics.update`) is owned by [PhysicsSystem] when one is registered
   /// in [world], not by this `Engine`'s own update loop — that keeps a
@@ -188,6 +212,17 @@ class Engine {
   /// it was set instead of lagging a frame behind. If no [PhysicsSystem] is
   /// in [world], bodies added here simply won't advance.
   PhysicsEngine get physics => _ready(_physics, 'physics');
+
+  /// The 3-D physics given in [EngineConfig.physics3D], or null for a 2-D
+  /// game. Its world, system and queries are there once the engine has
+  /// initialized.
+  Physics3D? get physics3D => _config.physics3D;
+
+  /// The 3-D graphics given in [EngineConfig.graphics3D], or null for a 2-D
+  /// game. Its renderer, models and scene renderer are there once the
+  /// engine has initialized; `unsupportedReason` says why nothing is drawn
+  /// where Flutter GPU can't.
+  Graphics3D? get graphics3D => _config.graphics3D;
 
   /// The game's input: devices, the input asset, players. Starts with no
   /// actions — the game loads its asset after [initialize]. Updated once per
@@ -289,10 +324,7 @@ class Engine {
     }
     if (config != null) {
       _config = config;
-      context.installAll(config.extensions);
-      for (final service in config.services) {
-        unawaited(services.add(service));
-      }
+      _adopt(config);
     }
     _state = EngineState.initializing;
     _lastError = null;
@@ -305,7 +337,7 @@ class Engine {
       'This Engine was disposed; create a new Engine().';
 
   Future<void> _runInitialize() async {
-    debugPrint('Initializing Just Game Engine...');
+    if (kDebugMode) debugPrint('Initializing Just Game Engine...');
     var stage = 'core';
     try {
       // 1. core
@@ -315,6 +347,7 @@ class Engine {
       _gameLoop = GameLoop(
         onUpdate: _update,
         onRender: _frame,
+        onFrame: _perFrame,
         timeManager: time,
       );
       _teardown.add(() {
@@ -352,7 +385,8 @@ class Engine {
 
       // 5. physics
       stage = 'physics';
-      final physics = _physics = PhysicsEngine();
+      final physics = _physics =
+          _config.createPhysics?.call() ?? PhysicsEngine();
       _teardown.add(() {
         _physics?.dispose();
         _physics = null;
@@ -377,7 +411,9 @@ class Engine {
         _cameraSystem = null;
         return null;
       });
-      cameras.initialize(); // Before rendering, which draws through it.
+      // Before rendering, which draws through it; its brain runs the camera
+      // stages the context's extensions registered.
+      cameras.initialize(context: context);
       parallax.initialize();
       rendering.camera = cameras.mainCamera;
       rendering.backgroundHooks.add(parallax.render);
@@ -423,7 +459,7 @@ class Engine {
       }
 
       _state = EngineState.initialized;
-      debugPrint('Engine initialized successfully');
+      if (kDebugMode) debugPrint('Engine initialized successfully');
     } catch (error, stack) {
       debugPrint('Failed to initialize engine ($stage): $error');
       final pending = _runTeardown();
@@ -535,6 +571,8 @@ class Engine {
     );
     systems.registerUpdateTask('audio', (_) => audio.update());
     systems.registerUpdateTask('ecs', (deltaTime) => world.update(deltaTime));
+    // Systems that also move once per rendered frame (see FrameSystem).
+    systems.registerFrameTask('ecs', world.frame);
   }
 
   // ── Running ─────────────────────────────────────────────────────────────
@@ -551,7 +589,7 @@ class Engine {
         '(state: ${_state.name}).',
       );
     }
-    debugPrint('Starting game engine...');
+    if (kDebugMode) debugPrint('Starting game engine...');
     _state = EngineState.running;
     gameLoop.start();
   }
@@ -566,7 +604,7 @@ class Engine {
       return;
     }
 
-    debugPrint('Pausing engine...');
+    if (kDebugMode) debugPrint('Pausing engine...');
     _state = EngineState.paused;
     gameLoop.pause();
   }
@@ -579,7 +617,7 @@ class Engine {
       return;
     }
 
-    debugPrint('Resuming engine...');
+    if (kDebugMode) debugPrint('Resuming engine...');
     _state = EngineState.running;
     gameLoop.resume();
   }
@@ -592,7 +630,7 @@ class Engine {
       return;
     }
 
-    debugPrint('Stopping engine...');
+    if (kDebugMode) debugPrint('Stopping engine...');
     gameLoop.stop();
     _state = EngineState.initialized;
   }
@@ -611,6 +649,12 @@ class Engine {
       input.update(_inputTime);
     }
     plugins.update(time.unscaledDeltaTime);
+  }
+
+  /// The per-frame phase: after the frame's fixed updates.
+  void _perFrame(double deltaTime, double alpha) {
+    if (_state != EngineState.running) return;
+    _systemManager!.runFrameCycle(deltaTime, alpha);
   }
 
   void _update(double deltaTime) {
@@ -660,7 +704,7 @@ class Engine {
       default:
         break;
     }
-    debugPrint('Shutting down engine...');
+    if (kDebugMode) debugPrint('Shutting down engine...');
     _state = EngineState.disposing;
     _gameLoop?.stop();
     plugins.detachAll();
@@ -674,7 +718,7 @@ class Engine {
       // until their stop() has finished.
       if (_ownsContext) context.dispose();
       _state = EngineState.disposed;
-      debugPrint('Engine shutdown complete');
+      if (kDebugMode) debugPrint('Engine shutdown complete');
     });
   }
 

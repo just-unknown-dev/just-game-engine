@@ -101,6 +101,17 @@ void main() {
       );
       expect(engine.rendering, isA<_MyRendering>());
     });
+
+    test('builds the physics engine it is given', () async {
+      final engine = Engine();
+      addTearDown(engine.dispose);
+      await engine.initialize(
+        config: const EngineConfig(createPhysics: PhysicsEngine.pureDart),
+      );
+      // A 3-D game asks for the cheap pure-Dart engine, never a native world.
+      expect(engine.physics, isNot(isA<Box2DPhysicsEngine>()));
+      expect(engine.physics.fixedTimestep, isTrue);
+    });
   });
 
   group('view volumes', () {

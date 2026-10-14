@@ -106,6 +106,89 @@ void main() {
     });
   });
 
+  group('previous pose', () {
+    void expectMatrix(Matrix4 actual, Matrix4 expected) {
+      for (var i = 0; i < 16; i++) {
+        expect(actual.storage[i], closeTo(expected.storage[i], 1e-9), reason: 'm[$i]');
+      }
+    }
+
+    test('every capture is counted', () {
+      final t = TransformComponent();
+      expect(t.captureCount, 0);
+      t
+        ..capturePrevious()
+        ..capturePreviousWithRotation(Quaternion.identity());
+      expect(t.captureCount, 2);
+    });
+
+    test('the previous rotation is right whether it was planar or not', () {
+      final t = TransformComponent(angle: 0.5)..capturePrevious();
+      // Turned in 3-D after a planar capture: the planar angle still counts.
+      t.setEuler(0.3, 0.2, 0.1);
+      final q = Quaternion.identity();
+      t.previousRotationInto(q);
+      expect(q.sameRotation(Quaternion.identity()..setRotationZ(0.5)), isTrue);
+
+      t.capturePrevious();
+      t.setEuler(0, 0, 0);
+      t.previousRotationInto(q);
+      expect(q.sameRotation(Quaternion.identity()..setEuler(0.3, 0.2, 0.1)), isTrue);
+    });
+
+    test('a capture with a given rotation keeps it as the previous one', () {
+      final before = Quaternion.axisAngle(Vector3(0, 1, 0), 0.4);
+      final t = TransformComponent(position: Vector3(1, 2, 3))
+        ..setRotation(Quaternion.axisAngle(Vector3(0, 1, 0), 1.2))
+        ..capturePreviousWithRotation(before);
+      final q = Quaternion.identity();
+      t.previousRotationInto(q);
+      expect(q.sameRotation(before), isTrue);
+      expect(t.prevPosition, Vector3(1, 2, 3));
+      expect(t.eulerY, closeTo(1.2, 1e-12), reason: 'the rotation itself is untouched');
+    });
+
+    test('drawn between the previous pose and the pose', () {
+      final up = Vector3(0, 1, 0);
+      final t = TransformComponent(position: Vector3(0, 0, 0), scale: Vector3(2, 2, 2))
+        ..setRotation(Quaternion.axisAngle(up, 0.2))
+        ..capturePrevious()
+        ..position.setValues(4, -2, 8)
+        ..setRotation(Quaternion.axisAngle(up, 1.0));
+      final m = Matrix4.identity();
+      t.interpolatedToWorldInto(m, 0.25);
+      expectMatrix(
+        m,
+        Matrix4.identity()..setFromTrs(Vector3(1, -0.5, 2), Quaternion.axisAngle(up, 0.4), Vector3(2, 2, 2)),
+      );
+
+      final now = Matrix4.identity();
+      t.localToWorldInto(now);
+      t.interpolatedToWorldInto(m, 1);
+      expectMatrix(m, now);
+    });
+
+    test('a planar transform is drawn between its angles', () {
+      final t = TransformComponent(position: Vector3(10, 0, 0), angle: 0)
+        ..capturePrevious()
+        ..position.setValues(20, 10, 0)
+        ..angle = 1.0;
+      final m = Matrix4.identity();
+      t.interpolatedToWorldInto(m, 0.5);
+      expectMatrix(m, Matrix4.identity()..setFromPlanarTrs(15, 5, 0, 0.5, 1, 1, 1));
+    });
+
+    test('the world counts its updates', () {
+      final world = World()..initialize();
+      addTearDown(world.dispose);
+      expect(world.updateCount, 0);
+      world
+        ..update(1 / 60)
+        ..update(0);
+      expect(world.updateCount, 2);
+    });
+  });
+
   group('WorldAxes', () {
     test('down is gravity, up is -Y, forward is into the screen', () {
       expect([WorldAxes.upX, WorldAxes.upY, WorldAxes.upZ], [0, -1, 0]);
@@ -133,7 +216,8 @@ void main() {
           euler: Vector3(0.25, -0.5, 0),
           scale: Vector3(1, 1, 3),
         ),
-        PhysicsBodyComponent(shape: CircleShape(4), showDebugOutline: false),
+        RigidBody2D(),
+        Collider2D(shape: ColliderShape2D.circle, radius: 4, showDebugOutline: false),
       ]);
       for (var i = 0; i < 30; i++) {
         world.update(1 / 60);

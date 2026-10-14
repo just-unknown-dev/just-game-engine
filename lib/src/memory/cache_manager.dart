@@ -232,12 +232,14 @@ class CacheManager {
   Future<void> initialize() async {
     if (_initialized) return;
 
-    debugPrint('Initializing CacheManager...');
+    if (kDebugMode) debugPrint('Initializing CacheManager...');
 
     if (forceMemoryFallback) {
       _memoryFallback = true;
       _initialized = true;
-      debugPrint('CacheManager using forced in-memory fallback.');
+      if (kDebugMode) {
+        debugPrint('CacheManager using forced in-memory fallback.');
+      }
       return;
     }
 
@@ -273,7 +275,7 @@ class CacheManager {
     _initialized = true;
     await _moveOutOfSharedStore();
     await _forgetLegacyAssetCopies();
-    debugPrint('CacheManager initialized successfully.');
+    if (kDebugMode) debugPrint('CacheManager initialized successfully.');
   }
 
   /// Moves what the engine left in the store it shared with the app before
@@ -595,7 +597,7 @@ class CacheManager {
       if (_databaseCache != null) {
         await _databaseCache!.execute('DELETE FROM binary_cache');
       }
-      debugPrint('Cache cleared.');
+      if (kDebugMode) debugPrint('Cache cleared.');
     } catch (e) {
       debugPrint('Error clearing cache: $e');
     }

@@ -153,6 +153,13 @@ class World {
   /// a set of live entities every frame.
   int get structureVersion => _structureVersion;
 
+  int _updateCount = 0;
+
+  /// How many times [update] has run. A renderer drawing between fixed
+  /// updates compares it with the value it last saw to know whether one
+  /// happened since its last frame.
+  int get updateCount => _updateCount;
+
   /// The cache entry for [componentTypes], made on first use.
   _QueryCacheEntry _queryEntryFor(List<Type> componentTypes) {
     final key = _typeSetKey(componentTypes);
@@ -395,7 +402,9 @@ class World {
     }
 
     _initialized = true;
-    debugPrint('ECS World initialized with ${_systems.length} systems');
+    if (kDebugMode) {
+      debugPrint('ECS World initialized with ${_systems.length} systems');
+    }
   }
 
   /// Takes a new [entity] in.
@@ -621,6 +630,16 @@ class World {
   void sortSystems() =>
       _systems.sort((a, b) => b.priority.compareTo(a.priority));
 
+  /// Runs every active [FrameSystem], in priority order: once per rendered
+  /// frame, after its fixed updates (see [FrameSystem.frame]).
+  void frame(double deltaTime, double alpha) {
+    for (final system in _systems) {
+      if (system is! FrameSystem || !system.isActive) continue;
+      (system as FrameSystem).frame(deltaTime, alpha);
+      if (commands.isNotEmpty) commands.flush();
+    }
+  }
+
   /// Remove a system from the world
   void removeSystem(System system) {
     system.onRemovedFromWorld();
@@ -656,6 +675,7 @@ class World {
 
   /// Update all active systems
   void update(double deltaTime) {
+    _updateCount++;
     _totalStopwatch
       ..reset()
       ..start();
@@ -818,7 +838,7 @@ class World {
     events.clear();
     _initialized = false;
     if (_ownsContext) context.dispose();
-    debugPrint('ECS World disposed');
+    if (kDebugMode) debugPrint('ECS World disposed');
   }
 
   /// Get statistics

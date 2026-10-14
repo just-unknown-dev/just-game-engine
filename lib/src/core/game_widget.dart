@@ -3,6 +3,8 @@
 /// Flutter widget that integrates the game engine with Flutter's rendering pipeline.
 library;
 
+import 'package:flutter/gestures.dart'
+    show PointerDeviceKind, kPrimaryMouseButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart'
@@ -337,8 +339,10 @@ class _GameWidgetState extends State<GameWidget>
     engine.gameLoop.tick(elapsed);
     // Push the sub-frame interpolation factor to the ECS RenderSystem so
     // physics-driven entities lerp smoothly between fixed-timestep positions.
-    _renderSystemOf(engine.world)?.interpolation =
-        engine.gameLoop.interpolation;
+    final interpolation = engine.gameLoop.interpolation;
+    _renderSystemOf(engine.world)?.interpolation = interpolation;
+    // And to the frame's view, for renderers that draw another way (3-D).
+    engine.rendering.interpolation = interpolation;
     // Signal the CustomPainter to repaint — no widget rebuild needed.
     _repaintNotifier.notify();
     if (widget.showLayers) {
@@ -546,8 +550,9 @@ class _GameWidgetState extends State<GameWidget>
   /// The FPS badge — its own RepaintBoundary, driven by a Signal, so it
   /// rebuilds about once a second and nothing else does.
   Widget _fpsCounter() => Positioned(
-    top: 10,
-    right: 10,
+    // Clear of a phone's status bar and notch.
+    top: 10 + MediaQuery.paddingOf(context).top,
+    right: 10 + MediaQuery.paddingOf(context).right,
     child: RepaintBoundary(
       child: SignalBuilder<int>(
         signal: _fpsSignal,
@@ -618,13 +623,22 @@ class _GameWidgetState extends State<GameWidget>
                     _focusNode.requestFocus();
                   }
                   _pointer(event);
+                  // A game that looks with the mouse holds it on a click
+                  // (`input.lockPointerOnClick`); Escape lets go.
+                  if (event.kind == PointerDeviceKind.mouse &&
+                      (event.buttons & kPrimaryMouseButton) != 0 &&
+                      widget.engine.isInitialized) {
+                    widget.engine.input.lockPointerForClick();
+                  }
                 },
                 onPointerUp: _pointer,
                 onPointerMove: _pointer,
                 onPointerHover: _pointer,
                 onPointerSignal: _pointer,
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.basic,
+                child: ValueListenableBuilder<MouseCursor>(
+                  valueListenable: widget.engine.cursor,
+                  builder: (context, cursor, child) =>
+                      MouseRegion(cursor: cursor, child: child),
                   child: RepaintBoundary(
                     child: CustomPaint(
                       painter: _GamePainter(

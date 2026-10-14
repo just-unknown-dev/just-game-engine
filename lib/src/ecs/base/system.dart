@@ -4,6 +4,22 @@ part of '../ecs.dart';
 // System
 // ════════════════════════════════════════════════════════════════════════════
 
+/// A [System] that also runs once per rendered frame, after the frame's
+/// fixed updates and before it is drawn — for what must move at the
+/// display's rate rather than the simulation's: a camera following a body
+/// between physics steps, a look that reads this frame's mouse movement.
+///
+/// Implement it alongside [System] (`class MySystem extends System
+/// implements FrameSystem`). Systems that don't implement it pay nothing,
+/// and none of the engine's 2-D systems do.
+abstract interface class FrameSystem {
+  /// One rendered frame: [deltaTime] seconds since the last (scaled by the
+  /// game's time scale); [alpha] how far the frame lies between the last
+  /// two fixed updates (0..1), for blending a pose from its previous step to
+  /// its current one.
+  void frame(double deltaTime, double alpha);
+}
+
 /// Base class for all systems
 ///
 /// Systems contain logic and operate on entities with specific components.

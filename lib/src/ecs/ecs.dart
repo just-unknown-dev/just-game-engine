@@ -12,7 +12,7 @@ import 'dart:collection';
 import 'dart:math';
 import 'dart:ui' show Canvas, Size;
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 
 import 'base/engine_context.dart';
 import 'base/transform/children_component.dart';

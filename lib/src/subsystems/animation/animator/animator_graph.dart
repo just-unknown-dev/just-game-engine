@@ -11,4 +11,7 @@ export 'package:just_game_engine_formats/just_game_engine_formats.dart'
         AnimatorCondition,
         AnimatorState,
         AnimatorTransition,
-        AnimatorGraph;
+        AnimatorGraph,
+        AnimatorBlendType,
+        AnimatorBlendMotion,
+        AnimatorBlendTree;

@@ -2,25 +2,118 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
-## [1.7.0] - 2026-08-01
+## [Unreleased]
+
+3-D graphics and physics to opt into, drawn by just_graphics_engine. Nothing changes for a 2-D game, but the engine now needs Flutter 3.47.1.
 
 ### Added
 
-- **Opt-in view culling** — `CullStateComponent` + `ViewCullingSystem` track which entities are near the camera using two separate radii (a tight render radius and a larger active/simulation radius), backed by a new generic `EntitySpatialGrid` broad-phase index (incrementally synced, modeled on the existing physics `SpatialGrid`). `ViewCullingSystem` mirrors culled entities onto `RenderableComponent.renderable.visible` automatically, and the built-in `MovementSystem`/`PhysicsSystem` skip simulating any entity whose `CullStateComponent.isActive` is `false` — opt-in per entity, zero behavior change for anything that doesn't add the component.
-- **`GameWidget.passthroughKeys`** — new optional `Set<LogicalKeyboardKey>? passthroughKeys` constructor parameter. Keys in the set are still forwarded to `Engine.input` for polling-based gameplay systems, but `GameWidget`'s `Focus.onKeyEvent` now returns `KeyEventResult.ignored` for them (instead of always `handled`), the correct signal per Flutter's `Focus` API that an ancestor may want the key. **Caveat**: whether an ancestor `Shortcuts`/`CallbackShortcuts` widget actually receives that bubbled event depends on the `FocusScope` structure above `GameWidget` — a typical `MaterialApp` → `Navigator` → route → `Scaffold` chain did not reliably deliver it in testing. For a binding that must fire regardless of the surrounding tree (e.g. an app-level Escape-to-pause shortcut), use `HardwareKeyboard.instance.addHandler` instead, which runs independently of `Focus`. See the parameter's doc comment for details. Defaults to `null` — fully backward compatible.
-- **`GameWidget.overlay`** — new optional `Widget? overlay` constructor parameter: an app-level UI composition slot stacked above the game canvas and below the engine's own FPS counter / dev terminal, so debugging tools stay visible and interactive on top of app content. Removes the need for host apps to wrap `GameWidget` in their own external `Stack` purely to add HUD/menu overlays.
+- **3-D graphics** (`package:just_game_engine/graphics_3d.dart`): `EngineConfig(graphics3D: Graphics3D())` gives the engine `ModelComponent`, `LightComponent`, `EnvironmentComponent`, `AnimationPlayerComponent`, `SocketComponent` and the shapes `Cube3D` to `Polygon3D` (base `Primitive3D`), saved in scenes and drawn from the engine's camera by just_graphics_engine on Flutter GPU (`GraphicsSceneRenderer`, `GraphicsModels`, `GraphicsShapes`, `AnimationSystem3D`, `SkeletalAnimationTarget`, `SkeletalClipTrack`). Physics bodies and characters are drawn between their last two poses. A game without a `Graphics3D` is 2-D only: no GPU device, no shaders loaded. Where Flutter GPU can't draw, the game runs anyway, the 3-D view shows a note, and `Graphics3D.unsupportedReason` and `onUnsupported` say why. `engine.graphics3D` is the one given; it starts before the game's own services. These came from just_graphics_engine, which is now a renderer standing alone.
+- `UnknownComponentTypeException` says how to turn on a 3-D graphics or 3-D physics component a scene holds (`builtInHint`).
+- `FrameView.frustum`, `cameraPosition` and `cameraForward`, filled with the rest of the view; `FrameView.interpolation` now carries the game loop's interpolation (`RenderingEngine.interpolation`, set by `GameWidget` every tick) instead of always being 1.
+- `Engine.cursor`: the mouse cursor `GameWidget` shows over the game; set it to `SystemMouseCursors.none` to hide it (mouse-look).
+- **3-D physics** (`package:just_game_engine/physics_3d.dart`): `EngineConfig(physics3D: Physics3D())` gives the engine `RigidBody3D`, `Collider3D` (box, sphere, capsule, cylinder, convex hull, mesh, height field, or matching a 3-D shape), `CharacterBody3D` and the joints `FixedJoint3D`, `PointJoint3D`, `HingeJoint3D`, `SliderJoint3D`, `DistanceJoint3D` and `SixDofJoint3D`, stepped by `PhysicsSystem3D` on Jolt Physics (just_physics_engine's `JoltPhysicsEngine`), with `CollisionEnter3DEvent` and the rest, `Physics3DQueries` and the camera's `CameraCollisionStage`. A game without a `Physics3D` is 2-D only and its release build carries none of it; the world is made only with the first 3-D body. The app's pubspec builds Jolt (`hooks: user_defines: just_jolt: build: true`); where 3-D cannot run, `initialize()` fails with a `Physics3DUnsupportedError` (`Physics3D.isSupported` asks first). `engine.physics3D` is the one given.
+- `EngineConfig.createPhysics`: makes `engine.physics`, the 2-D physics engine; null keeps the standard one (native Box2D, pure Dart on the web). A world with no bodies is not stepped (`PhysicsEngine.bodyCount`).
+- `ModelAsset` and `ModelGeometry`: what the engine knows about a 3-D model (bounds, mesh names, CPU triangles for picking and mesh colliders). A renderer registers the loader for `AssetType.model`.
+- `SolidShapeSource` and its convex `SolidPart`s (`SolidBox`, `SolidSphere`, `SolidCapsule`, `SolidCylinder`, `SolidHull`): a component whose look is a solid of known shape says so, and a physics package gives a collider that same shape (just_graphics_engine's 3-D shapes, and a `Collider3D` set to match the shape).
+- `ViewCullingSystem` culls by frustum when the camera is in space (`isPlanar` false): an entity's box is the union of its components' 3-D extents, placed by its full transform; out of view it stays active within the new `activeDistance`. A 2-D camera culls exactly as before.
+- **A per-frame phase.** `FrameSystem`: a `System` that also implements `frame(deltaTime, alpha)` runs once per rendered frame, after the frame's fixed updates and before it is drawn (`World.frame`, `GameLoop.onFrame`, `SystemManager.registerFrameTask`/`runFrameCycle`). Systems that don't implement it, which is all of the engine's 2-D ones, pay nothing.
+- **3-D camera rigs**: `OrbitFollowComponent` (a third-person camera circling its target, turned by `yaw`/`pitch`), `FirstPersonComponent` and `LookAtComponent`, with their stages (`OrbitFollowStage`, `FirstPersonStage`, `LookAtStage`), definitions and `cameraForward`/`cameraAnglesOf`.
+- `CameraBrain.updateMode`: `CameraUpdateMode.frame` runs the brain once per rendered frame, following targets blended between their last two fixed updates (`CameraBrain.sampleTargets`, `CameraStageContext.targetPosition3`, `targetRotation` and `alpha`), so a camera follows a body smoothly at any frame rate. `fixed`, as before, is the default.
+- `CameraRegistries`: the camera stages and managers are one set per `EngineContext` (`CameraRegistries.of(context)`), so a kit's extension registers its stages once for every brain of an engine. A `CameraBrain` made on its own keeps a set of its own, as before.
+- `AudioListenerComponent.fromCamera`: the listener hears from the output camera, its position and the way it faces. `AudioSystem` takes the `camera` (the default systems pass the engine's).
+- **Animation targets**: `AnimationTarget` and `context.animationTargets`. An entity with an `AnimatorComponent` and no sprite plays its graph on the first registered target that drives it (just_graphics_engine registers a model's skeleton). Sprites play exactly as before.
+- **Previous poses for 3-D render interpolation**: `TransformComponent.captureCount` (how many times the previous pose was captured, so a renderer can tell a fresh previous pose from a stale one), `previousRotationInto` (the captured rotation whether the transform was planar or not), `capturePreviousWithRotation` (for a mover whose entity gameplay turns before the step) and `interpolatedToWorldInto` (the matrix between the previous pose and the pose). `World.updateCount` counts updates. 2-D capture and rendering are unchanged.
+- `GameWidget`'s FPS badge keeps clear of a phone's status bar and notch.
+- `LookActions`, `LookInput` and `LookSettings` (just_inputs) are re-exported: a 3-D game's camera reads its look through them.
+- **Pointer lock** for mouse look (Windows, from just_inputs; `PointerLock` is re-exported): `engine.input.pointerLock` holds the mouse in the window and feeds its raw movement to the look actions, and with `engine.input.lockPointerOnClick` a mouse click on `GameWidget` takes hold. Escape lets go, whatever widget has the keyboard — `GameWidget` keeps every key, so a game's own Escape handler above it never saw one.
+- `TimelineTrackOffer`: a kind of track can say what an editor's Add track menu calls it and how to make an empty one (`TimelineTrackKinds.register(offer:)`, `offerFor`, `offered`). The engine's own kinds, but the field-bound property track, are offered.
+- Animator graph format 2 (`just_game_engine_formats`): a transition's `duration` crossfades on targets that can blend; a state's `blend` tree weighs several clips by one or two parameters. A sprite plays a blend tree's heaviest motion and always cuts. `AnimatorBlendTree`, `AnimatorBlendMotion` and `AnimatorBlendType` are re-exported.
 
 ### Changed
 
-- **`GameWidget` internal reactive consistency** — FPS counter now driven by `Signal<int>` + `SignalBuilder<int>` instead of `ValueNotifier<int>` + `ValueListenableBuilder<int>`, aligning with the engine's documented ESP Architecture (no behavior change). Dev-terminal consumption now uses a `ListenableBuilder` scoped to just the terminal overlay subtree instead of a whole-widget `setState` per keystroke — **fixes** unnecessary over-rebuilding where every terminal keystroke previously rebuilt the entire `GameWidget` tree instead of just the terminal panel.
-- **`GameWidget` pointer-handling scope narrowed** — `GestureDetector`/`Listener`/`MouseRegion` (world pointer input) now wrap only the game canvas instead of the entire internal `Stack`, so taps on the new `overlay` slot no longer also fire world pointer/tap handling. `Focus` (keyboard) is unaffected and still wraps the whole widget; canvas pointer behavior for existing callers is unchanged (same full-bleed bounds as before).
-- **`GameWidget` pins keyboard focus to the canvas** — `descendantsAreFocusable: false` on the internal `Focus` node, so tapping a button placed in `overlay` no longer steals primary focus away from `_focusNode` with nothing to hand it back. Buttons/interactive `overlay` content remain fully clickable via normal pointer/gesture handling; this only opts them out of taking keyboard focus — including any focus-driven widget (`TextField`, a keyboard-adjustable `Slider`) placed in `overlay`, which is a real limitation now called out on `overlay`'s doc comment.
-- **New recommended app architecture** — see the new [ESP_ARCHITECTURE.md](ESP_ARCHITECTURE.md) for the Engine · Signal · Presentation pattern this release's `GameWidget` changes are designed around.
+- Needs Flutter 3.47.1 (just_graphics_engine, the first stable where Flutter GPU can be switched on in Windows and Linux release builds). Every app builds the renderer's shaders; a 2-D game never loads them.
+- **2-D bodies take 3-D's defaults**: a `RigidBody2D`'s `mass` is 0, which works the mass out from its collider's area as a 3-D body does from its volume (`PhysicsSystem.autoMassPerSquareUnit`: a 100 × 100 box weighs 1000 kg, as a 1 m cube does), and `linearDamping` and `angularDamping` are 0.05. A `CharacterBody2D` weighs 70 kg. Saved scenes keep the values they were saved with; set `mass: 1` and no damping on a body made in code that relied on the old defaults.
+- Damping slows only a dynamic body, as in 3-D: a kinematic one (a moving platform) keeps the velocity it is given. Box2D slowed it as well.
+- The engine's lifecycle lines (initialized, started, a system registered, disposed, …) print only in debug builds; warnings and errors still print in every build.
+- `just_audio_engine` ^1.0.2: package assets play, and hot restart, `setLoop`, `cancelFade` and iOS work (see its changelog).
+
+## [2.0.0] - 2026-10-01
+
+A breaking release. The engine is now an object a game creates, initializes and disposes, with its own registries, loaders and world. Levels are JSON scenes described by component definitions that the game and an editor share. Cameras, input, sprites, tile maps, animation and the transform hierarchy were rebuilt, and the game services moved to a package of their own. Transforms, cameras and the render and culling seams are ready for 3-D, while a 2-D game draws, moves and saves as before.
+
+**Upgrading from 1.6? Read [MIGRATION.md](MIGRATION.md)**, which has the full lists of removed, renamed and deprecated APIs. Scene files saved by any earlier version still load: they are migrated in memory, format 0 to 9, and nothing on disk changes until you save.
+
+The engine has 1,490 passing tests.
+
+### Breaking changes
+
+- **Lifecycle**: `Engine()` is an ordinary constructor (`Engine.instance` and `resetInstance()` are gone); `initialize()` throws `EngineInitException` and undoes what it built; `dispose()` is async and final; subsystem getters throw `EngineNotReadyError` outside that window ([engine setup](MIGRATION.md#engine-setup-and-lifecycle)).
+- **Game services** (achievements, auth, leaderboards, currency, inventory, ads) moved to [`just_game_services`](https://pub.dev/packages/just_game_services) and are opt-in through `EngineConfig(services: ...)` ([game services](MIGRATION.md#game-services)).
+- **Physics**: `PhysicsSystem(engine.physics)` replaces the 1.x solver and `PhysicsBridgeSystem`. `PhysicsBodyComponent` is split into `RigidBody2D` (how a body moves) and `Collider2D` (its shape), with the names, defaults (friction 0.5, no bounce, damping 0.05, and a mass worked out from the collider when it is 0) and events (`CollisionEnter2DEvent`, `SensorEnter2DEvent`, …) of the 3-D bodies; a collider alone is a static body. The joints are `DistanceJoint2D`, `FixedJoint2D`, `SliderJoint2D` and `WheelJoint2D`. A body has one `bodyType` and a named `layer` (0–15) with `collidesWith` instead of category and mask bits, and its collider follows the entity's scale ([physics bodies](MIGRATION.md#physics-bodies)). Saved scenes keep every old setting.
+- **Transforms**: `rotation` is `angle` and `rotationX` / `rotationY` are `eulerX` / `eulerY`. Every `World` runs the hierarchy, and destroying a parent destroys its children ([transforms](MIGRATION.md#transforms), [hierarchy](MIGRATION.md#the-transform-hierarchy)).
+- **Cameras** are virtual cameras and a brain; behaviours, `CameraFollowComponent`, springs, shake and `worldBounds` are removed ([cameras](MIGRATION.md#cameras)).
+- **Input** comes from `just_inputs`: `engine.input` is an `InputService`, and `InputComponent` reads actions by name ([input](MIGRATION.md#input)).
+- **Moved or replaced**: in-game UI components went to `just_ui_editor`, the Tiled components to `LevelMapComponent`, and the legacy animation system and scene graph to sprite animation, timelines and `SceneLoader` ([in-game UI](MIGRATION.md#in-game-ui), [level maps](MIGRATION.md#tile-maps-and-level-maps), [sprites](MIGRATION.md#sprites-and-animation), [scenes](MIGRATION.md#scenes-and-saving)).
+- **No global instances**: localization and effect types live on `engine.context`, and asset loaders take `assets: engine.assets` ([localization](MIGRATION.md#localization), [assets](MIGRATION.md#assets)).
+- **Imports**: widgets are in `package:just_game_engine/widgets.dart`, and re-exported packages use `show` lists ([imports](MIGRATION.md#imports)).
+- **Draw order**: `RenderSystem` sorts by `LayerComponent` and draws particle emitters itself ([draw order](MIGRATION.md#draw-order)).
+- **Storage**: the engine keeps its own storage file and prefixes cache keys; entries written with `setString` / `setJson` before 2.0 are not read ([storage](MIGRATION.md#storage-and-the-cache)).
+- **Removed and renamed**: the networking stubs, the Steam and Epic providers, the `Reactive*Component`s and the particle `shape` / `gravity` deprecated in 1.6; `AssetBundle` is `GameAssetBundle`, `typedef Easing` is `EasingFunction` and `SystemPriorities.tileMap` is `levelMap` ([removed](MIGRATION.md#removed-apis), [renamed](MIGRATION.md#renamed-apis)).
+- **Requires** Flutter 3.44 or newer (Dart 3.12).
+
+### Added
+
+- **Saved formats in pure Dart**: `SceneFormat` and its migrations, `TimelineFormat`, `AnimatorGraph` and `UnsupportedFormatVersionException` now live in [`just_game_engine_formats`](https://pub.dev/packages/just_game_engine_formats), so the editor and the `just` command-line tool migrate files with the engine's own code. The engine re-exports them: no import changes. New there: `SceneStarters` (what a new level starts from), `SceneManifest` (`scenes.json`) and `SceneNames` (the naming rules).
+- **The engine object**: `EngineConfig` (`defaultSystems`, `extensions`, `services`, `createRendering`, `createAudio`), `DefaultSystems.all` / `headless`, `Engine.stateListenable`, and `EngineContext`: one engine's definitions, field types, migrations, loaders, signals and localization, which a package extends through a `ContextExtension`.
+- **Services, plugins and widget layers**: `EngineService` and `ServiceHost`; `EnginePlugin`, updated even while paused; `GameLayers`, which draw real Flutter widgets over the game; `GameWidget.overlay`.
+- **Scenes**: a `ComponentDefinition` describes a component's fields, save format and editor hints once, for the game and an editor alike. `SceneLoader` loads scenes and the `scenes.json` manifest. Scene format 9, with step-by-step migrations (`MigrationHooks`, `MigrationResult`); files from a newer engine are refused with `UnsupportedFormatVersionException`.
+- **Level maps**: `LevelMapComponent` (inline, a `.map.json`, or a Tiled `.tmx` / `.tmj`), all four Tiled orientations, sparse chunked layers drawn among the sprites, merged collision bodies (`MapCollisionSystem`), entities on map layers, run-time edits through `LevelMaps.of(...)`, Wang fills, `TiledInterop`, and a built-in `basicShapes` tileset.
+- **Sprites and animation**: `SpriteComponent` and `SpriteAnimationComponent` play TexturePacker and Aseprite atlases; `AnimatorGraph` (`.animator.json`) state machines read velocity, health and other bindings with no code; one `Easings` table.
+- **Timelines**: `TimelineAsset` and `TimelinePlayerComponent` with property, sprite-clip, camera-shot, audio, activation, nested and event tracks, each bound to `self`, a name or a tag; `TimelinePlayback` for editors.
+- **Cameras**: `VirtualCameraComponent` and `CameraBrain` with blends, stages (framing, dolly, group framing, noise, impulses, confiner) and manager cameras (state-driven, blend list, mixer).
+- **Input**: actions from an input asset across keyboard, mouse, gamepads, touch and on-screen controls; local multiplayer; rebinding saved per player. Input keeps running while the game is paused.
+- **Tags, targets and spawners**: `TagComponent` holds a set of tags behind a world index (`findTagged`); `EntityTarget`, `Spawner`, `SpawnPoints` and the project's `TagLibrary`.
+- **Rendering**: `LayerComponent` draw order, `RenderHookChain`, `RenderPass`, `ParallaxRenderSystem`, opt-in shape batching and view culling (`ViewCullingSystem`), and `RenderStatsSink`.
+- **Ready for 3-D**: `WorldAxes`, Euler and quaternion transforms (2-D code keeps a plain `angle`), the hierarchy inside `World.update`, a camera with depth, pitch, yaw and a perspective lens, and the `SceneRenderer`, `ViewVolume` and `SpatialIndex` seams. See [ARCHITECTURE.md](ARCHITECTURE.md).
+- **Physics and gameplay**: distance, fixed, slider and wheel joints, joined to the body an `EntityTarget` names; `SimpleMovementComponent`; `PhysicsLayers`, sixteen named layers and a collision grid in `assets/project/physics.json`; `Collider2D` shapes (box with rounded corners, circle, capsule, polygon, segment, chain, and `matchShape`, which follows what the entity draws) with their own offset, rotation and scale; `RigidBody2D` `friction`, `gravityScale`, `lockRotation`, `continuousCollision`, `canSleep`, initial velocities, ground contact, velocities read back and forces from code (`addForce`, `addImpulse`, `setVelocity`, …); `CollisionStay2DEvent` (opt-in); `Physics2DQueries` (rays, circle casts, overlaps by layer); `ColliderGeometry`. **`CharacterBody2D`**, the 2-D twin of `CharacterBody3D`: a capsule or a box gameplay moves (`moveVelocity`, `jump`) that walks slopes up to a steepest angle, climbs steps, keeps to the floor going down, rides moving platforms, stands on one-way platforms and jumps up through them, and pushes dynamic bodies — the same on native Box2D and on the web (just_physics_engine's `CharacterMover2D`).
+- The package declares all six platforms and builds for the web with dart2js and dart2wasm.
+- **An entity keeps its components in its own order**: `Entity.components` lists them as they were added — a scene's entity as its file lists them — rather than in the order of the archetype it shares with every entity of the same types, which was whatever came first. `Entity.reorderComponents(types)` rearranges them (an editor's inspector does) and `Entity.componentTypes` reads the order. A scene saves it. Systems find components by type, so nothing runs differently.
+- **Hot reload, for an editor**: `EngineContext.refreshDefinitions()` puts every component definition in place again as the code now makes it — the engine's own, then each installed `RefreshableExtension`'s — so an editor shows a field added to a component without a restart. `ComponentDefinitionRegistry.refresh` replaces by type and leaves a project's deliberate replacement alone (`register(override: true)`, or one an `ifAbsent` registration found in place). `World.sortSystems()` puts a changed `System.priority` in effect. The engine's definitions (`CoreDefinitions`, `CoreComponentSchemas`, `CameraDefinitions`, `LevelMapDefinitions`, `TimelineDefinitions`) are getters rather than `static final`s, which a hot reload never rebuilds; read one through `context.definitions` where its identity matters. A game never calls any of this.
+
+### Changed
+
+The full list is in [MIGRATION.md](MIGRATION.md#behaviour-you-may-notice). The ones most likely to matter:
+
+- Entity ids are never reused, `Component.onDetach` always runs, switching `isActive` takes effect at once, and `CommandBuffer` applies commands in the order they were queued.
+- Bundle assets are no longer copied into the persistent cache, and `CacheManager.clearAll()` clears only the engine's own keys.
+- Sprite batches honour each sprite's `filterQuality`, mirroring and stretch; `RenderingEngine.stats` count the whole frame.
+- Wind and noise particle forces give the same values on every platform and advance once per frame, not once per particle.
+- Shader effects are skipped with one log line where they are unsupported (the web, Skia) instead of throwing every frame.
+- `GameWidget` resumes only a pause the app lifecycle caused, and wires up an engine that finishes initializing after the widget is built.
+- `lib/` no longer imports `dart:io` (except, conditionally, to find its storage folder) or depends on `web`.
+
+### Performance
+
+Drawing 10,000 shapes went from about 19.5 ms to 12.9 ms a frame, and 2,000 physics bodies step and sync in 1.56 ms (`test/perf/transform_hot_path_test.dart`, Windows, debug JIT). Shapes cache their paints and paths, `RenderSystem` iterates archetype columns and batches sprites with `drawRawAtlas`, queries are invalidated per archetype, and audio positions are sent only when they change.
 
 ### Fixed
 
-- **`GameWidget`'s terminal-toggle key (backquote) no longer leaks into gameplay or the terminal's own input.** Previously only `KeyDownEvent` was special-cased, so holding backquote after the terminal opened generated `KeyRepeatEvent`s that fell through to "treat as terminal input," spamming backticks into the input buffer, and the paired key-*up* event leaked into `Engine.input`'s polled key state whenever it happened to land right as the terminal closed (an asymmetry versus opening, which happened to swallow it). The toggle key's events (down, repeat, and up) are now all unconditionally consumed by `GameWidget` regardless of the terminal's open/closed state.
-- **`GameTerminal` can now type uppercase letters and shifted symbols.** `GameTerminal.handleKeyDown` had its own "printable ASCII fallback" that mapped every digit/letter/space/punctuation key via a case-insensitive `LogicalKeyboardKey.keyLabel` lookup and returned `true` — pre-empting `GameWidget`'s intended fallback to `appendCharacter(event.character)` (the Shift/CapsLock/IME-aware path both functions' doc comments already described as "preferred") for every printable key, every time. The dev terminal could previously never produce an uppercase letter or a shifted symbol like `!`/`@`. `handleKeyDown` now only special-cases Enter/Backspace, as originally intended; all printable input goes through `appendCharacter`.
+- **Rendering**: batched sprites drew above every layer, and mirrored ones vanished; `ParticleEmitterComponent` emitters, and `RenderableComponent` subclasses without `componentType`, were never drawn; a replaced `ShaderComponent` kept its disposed shader; sprite batches, images and shaders leaked.
+- **Physics**: changing bounciness, damping, friction, `isSensor` or `shape` at run time reached only the Dart side of a native Box2D body; static bodies shook after a scene load; the collider outline ignored the body's turn; a weld joint was not remade when its anchor changed; wheel joints without native support were a slider; `RaycastSystem` missed default-sized colliders, and `ColliderDebuggerSystem`'s filters also hid raycast outlines.
+- **Cameras**: a standby blend list did not start over when it went live again; emitting the same `CameraImpulse` twice doubled it; `DollyPath.closed` and `CameraRigMemory.reset()` were wrong.
+- **Maps, animation and timelines**: Aseprite ping-pong tags showed a frame twice; hidden Tiled image layers imported as visible, without their parallax and tint; `TileChunkData` took any number of cells; hidden cells could change without a redraw; `AnimatorComponent.getFloat`, `getInt` and `getBool` misread parameter types; `TrackBinding.fromJson` and `KeyCurve.numberAt` mishandled some values.
+- **Audio**: 3-D sources were panned as well; a stream's fade-in did not start from silence; `.flac` and upper-case extensions went undetected.
+- **Dialogue**: `autoAdvance` never ran; `YarnParser` silently cut nodes short on malformed `<<if>>` blocks (now a `YarnParseException`); `DialogueBoxWidget` leaked its old runner's listener.
+- **Other**: asset bytes ignored their offset; paths with spaces, `@`, `+` or non-ASCII characters could not be cached; the dev terminal leaked the backquote and could not type capitals; two component classes with the same name could not share a world; `CheckpointSystem` drew its radii in the wrong space and crashed without a transform; `RayRenderable(lifetime: 0)` expired at once; `EntitySignal` started active and lost components on `sync()`; `ShakeEffect` drifted; dartdoc crashed on `engine.dart`.
+
+### Deprecated
+
+Removed in 3.0: `Engine.getSystem`, the legacy `RenderingEngine` renderable path, `Engine.parallax` and `ParallaxSystem`, `onRenderBackground` / `onRenderOverlay`, `TagComponent.tag`, `HierarchySystem`, `Entity.generation`, and the unused `I*` lifecycle interfaces ([full list](MIGRATION.md#deprecated-apis)).
+
+### Known limitations
+
+Joint anchors and `collideConnected`, distance-joint springs and slider joints on native Box2D, and audio channels wait on `just_physics_engine` and `just_audio_engine` ([details](MIGRATION.md#known-limitations-in-200)).
 
 ## [1.6.1] - 2026-08-02
 
@@ -198,8 +291,7 @@ Reusable Flutter widget for touch-based directional input on mobile platforms.
 ## [1.2.1] - 2026-03-15
 
 ### Changed
-- **GameWidget**: `_GamePainter.paint()` now also calls `engine.world.render(canvas, size)`, so ECS entities registered with `RenderSystem` are drawn automatically alongside the classic 
-rendering pipeline.
+- **GameWidget**: `_GamePainter.paint()` now also calls `engine.world.render(canvas, size)`, so ECS entities registered with `RenderSystem` are drawn automatically alongside the classic rendering pipeline.
 
 ### Added - Audio ECS Integration
 
@@ -246,8 +338,7 @@ Audio playback is now fully ECS-driven alongside the existing `AudioEngine` API.
   - SoLoud is a low-latency, C++-based audio engine purpose-built for games.
   - Removed the fixed-size `AudioPlayer` pool; SoLoud handles unlimited concurrent voices natively.
   - `AudioClip` now holds an `AudioSource` + `SoundHandle` instead of an `AudioPlayer`.
-  - `AudioEngine.initialize()` is now `async` and calls `SoLoud.instance.init()`; the engine
-    properly `await`s it during startup so audio is guaranteed ready before any play calls.
+  - `AudioEngine.initialize()` is now `async` and calls `SoLoud.instance.init()`; the engine properly `await`s it during startup so audio is guaranteed ready before any play calls.
   - Added `isInitialized` guard in `initialize()` to be safe against duplicate init (e.g. hot restart).
   - `playSfx()` and `playMusic()` return early with a debug message if called before initialization.
   - Music fade-in/fade-out now delegates to `SoLoud.instance.fadeVolume()` instead of a manual step loop.

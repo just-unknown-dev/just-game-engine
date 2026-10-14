@@ -10,6 +10,7 @@ export 'field_type.dart';
 export 'component_schema.dart';
 export 'core_codecs.dart';
 export 'core_definitions.dart';
+export 'physics_definitions_2d.dart';
 export 'camera_definitions.dart';
 export 'level_map_definitions.dart';
 export 'timeline_definitions.dart';

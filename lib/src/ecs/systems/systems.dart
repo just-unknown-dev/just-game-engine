@@ -18,8 +18,9 @@ export 'rendering/parallax_render_system.dart';
 export 'physics/collider_geometry.dart';
 export 'physics/physics_system.dart';
 export 'physics/physics_joint_binding_system.dart';
-export 'physics/collision_event.dart';
-export 'physics/sensor_event.dart';
+export 'physics/physics_characters_2d.dart';
+export 'physics/physics_events_2d.dart';
+export 'physics/physics_queries_2d.dart';
 export 'physics/ray_casting.dart';
 
 // Input systems
@@ -65,6 +66,7 @@ export 'camera/stages/framing_stage.dart';
 export 'camera/stages/extension_stages.dart';
 export 'camera/stages/group_framing_stage.dart';
 export 'camera/stages/dolly_stage.dart';
+export 'camera/stages/rig_3d_stages.dart';
 export 'camera/camera_manager.dart';
 export 'camera/managers/built_in_managers.dart';
 

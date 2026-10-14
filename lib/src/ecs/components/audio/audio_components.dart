@@ -193,7 +193,14 @@ class AudioListenerComponent extends Component {
     this.upX = WorldAxes.upX,
     this.upY = WorldAxes.upY,
     this.upZ = WorldAxes.upZ,
+    this.fromCamera = false,
   });
+
+  /// Hear from the output camera: its position and the way it faces,
+  /// whatever the entity's transform and the directions here say — what a
+  /// 3-D game wants, so sound turns with the view. Needs the [AudioSystem]
+  /// to be given the camera (the engine's default systems do).
+  bool fromCamera;
 
   /// The direction the listener faces, in world axes; +Z by default.
   double forwardX, forwardY, forwardZ;

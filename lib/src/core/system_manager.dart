@@ -13,6 +13,11 @@ import 'lifecycle.dart';
 /// Callback used by the frame scheduler for update tasks.
 typedef UpdateTask = void Function(double deltaTime);
 
+/// Callback used by the frame scheduler for per-frame tasks: [deltaTime] is
+/// the frame's length, [alpha] how far it lies between the last two fixed
+/// updates.
+typedef FrameTask = void Function(double deltaTime, double alpha);
+
 /// System manager for coordinating engine subsystems
 ///
 /// This class acts as a registry for all engine subsystems, allowing
@@ -37,6 +42,10 @@ class SystemManager implements ILifecycle {
   /// Ordered update tasks owned by the scheduler.
   final Map<String, UpdateTask> _updateTasks = {};
   final List<String> _updateOrder = <String>[];
+
+  /// Ordered per-frame tasks, run after a frame's fixed updates.
+  final Map<String, FrameTask> _frameTasks = {};
+  final List<String> _frameOrder = <String>[];
   final Map<String, double> _lastTaskTimesMs = <String, double>{};
   double _lastFrameMs = 0.0;
 
@@ -105,7 +114,7 @@ class SystemManager implements ILifecycle {
     _systemsByType[T] = system;
     _typeByName[name] = T;
 
-    debugPrint('System registered: $name (${T.toString()})');
+    if (kDebugMode) debugPrint('System registered: $name (${T.toString()})');
   }
 
   /// Unregister a system by name
@@ -124,7 +133,7 @@ class SystemManager implements ILifecycle {
       _systemsByType.remove(type);
     }
 
-    debugPrint('System unregistered: $name');
+    if (kDebugMode) debugPrint('System unregistered: $name');
     return true;
   }
 
@@ -167,6 +176,30 @@ class SystemManager implements ILifecycle {
     final removed = _updateTasks.remove(name);
     _updateOrder.remove(name);
     return removed != null;
+  }
+
+  /// Register an ordered per-frame task (see [runFrameCycle]).
+  void registerFrameTask(String name, FrameTask task) {
+    if (_frameTasks.containsKey(name)) {
+      throw StateError('Frame task with name "$name" is already registered');
+    }
+    _frameTasks[name] = task;
+    _frameOrder.add(name);
+  }
+
+  /// Remove a per-frame task from the scheduler.
+  bool unregisterFrameTask(String name) {
+    final removed = _frameTasks.remove(name);
+    _frameOrder.remove(name);
+    return removed != null;
+  }
+
+  /// Runs every per-frame task once, in registration order: once per
+  /// rendered frame, after its fixed updates.
+  void runFrameCycle(double deltaTime, double alpha) {
+    for (final name in _frameOrder) {
+      _frameTasks[name]?.call(deltaTime, alpha);
+    }
   }
 
   /// Execute one scheduled update cycle in registration order.
@@ -220,6 +253,8 @@ class SystemManager implements ILifecycle {
     _typeByName.clear();
     _updateTasks.clear();
     _updateOrder.clear();
+    _frameTasks.clear();
+    _frameOrder.clear();
     _lastTaskTimesMs.clear();
     _lastFrameMs = 0.0;
   }
@@ -232,7 +267,7 @@ class SystemManager implements ILifecycle {
   void dispose() {
     clear();
     _isInitialized = false;
-    debugPrint('System manager disposed');
+    if (kDebugMode) debugPrint('System manager disposed');
   }
 
   /// Print information about all registered systems

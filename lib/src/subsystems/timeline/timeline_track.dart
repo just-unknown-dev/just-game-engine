@@ -249,6 +249,19 @@ class _NoRunner extends TrackRunner {}
 /// Reads a track of one kind from its saved form.
 typedef TimelineTrackReader = TimelineTrack Function(Map<String, dynamic> json);
 
+/// How an editor offers a kind of track for adding: what it is called, and
+/// an empty one of it.
+final class TimelineTrackOffer {
+  /// An offer called [label] that adds what [create] makes.
+  const TimelineTrackOffer(this.label, this.create);
+
+  /// What the add menu calls it: `Events`, `Skeletal clips`.
+  final String label;
+
+  /// An empty track of the kind.
+  final TimelineTrack Function() create;
+}
+
 /// The kinds of track a timeline can hold. The engine's own are always
 /// there; a package registers more into an engine's
 /// (`engine.context.trackKinds`), and a timeline asset that uses them loads,
@@ -265,11 +278,15 @@ typedef TimelineTrackReader = TimelineTrack Function(Map<String, dynamic> json);
 final class TimelineTrackKinds {
   /// The engine's kinds (unless [withBuiltIns] is false), to add to.
   TimelineTrackKinds({bool withBuiltIns = true}) : _frozen = false {
-    if (withBuiltIns) _kinds.addAll(_engine);
+    if (withBuiltIns) {
+      _kinds.addAll(_engine);
+      _offers.addAll(_engineOffers);
+    }
   }
 
   TimelineTrackKinds._frozen() : _frozen = true {
     _kinds.addAll(_engine);
+    _offers.addAll(_engineOffers);
   }
 
   /// The engine's kinds and nothing else — what a timeline is read with when
@@ -286,8 +303,31 @@ final class TimelineTrackKinds {
     NestedTimelineTrack.kindId: NestedTimelineTrack.fromJson,
   };
 
+  // A property track is added by choosing a field, so it is not offered.
+  static const Map<String, TimelineTrackOffer> _engineOffers = {
+    EventTrack.kindId: TimelineTrackOffer('Events', EventTrack.new),
+    SpriteClipTrack.kindId: TimelineTrackOffer(
+      'Sprite clips',
+      SpriteClipTrack.new,
+    ),
+    CameraShotTrack.kindId: TimelineTrackOffer(
+      'Camera shots',
+      CameraShotTrack.new,
+    ),
+    AudioTrack.kindId: TimelineTrackOffer('Audio', AudioTrack.new),
+    ActivationTrack.kindId: TimelineTrackOffer(
+      'Activation',
+      ActivationTrack.new,
+    ),
+    NestedTimelineTrack.kindId: TimelineTrackOffer(
+      'Nested timelines',
+      NestedTimelineTrack.new,
+    ),
+  };
+
   final bool _frozen;
   final Map<String, TimelineTrackReader> _kinds = {};
+  final Map<String, TimelineTrackOffer> _offers = {};
 
   void _check() {
     if (_frozen) {
@@ -299,10 +339,29 @@ final class TimelineTrackKinds {
   }
 
   /// Reads tracks of [kind] with [fromJson], replacing any reader for it.
-  void register(String kind, TimelineTrackReader fromJson) {
+  /// With [offer], an editor's add menu offers the kind too.
+  void register(
+    String kind,
+    TimelineTrackReader fromJson, {
+    TimelineTrackOffer? offer,
+  }) {
     _check();
     _kinds[kind] = fromJson;
+    if (offer != null) {
+      _offers[kind] = offer;
+    } else {
+      _offers.remove(kind);
+    }
   }
+
+  /// How an editor offers [kind] for adding, or null when it does not.
+  TimelineTrackOffer? offerFor(String kind) => _offers[kind];
+
+  /// The kinds an editor offers for adding, in registration order.
+  List<String> get offered => [
+    for (final kind in _kinds.keys)
+      if (_offers.containsKey(kind)) kind,
+  ];
 
   /// Forgets the reader for [kind], built-in or not; tracks of it are read
   /// as [UnknownTrack]s from then on. Throws [UnsupportedError] on
@@ -310,6 +369,7 @@ final class TimelineTrackKinds {
   void unregister(String kind) {
     _check();
     _kinds.remove(kind);
+    _offers.remove(kind);
   }
 
   /// Whether a reader is registered for [kind].

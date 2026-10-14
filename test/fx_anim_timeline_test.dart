@@ -362,6 +362,29 @@ void main() {
       expect(track.withBase(name: 'renamed'), isA<UnknownTrack>());
       expect((track.withBase(name: 'x') as UnknownTrack).error, isNotNull);
     });
+
+    test("an editor's add menu is offered every kind that says what it is",
+        () {
+      final kinds = TimelineTrackKinds();
+      expect(kinds.offered, isNot(contains(PropertyTrack.kindId)),
+          reason: 'a property track is added by choosing a field');
+      expect(kinds.offered, contains(EventTrack.kindId));
+      expect(kinds.offerFor(EventTrack.kindId)!.label, 'Events');
+      expect(kinds.offerFor(AudioTrack.kindId)!.create(), isA<AudioTrack>());
+
+      kinds.register(
+        'fx_anim_offered',
+        EventTrack.fromJson,
+        offer: TimelineTrackOffer('Weather', EventTrack.new),
+      );
+      expect(kinds.offered.last, 'fx_anim_offered');
+      // Registered again without one, it is no longer offered.
+      kinds.register('fx_anim_offered', EventTrack.fromJson);
+      expect(kinds.offered, isNot(contains('fx_anim_offered')));
+      kinds.unregister(EventTrack.kindId);
+      expect(kinds.offerFor(EventTrack.kindId), isNull);
+      expect(TimelineTrackKinds.builtIn.offered, contains(AudioTrack.kindId));
+    });
   });
 
   group('property tracks (P27)', () {
