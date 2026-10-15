@@ -2,9 +2,10 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_physics_engine/physics_3d.dart';
 
+import '../ecs/components/shapes/solid_shape.dart';
+import '../subsystems/assets/asset_management.dart';
 import 'physics_components_3d.dart';
 
 /// Where mesh and convex-hull colliders get their triangles.
@@ -40,9 +41,8 @@ final class AssetColliderGeometry3D implements ColliderGeometry3D {
             .load<ModelAsset>(model, AssetType.model)
             .then(
               (_) {},
-              onError: (Object error) => debugPrint(
-                'Physics3D: no collider from $model: $error',
-              ),
+              onError: (Object error) =>
+                  debugPrint('Physics3D: no collider from $model: $error'),
             );
       }
       return null;
@@ -53,6 +53,15 @@ final class AssetColliderGeometry3D implements ColliderGeometry3D {
     return _merged[model] = merge([
       for (final name in asset.meshNames) ?asset.geometryOf(name),
     ]);
+  }
+
+  /// Forgets what it kept of [model] — its meshes merged, that it was asked
+  /// for — so the next ask reads the model's triangles again (it was loaded
+  /// again; [ColliderShapes3D.forgetModel] calls this).
+  void forget(String model) {
+    _requested.remove(model);
+    _merged.remove(model);
+    _mergedFrom.remove(model);
   }
 
   /// [parts] as one geometry; null when there are none.
@@ -77,10 +86,13 @@ final class AssetColliderGeometry3D implements ColliderGeometry3D {
 }
 
 /// Turns [Collider3D]s into physics-engine [Shape3D]s, following the entity's
-/// scale. Mesh and hull shapes are kept by model, mesh and scale, and
-/// shapes matching an entity's look by that look's key and scale, so every
-/// body asking for the same one gets the same lists — and the physics engine shares
-/// one native shape between them.
+/// scale. Mesh and hull shapes are kept by model, mesh and scale, height
+/// fields by their heights and scale, and shapes matching an entity's look
+/// by that look's key and scale, so every body asking for the same one gets
+/// the same lists — and the physics engine shares one native shape between
+/// them. Each kind keeps its most recently used few ([modelLimit],
+/// [fieldLimit], [solidLimit]); a shape dropped is made again when next
+/// asked for.
 final class ColliderShapes3D {
   /// Shapes whose triangles come from [geometry].
   ColliderShapes3D({this.geometry});
@@ -94,8 +106,20 @@ final class ColliderShapes3D {
   final Map<(List<double>, int, double, double, double), Shape3D> _fields = {};
   final Map<(Object, double, double, double), Shape3D?> _solids = {};
 
-  /// How many shapes matching a look are kept before the oldest go.
+  /// How many mesh and hull shapes are kept before the least recently used
+  /// go: each holds a scaled copy of its model's triangles.
+  static const int modelLimit = 64;
+
+  /// How many height-field shapes are kept before the least recently used
+  /// go.
+  static const int fieldLimit = 16;
+
+  /// How many shapes matching a look are kept before the least recently
+  /// used go.
   static const int solidLimit = 256;
+
+  /// How many shapes it keeps now, of every kind.
+  int get length => _models.length + _fields.length + _solids.length;
 
   /// The smallest size a primitive gets, so a zero scale makes a tiny shape
   /// rather than an invalid one.
@@ -104,7 +128,11 @@ final class ColliderShapes3D {
   /// [collider]'s shape at [entityScale]; null while its triangles are not
   /// there yet, or when it cannot make one — a collider matching the shape
   /// of an entity with none ([source] null).
-  Shape3D? build(Collider3D collider, Vector3 entityScale, {SolidShapeSource? source}) {
+  Shape3D? build(
+    Collider3D collider,
+    Vector3 entityScale, {
+    SolidShapeSource? source,
+  }) {
     final sx = collider.scale.x * entityScale.x;
     final sy = collider.scale.y * entityScale.y;
     final sz = collider.scale.z * entityScale.z;
@@ -126,7 +154,8 @@ final class ColliderShapes3D {
       ColliderShape3D.convexHull ||
       ColliderShape3D.mesh => _model(collider, sx, sy, sz),
       ColliderShape3D.heightField => _heightField(collider, ax, ay),
-      ColliderShape3D.matchShape => source == null ? null : _solid(source, sx, sy, sz),
+      ColliderShape3D.matchShape =>
+        source == null ? null : _solid(source, sx, sy, sz),
     };
     if (shape == null) return null;
     return _place(shape, collider, entityScale);
@@ -143,7 +172,7 @@ final class ColliderShapes3D {
 
   Shape3D? _model(Collider3D c, double sx, double sy, double sz) {
     final key = (c.shape, c.model, c.meshName, sx, sy, sz);
-    final known = _models[key];
+    final known = _used(_models, key);
     if (known != null) return known;
     final source = geometry?.geometryOf(c.model, c.meshName);
     if (source == null || source.positions.isEmpty) return null;
@@ -168,21 +197,24 @@ final class ColliderShapes3D {
       }
       shape = MeshShape3D(positions, indices);
     }
-    return _models[key] = shape;
+    return _keep(_models, key, shape, modelLimit);
   }
 
   Shape3D? _solid(SolidShapeSource source, double sx, double sy, double sz) {
     final key = (source.solidKey, sx, sy, sz);
-    if (_solids.containsKey(key)) return _solids[key];
-    if (_solids.length >= solidLimit) _solids.remove(_solids.keys.first);
+    if (_solids.containsKey(key)) {
+      // The most recently used now.
+      final known = _solids.remove(key);
+      return _solids[key] = known;
+    }
     final parts = [
       for (final part in source.solidParts) ?solidPart(part, sx, sy, sz),
     ];
-    return _solids[key] = switch (parts.length) {
+    return _keep(_solids, key, switch (parts.length) {
       0 => null,
       1 => parts.single,
       _ => CompoundShape3D(parts),
-    };
+    }, solidLimit);
   }
 
   /// [part] scaled by ([sx], [sy], [sz]) as a physics-engine shape, placed where
@@ -190,9 +222,18 @@ final class ColliderShapes3D {
   static Shape3D? solidPart(SolidPart part, double sx, double sy, double sz) {
     final ax = sx.abs(), ay = sy.abs(), az = sz.abs();
     Shape3D at(Shape3D shape, double x, double y, double z) =>
-        x == 0 && y == 0 && z == 0 ? shape : TransformedShape3D(shape, x: x * sx, y: y * sy, z: z * sz);
+        x == 0 && y == 0 && z == 0
+        ? shape
+        : TransformedShape3D(shape, x: x * sx, y: y * sy, z: z * sz);
     switch (part) {
-      case SolidBox(:final halfX, :final halfY, :final halfZ, :final x, :final y, :final z):
+      case SolidBox(
+        :final halfX,
+        :final halfY,
+        :final halfZ,
+        :final x,
+        :final y,
+        :final z,
+      ):
         return at(
           BoxShape3D(
             math.max(halfX * ax, minExtent),
@@ -204,14 +245,41 @@ final class ColliderShapes3D {
           z,
         );
       case SolidSphere(:final radius, :final x, :final y, :final z):
-        return at(SphereShape3D(math.max(radius * math.max(ax, math.max(ay, az)), minExtent)), x, y, z);
-      case SolidCapsule(:final halfHeight, :final radius, :final x, :final y, :final z):
+        return at(
+          SphereShape3D(
+            math.max(radius * math.max(ax, math.max(ay, az)), minExtent),
+          ),
+          x,
+          y,
+          z,
+        );
+      case SolidCapsule(
+        :final halfHeight,
+        :final radius,
+        :final x,
+        :final y,
+        :final z,
+      ):
         final r = math.max(radius * math.max(ax, az), minExtent);
         final half = (halfHeight + radius) * ay - r;
-        return at(half <= 1e-4 ? SphereShape3D(r) : CapsuleShape3D(half, r), x, y, z);
-      case SolidCylinder(:final halfHeight, :final radius, :final x, :final y, :final z):
         return at(
-          CylinderShape3D(math.max(halfHeight * ay, minExtent), math.max(radius * math.max(ax, az), minExtent)),
+          half <= 1e-4 ? SphereShape3D(r) : CapsuleShape3D(half, r),
+          x,
+          y,
+          z,
+        );
+      case SolidCylinder(
+        :final halfHeight,
+        :final radius,
+        :final x,
+        :final y,
+        :final z,
+      ):
+        return at(
+          CylinderShape3D(
+            math.max(halfHeight * ay, minExtent),
+            math.max(radius * math.max(ax, az), minExtent),
+          ),
           x,
           y,
           z,
@@ -232,17 +300,37 @@ final class ColliderShapes3D {
     final n = c.heightFieldSize;
     if (n < 4 || c.heights.length < n * n) return null;
     final key = (c.heights, n, c.cellSize, ax, ay);
-    final known = _fields[key];
+    final known = _used(_fields, key);
     if (known != null) return known;
     final heights = Float32List(n * n);
     for (var i = 0; i < heights.length; i++) {
       heights[i] = c.heights[i] * ay;
     }
-    return _fields[key] = HeightFieldShape3D(
-      heights,
-      n,
-      math.max(c.cellSize * ax, minExtent),
+    return _keep(
+      _fields,
+      key,
+      HeightFieldShape3D(heights, n, math.max(c.cellSize * ax, minExtent)),
+      fieldLimit,
     );
+  }
+
+  /// [cache]'s shape for [key], made the most recently used; null when it
+  /// has none.
+  static V? _used<K, V>(Map<K, V> cache, K key) {
+    if (!cache.containsKey(key)) return null;
+    final value = cache.remove(key) as V;
+    cache[key] = value;
+    return value;
+  }
+
+  /// Keeps [value] in [cache] for [key], dropping the least recently used
+  /// beyond [limit].
+  static V _keep<K, V>(Map<K, V> cache, K key, V value, int limit) {
+    cache[key] = value;
+    while (cache.length > limit) {
+      cache.remove(cache.keys.first);
+    }
+    return value;
   }
 
   static Shape3D _place(Shape3D shape, Collider3D c, Vector3 entityScale) {
@@ -264,7 +352,17 @@ final class ColliderShapes3D {
     );
   }
 
-  /// Forgets every shape it made (after a model reload, say).
+  /// Forgets the shapes made from [model], and what [geometry] kept of it
+  /// when that is an [AssetColliderGeometry3D]: after the model was loaded
+  /// again, its colliders take its new triangles
+  /// (`PhysicsSystem3D.reloadModel` calls this).
+  void forgetModel(String model) {
+    _models.removeWhere((key, _) => key.$2 == model);
+    final source = geometry;
+    if (source is AssetColliderGeometry3D) source.forget(model);
+  }
+
+  /// Forgets every shape it made.
   void clear() {
     _models.clear();
     _fields.clear();

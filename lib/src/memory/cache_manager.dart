@@ -128,6 +128,13 @@ class CacheManager {
   bool _initialized = false;
   bool _memoryFallback = false;
 
+  /// The initialization under way, which a second [initialize] call joins.
+  Future<void>? _initializing;
+
+  /// Bumped by [dispose], so an initialization it overtook gives back what
+  /// it opened instead of finishing.
+  int _generation = 0;
+
   /// Entries a store should hold but does not — it is unavailable, or the
   /// write to it failed. Read before the store, so a failed write is not
   /// followed by a read of the stale value underneath.
@@ -228,10 +235,17 @@ class CacheManager {
   /// opened or set up — while strings may still reach the key-value store.
   bool get isBinaryInMemory => _initialized && _databaseCache == null;
 
-  /// Initialize the caching system
-  Future<void> initialize() async {
-    if (_initialized) return;
+  /// Initialize the caching system. Calls made while one is under way wait
+  /// for it; a [dispose] meanwhile closes what it opened.
+  Future<void> initialize() {
+    if (_initialized) return Future<void>.value();
+    return _initializing ??= _initialize().whenComplete(
+      () => _initializing = null,
+    );
+  }
 
+  Future<void> _initialize() async {
+    final generation = _generation;
     if (kDebugMode) debugPrint('Initializing CacheManager...');
 
     if (forceMemoryFallback) {
@@ -250,9 +264,14 @@ class CacheManager {
           await (_openStorage?.call() ?? engine_storage.openEngineStorage());
     } catch (e) {
       _keyValueCache = null;
+      if (generation != _generation) return;
       _memoryFallback = true;
       _initialized = true;
       debugPrint('CacheManager fallback to in-memory storage: $e');
+      return;
+    }
+    if (generation != _generation) {
+      _keyValueCache = null;
       return;
     }
 
@@ -269,6 +288,14 @@ class CacheManager {
       await _initDatabaseSchema();
     } catch (e) {
       _dropDatabase('could not be opened ($e)');
+    }
+    if (generation != _generation) {
+      // Disposed while opening: give the database back.
+      final db = _databaseCache;
+      _databaseCache = null;
+      _keyValueCache = null;
+      if (db != null && db.isOpen) unawaited(db.close().catchError((_) {}));
+      return;
     }
 
     _memoryFallback = false;
@@ -675,6 +702,7 @@ class CacheManager {
 
   /// Dispose of the cache manager and close resources
   void dispose() {
+    _generation++;
     if (!_initialized) return;
     _memoryStringCache.clear();
     _memoryBinaryCache.clear();
@@ -724,10 +752,27 @@ class CacheManager {
       final count = await getBinaryCacheSize();
       if (count <= maxBinaryEntries!) return;
       final excess = count - maxBinaryEntries!;
-      await _databaseCache!.execute(
-        'DELETE FROM binary_cache WHERE key IN '
-        '(SELECT key FROM binary_cache ORDER BY timestamp ASC LIMIT $excess)',
+      // just_database reads no sub-selects: find the oldest keys, then
+      // delete them one by one. Equal timestamps go by key, so the order is
+      // the same every time.
+      final db = _databaseCache!;
+      final oldest = await db.query(
+        'SELECT key FROM binary_cache ORDER BY timestamp ASC, key ASC '
+        'LIMIT $excess',
       );
+      if (!oldest.success) {
+        throw StateError(oldest.errorMessage ?? 'could not list entries');
+      }
+      for (final row in oldest.rows) {
+        final key = row['key'];
+        if (key is! String) continue;
+        final deleted = await db.execute(
+          "DELETE FROM binary_cache WHERE key = '${_sqlEscape(key)}'",
+        );
+        if (!deleted.success) {
+          throw StateError(deleted.errorMessage ?? 'could not delete $key');
+        }
+      }
     } catch (e) {
       debugPrint('Error evicting binary cache entries: $e');
     }

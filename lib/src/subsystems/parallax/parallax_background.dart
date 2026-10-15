@@ -208,14 +208,16 @@ class ParallaxBackground {
       layer
         .._paintTint = tint
         .._paintOpacity = effectiveOpacity;
+      // Faded once, by the paint (with the tint's own alpha); the filter
+      // carries only the tint's colour. It used to carry the opacity too,
+      // fading a tinted layer twice.
       paint
-        ..color = Colors.white.withValues(alpha: effectiveOpacity)
+        ..color = Colors.white.withValues(
+          alpha: tint == null ? effectiveOpacity : tint.a * effectiveOpacity,
+        )
         ..colorFilter = tint == null
             ? null
-            : ColorFilter.mode(
-                tint.withValues(alpha: effectiveOpacity),
-                BlendMode.modulate,
-              );
+            : ColorFilter.mode(tint.withValues(alpha: 1.0), BlendMode.modulate);
     }
 
     // Total scroll = camera-driven + auto-scroll + static offset

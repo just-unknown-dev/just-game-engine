@@ -105,9 +105,9 @@ class ParticleEmitter extends Renderable {
 
   /// Whether to use batched rendering when the renderer supports it.
   ///
-  /// Only [SpriteParticleRenderer] currently overrides `renderBatch`; all
-  /// other renderers fall through to the per-particle render loop regardless
-  /// of this flag.
+  /// [SpriteParticleRenderer], [TextParticleRenderer] and a batched
+  /// [CircleParticleRenderer] override `renderBatch`; the other renderers
+  /// fall through to the per-particle render loop regardless of this flag.
   final bool useBatching;
 
   /// Auto-stop emitting after [duration] seconds (null = infinite).
@@ -220,8 +220,10 @@ class ParticleEmitter extends Renderable {
   /// Number of recycled particles currently available for reuse.
   int get pooledParticleCount => _particlePool.availableCount;
 
-  /// Whether this emitter has finished emitting AND has no live particles.
-  bool get isComplete => !isEmitting && _particles.isEmpty;
+  /// Whether this emitter has finished emitting AND has no live particles
+  /// — its own, or its sub-emitters' (a firework's sparks).
+  bool get isComplete =>
+      !isEmitting && _particles.isEmpty && _activeSubEmitters.isEmpty;
 
   // ── Update ────────────────────────────────────────────────────────────────
 
@@ -230,20 +232,32 @@ class ParticleEmitter extends Renderable {
   /// Must be called once per frame.  Both [RenderingEngine.updateManagedEmitters]
   /// and [ParticleSystemECS] call this automatically.
   void update(double deltaTime) {
+    final startedAt = _totalTime;
     _totalTime += deltaTime;
+    final limit = duration;
 
-    // Stop emitting after duration
-    if (duration != null && _totalTime >= duration!) {
-      isEmitting = false;
-    }
-
-    // Emit new particles
+    // Emit new particles — for the part of the frame inside [duration], so
+    // a burst shorter than the first frame still bursts.
     if (isEmitting) {
-      _emissionAccumulator += deltaTime * emissionRate;
+      final emitting = limit == null
+          ? deltaTime
+          : math.max(0.0, math.min(deltaTime, limit - startedAt));
+      _emissionAccumulator += emitting * emissionRate;
       while (_emissionAccumulator >= 1.0 && _particles.length < maxParticles) {
         _emitParticle();
         _emissionAccumulator -= 1.0;
       }
+      // Held back by maxParticles: what could not be emitted is dropped,
+      // not saved up to pour out once there is room (or after the rate
+      // drops to 0).
+      if (_emissionAccumulator >= 1.0) {
+        _emissionAccumulator -= _emissionAccumulator.floorToDouble();
+      }
+    }
+
+    // Stop emitting after duration
+    if (limit != null && _totalTime >= limit) {
+      isEmitting = false;
     }
 
     // Forces' own clocks move on once a frame, not once per particle.

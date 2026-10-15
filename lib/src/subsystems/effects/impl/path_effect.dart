@@ -91,8 +91,9 @@ class PathEffect extends DeterministicEffect {
     } else {
       // Linear interpolation through waypoints.
       final n = waypoints.length - 1;
-      final segment = (t * n).clamp(0.0, n.toDouble() - 1e-10);
-      final segIdx = segment.floor();
+      // t = 1 lands exactly on the last waypoint.
+      final segment = (t * n).clamp(0.0, n.toDouble());
+      final segIdx = segment.floor().clamp(0, n - 1);
       final segT = segment - segIdx;
       final a = relativeToStart ? o + waypoints[segIdx] : waypoints[segIdx];
       final b = relativeToStart
@@ -109,13 +110,17 @@ class PathEffect extends DeterministicEffect {
     if (transform == null) return;
 
     if (prevElapsed == 0) {
-      _capturedStart = transform.position;
+      _capturedStart = Vector3.copy(transform.position);
     }
     final origin = _capturedStart!;
 
     final prevT = easing.transform(tAt(prevElapsed));
     final currT = easing.transform(tAt(currElapsed));
-    final prevPos = _evaluate(prevT, origin);
+    // Absolute waypoints start where the entity is: the first step takes
+    // it from there onto the path.
+    final prevPos = !relativeToStart && prevElapsed == 0
+        ? origin
+        : _evaluate(prevT, origin);
     final currPos = _evaluate(currT, origin);
     transform.position += currPos - prevPos;
   }

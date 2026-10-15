@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_graphics_engine/gpu.dart';
 import 'package:just_graphics_engine/renderer.dart';
 
+import '../core/core.dart';
+import '../subsystems/assets/assets.dart';
+import '../subsystems/timeline/timeline.dart';
 import 'animation_system.dart';
 import 'graphics_components.dart';
 import 'graphics_definitions.dart';
@@ -79,6 +81,7 @@ final class Graphics3D implements RefreshableExtension, EngineService {
   GraphicsModels? _models;
   GraphicsSceneRenderer? _scene;
   AnimationSystem3D? _animations;
+  GraphicsModelLoader? _loader;
   String? _unsupportedReason;
 
   /// Why 3-D is not drawn, or null when it is (or the engine has not
@@ -108,12 +111,18 @@ final class Graphics3D implements RefreshableExtension, EngineService {
 
   // ── ContextExtension ──────────────────────────────────────────────────
 
+  /// `graphics_3d`: what the engine knows it by, as an extension and as a
+  /// service.
   @override
   String get id => 'graphics_3d';
 
+  /// Registers the 3-D components, and how animator graphs and timelines
+  /// play clips on a skeleton ([registerSchemas]).
   @override
   void install(EngineContext context) => registerSchemas(context);
 
+  /// Registers the 3-D components' definitions and playback again, after a
+  /// hot reload.
   @override
   void refresh(EngineContext context) {
     context.definitions
@@ -124,6 +133,10 @@ final class Graphics3D implements RefreshableExtension, EngineService {
 
   // ── EngineService ─────────────────────────────────────────────────────
 
+  /// Makes the GPU device (or, without one, a null device), the renderer
+  /// and the models; registers the model loader with the asset manager;
+  /// adds a [GraphicsSceneRenderer] to the engine's frame and an
+  /// [AnimationSystem3D] to its world.
   @override
   Future<void> start(ServiceContext context) async {
     final engine = _engine = context.engine;
@@ -146,7 +159,11 @@ final class Graphics3D implements RefreshableExtension, EngineService {
       engine.assets.bundle,
       renderer.uploader,
     );
-    engine.assets.registerLoader(AssetType.model, GraphicsModelLoader(models));
+    engine.assets.registerLoader(
+      AssetType.model,
+      _loader = GraphicsModelLoader(models),
+    );
+    models.listeners.add(_modelReloaded);
     final scene = _scene = GraphicsSceneRenderer(
       engine: engine,
       renderer: renderer,
@@ -157,19 +174,49 @@ final class Graphics3D implements RefreshableExtension, EngineService {
     engine.world.addSystem(_animations = AnimationSystem3D(models));
   }
 
+  /// A model was loaded again: the engine's `ModelAsset` takes the new
+  /// file, then 3-D physics rebuilds the colliders made from it.
+  Future<void> _modelReloaded(String path) async {
+    final engine = _engine;
+    if (engine == null) return;
+    final asset = engine.assets.get<GraphicsModelAsset>(path);
+    if (asset != null) {
+      try {
+        await asset.reload();
+      } catch (e) {
+        debugPrint('just_game_engine: reloading "$path" failed ($e)');
+        return;
+      }
+    }
+    if (!identical(_engine, engine)) return;
+    engine.physics3D?.reloadModel(path);
+  }
+
+  /// Takes out what [start] put in — the scene renderer, the animation
+  /// system, the model loader — and lets go of the renderer and the
+  /// models: [isStarted] is false again.
   @override
   Future<void> stop() async {
+    final engine = _engine;
     final scene = _scene;
     if (scene != null) {
-      _engine?.rendering.removeSceneRenderer(scene);
+      engine?.rendering.removeSceneRenderer(scene);
       scene.dispose();
     }
     final animations = _animations;
-    if (animations != null && _engine?.isDisposed == false) {
-      _engine?.world.removeSystem(animations);
+    if (animations != null && engine?.isDisposed == false) {
+      engine?.world.removeSystem(animations);
     }
+    final loader = _loader;
+    if (loader != null) {
+      engine?.assets.unregisterLoader(AssetType.model, loader);
+    }
+    _models?.listeners.remove(_modelReloaded);
     _scene = null;
     _animations = null;
+    _loader = null;
+    _models = null;
+    _renderer = null;
     _engine = null;
   }
 }

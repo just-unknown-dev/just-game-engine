@@ -9,6 +9,9 @@ import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_game_engine/graphics_3d.dart';
+// The renderer's own sampler, not exported.
+import 'package:just_game_engine/src/graphics_3d/animation_system.dart'
+    show PlayerScratch, samplePlayer;
 import 'package:just_graphics_engine/testing.dart';
 
 import 'fixtures.dart';

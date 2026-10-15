@@ -20,17 +20,23 @@ abstract class Renderable {
   /// Scale factors (x, y used by 2-D Canvas; z reserved for 3-D).
   Vector3 scale;
 
-  /// Layer index for rendering order (lower layers render first)
+  /// Layer index for rendering order (lower layers render first).
+  ///
+  /// In the ECS world an entity's `LayerComponent` takes its place; without
+  /// one, `RenderSystem` sorts by this.
   int layer;
 
-  /// Z-order within the layer
+  /// Z-order within the layer; like [layer], a `LayerComponent` takes its
+  /// place.
   int zOrder;
 
-  /// When `true`, `RenderSystem` draws this renderable in a separate pass
-  /// sorted by world-space [position].y instead of by [zOrder] — so entities
-  /// visually "in front" (further down the screen) draw over ones behind
-  /// them, regardless of type. Opt-in per-renderable (default `false`) so
-  /// unrelated entities (UI, ground decals) keep their existing behavior.
+  /// When `true`, `RenderSystem` draws this renderable after the things on
+  /// its layer and zOrder that do not y-sort, ordered among the ones that
+  /// do by world-space [position].y — so entities visually "in front"
+  /// (further down the screen) draw over ones behind them, regardless of
+  /// type. It stays on its layer, keeps its `ShaderComponent`, and batches
+  /// like any sprite. Opt-in per-renderable (default `false`) so unrelated
+  /// entities (UI, ground decals) keep their existing behavior.
   bool ySort;
 
   /// Visibility flag

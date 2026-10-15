@@ -1,6 +1,6 @@
-import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_physics_engine/physics_3d.dart';
 
+import '../ecs/ecs.dart';
 import 'physics_system_3d.dart';
 
 /// A query's hit, with the entity whose body it hit.

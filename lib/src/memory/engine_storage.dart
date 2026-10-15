@@ -21,8 +21,10 @@ import 'engine_storage_web.dart'
 /// not in it. `just_storage` rewrites a whole file from the copy an
 /// instance loaded, so two instances on one file drop each other's keys.
 ///
-/// On the web it is browser storage under the engine's own key prefix:
-/// there each value is a key of its own, and nothing is rewritten whole.
+/// On the web it is browser storage under the engine's own key prefix,
+/// beside `JustStorage.standard()`'s keys rather than among them, so the
+/// app's `clear()` there leaves the engine's alone: each value is a key of
+/// its own, and nothing is rewritten whole.
 Future<JustStandardStorage> openEngineStorage() => platform.openEngineStorage();
 
 /// Opens the store the engine shared with the app before 2.0 —

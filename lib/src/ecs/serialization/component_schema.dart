@@ -28,12 +28,12 @@ export 'component_definition.dart';
 /// );
 /// ```
 ///
-/// A [ComponentDefinition] that always writes a `customComponentId` — the
-/// shape the editor has saved descriptor-backed components in, so existing
-/// levels load unchanged. New definitions should use [ComponentDefinition]
-/// directly.
+/// A [ComponentDefinition] that carries a `customComponentId` ([id]) — the
+/// name the editor once saved descriptor-backed components under. It is not
+/// written to scenes (format 1 keys components by `type`). New definitions
+/// should use [ComponentDefinition] directly.
 class ComponentSchema<T extends Component> extends ComponentDefinition<T> {
-  /// A definition saved as [type] that also writes [id] as its
+  /// A definition saved as [type] that carries [id] as its
   /// `customComponentId`; the rest is as for [ComponentDefinition].
   const ComponentSchema({
     required super.type,

@@ -72,11 +72,7 @@ abstract final class ColliderGeometry {
       // Off-centre or turned, a box is a polygon: the native backend builds
       // a RectangleShape as an upright box about the body's centre.
       PolygonShape s => PolygonShape(placeAll(s.vertices)),
-      CapsuleShape s => CapsuleShape(
-        center1: place(s.center1),
-        center2: place(s.center2),
-        radius: s.radius * _across(place(s.center1), place(s.center2), ax, ay),
-      ),
+      CapsuleShape s => _capsule(s, place(s.center1), place(s.center2), ax, ay),
       SegmentShape s => SegmentShape(
         place(s.point1),
         place(s.point2),
@@ -112,12 +108,21 @@ abstract final class ColliderGeometry {
       case ColliderShape2D.box:
         final w = math.max(collider.size.x.abs() * ax, 1e-3);
         final h = math.max(collider.size.y.abs() * ay, 1e-3);
-        final r = math.min(collider.cornerRadius.abs() * math.min(ax, ay), math.min(w, h) / 2 - 1e-3);
+        final r = math.min(
+          collider.cornerRadius.abs() * math.min(ax, ay),
+          math.min(w, h) / 2 - 1e-3,
+        );
         return r > 0
-            ? RoundedPolygonShape.rect(width: w - 2 * r, height: h - 2 * r, cornerRadius: r)
+            ? RoundedPolygonShape.rect(
+                width: w - 2 * r,
+                height: h - 2 * r,
+                cornerRadius: r,
+              )
             : RectangleShape(w, h);
       case ColliderShape2D.circle:
-        return CircleShape(math.max(collider.radius.abs() * math.max(ax, ay), 1e-3));
+        return CircleShape(
+          math.max(collider.radius.abs() * math.max(ax, ay), 1e-3),
+        );
       case ColliderShape2D.capsule:
         final r = math.max(collider.radius.abs() * ax, 1e-3);
         final h = math.max(collider.height.abs() * ay, 2 * r);
@@ -130,7 +135,11 @@ abstract final class ColliderGeometry {
       case ColliderShape2D.segment:
         if (collider.points.length < 2) return null;
         final points = scaled(collider.points.take(2).toList());
-        return SegmentShape(points[0], points[1], thickness: collider.thickness * math.max(ax, ay));
+        return SegmentShape(
+          points[0],
+          points[1],
+          thickness: collider.thickness * math.max(ax, ay),
+        );
       case ColliderShape2D.chain:
         if (collider.points.length < 2) return null;
         return ChainShape(
@@ -182,18 +191,34 @@ abstract final class ColliderGeometry {
           final r = math.max(math.min(v.width, v.height) / 2, 1e-3);
           final half = math.max(math.max(v.width, v.height) / 2 - r, 0.0);
           return v.height >= v.width
-              ? CapsuleShape(center1: Offset(0, -half), center2: Offset(0, half), radius: r)
-              : CapsuleShape(center1: Offset(-half, 0), center2: Offset(half, 0), radius: r);
+              ? CapsuleShape(
+                  center1: Offset(0, -half),
+                  center2: Offset(0, half),
+                  radius: r,
+                )
+              : CapsuleShape(
+                  center1: Offset(-half, 0),
+                  center2: Offset(half, 0),
+                  radius: r,
+                );
         case RectangleComponent v:
           final w = math.max(v.width, 1e-3), h = math.max(v.height, 1e-3);
           final r = math.min(v.cornerRadius, math.min(w, h) / 2 - 1e-3);
           return r > 0
-              ? RoundedPolygonShape.rect(width: w - 2 * r, height: h - 2 * r, cornerRadius: r)
+              ? RoundedPolygonShape.rect(
+                  width: w - 2 * r,
+                  height: h - 2 * r,
+                  cornerRadius: r,
+                )
               : RectangleShape(w, h);
         case PolygonComponent v when v.vertices.length >= 3:
           return PolygonShape([...v.vertices]);
         case LineComponent v:
-          return SegmentShape(v.start, v.end, thickness: math.max(v.strokeWidth, 1e-3));
+          return SegmentShape(
+            v.start,
+            v.end,
+            thickness: math.max(v.strokeWidth, 1e-3),
+          );
       }
     }
     final size = _largestSize(entity, definitions);
@@ -224,7 +249,10 @@ abstract final class ColliderGeometry {
     return size == null ? null : ('size', size.width, size.height);
   }
 
-  static Size? _largestSize(Entity entity, ComponentDefinitionRegistry? definitions) {
+  static Size? _largestSize(
+    Entity entity,
+    ComponentDefinitionRegistry? definitions,
+  ) {
     if (definitions == null) return null;
     Size? best;
     for (final c in entity.components) {
@@ -241,19 +269,90 @@ abstract final class ColliderGeometry {
   /// Whether mirroring [shape] about its body's centre leaves it as it was
   /// — then only the size of a scale matters, not its sign, and a body
   /// flipped to face the other way need not be built again.
-  static bool isMirrorSymmetric(CollisionShape shape, Offset offset, [double rotation = 0]) {
+  static bool isMirrorSymmetric(
+    CollisionShape shape,
+    Offset offset, [
+    double rotation = 0,
+  ]) {
     if (offset != Offset.zero || rotation != 0) return false;
     return switch (shape) {
       CircleShape s => s.center == Offset.zero,
       RoundedPolygonShape() => false,
       RectangleShape() => true,
-      CapsuleShape s => s.center1 == -s.center2 && (s.center1.dx == 0 || s.center1.dy == 0),
+      CapsuleShape s =>
+        s.center1 == -s.center2 && (s.center1.dx == 0 || s.center1.dy == 0),
       _ => false,
     };
   }
 
   /// [shape]'s bounds in its body's space.
   static Rect boundsOf(CollisionShape shape) => shape.getBounds(Offset.zero);
+
+  /// The rotational inertia of [shape] weighing [mass], about its body's
+  /// origin: what turns a torque or an angular impulse into spin. Box2D
+  /// works it out from the shapes it is given; the pure-Dart engine is told
+  /// this, so both turn alike. A rounded polygon counts as its bounds, and a
+  /// line (a segment or a chain), which has no area, as its bounds at least
+  /// a unit each way — as `PhysicsSystem.massOf` weighs it. Zero for no
+  /// mass.
+  static double inertiaOf(CollisionShape shape, double mass) {
+    if (!(mass > 0)) return 0.0;
+    double box(Rect b, {double least = 0}) {
+      final w = math.max(b.width, least), h = math.max(b.height, least);
+      final c = b.center;
+      return (w * w + h * h) / 12 + c.dx * c.dx + c.dy * c.dy;
+    }
+
+    final perMass = switch (shape) {
+      CircleShape s =>
+        0.5 * s.radius * s.radius +
+            s.center.dx * s.center.dx +
+            s.center.dy * s.center.dy,
+      RoundedPolygonShape s => box(s.getBounds(Offset.zero)),
+      PolygonShape s =>
+        _polygonInertia(s.vertices) ?? box(s.getBounds(Offset.zero)),
+      CapsuleShape s => _capsuleInertia(s.center1, s.center2, s.radius),
+      _ => box(shape.getBounds(Offset.zero), least: 1),
+    };
+    return mass * perMass;
+  }
+
+  /// A polygon's rotational inertia per unit mass about the origin; null
+  /// for one with no area.
+  static double? _polygonInertia(List<Offset> v) {
+    var cross = 0.0, sum = 0.0;
+    for (var i = 0; i < v.length; i++) {
+      final a = v[i], b = v[(i + 1) % v.length];
+      final c = a.dx * b.dy - a.dy * b.dx;
+      cross += c;
+      sum +=
+          c *
+          (a.dx * a.dx +
+              a.dy * a.dy +
+              a.dx * b.dx +
+              a.dy * b.dy +
+              b.dx * b.dx +
+              b.dy * b.dy);
+    }
+    if (cross.abs() < 1e-12) return null;
+    return sum / (6 * cross);
+  }
+
+  /// A capsule's rotational inertia per unit mass about the origin, as
+  /// Box2D works it out: a box and two half circles.
+  static double _capsuleInertia(Offset c1, Offset c2, double r) {
+    final rr = r * r;
+    final length = (c2 - c1).distance;
+    final circle = math.pi * rr, box = 2 * r * length;
+    final total = circle + box;
+    if (!(total > 0)) return 0;
+    final lc = 4 * r / (3 * math.pi), h = length / 2;
+    final centre = (c1 + c2) / 2;
+    final inertia =
+        circle * (0.5 * rr + h * h + 2 * h * lc) +
+        box * (4 * rr + length * length) / 12;
+    return inertia / total + centre.dx * centre.dx + centre.dy * centre.dy;
+  }
 
   /// Draws [shape] in its body's space onto [canvas] — already moved and
   /// turned to the body — with [paint].
@@ -326,6 +425,31 @@ abstract final class ColliderGeometry {
 
   static double _atLeast(double s) =>
       s.abs() < minScale ? (s.isNegative ? -minScale : minScale) : s;
+
+  /// [s] with its centres placed at [p1] and [p2] and its radius grown by
+  /// the scale across it: its ends pushed out so its caps reach as far as
+  /// the scale stretches them, as a collider's own scale stretches its
+  /// height — a capsule 64 tall at a scale of 2 up it is 128 tall, not 96.
+  static CapsuleShape _capsule(
+    CapsuleShape s,
+    Offset p1,
+    Offset p2,
+    double ax,
+    double ay,
+  ) {
+    final radius = s.radius * _across(p1, p2, ax, ay);
+    final before = (s.center2 - s.center1).distance;
+    final d = p2 - p1;
+    final after = d.distance;
+    if (before < 1e-9 || after < 1e-9) {
+      return CapsuleShape(center1: p1, center2: p2, radius: radius);
+    }
+    // Each end: the cap reached s.radius past its centre, stretched as the
+    // length was; less the new radius, and never past the middle.
+    final push = math.max(s.radius * after / before - radius, -after / 2);
+    final out = d * (push / after);
+    return CapsuleShape(center1: p1 - out, center2: p2 + out, radius: radius);
+  }
 
   /// The scale across a capsule's axis (its placed ends [a] and [b]): its
   /// width for an upright one, its height for a lying one, the larger

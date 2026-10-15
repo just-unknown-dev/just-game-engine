@@ -14,7 +14,9 @@ class DialogueCommandContext {
   /// The command name exactly as registered (lowercased).
   final String name;
 
-  /// Arguments split on whitespace.
+  /// Arguments split on whitespace; a `"double-quoted"` argument is one
+  /// argument, spaces and all, without its quotes (`\"` inside it is a
+  /// quote).
   final List<String> args;
 
   /// The full raw argument string (before splitting).
@@ -63,9 +65,10 @@ class DialogueCommandRegistry {
     final handler = _handlers[name.toLowerCase()];
     if (handler == null) return;
 
-    final args = rawArgs.trim().isEmpty
-        ? <String>[]
-        : rawArgs.trim().split(RegExp(r'\s+'));
+    final args = [
+      for (final m in _argument.allMatches(rawArgs))
+        m.group(1)?.replaceAll(r'\"', '"') ?? m.group(2)!,
+    ];
 
     await handler(
       DialogueCommandContext(
@@ -85,3 +88,6 @@ class DialogueCommandRegistry {
   /// Removes all registered handlers.
   void clear() => _handlers.clear();
 }
+
+/// One argument: `"quoted"` (group 1) or a run of non-space (group 2).
+final RegExp _argument = RegExp(r'"((?:[^"\\]|\\.)*)"|(\S+)');

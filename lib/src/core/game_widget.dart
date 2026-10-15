@@ -12,8 +12,6 @@ import 'package:flutter/services.dart'
 import 'package:just_signals/just_signals.dart';
 import '../ecs/systems/debug/collider_debugger_system.dart';
 import 'engine.dart';
-import '../ecs/ecs.dart' show World;
-import '../ecs/systems/rendering/render_system.dart';
 import '../subsystems/localization/localization_widget.dart';
 import 'game_layers.dart';
 import '../subsystems/rendering/impl/game_terminal.dart';
@@ -39,7 +37,8 @@ class GameWidget extends StatefulWidget {
   ///
   /// When `true`, pressing the backquote/tilde key (`` ` ``) toggles a text
   /// command console over the game canvas.  While the terminal is open all
-  /// keyboard input is routed to it and not forwarded to the game.
+  /// keyboard input is routed to it and not forwarded to the game: keys
+  /// held as it opens are let go, and only key-ups reach the game.
   ///
   /// Register commands via [Engine.terminal] before calling [GameWidget].
   final bool showTerminal;
@@ -152,12 +151,6 @@ class _GameWidgetState extends State<GameWidget>
   /// its coming back may resume it. A game the player paused stays paused.
   bool _pausedByLifecycle = false;
 
-  /// The world's render system, found once rather than every frame; see
-  /// [_renderSystemOf].
-  RenderSystem? _renderSystem;
-  World? _renderSystemWorld;
-  int _systemCountAtScan = -1;
-
   @override
   void initState() {
     super.initState();
@@ -265,8 +258,6 @@ class _GameWidgetState extends State<GameWidget>
       widget.engine.stateListenable.addListener(_onEngineState);
       _disposeControllers();
       _syncControllers();
-      _renderSystem = null;
-      _renderSystemWorld = null;
       _pausedByLifecycle = false;
     }
     if (engineChanged || oldWidget.showDebug != widget.showDebug) {
@@ -304,25 +295,29 @@ class _GameWidgetState extends State<GameWidget>
     super.dispose();
   }
 
-  // ── App lifecycle: pause/resume the GameLoop timer when backgrounded ──
+  // ── App lifecycle: pause the game and its sound when backgrounded ──
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final engine = widget.engine;
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
-        if (widget.engine.isRunning) {
-          widget.engine.pause();
+        if (engine.isRunning) {
+          engine.pause();
           _pausedByLifecycle = true;
         }
+        // Music and sounds stop too — also a pause menu's music.
+        engine.suspendAudio();
         break;
       case AppLifecycleState.resumed:
         // Only what going to the background paused: resuming whatever was
         // paused un-paused a game the player had paused from its menu.
         if (_pausedByLifecycle) {
           _pausedByLifecycle = false;
-          if (widget.engine.isPaused) widget.engine.resume();
+          if (engine.isPaused) engine.resume();
         }
+        engine.resumeAudio();
         break;
       case AppLifecycleState.inactive:
         break;
@@ -334,15 +329,11 @@ class _GameWidgetState extends State<GameWidget>
     final engine = widget.engine;
     // Not ready yet, or disposed under this widget: nothing to run or draw.
     if (!engine.isInitialized) return;
-    // Drive the game loop from the vsync Ticker — single unified loop —
-    // timed by the ticker's own frame timestamps.
-    engine.gameLoop.tick(elapsed);
-    // Push the sub-frame interpolation factor to the ECS RenderSystem so
-    // physics-driven entities lerp smoothly between fixed-timestep positions.
-    final interpolation = engine.gameLoop.interpolation;
-    _renderSystemOf(engine.world)?.interpolation = interpolation;
-    // And to the frame's view, for renderers that draw another way (3-D).
-    engine.rendering.interpolation = interpolation;
+    // Drive the game loop from the vsync Ticker, timed by the frame's own
+    // timestamp — not this ticker's `elapsed`, which counts from when this
+    // view started: every view of the engine passes the same stamp in a
+    // frame, and the loop counts the frame once however many tick it.
+    engine.gameLoop.tick(SchedulerBinding.instance.currentFrameTimeStamp);
     // Signal the CustomPainter to repaint — no widget rebuild needed.
     _repaintNotifier.notify();
     if (widget.showLayers) {
@@ -352,26 +343,6 @@ class _GameWidgetState extends State<GameWidget>
       }
     }
     _updateFPS(elapsed);
-  }
-
-  /// [world]'s render system, kept between frames: finding it walks the
-  /// world's systems. The kept one is trusted while it is still in
-  /// [world] ([RenderSystem.isAttached]); with none found, the world is
-  /// searched again only once its systems change in number.
-  RenderSystem? _renderSystemOf(World world) {
-    final kept = _renderSystem;
-    if (kept != null && kept.isAttached && identical(kept.world, world)) {
-      return kept;
-    }
-    final count = world.systems.length;
-    if (kept == null &&
-        identical(_renderSystemWorld, world) &&
-        count == _systemCountAtScan) {
-      return null;
-    }
-    _renderSystemWorld = world;
-    _systemCountAtScan = count;
-    return _renderSystem = world.getSystem<RenderSystem>();
   }
 
   /// Makes a controller for each layer that has none, and drops the ones
@@ -435,14 +406,21 @@ class _GameWidgetState extends State<GameWidget>
       if (event.logicalKey == LogicalKeyboardKey.backquote) {
         if (event is KeyDownEvent) {
           terminal.toggle();
+          // Keys held as it opens are the game's no longer: let them go,
+          // as when the game loses focus.
+          if (terminal.isVisible) _releaseKeyboard();
         }
         return KeyEventResult.handled;
       }
 
       // When the terminal is visible, all other key events are consumed
       // by it — terminal capture always takes priority over
-      // passthroughKeys.
+      // passthroughKeys. Key-ups still reach the game, so no key it saw
+      // go down stays down.
       if (terminal.isVisible) {
+        if (event is KeyUpEvent && widget.engine.isInitialized) {
+          widget.engine.input.handleKeyEvent(event);
+        }
         if (event is KeyDownEvent || event is KeyRepeatEvent) {
           // Try special-key handling first (Enter → submit, Backspace →
           // delete).  Only if the key is not a recognised special key do

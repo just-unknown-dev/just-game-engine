@@ -18,7 +18,10 @@ class HierarchySystem extends System {
   @override
   int get priority => SystemPriorities.hierarchy;
   @override
-  List<Type> get requiredComponents => [TransformComponent, ParentComponent];
+  List<Type> get requiredComponents => const [
+    TransformComponent,
+    ParentComponent,
+  ];
 
   @override
   void update(double deltaTime) => world.transformHierarchy.propagate();

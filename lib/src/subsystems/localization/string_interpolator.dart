@@ -22,8 +22,10 @@ library;
 /// ```
 /// {count, plural, =0{No items} =1{One item} other{{count} items}}
 /// ```
-/// Supported selectors: `=0`, `=1`, `=2`, … exact matches, plus `other`
-/// fallback.  Nested variables inside plural branches are also substituted.
+/// Supported selectors: `=0`, `=1`, `=2`, … exact matches, `one` (exactly
+/// 1), plus `other` fallback. A count with a fraction matches only an `=N`
+/// equal to it, so 1.5 takes `other`; inside the branch it shows as given.
+/// Nested variables inside plural branches are also substituted.
 ///
 /// **Gender selection**
 /// ```
@@ -126,24 +128,32 @@ class StringInterpolator {
   }) {
     final value = args[varName];
     final count = switch (value) {
-      int n => n,
-      double d => d.truncate(),
-      String s => int.tryParse(s) ?? 0,
+      num n => n,
+      String s => num.tryParse(s.trim()) ?? 0,
       _ => 0,
     };
 
     final choices = _parseChoices(choicesStr);
 
+    // An exact `=N` matches only that very number: 1.5 is not `=1`.
+    String? exact;
+    for (final MapEntry(:key, :value) in choices.entries) {
+      if (key.startsWith('=') && num.tryParse(key.substring(1)) == count) {
+        exact = value;
+        break;
+      }
+    }
+
     final branch =
-        choices['=$count'] // exact match first
-        ??
+        exact ??
         (count == 1 ? choices['one'] : null) ??
         choices['other'] ??
         choices.values.firstOrNull ??
         '';
 
-    // Substitute variables inside the branch (one extra level)
-    return _resolve(branch, {...args, varName: count}, depth: depth + 1);
+    // Substitute variables inside the branch (one extra level); `{n}` in it
+    // shows the value as given — 2.5 stays 2.5.
+    return _resolve(branch, args, depth: depth + 1);
   }
 
   // ---- Generic select -------------------------------------------------------

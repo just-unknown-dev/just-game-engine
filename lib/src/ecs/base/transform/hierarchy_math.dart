@@ -98,6 +98,45 @@ abstract final class HierarchyMath {
     child.scale.setValues(sP.x * sL.x, sP.y * sL.y, sP.z * sL.z);
   }
 
+  /// Set [child]'s previous pose ([TransformComponent.setPreviousPose]) to
+  /// where [composeWorld] puts it under [parent]'s previous pose: from the
+  /// parent's previous position and rotation, its current scale (scale is
+  /// never interpolated) and [link]'s local transform.
+  ///
+  /// [c] and [s] are the cosine and sine of the parent's previous angle;
+  /// they are only read when that pose is planar.
+  static void composePreviousWith(
+    TransformComponent parent,
+    ParentComponent link,
+    TransformComponent child,
+    double c,
+    double s,
+  ) {
+    final sP = parent.scale;
+    final pL = link.localPosition;
+    final rL = link.localRotation;
+    final vx = sP.x * pL.x, vy = sP.y * pL.y, vz = sP.z * pL.z;
+    final pP = parent.prevPosition;
+    if (parent.previousIsPlanar) {
+      final a = parent.prevAngle;
+      _v.setValues(pP.x + c * vx - s * vy, pP.y + s * vx + c * vy, pP.z + vz);
+      if (rL.isPlanar) {
+        child.setPreviousPose(_v, angle: a + _flipZ(sP) * rL.z);
+        return;
+      }
+      _qa.setRotationZ(a);
+    } else {
+      parent.previousRotationInto(_qa);
+      _v.setValues(vx, vy, vz);
+      _qa.rotateInto(_v, _v);
+      _v.setValues(pP.x + _v.x, pP.y + _v.y, pP.z + _v.z);
+    }
+    rL.quaternionInto(_qb);
+    _mirror(_qb, sP);
+    _qb.premultiply(_qa);
+    child.setPreviousPose(_v, rotation: _qb);
+  }
+
   /// Set [link]'s local transform so that [composeWorld] would give
   /// [child]'s current world transform under [parent].
   ///

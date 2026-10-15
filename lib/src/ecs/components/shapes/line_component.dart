@@ -48,7 +48,6 @@ class LineComponent extends RenderableComponent {
       strokeWidth: strokeWidth,
       roundCaps: roundCaps,
       renderable: CustomRenderable(
-        layer: 8,
         getBoundsCallback: () => Rect.fromPoints(
           self.start - Offset(self.strokeWidth, self.strokeWidth),
           self.end + Offset(self.strokeWidth, self.strokeWidth),

@@ -230,7 +230,9 @@ class ComponentHints {
   /// editor's own colours when null.
   final Color? accentColor;
 
-  /// Whether an entity may carry more than one.
+  /// Whether an entity may carry more than one. A [World] holds one
+  /// component of each type per entity, so the engine's own definitions
+  /// leave this false; it is for editors that keep several elsewhere.
   final bool allowMultiple;
 
   /// Whether the inspector offers to remove it.
@@ -264,9 +266,9 @@ class ComponentHints {
 /// saveable — and the inspector is built from the same fields, so a field
 /// cannot be shown without being saved.
 ///
-/// Writes `{type, fields}`. A definition given an [id] also writes
-/// `customComponentId`, which the editor stored for years; new definitions
-/// leave it null.
+/// Writes `{type, fields}`. An [id] — the `customComponentId` the editor
+/// stored for years — is not written: scene format 1 dropped it, keying
+/// every component by `type`.
 class ComponentDefinition<T extends Component> extends ComponentCodec<T> {
   /// A definition saved as [type], built by [create] and persisting
   /// [fields]. [aliases] are older names it also loads; [extent] and
@@ -312,7 +314,9 @@ class ComponentDefinition<T extends Component> extends ComponentCodec<T> {
   @override
   final String type;
 
-  /// Older `customComponentId` written for compatibility; null for none.
+  /// The `customComponentId` the editor once saved this component under;
+  /// null for none. Not written to scenes (format 1 keys by [type]); an old
+  /// id still loads through [aliases].
   final String? id;
 
   /// Builds a component with default values, which [decode] then overwrites
@@ -358,13 +362,28 @@ class ComponentDefinition<T extends Component> extends ComponentCodec<T> {
     'fields': {for (final f in fields) f.name: f.encodeFrom(component)},
   };
 
+  /// Throws a [FormatException] naming the type and the field when a value
+  /// has the wrong type (a field saved as `null` that cannot be null, a
+  /// string where a number goes), instead of a bare [TypeError].
   @override
   T decode(Map<String, dynamic> json) {
     final component = create();
-    final values =
-        (json['fields'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final raw = json['fields'];
+    if (raw != null && raw is! Map) {
+      throw FormatException('$type: "fields" is $raw, not an object.');
+    }
+    final values = (raw as Map?)?.cast<String, dynamic>() ?? const {};
     for (final f in fields) {
-      if (values.containsKey(f.name)) f.decodeInto(component, values[f.name]);
+      if (!values.containsKey(f.name)) continue;
+      final value = values[f.name];
+      try {
+        f.decodeInto(component, value);
+      } on TypeError catch (e) {
+        final shown = value is String ? '"$value"' : '$value';
+        throw FormatException(
+          '$type.${f.name} is $shown, which has the wrong type ($e).',
+        );
+      }
     }
     afterDecode?.call(component);
     return component;

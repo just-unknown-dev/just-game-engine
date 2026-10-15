@@ -32,7 +32,7 @@ class ParticleSystemECS extends System {
   int get priority => SystemPriorities.particles;
 
   @override
-  List<Type> get requiredComponents => [ParticleEmitterComponent];
+  List<Type> get requiredComponents => const [ParticleEmitterComponent];
 
   @override
   void update(double deltaTime) {

@@ -99,7 +99,7 @@ class PostProcessSystem extends System {
   int get priority => SystemPriorities.postProcess;
 
   @override
-  List<Type> get requiredComponents => [ShaderComponent];
+  List<Type> get requiredComponents => const [ShaderComponent];
 
   // ── Per-frame synchronisation ───────────────────────────────────────────
 

@@ -52,10 +52,12 @@ class DistanceJoint2D extends Joint2D {
   /// How far apart the anchors are kept.
   double length;
 
-  /// How stiff the spring holding them there is.
+  /// How stiff the spring holding them there is: how fast it pulls back,
+  /// in hertz. 0 holds the length rigidly.
   double stiffness;
 
-  /// How much the spring's swing is damped.
+  /// How much the spring's swing is damped: a damping ratio, 0 swinging on,
+  /// 1 settling without overshoot.
   double damping;
 }
 
@@ -129,10 +131,12 @@ class WheelJoint2D extends Joint2D {
   /// The suspension's axis, in this entity's space.
   Offset axis;
 
-  /// How stiff the suspension is.
+  /// How stiff the suspension is: how fast it springs back, in hertz. 0 is
+  /// no spring.
   double stiffness;
 
-  /// How much the suspension's swing is damped.
+  /// How much the suspension's swing is damped: a damping ratio, 0 bouncing
+  /// on, 1 settling without overshoot.
   double damping;
 
   /// Whether a motor turns the wheel at [motorSpeed].

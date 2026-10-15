@@ -13,7 +13,7 @@ class LifetimeSystem extends System {
   final List<Entity> _toDestroy = [];
 
   @override
-  List<Type> get requiredComponents => [LifetimeComponent];
+  List<Type> get requiredComponents => const [LifetimeComponent];
 
   @override
   void update(double deltaTime) {

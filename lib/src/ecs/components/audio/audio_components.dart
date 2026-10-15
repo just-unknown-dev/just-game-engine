@@ -5,14 +5,102 @@ library;
 
 import 'dart:math' as math;
 
+import 'package:meta/meta.dart' show internal;
+
 import '../../../subsystems/audio/audio.dart';
 import '../../ecs.dart';
+
+/// What a game asks of a playing sound; see [AudioRequests].
+enum AudioRequest {
+  /// Pause it where it is.
+  pause,
+
+  /// Play on from where [pause] left it.
+  resume,
+
+  /// Play it from the start, stopping it first if it plays.
+  play,
+
+  /// Stop it.
+  stop,
+}
+
+/// Play, pause, resume and stop for a component that plays a sound —
+/// [AudioSourceComponent] and [AudioStreamComponent].
+///
+/// Each call asks the `AudioSystem`, which carries it out at its next
+/// update. Nothing is added to or taken from the entity, and the
+/// component's saved fields are not changed, so asking costs nothing and an
+/// editor saving the scene saves what was authored; it works on an entity
+/// that is switched off too. Within one update the last of [play] and
+/// [stop] wins over [pause] and [resume]; otherwise the last call counts.
+///
+/// ```dart
+/// final door = entity.getComponent<AudioSourceComponent>()!;
+/// door.pause();
+/// door.resume();
+/// door.stop();
+/// door.play(); // from the start again
+/// ```
+mixin AudioRequests on Component {
+  /// Whether the sound starts as soon as the `AudioSystem` sees it. The
+  /// system never changes it: it is what the scene says, so a scene saved
+  /// while (or after) it played still starts its sounds.
+  bool get playOnAdd;
+  set playOnAdd(bool value);
+
+  AudioRequest? _request;
+
+  /// What [play], [pause], [resume] or [stop] asked that the system has not
+  /// yet carried out, or null.
+  AudioRequest? get pendingRequest => _request;
+
+  bool get _startsOrStops =>
+      _request == AudioRequest.stop || _request == AudioRequest.play;
+
+  /// Plays the sound from the start at the system's next update, stopping
+  /// it first if it plays — also one that [stop] stopped, one that played
+  /// to its end, and one whose [playOnAdd] is false.
+  void play() => _request = AudioRequest.play;
+
+  /// Pauses the sound at the system's next update — one still loading as
+  /// soon as it starts. A sound that is not playing is not affected.
+  void pause() {
+    if (!_startsOrStops) _request = AudioRequest.pause;
+  }
+
+  /// Plays on a sound [pause] paused, at the system's next update. One also
+  /// paused because its entity is switched off, or because the app is in
+  /// the background, plays on once that is over too.
+  void resume() {
+    if (!_startsOrStops) _request = AudioRequest.resume;
+  }
+
+  /// Stops the sound at the system's next update — also one still loading,
+  /// or one that has not started yet. It does not start again by itself
+  /// ([playOnAdd] notwithstanding); [play] starts it again.
+  void stop() => _request = AudioRequest.stop;
+
+  /// For the `AudioSystem`: what was asked, which is then forgotten.
+  @internal
+  AudioRequest? takeRequest() {
+    final request = _request;
+    _request = null;
+    return request;
+  }
+}
 
 /// Component describing an audio source attached to an entity.
 ///
 /// This is data-only. The actual loading and playback is handled by
-/// [AudioSystem]. The sound stops when the component or its entity goes.
-class AudioSourceComponent extends Component {
+/// [AudioSystem]; [pause], [resume] and [stop] ask it to control the sound.
+/// The sound stops when the component or its entity goes, and pauses while
+/// the entity is switched off — playing on from where it was when it is
+/// switched back on.
+///
+/// For a sound played once, with nothing to control afterwards, use
+/// [AudioSystem.playOneShot].
+class AudioSourceComponent extends Component with AudioRequests {
   /// A source for [clipPath] that plays once, at full volume, centred, at
   /// its original pitch and speed, as soon as `AudioSystem` sees it.
   ///
@@ -40,18 +128,24 @@ class AudioSourceComponent extends Component {
   /// Asset path to the audio clip.
   String clipPath;
 
-  /// Volume `[0.0 – 1.0]`.
+  /// Volume `[0.0 – 1.0]`, scaled by its [channel]'s own volume. Followed
+  /// while the sound plays.
   double volume;
 
   /// Stereo pan, -1.0 (left) to +1.0 (right); 0.0 is centred. Ignored
   /// while the source is placed in 3-D ([is3d] on an entity with a
-  /// transform).
+  /// transform). Read when the sound starts, like [loop], [pitch], [speed]
+  /// and [effects]: a change while it plays is heard the next time it
+  /// plays.
   double pan;
 
   /// Whether to loop the clip.
   bool loop;
 
-  /// If true, playback starts as soon as the system processes this entity.
+  /// If true, playback starts as soon as the system processes this entity
+  /// — once: the system remembers it started it, and never changes this
+  /// field. [play] plays it again.
+  @override
   bool playOnAdd;
 
   /// The channel the sound plays on: its volume scales the sound, and on
@@ -113,76 +207,16 @@ class AudioSourceComponent extends Component {
   Object? handle;
 }
 
-/// Trigger component: add this to an entity to request one-shot playback.
-///
-/// The [AudioSystem] will play the sound and then remove this
-/// component automatically.
-class AudioPlayComponent extends Component {
-  /// A request to play [clipPath] once, at full volume, centred, at its
-  /// original pitch and speed, with no effects.
-  AudioPlayComponent({
-    required this.clipPath,
-    this.volume = 1.0,
-    this.pan = 0.0,
-    this.pitch = 1.0,
-    this.speed = 1.0,
-    this.channel = AudioChannel.sfx,
-    this.is3d = false,
-    this.spatial = const AudioSpatial(),
-    this.effects = const [],
-  });
-
-  /// Asset path to the audio clip.
-  final String clipPath;
-
-  /// Volume, 0.0 (silent) to 1.0 (full), scaled by its [channel]'s own
-  /// volume.
-  double volume;
-
-  /// Stereo pan, -1.0 (left) to +1.0 (right); 0.0 is centred. Ignored
-  /// while the sound is placed in 3-D ([is3d] on an entity with a
-  /// transform).
-  double pan;
-
-  /// Pitch multiplier: 1.0 = original, 2.0 = one octave up.
-  double pitch;
-
-  /// Playback speed multiplier (1.0 = normal).
-  double speed;
-
-  /// The channel the sound plays on.
-  AudioChannel channel;
-
-  /// Whether the sound is placed in 3-D at the entity's
-  /// `TransformComponent` position (where it is when it starts); without a
-  /// transform it plays flat.
-  bool is3d;
-
-  /// How the sound is heard in 3-D.
-  AudioSpatial spatial;
-
-  /// DSP effects applied to the voice when playback starts.
-  List<AudioEffect> effects;
-}
-
-/// Trigger component: add this to an entity to pause its active
-/// [AudioSourceComponent] playback. Removed by [AudioSystem] after processing.
-class AudioPauseComponent extends Component {}
-
-/// Trigger component: add this to an entity to resume its paused
-/// [AudioSourceComponent] playback. Removed by [AudioSystem] after processing.
-class AudioResumeComponent extends Component {}
-
-/// Trigger component: add this to an entity to stop its active
-/// [AudioSourceComponent] playback. Removed by [AudioSystem] after processing.
-class AudioStopComponent extends Component {}
-
 /// Component that streams a large audio file without buffering it entirely.
 ///
 /// Use for music tracks or long ambient loops. The [AudioSystem] opens an
 /// [AudioStream] backed by the native streaming path and manages its lifecycle.
-/// The stream stops when the component or its entity goes.
-class AudioStreamComponent extends Component {
+/// The stream stops when the component or its entity goes, and pauses while
+/// the entity is switched off. Control it with [pause], [resume] and [stop],
+/// not through [stream]: the app coming back from the background plays on
+/// every stream the background paused, and only [pause] tells the system the
+/// game paused one.
+class AudioStreamComponent extends Component with AudioRequests {
   /// A stream of [path] on the music channel that loops at full volume and
   /// starts as soon as `AudioSystem` sees it; no fade-in unless
   /// [fadeInDuration] is given.
@@ -198,13 +232,16 @@ class AudioStreamComponent extends Component {
   /// Asset path to the audio file.
   String path;
 
-  /// Volume `[0.0 – 1.0]`.
+  /// Volume `[0.0 – 1.0]`. Followed while the stream plays.
   double volume;
 
   /// Whether to loop the stream indefinitely.
   bool loop;
 
-  /// If true, streaming starts as soon as the system processes this entity.
+  /// If true, streaming starts as soon as the system processes this entity
+  /// — once: the system remembers it started it, and never changes this
+  /// field. [play] plays it again from the start.
+  @override
   bool playOnAdd;
 
   /// The audio channel the stream is meant for, handed to its

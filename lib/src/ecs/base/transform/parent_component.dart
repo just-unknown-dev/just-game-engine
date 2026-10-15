@@ -39,22 +39,38 @@ class ParentComponent extends Component {
   /// Parent entity ID (null if root). Changing it on an entity moves the
   /// entity from the old parent's `ChildrenComponent` to the end of the
   /// new one's.
+  ///
+  /// A link that would make the entity its own ancestor — the entity
+  /// itself, or something under it — is refused with an [ArgumentError],
+  /// and nothing changes.
   EntityId? get parentId => _parentId;
   set parentId(EntityId? value) {
     final old = _parentId;
     if (old == value) return;
+    if (value != null) _checkLink?.call(value);
     _parentId = value;
+    // Another parent's steps are nothing to this entity's previous pose.
+    _parentCaptures = -1;
     _onRelink?.call(old, value);
   }
 
   /// Told by the world when [parentId] changes while this is on an entity.
   void Function(EntityId? from, EntityId? to)? _onRelink;
 
+  /// Asked by the world before [parentId] changes; throws to refuse.
+  void Function(EntityId to)? _checkLink;
+
   /// For the world: calls [onRelink] with the old and new parent each time
-  /// [parentId] changes, until set to null.
+  /// [parentId] changes, and [check] with the new one first — which throws
+  /// to refuse it — until set to null.
   @internal
-  void bindRelink(void Function(EntityId? from, EntityId? to)? onRelink) =>
-      _onRelink = onRelink;
+  void bindRelink(
+    void Function(EntityId? from, EntityId? to)? onRelink, {
+    void Function(EntityId to)? check,
+  }) {
+    _onRelink = onRelink;
+    _checkLink = onRelink == null ? null : check;
+  }
 
   /// Where this entity is in its parent's space.
   final Vector3 localPosition;
@@ -121,6 +137,7 @@ class ParentComponent extends Component {
     needsLocal = true;
     hasSeen = false;
     _composed = false;
+    _parentCaptures = -1;
   }
 
   /// Remember [t] as the world transform the hierarchy has settled.
@@ -208,6 +225,27 @@ class ParentComponent extends Component {
   /// compose. For the transform hierarchy.
   @internal
   void forgetComposed() => _composed = false;
+
+  // ── Previous poses, for render interpolation ────────────────────────────
+
+  int _parentCaptures = -1;
+  int _ownCaptures = -1;
+
+  /// The parent's `TransformComponent.captureCount` when the hierarchy last
+  /// settled this entity; -1 when it has not since the link was made. For
+  /// the transform hierarchy.
+  @internal
+  int get parentCaptures => _parentCaptures;
+  @internal
+  set parentCaptures(int value) => _parentCaptures = value;
+
+  /// This entity's own capture count when the hierarchy last settled it,
+  /// to tell whether something else captured its previous pose since. For
+  /// the transform hierarchy.
+  @internal
+  int get ownCaptures => _ownCaptures;
+  @internal
+  set ownCaptures(int value) => _ownCaptures = value;
 
   /// Equal to the bit: 0.0 and -0.0 differ, as they would in a compose.
   static bool _same(double a, double b) =>

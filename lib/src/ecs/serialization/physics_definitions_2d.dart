@@ -32,14 +32,16 @@ abstract final class PhysicsDefinitions2D {
   );
 
   /// [RigidBody2D], saved as `RigidBody2D`.
-  static ComponentDefinition<RigidBody2D> get rigidBody => ComponentDefinition<RigidBody2D>(
+  static ComponentDefinition<RigidBody2D>
+  get rigidBody => ComponentDefinition<RigidBody2D>(
     type: 'RigidBody2D',
     create: RigidBody2D.new,
     hints: ComponentHints(
       dimensions: Dimensions.twoD,
       name: 'Rigid Body 2D',
       group: _group,
-      description: 'Simulates the entity: gravity, forces and collisions. Its shape is a Collider 2D.',
+      description:
+          'Simulates the entity: gravity, forces and collisions. Its shape is a Collider 2D.',
       icon: Icons.sports_basketball,
       accentColor: _accent,
       fieldGroups: const {
@@ -59,7 +61,10 @@ abstract final class PhysicsDefinitions2D {
       },
       foldedGroups: const {'Advanced'},
       fields: {
-        'bodyType': const FieldHint(label: 'Body type', description: bodyTypeDescription),
+        'bodyType': const FieldHint(
+          label: 'Body type',
+          description: bodyTypeDescription,
+        ),
         'mass': FieldHint(
           label: 'Mass',
           description:
@@ -69,8 +74,14 @@ abstract final class PhysicsDefinitions2D {
           visibleWhen: (c) => (c as RigidBody2D).isDynamic,
         ),
         'layer': const FieldHint(label: 'Layer', description: layerDescription),
-        'collidesWith': const FieldHint(label: 'Collides with', description: collidesWithDescription),
-        'isSensor': const FieldHint(label: 'Sensor', description: sensorDescription),
+        'collidesWith': const FieldHint(
+          label: 'Collides with',
+          description: collidesWithDescription,
+        ),
+        'isSensor': const FieldHint(
+          label: 'Sensor',
+          description: sensorDescription,
+        ),
         'friction': FieldHint(
           label: 'Friction',
           description: frictionDescription,
@@ -120,7 +131,8 @@ abstract final class PhysicsDefinitions2D {
         ),
         'initialVelocity': FieldHint(
           label: 'Start velocity',
-          description: 'The velocity it starts with: a thrown crate, a platform already on its way.',
+          description:
+              'The velocity it starts with: a thrown crate, a platform already on its way.',
           visibleWhen: (c) => !(c as RigidBody2D).isStatic,
         ),
         'initialAngularVelocity': FieldHint(
@@ -151,25 +163,70 @@ abstract final class PhysicsDefinitions2D {
         name: 'layer',
         kind: FieldTypes.physicsLayer,
         read: (c) => (c as RigidBody2D).layer,
-        write: (c, v) => (c as RigidBody2D).layer = (v as num).toInt().clamp(0, 15),
+        write: (c, v) =>
+            (c as RigidBody2D).layer = (v as num).toInt().clamp(0, 15),
       ),
       SchemaField(
         name: 'collidesWith',
         kind: FieldTypes.physicsLayerMask,
         read: (c) => (c as RigidBody2D).collidesWith,
-        write: (c, v) => (c as RigidBody2D).collidesWith = v == null ? null : (v as num).toInt() & 0xFFFF,
+        write: (c, v) => (c as RigidBody2D).collidesWith = v == null
+            ? null
+            : (v as num).toInt() & 0xFFFF,
       ),
       _b<RigidBody2D>('isSensor', (c) => c.isSensor, (c, v) => c.isSensor = v),
-      _d<RigidBody2D>('friction', (c) => c.friction, (c, v) => c.friction = v, min: 0, max: 1),
-      _d<RigidBody2D>('restitution', (c) => c.restitution, (c, v) => c.restitution = v, min: 0, max: 1),
-      _d<RigidBody2D>('gravityScale', (c) => c.gravityScale, (c, v) => c.gravityScale = v),
-      _d<RigidBody2D>('linearDamping', (c) => c.linearDamping, (c, v) => c.linearDamping = v, min: 0),
-      _d<RigidBody2D>('angularDamping', (c) => c.angularDamping, (c, v) => c.angularDamping = v, min: 0),
-      _b<RigidBody2D>('continuousCollision', (c) => c.continuousCollision, (c, v) => c.continuousCollision = v),
+      _d<RigidBody2D>(
+        'friction',
+        (c) => c.friction,
+        (c, v) => c.friction = v,
+        min: 0,
+        max: 1,
+      ),
+      _d<RigidBody2D>(
+        'restitution',
+        (c) => c.restitution,
+        (c, v) => c.restitution = v,
+        min: 0,
+        max: 1,
+      ),
+      _d<RigidBody2D>(
+        'gravityScale',
+        (c) => c.gravityScale,
+        (c, v) => c.gravityScale = v,
+      ),
+      _d<RigidBody2D>(
+        'linearDamping',
+        (c) => c.linearDamping,
+        (c, v) => c.linearDamping = v,
+        min: 0,
+      ),
+      _d<RigidBody2D>(
+        'angularDamping',
+        (c) => c.angularDamping,
+        (c, v) => c.angularDamping = v,
+        min: 0,
+      ),
+      _b<RigidBody2D>(
+        'continuousCollision',
+        (c) => c.continuousCollision,
+        (c, v) => c.continuousCollision = v,
+      ),
       _b<RigidBody2D>('canSleep', (c) => c.canSleep, (c, v) => c.canSleep = v),
-      _b<RigidBody2D>('lockRotation', (c) => c.lockRotation, (c, v) => c.lockRotation = v),
-      _o<RigidBody2D>('initialVelocity', (c) => c.initialVelocity, (c, v) => c.initialVelocity = v),
-      _d<RigidBody2D>('initialAngularVelocity', (c) => c.initialAngularVelocity, (c, v) => c.initialAngularVelocity = v),
+      _b<RigidBody2D>(
+        'lockRotation',
+        (c) => c.lockRotation,
+        (c, v) => c.lockRotation = v,
+      ),
+      _o<RigidBody2D>(
+        'initialVelocity',
+        (c) => c.initialVelocity,
+        (c, v) => c.initialVelocity = v,
+      ),
+      _d<RigidBody2D>(
+        'initialAngularVelocity',
+        (c) => c.initialAngularVelocity,
+        (c, v) => c.initialAngularVelocity = v,
+      ),
       SchemaField(
         name: 'groupIndex',
         kind: FieldTypes.integer,
@@ -181,7 +238,8 @@ abstract final class PhysicsDefinitions2D {
 
   /// [Collider2D], saved as `Collider2D`.
   static ComponentDefinition<Collider2D> get collider {
-    bool shapeIs(Component c, Set<ColliderShape2D> shapes) => shapes.contains((c as Collider2D).shape);
+    bool shapeIs(Component c, Set<ColliderShape2D> shapes) =>
+        shapes.contains((c as Collider2D).shape);
     return ComponentDefinition<Collider2D>(
       type: 'Collider2D',
       create: Collider2D.new,
@@ -190,23 +248,40 @@ abstract final class PhysicsDefinitions2D {
         dimensions: Dimensions.twoD,
         name: 'Collider 2D',
         group: _group,
-        description: "The shape of the entity's body; without a Rigid Body 2D, a static one.",
+        description:
+            "The shape of the entity's body; without a Rigid Body 2D, a static one.",
         icon: Icons.crop_square,
         accentColor: const Color(0xFF66BB6A),
         fieldGroups: const {
-          'Shape': ['shape', 'size', 'radius', 'height', 'points', 'cornerRadius', 'thickness', 'loop'],
+          'Shape': [
+            'shape',
+            'size',
+            'radius',
+            'height',
+            'points',
+            'cornerRadius',
+            'thickness',
+            'loop',
+          ],
           'Placement': ['offset', 'rotation', 'scale'],
           'One-way': ['oneWay', 'oneWayDirection'],
           'Debug': ['showDebugOutline'],
         },
         foldedGroups: const {'Debug'},
         fields: {
-          'shape': const FieldHint(label: 'Shape', description: matchShapeDescription),
-          'size': FieldHint(label: 'Size', visibleWhen: (c) => shapeIs(c, {ColliderShape2D.box})),
+          'shape': const FieldHint(
+            label: 'Shape',
+            description: matchShapeDescription,
+          ),
+          'size': FieldHint(
+            label: 'Size',
+            visibleWhen: (c) => shapeIs(c, {ColliderShape2D.box}),
+          ),
           'radius': FieldHint(
             label: 'Radius',
             scrub: const ScrubHint(step: 0.5, fractionDigits: 1),
-            visibleWhen: (c) => shapeIs(c, {ColliderShape2D.circle, ColliderShape2D.capsule}),
+            visibleWhen: (c) =>
+                shapeIs(c, {ColliderShape2D.circle, ColliderShape2D.capsule}),
           ),
           'height': FieldHint(
             label: 'Height',
@@ -216,19 +291,26 @@ abstract final class PhysicsDefinitions2D {
           ),
           'points': FieldHint(
             label: 'Points',
-            description: 'In order round it (a polygon has at most 8); a segment takes the first two.',
-            visibleWhen: (c) => shapeIs(c, {ColliderShape2D.polygon, ColliderShape2D.segment, ColliderShape2D.chain}),
+            description:
+                'In order round it (a polygon has at most 8); a segment takes the first two.',
+            visibleWhen: (c) => shapeIs(c, {
+              ColliderShape2D.polygon,
+              ColliderShape2D.segment,
+              ColliderShape2D.chain,
+            }),
           ),
           'cornerRadius': FieldHint(
             label: 'Corner radius',
             description: 'Rounds the corners: inside a box, outside a polygon.',
             scrub: const ScrubHint(step: 0.5, fractionDigits: 1),
-            visibleWhen: (c) => shapeIs(c, {ColliderShape2D.box, ColliderShape2D.polygon}),
+            visibleWhen: (c) =>
+                shapeIs(c, {ColliderShape2D.box, ColliderShape2D.polygon}),
           ),
           'thickness': FieldHint(
             label: 'Thickness',
             scrub: const ScrubHint(step: 0.5, fractionDigits: 1),
-            visibleWhen: (c) => shapeIs(c, {ColliderShape2D.segment, ColliderShape2D.chain}),
+            visibleWhen: (c) =>
+                shapeIs(c, {ColliderShape2D.segment, ColliderShape2D.chain}),
           ),
           'loop': FieldHint(
             label: 'Closed',
@@ -237,17 +319,22 @@ abstract final class PhysicsDefinitions2D {
           ),
           'offset': const FieldHint(
             label: 'Offset',
-            description: "Moves the collider off the entity's origin — a feet box under a tall sprite. Scaled and turned with the entity.",
+            description:
+                "Moves the collider off the entity's origin — a feet box under a tall sprite. Scaled and turned with the entity.",
           ),
           'rotation': const FieldHint(
             label: 'Rotation',
             unit: AngleUnit.degrees,
             scrub: ScrubHint(step: 1, fractionDigits: 0, suffix: '°'),
           ),
-          'scale': const FieldHint(label: 'Scale', description: "The shape's own scale, on top of the entity's."),
+          'scale': const FieldHint(
+            label: 'Scale',
+            description: "The shape's own scale, on top of the entity's.",
+          ),
           'oneWay': const FieldHint(
             label: 'One-way',
-            description: 'Solid from one side only: a platform jumped up through from below.',
+            description:
+                'Solid from one side only: a platform jumped up through from below.',
           ),
           'oneWayDirection': FieldHint(
             label: 'Solid from',
@@ -263,7 +350,11 @@ abstract final class PhysicsDefinitions2D {
       fields: [
         SchemaField(
           name: 'shape',
-          kind: const EnumFieldType(ColliderShape2D.values, fallback: ColliderShape2D.box, id: 'enum.colliderShape2D'),
+          kind: const EnumFieldType(
+            ColliderShape2D.values,
+            fallback: ColliderShape2D.box,
+            id: 'enum.colliderShape2D',
+          ),
           read: (c) => (c as Collider2D).shape,
           write: (c, v) => (c as Collider2D).shape = v as ColliderShape2D,
         ),
@@ -272,19 +363,42 @@ abstract final class PhysicsDefinitions2D {
           kind: FieldTypes.vector2,
           read: (c) => (c as Collider2D).size,
           write: (c, v) {
-            if (v is Vector2) (c as Collider2D).size = Vector2(v.x.abs(), v.y.abs());
+            if (v is Vector2) {
+              (c as Collider2D).size = Vector2(v.x.abs(), v.y.abs());
+            }
           },
         ),
-        _d<Collider2D>('radius', (c) => c.radius, (c, v) => c.radius = v, min: 0.01),
-        _d<Collider2D>('height', (c) => c.height, (c, v) => c.height = v, min: 0.01),
+        _d<Collider2D>(
+          'radius',
+          (c) => c.radius,
+          (c, v) => c.radius = v,
+          min: 0.01,
+        ),
+        _d<Collider2D>(
+          'height',
+          (c) => c.height,
+          (c, v) => c.height = v,
+          min: 0.01,
+        ),
         SchemaField(
           name: 'points',
           kind: FieldTypes.offsetList,
           read: (c) => (c as Collider2D).points,
-          write: (c, v) => (c as Collider2D).points = (v as List).cast<Offset>().toList(),
+          write: (c, v) =>
+              (c as Collider2D).points = (v as List).cast<Offset>().toList(),
         ),
-        _d<Collider2D>('cornerRadius', (c) => c.cornerRadius, (c, v) => c.cornerRadius = v, min: 0),
-        _d<Collider2D>('thickness', (c) => c.thickness, (c, v) => c.thickness = v, min: 0),
+        _d<Collider2D>(
+          'cornerRadius',
+          (c) => c.cornerRadius,
+          (c, v) => c.cornerRadius = v,
+          min: 0,
+        ),
+        _d<Collider2D>(
+          'thickness',
+          (c) => c.thickness,
+          (c, v) => c.thickness = v,
+          min: 0,
+        ),
         _b<Collider2D>('loop', (c) => c.loop, (c, v) => c.loop = v),
         _o<Collider2D>('offset', (c) => c.offset, (c, v) => c.offset = v),
         _d<Collider2D>('rotation', (c) => c.rotation, (c, v) => c.rotation = v),
@@ -305,9 +419,14 @@ abstract final class PhysicsDefinitions2D {
             id: 'enum.oneWayDirection',
           ),
           read: (c) => (c as Collider2D).oneWayDirection,
-          write: (c, v) => (c as Collider2D).oneWayDirection = v as OneWayDirection,
+          write: (c, v) =>
+              (c as Collider2D).oneWayDirection = v as OneWayDirection,
         ),
-        _b<Collider2D>('showDebugOutline', (c) => c.showDebugOutline, (c, v) => c.showDebugOutline = v),
+        _b<Collider2D>(
+          'showDebugOutline',
+          (c) => c.showDebugOutline,
+          (c, v) => c.showDebugOutline = v,
+        ),
       ],
     );
   }
@@ -315,7 +434,8 @@ abstract final class PhysicsDefinitions2D {
   /// [CharacterBody2D], saved as `CharacterBody2D` — laid out as
   /// the 3-D `CharacterBody3D`.
   static ComponentDefinition<CharacterBody2D> get characterBody {
-    bool isBox(Component c) => (c as CharacterBody2D).shape == CharacterShape2D.box;
+    bool isBox(Component c) =>
+        (c as CharacterBody2D).shape == CharacterShape2D.box;
     return ComponentDefinition<CharacterBody2D>(
       type: 'CharacterBody2D',
       create: CharacterBody2D.new,
@@ -328,14 +448,24 @@ abstract final class PhysicsDefinitions2D {
         icon: Icons.directions_walk,
         accentColor: const Color(0xFF29B6F6),
         fieldGroups: const {
-          'Shape': ['shape', 'radius', 'width', 'height', 'offset', 'layer', 'collidesWith', 'detectable'],
+          'Shape': [
+            'shape',
+            'radius',
+            'width',
+            'height',
+            'offset',
+            'layer',
+            'collidesWith',
+            'detectable',
+          ],
           'Walking': ['maxSlopeAngle', 'stepHeight', 'stickToFloor'],
           'Forces': ['useGravity', 'gravityScale', 'mass', 'pushStrength'],
         },
         fields: {
           'shape': const FieldHint(
             label: 'Shape',
-            description: 'A capsule slides over bumps and off ledges; a box stands on a ledge\'s corner.',
+            description:
+                'A capsule slides over bumps and off ledges; a box stands on a ledge\'s corner.',
           ),
           'radius': FieldHint(
             label: 'Radius',
@@ -347,18 +477,39 @@ abstract final class PhysicsDefinitions2D {
             scrub: const ScrubHint(step: 0.5, fractionDigits: 1),
             visibleWhen: isBox,
           ),
-          'height': const FieldHint(label: 'Height', scrub: ScrubHint(step: 0.5, fractionDigits: 1)),
-          'offset': const FieldHint(label: 'Offset', description: "Moves its shape off the entity's origin."),
-          'layer': const FieldHint(label: 'Layer', description: layerDescription),
-          'collidesWith': const FieldHint(label: 'Collides with', description: collidesWithDescription),
-          'detectable': const FieldHint(label: 'Detectable', description: detectableDescription),
+          'height': const FieldHint(
+            label: 'Height',
+            scrub: ScrubHint(step: 0.5, fractionDigits: 1),
+          ),
+          'offset': const FieldHint(
+            label: 'Offset',
+            description: "Moves its shape off the entity's origin.",
+          ),
+          'layer': const FieldHint(
+            label: 'Layer',
+            description: layerDescription,
+          ),
+          'collidesWith': const FieldHint(
+            label: 'Collides with',
+            description: collidesWithDescription,
+          ),
+          'detectable': const FieldHint(
+            label: 'Detectable',
+            description: detectableDescription,
+          ),
           'maxSlopeAngle': const FieldHint(
             label: 'Steepest slope',
             unit: AngleUnit.degrees,
             scrub: ScrubHint(step: 1, fractionDigits: 0, suffix: '°'),
           ),
-          'stepHeight': const FieldHint(label: 'Step height', scrub: ScrubHint(step: 0.5, fractionDigits: 1)),
-          'stickToFloor': const FieldHint(label: 'Stick to floor', scrub: ScrubHint(step: 0.5, fractionDigits: 1)),
+          'stepHeight': const FieldHint(
+            label: 'Step height',
+            scrub: ScrubHint(step: 0.5, fractionDigits: 1),
+          ),
+          'stickToFloor': const FieldHint(
+            label: 'Stick to floor',
+            scrub: ScrubHint(step: 0.5, fractionDigits: 1),
+          ),
           'useGravity': const FieldHint(label: 'Gravity and ground'),
           'gravityScale': FieldHint(
             label: 'Gravity scale',
@@ -366,41 +517,106 @@ abstract final class PhysicsDefinitions2D {
             scrub: const ScrubHint(step: 0.05, fractionDigits: 2, suffix: '×'),
             visibleWhen: (c) => (c as CharacterBody2D).useGravity,
           ),
-          'mass': const FieldHint(label: 'Mass', scrub: ScrubHint(step: 1, fractionDigits: 0, suffix: 'kg')),
-          'pushStrength': const FieldHint(label: 'Push strength', scrub: ScrubHint(step: 50, fractionDigits: 0)),
+          'mass': const FieldHint(
+            label: 'Mass',
+            scrub: ScrubHint(step: 1, fractionDigits: 0, suffix: 'kg'),
+          ),
+          'pushStrength': const FieldHint(
+            label: 'Push strength',
+            scrub: ScrubHint(step: 50, fractionDigits: 0),
+          ),
         },
       ),
       fields: [
         SchemaField(
           name: 'shape',
-          kind: const EnumFieldType(CharacterShape2D.values, fallback: CharacterShape2D.capsule, id: 'enum.characterShape2D'),
+          kind: const EnumFieldType(
+            CharacterShape2D.values,
+            fallback: CharacterShape2D.capsule,
+            id: 'enum.characterShape2D',
+          ),
           read: (c) => (c as CharacterBody2D).shape,
           write: (c, v) => (c as CharacterBody2D).shape = v as CharacterShape2D,
         ),
-        _d<CharacterBody2D>('radius', (c) => c.radius, (c, v) => c.radius = v, min: 1.01),
-        _d<CharacterBody2D>('width', (c) => c.width, (c, v) => c.width = v, min: 2.5),
-        _d<CharacterBody2D>('height', (c) => c.height, (c, v) => c.height = v, min: 2.5),
+        _d<CharacterBody2D>(
+          'radius',
+          (c) => c.radius,
+          (c, v) => c.radius = v,
+          min: 1.01,
+        ),
+        _d<CharacterBody2D>(
+          'width',
+          (c) => c.width,
+          (c, v) => c.width = v,
+          min: 2.5,
+        ),
+        _d<CharacterBody2D>(
+          'height',
+          (c) => c.height,
+          (c, v) => c.height = v,
+          min: 2.5,
+        ),
         _o<CharacterBody2D>('offset', (c) => c.offset, (c, v) => c.offset = v),
         SchemaField(
           name: 'layer',
           kind: FieldTypes.physicsLayer,
           read: (c) => (c as CharacterBody2D).layer,
-          write: (c, v) => (c as CharacterBody2D).layer = (v as num).toInt().clamp(0, 15),
+          write: (c, v) =>
+              (c as CharacterBody2D).layer = (v as num).toInt().clamp(0, 15),
         ),
         SchemaField(
           name: 'collidesWith',
           kind: FieldTypes.physicsLayerMask,
           read: (c) => (c as CharacterBody2D).collidesWith,
-          write: (c, v) => (c as CharacterBody2D).collidesWith = v == null ? null : (v as num).toInt() & 0xFFFF,
+          write: (c, v) => (c as CharacterBody2D).collidesWith = v == null
+              ? null
+              : (v as num).toInt() & 0xFFFF,
         ),
-        _b<CharacterBody2D>('detectable', (c) => c.detectable, (c, v) => c.detectable = v),
-        _d<CharacterBody2D>('maxSlopeAngle', (c) => c.maxSlopeAngle, (c, v) => c.maxSlopeAngle = v, min: 0),
-        _d<CharacterBody2D>('stepHeight', (c) => c.stepHeight, (c, v) => c.stepHeight = v, min: 0),
-        _d<CharacterBody2D>('stickToFloor', (c) => c.stickToFloor, (c, v) => c.stickToFloor = v, min: 0),
-        _b<CharacterBody2D>('useGravity', (c) => c.useGravity, (c, v) => c.useGravity = v),
-        _d<CharacterBody2D>('gravityScale', (c) => c.gravityScale, (c, v) => c.gravityScale = v),
-        _d<CharacterBody2D>('mass', (c) => c.mass, (c, v) => c.mass = v, min: 0),
-        _d<CharacterBody2D>('pushStrength', (c) => c.pushStrength, (c, v) => c.pushStrength = v, min: 0),
+        _b<CharacterBody2D>(
+          'detectable',
+          (c) => c.detectable,
+          (c, v) => c.detectable = v,
+        ),
+        _d<CharacterBody2D>(
+          'maxSlopeAngle',
+          (c) => c.maxSlopeAngle,
+          (c, v) => c.maxSlopeAngle = v,
+          min: 0,
+        ),
+        _d<CharacterBody2D>(
+          'stepHeight',
+          (c) => c.stepHeight,
+          (c, v) => c.stepHeight = v,
+          min: 0,
+        ),
+        _d<CharacterBody2D>(
+          'stickToFloor',
+          (c) => c.stickToFloor,
+          (c, v) => c.stickToFloor = v,
+          min: 0,
+        ),
+        _b<CharacterBody2D>(
+          'useGravity',
+          (c) => c.useGravity,
+          (c, v) => c.useGravity = v,
+        ),
+        _d<CharacterBody2D>(
+          'gravityScale',
+          (c) => c.gravityScale,
+          (c, v) => c.gravityScale = v,
+        ),
+        _d<CharacterBody2D>(
+          'mass',
+          (c) => c.mass,
+          (c, v) => c.mass = v,
+          min: 0,
+        ),
+        _d<CharacterBody2D>(
+          'pushStrength',
+          (c) => c.pushStrength,
+          (c, v) => c.pushStrength = v,
+          min: 0,
+        ),
       ],
     );
   }
@@ -410,83 +626,142 @@ abstract final class PhysicsDefinitions2D {
       name: 'connectedBody',
       kind: FieldTypes.target,
       read: (c) => (c as T).connectedBody,
-      write: (c, v) => (c as T).connectedBody = v is EntityTarget ? v : EntityTarget.none,
+      write: (c, v) =>
+          (c as T).connectedBody = v is EntityTarget ? v : EntityTarget.none,
     ),
     _o<T>('anchor', (c) => c.anchor, (c, v) => c.anchor = v),
-    _o<T>('connectedAnchor', (c) => c.connectedAnchor, (c, v) => c.connectedAnchor = v),
-    _b<T>('collideConnected', (c) => c.collideConnected, (c, v) => c.collideConnected = v),
+    _o<T>(
+      'connectedAnchor',
+      (c) => c.connectedAnchor,
+      (c, v) => c.connectedAnchor = v,
+    ),
+    _b<T>(
+      'collideConnected',
+      (c) => c.collideConnected,
+      (c, v) => c.collideConnected = v,
+    ),
     _b<T>('enabled', (c) => c.enabled, (c, v) => c.enabled = v),
   ];
 
   static const Map<String, FieldHint> _jointHints = {
     'connectedBody': FieldHint(
       label: 'Connected body',
-      description: 'The other body: an entity by name, or by tag. Both need a Rigid Body 2D and a Collider 2D.',
+      description:
+          'The other body: an entity by name, or by tag. Both need a Rigid Body 2D and a Collider 2D.',
     ),
-    'anchor': FieldHint(label: 'Anchor', description: 'Where on this entity it holds.'),
-    'connectedAnchor': FieldHint(label: 'Other anchor', description: 'Where on the other entity it holds.'),
-    'collideConnected': FieldHint(label: 'Collide connected', description: 'Whether the two bodies still collide with each other.'),
+    'anchor': FieldHint(
+      label: 'Anchor',
+      description: 'Where on this entity it holds.',
+    ),
+    'connectedAnchor': FieldHint(
+      label: 'Other anchor',
+      description: 'Where on the other entity it holds.',
+    ),
+    'collideConnected': FieldHint(
+      label: 'Collide connected',
+      description: 'Whether the two bodies still collide with each other.',
+    ),
     'enabled': FieldHint(label: 'Enabled'),
   };
 
-  static const List<String> _jointFields = ['connectedBody', 'anchor', 'connectedAnchor', 'collideConnected', 'enabled'];
+  static const List<String> _jointFields = [
+    'connectedBody',
+    'anchor',
+    'connectedAnchor',
+    'collideConnected',
+    'enabled',
+  ];
 
   /// [DistanceJoint2D], saved as `DistanceJoint2D`.
-  static ComponentDefinition<DistanceJoint2D> get distanceJoint => ComponentDefinition<DistanceJoint2D>(
-    type: 'DistanceJoint2D',
-    create: DistanceJoint2D.new,
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Distance Joint 2D',
-      group: _group,
-      description: 'Keeps two bodies a set distance apart, springily.',
-      icon: Icons.hub_outlined,
-      accentColor: _accent,
-      fieldGroups: {
-        'Joint': _jointFields,
-        'Distance': ['length', 'stiffness', 'damping'],
-      },
-      fields: {
-        ..._jointHints,
-        'length': FieldHint(label: 'Length', scrub: ScrubHint(fractionDigits: 2)),
-        'stiffness': FieldHint(label: 'Stiffness', scrub: ScrubHint(fractionDigits: 2)),
-        'damping': FieldHint(label: 'Damping', scrub: _plain),
-      },
-    ),
-    fields: [
-      ..._joint<DistanceJoint2D>(),
-      _d<DistanceJoint2D>('length', (c) => c.length, (c, v) => c.length = v, min: 0),
-      _d<DistanceJoint2D>('stiffness', (c) => c.stiffness, (c, v) => c.stiffness = v, min: 0),
-      _d<DistanceJoint2D>('damping', (c) => c.damping, (c, v) => c.damping = v, min: 0),
-    ],
-  );
+  static ComponentDefinition<DistanceJoint2D> get distanceJoint =>
+      ComponentDefinition<DistanceJoint2D>(
+        type: 'DistanceJoint2D',
+        create: DistanceJoint2D.new,
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Distance Joint 2D',
+          group: _group,
+          description: 'Keeps two bodies a set distance apart, springily.',
+          icon: Icons.hub_outlined,
+          accentColor: _accent,
+          fieldGroups: {
+            'Joint': _jointFields,
+            'Distance': ['length', 'stiffness', 'damping'],
+          },
+          fields: {
+            ..._jointHints,
+            'length': FieldHint(
+              label: 'Length',
+              scrub: ScrubHint(fractionDigits: 2),
+            ),
+            'stiffness': FieldHint(
+              label: 'Stiffness',
+              description:
+                  'How fast the spring pulls back, in hertz. '
+                  '0 holds the length rigidly.',
+              scrub: ScrubHint(fractionDigits: 2),
+            ),
+            'damping': FieldHint(
+              label: 'Damping',
+              description:
+                  'Damping ratio: 0 swings on, 1 settles without '
+                  'overshoot.',
+              scrub: _plain,
+            ),
+          },
+        ),
+        fields: [
+          ..._joint<DistanceJoint2D>(),
+          _d<DistanceJoint2D>(
+            'length',
+            (c) => c.length,
+            (c, v) => c.length = v,
+            min: 0,
+          ),
+          _d<DistanceJoint2D>(
+            'stiffness',
+            (c) => c.stiffness,
+            (c, v) => c.stiffness = v,
+            min: 0,
+          ),
+          _d<DistanceJoint2D>(
+            'damping',
+            (c) => c.damping,
+            (c, v) => c.damping = v,
+            min: 0,
+          ),
+        ],
+      );
 
   /// [FixedJoint2D], saved as `FixedJoint2D`.
-  static ComponentDefinition<FixedJoint2D> get fixedJoint => ComponentDefinition<FixedJoint2D>(
-    type: 'FixedJoint2D',
-    create: FixedJoint2D.new,
-    hints: const ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Fixed Joint 2D',
-      group: _group,
-      description: 'Holds two bodies rigidly together.',
-      icon: Icons.hub_outlined,
-      accentColor: _accent,
-      fieldGroups: {'Joint': _jointFields},
-      fields: _jointHints,
-    ),
-    fields: _joint<FixedJoint2D>(),
-  );
+  static ComponentDefinition<FixedJoint2D> get fixedJoint =>
+      ComponentDefinition<FixedJoint2D>(
+        type: 'FixedJoint2D',
+        create: FixedJoint2D.new,
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Fixed Joint 2D',
+          group: _group,
+          description: 'Holds two bodies rigidly together.',
+          icon: Icons.hub_outlined,
+          accentColor: _accent,
+          fieldGroups: {'Joint': _jointFields},
+          fields: _jointHints,
+        ),
+        fields: _joint<FixedJoint2D>(),
+      );
 
   /// [SliderJoint2D], saved as `SliderJoint2D`.
-  static ComponentDefinition<SliderJoint2D> get sliderJoint => ComponentDefinition<SliderJoint2D>(
+  static ComponentDefinition<SliderJoint2D>
+  get sliderJoint => ComponentDefinition<SliderJoint2D>(
     type: 'SliderJoint2D',
     create: SliderJoint2D.new,
     hints: ComponentHints(
       dimensions: Dimensions.twoD,
       name: 'Slider Joint 2D',
       group: _group,
-      description: 'Lets two bodies slide along one axis: a drawer, a piston, a lift.',
+      description:
+          'Lets two bodies slide along one axis: a drawer, a piston, a lift.',
       icon: Icons.sync_alt,
       accentColor: _accent,
       fieldGroups: const {
@@ -527,59 +802,120 @@ abstract final class PhysicsDefinitions2D {
     fields: [
       ..._joint<SliderJoint2D>(),
       _o<SliderJoint2D>('axis', (c) => c.axis, (c, v) => c.axis = v),
-      _b<SliderJoint2D>('useLimits', (c) => c.useLimits, (c, v) => c.useLimits = v),
-      _d<SliderJoint2D>('minPosition', (c) => c.minPosition, (c, v) => c.minPosition = v),
-      _d<SliderJoint2D>('maxPosition', (c) => c.maxPosition, (c, v) => c.maxPosition = v),
-      _b<SliderJoint2D>('enableMotor', (c) => c.enableMotor, (c, v) => c.enableMotor = v),
-      _d<SliderJoint2D>('motorSpeed', (c) => c.motorSpeed, (c, v) => c.motorSpeed = v),
-      _d<SliderJoint2D>('motorMaxForce', (c) => c.motorMaxForce, (c, v) => c.motorMaxForce = v, min: 0),
+      _b<SliderJoint2D>(
+        'useLimits',
+        (c) => c.useLimits,
+        (c, v) => c.useLimits = v,
+      ),
+      _d<SliderJoint2D>(
+        'minPosition',
+        (c) => c.minPosition,
+        (c, v) => c.minPosition = v,
+      ),
+      _d<SliderJoint2D>(
+        'maxPosition',
+        (c) => c.maxPosition,
+        (c, v) => c.maxPosition = v,
+      ),
+      _b<SliderJoint2D>(
+        'enableMotor',
+        (c) => c.enableMotor,
+        (c, v) => c.enableMotor = v,
+      ),
+      _d<SliderJoint2D>(
+        'motorSpeed',
+        (c) => c.motorSpeed,
+        (c, v) => c.motorSpeed = v,
+      ),
+      _d<SliderJoint2D>(
+        'motorMaxForce',
+        (c) => c.motorMaxForce,
+        (c, v) => c.motorMaxForce = v,
+        min: 0,
+      ),
     ],
   );
 
   /// [WheelJoint2D], saved as `WheelJoint2D`.
-  static ComponentDefinition<WheelJoint2D> get wheelJoint => ComponentDefinition<WheelJoint2D>(
-    type: 'WheelJoint2D',
-    create: WheelJoint2D.new,
-    hints: ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Wheel Joint 2D',
-      group: _group,
-      description: 'A wheel on a suspension.',
-      icon: Icons.trip_origin,
-      accentColor: _accent,
-      fieldGroups: const {
-        'Joint': [..._jointFields, 'axis'],
-        'Suspension': ['stiffness', 'damping'],
-        'Motor': ['enableMotor', 'motorSpeed', 'motorMaxTorque'],
-      },
-      fields: {
-        ..._jointHints,
-        'axis': const FieldHint(label: 'Suspension axis'),
-        'stiffness': const FieldHint(label: 'Stiffness', scrub: ScrubHint(fractionDigits: 2)),
-        'damping': const FieldHint(label: 'Damping', scrub: _plain),
-        'enableMotor': const FieldHint(label: 'Motor'),
-        'motorSpeed': FieldHint(
-          label: 'Motor speed',
-          scrub: const ScrubHint(step: 0.5, fractionDigits: 2),
-          visibleWhen: (c) => (c as WheelJoint2D).enableMotor,
+  static ComponentDefinition<WheelJoint2D> get wheelJoint =>
+      ComponentDefinition<WheelJoint2D>(
+        type: 'WheelJoint2D',
+        create: WheelJoint2D.new,
+        hints: ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Wheel Joint 2D',
+          group: _group,
+          description: 'A wheel on a suspension.',
+          icon: Icons.trip_origin,
+          accentColor: _accent,
+          fieldGroups: const {
+            'Joint': [..._jointFields, 'axis'],
+            'Suspension': ['stiffness', 'damping'],
+            'Motor': ['enableMotor', 'motorSpeed', 'motorMaxTorque'],
+          },
+          fields: {
+            ..._jointHints,
+            'axis': const FieldHint(label: 'Suspension axis'),
+            'stiffness': const FieldHint(
+              label: 'Stiffness',
+              description:
+                  'How fast the suspension springs back, in hertz. '
+                  '0 is no spring.',
+              scrub: ScrubHint(fractionDigits: 2),
+            ),
+            'damping': const FieldHint(
+              label: 'Damping',
+              description:
+                  'Damping ratio: 0 bounces on, 1 settles without '
+                  'overshoot.',
+              scrub: _plain,
+            ),
+            'enableMotor': const FieldHint(label: 'Motor'),
+            'motorSpeed': FieldHint(
+              label: 'Motor speed',
+              scrub: const ScrubHint(step: 0.5, fractionDigits: 2),
+              visibleWhen: (c) => (c as WheelJoint2D).enableMotor,
+            ),
+            'motorMaxTorque': FieldHint(
+              label: 'Max torque',
+              scrub: const ScrubHint(step: 5, fractionDigits: 2),
+              visibleWhen: (c) => (c as WheelJoint2D).enableMotor,
+            ),
+          },
         ),
-        'motorMaxTorque': FieldHint(
-          label: 'Max torque',
-          scrub: const ScrubHint(step: 5, fractionDigits: 2),
-          visibleWhen: (c) => (c as WheelJoint2D).enableMotor,
-        ),
-      },
-    ),
-    fields: [
-      ..._joint<WheelJoint2D>(),
-      _o<WheelJoint2D>('axis', (c) => c.axis, (c, v) => c.axis = v),
-      _d<WheelJoint2D>('stiffness', (c) => c.stiffness, (c, v) => c.stiffness = v, min: 0),
-      _d<WheelJoint2D>('damping', (c) => c.damping, (c, v) => c.damping = v, min: 0),
-      _b<WheelJoint2D>('enableMotor', (c) => c.enableMotor, (c, v) => c.enableMotor = v),
-      _d<WheelJoint2D>('motorSpeed', (c) => c.motorSpeed, (c, v) => c.motorSpeed = v),
-      _d<WheelJoint2D>('motorMaxTorque', (c) => c.motorMaxTorque, (c, v) => c.motorMaxTorque = v, min: 0),
-    ],
-  );
+        fields: [
+          ..._joint<WheelJoint2D>(),
+          _o<WheelJoint2D>('axis', (c) => c.axis, (c, v) => c.axis = v),
+          _d<WheelJoint2D>(
+            'stiffness',
+            (c) => c.stiffness,
+            (c, v) => c.stiffness = v,
+            min: 0,
+          ),
+          _d<WheelJoint2D>(
+            'damping',
+            (c) => c.damping,
+            (c, v) => c.damping = v,
+            min: 0,
+          ),
+          _b<WheelJoint2D>(
+            'enableMotor',
+            (c) => c.enableMotor,
+            (c, v) => c.enableMotor = v,
+          ),
+          _d<WheelJoint2D>(
+            'motorSpeed',
+            (c) => c.motorSpeed,
+            (c, v) => c.motorSpeed = v,
+          ),
+          _d<WheelJoint2D>(
+            'motorMaxTorque',
+            (c) => c.motorMaxTorque,
+            (c, v) => c.motorMaxTorque = v,
+            min: 0,
+          ),
+        ],
+      );
 
   /// Every 2-D physics definition.
   static List<ComponentDefinition> get all => [
@@ -628,7 +964,8 @@ abstract final class PhysicsDefinitions2D {
       'bodies.';
 
   /// The gravity scale field's description.
-  static const String gravityScaleDescription = 'Gravity on it, times this: 0 floats, 2 falls hard.';
+  static const String gravityScaleDescription =
+      'Gravity on it, times this: 0 floats, 2 falls hard.';
 
   /// The linear damping field's description.
   static const String linearDampingDescription =
@@ -732,7 +1069,10 @@ final class _Collider2DExtent extends ComponentExtent {
     if (collider.shape == ColliderShape2D.matchShape) return false;
     final ax = sx.abs(), ay = sy.abs();
     collider
-      ..size = Vector2(math.max(collider.size.x * ax, 1), math.max(collider.size.y * ay, 1))
+      ..size = Vector2(
+        math.max(collider.size.x * ax, 1),
+        math.max(collider.size.y * ay, 1),
+      )
       ..radius = math.max(collider.radius * math.min(ax, ay), 0.5)
       ..height = math.max(collider.height * ay, 1)
       ..points = [for (final p in collider.points) Offset(p.dx * ax, p.dy * ay)]
@@ -749,7 +1089,9 @@ final class _Collider2DExtent extends ComponentExtent {
     final collider = c as Collider2D;
     final sx = horizontal ? -1.0 : 1.0, sy = horizontal ? 1.0 : -1.0;
     collider
-      ..points = [for (final p in collider.points.reversed) Offset(p.dx * sx, p.dy * sy)]
+      ..points = [
+        for (final p in collider.points.reversed) Offset(p.dx * sx, p.dy * sy),
+      ]
       ..offset = Offset(collider.offset.dx * sx, collider.offset.dy * sy)
       ..rotation = -collider.rotation;
   }
@@ -761,7 +1103,11 @@ final class _CharacterBody2DExtent extends ComponentExtent {
 
   static Rect _bounds(CharacterBody2D c) {
     final w = c.shape == CharacterShape2D.box ? c.width : 2 * c.radius;
-    return Rect.fromCenter(center: c.offset, width: w, height: math.max(c.height, w));
+    return Rect.fromCenter(
+      center: c.offset,
+      width: w,
+      height: math.max(c.height, w),
+    );
   }
 
   @override
@@ -789,6 +1135,8 @@ final class _CharacterBody2DExtent extends ComponentExtent {
   @override
   void flip(Component c, {required bool horizontal}) {
     final body = c as CharacterBody2D;
-    body.offset = horizontal ? Offset(-body.offset.dx, body.offset.dy) : Offset(body.offset.dx, -body.offset.dy);
+    body.offset = horizontal
+        ? Offset(-body.offset.dx, body.offset.dy)
+        : Offset(body.offset.dx, -body.offset.dy);
   }
 }

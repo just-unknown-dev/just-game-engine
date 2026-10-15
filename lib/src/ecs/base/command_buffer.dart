@@ -60,14 +60,27 @@ class CommandBuffer {
   /// A command on an entity that is gone by then is skipped. Commands queued
   /// while flushing (by a component's `onAttach`, say) run in this flush,
   /// after the ones already queued.
+  ///
+  /// A command that throws does not stop the rest: every command is run,
+  /// and then the first error is rethrown, with its stack trace.
   void flush() {
+    Object? firstError;
+    StackTrace? firstStack;
     while (_commands.isNotEmpty) {
       final batch = _commands;
       _commands = [];
       for (final command in batch) {
-        command.apply(_world);
+        try {
+          command.apply(_world);
+        } catch (error, stack) {
+          if (firstError == null) {
+            firstError = error;
+            firstStack = stack;
+          }
+        }
       }
     }
+    if (firstError != null) Error.throwWithStackTrace(firstError, firstStack!);
   }
 }
 

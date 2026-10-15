@@ -200,7 +200,8 @@ abstract final class TagNames {
 ///
 /// Each tag's entities are kept oldest first, so "the first tagged" is the
 /// same entity every run. [all]'s lists are made once and reused until
-/// that tag's entities change or one of them is switched on or off.
+/// that tag's entities change or one of them is switched on or off
+/// ([Entity.isActiveInHierarchy]).
 class _TagIndex {
   final Map<String, List<Entity>> _byTag = {};
   final Map<String, UnmodifiableListView<Entity>> _all = {};
@@ -236,7 +237,7 @@ class _TagIndex {
     _forget(tag);
   }
 
-  /// [entity], which carries tags, was switched on or off.
+  /// [entity], which carries tags, was switched on or off in the hierarchy.
   void activeChanged(Entity entity) {
     final tags = entity.getComponent<TagComponent>();
     if (tags == null) return;
@@ -260,7 +261,7 @@ class _TagIndex {
     final tagged = _byTag[tag];
     if (tagged == null) return null;
     for (final entity in tagged) {
-      if (includeInactive || entity._isActive) return entity;
+      if (includeInactive || entity._activeInHierarchy) return entity;
     }
     return null;
   }
@@ -275,7 +276,7 @@ class _TagIndex {
     }
     return _active[tag] ??= UnmodifiableListView([
       for (final entity in tagged)
-        if (entity._isActive) entity,
+        if (entity._activeInHierarchy) entity,
     ]);
   }
 

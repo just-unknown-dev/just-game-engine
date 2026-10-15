@@ -1,6 +1,7 @@
-// The engine's store on the web: browser storage — one key per value, which
-// the app's own JustStorage.standard() shares — seen through the engine's own
-// key prefix. The keys the engine wrote there before it had a namespace move
+// The engine's store on the web: browser storage — one key per value, the
+// page's storage that the app's own JustStorage.standard() also writes to
+// (under its own just_storage: prefix) — seen through the engine's own key
+// prefix. The keys the engine wrote there before it had a namespace move
 // under it once, and the app's keys are never read as the engine's.
 //
 // No dart:io: this runs on the VM with an in-memory stand-in for

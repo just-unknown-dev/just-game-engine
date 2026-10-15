@@ -43,7 +43,13 @@ class Entity {
   /// is not disturbed by a change. Null with no components.
   List<Type>? _order;
 
+  /// What [components] returns until this entity's components change.
+  List<Component>? _components;
+
   bool _isActive = true;
+
+  /// [isActiveInHierarchy] as its world keeps it.
+  bool _activeInHierarchy = true;
 
   String? _name;
 
@@ -55,18 +61,32 @@ class Entity {
     String? name,
   }) : _name = name;
 
-  /// Whether this entity is switched on — the scene's "enabled" flag.
+  /// Whether this entity itself is switched on — the scene's saved
+  /// "enabled" flag, which an editor shows and saves.
   ///
-  /// An inactive entity stays in the world but drops out of
-  /// [World.query] results, so the systems pass it by. Changing it tells the
-  /// entity's world, which refreshes its cached queries and moves
-  /// [World.structureVersion] on.
+  /// Switched off, the entity stays in the world but drops out of
+  /// [World.query] results, so the systems pass it by — and so does
+  /// everything under it in the hierarchy, whose own flags are kept as
+  /// they are: see [isActiveInHierarchy], which is what decides. Changing
+  /// it tells the entity's world, which refreshes its cached queries and
+  /// moves their [World.queryVersion]s on.
   bool get isActive => _isActive;
   set isActive(bool value) {
     if (_isActive == value) return;
     _isActive = value;
     _world?._activeChanged(this);
   }
+
+  /// Whether this entity takes part in the game: it is switched on
+  /// ([isActive]), and so is every parent above it in the hierarchy (its
+  /// `ParentComponent`'s, and theirs) — Unity's `activeInHierarchy`.
+  ///
+  /// This is what [World.query], [World.findTagged] and the engine's
+  /// systems go by: an entity under a switched-off parent is not queried,
+  /// drawn or simulated, whatever its own [isActive]. Kept up to date by
+  /// the world as entities are switched on and off, re-parented, made and
+  /// destroyed, so reading it costs nothing. False once destroyed.
+  bool get isActiveInHierarchy => _isActive && _activeInHierarchy;
 
   /// Optional entity name, for finding it ([World.findEntityByName]) and for
   /// debugging. Renaming updates the world's name index.
@@ -104,6 +124,12 @@ class Entity {
     return _archetype?.getComponent<T>(_archetypeRow);
   }
 
+  /// The component filed under the runtime [type] (its
+  /// `Component.componentType`), or null.
+  Component? getComponentByType(Type type) {
+    return _archetype?.getComponentByType(type, _archetypeRow);
+  }
+
   /// Check if entity has a component of the specified type
   bool hasComponent<T extends Component>() {
     return _archetype?._typeSet.contains(T) ?? false;
@@ -118,15 +144,24 @@ class Entity {
   /// as its file lists them — unless [reorderComponents] put them otherwise.
   /// A scene saves them in this order. Systems find components by type, so
   /// the order changes nothing in how the game runs.
-  Iterable<Component> get components {
+  ///
+  /// The list cannot be changed, and is made once and kept until this
+  /// entity's components change, so asking every frame costs nothing. A
+  /// change makes a new one: walking this one while the entity gains or
+  /// loses components is safe, and lists what it had when asked.
+  List<Component> get components {
+    final known = _components;
+    if (known != null) return known;
     final archetype = _archetype;
     final row = _archetypeRow;
     if (archetype == null || row < 0) return const [];
     final order = _order;
-    if (order == null || order.length != archetype._typeSet.length) {
-      return archetype.getComponents(row);
-    }
-    return order.map((type) => archetype._columns[type]![row]);
+    final types = order != null && order.length == archetype._typeSet.length
+        ? order
+        : archetype._typeList;
+    return _components = List<Component>.unmodifiable([
+      for (final type in types) archetype._columns[type]![row],
+    ]);
   }
 
   /// The types [components] are filed under (`Component.componentType`), in
@@ -155,6 +190,7 @@ class Entity {
         if (!placed.contains(type)) type,
     ];
     _order = List.unmodifiable(next);
+    _components = null;
   }
 
   /// Check if entity has all specified component types

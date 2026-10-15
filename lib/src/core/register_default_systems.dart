@@ -109,7 +109,10 @@ void registerDefaultSystems(
   add(DefaultSystem.movement, MovementSystem.new);
   add(
     DefaultSystem.audio,
-    () => AudioSystem(engine: engine.audio, camera: engine.cameraSystem.mainCamera),
+    () => AudioSystem(
+      engine: engine.audio,
+      camera: engine.cameraSystem.mainCamera,
+    ),
   );
   add(
     DefaultSystem.rendering,

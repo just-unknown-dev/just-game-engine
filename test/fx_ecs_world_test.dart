@@ -54,13 +54,13 @@ void main() {
       expect(world.query([Health]), [e]);
     });
 
-    test('moves structureVersion on, but only when it changes', () {
+    test('moves its query versions on, but only when it changes', () {
       final e = world.createEntityWithComponents([Health(1)]);
-      final before = world.structureVersion;
+      final before = world.queryVersion([Health]);
       e.isActive = true; // already on
-      expect(world.structureVersion, before);
+      expect(world.queryVersion([Health]), before);
       e.isActive = false;
-      expect(world.structureVersion, isNot(before));
+      expect(world.queryVersion([Health]), isNot(before));
     });
 
     test('a switched-off entity does not move', () {

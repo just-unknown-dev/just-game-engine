@@ -1,8 +1,13 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
-import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_physics_engine/physics_3d.dart';
 
+import '../ecs/base/system_priorities.dart';
+import '../ecs/base/transform/transform_component.dart';
+import '../ecs/components/shapes/solid_shape.dart';
+import '../ecs/ecs.dart';
+import '../ecs/systems/physics/contact_pairs.dart';
 import 'collider_shapes_3d.dart';
 import 'physics_components_3d.dart';
 import 'physics_events_3d.dart';
@@ -71,6 +76,12 @@ class PhysicsSystem3D extends System {
   /// Below this a transform is where the system left it (metres).
   static const double moveEpsilon = 1e-5;
 
+  /// The smallest change of an entity's scale, as a fraction of the scale
+  /// its body was made at, that makes the body again. Less is float noise —
+  /// an animation or a tween ending at 1.0000001 — and making the body again
+  /// for it every step also made its joints again each step.
+  static const double scaleTolerance = 1e-4;
+
   @override
   List<Type> get requiredComponents => const [TransformComponent];
 
@@ -79,6 +90,7 @@ class PhysicsSystem3D extends System {
   final Map<Joint3D, _JointLink> _joints = Map.identity();
   final Map<int, Entity> _entityByBody = {};
   final Map<int, _BodyLink> _linkByBody = {};
+  final ContactPairs<int> _contacts = ContactPairs();
   int _seenStructureVersion = -1;
   int _stepIndex = 0;
   final BodyPoses3D _moved = BodyPoses3D();
@@ -88,6 +100,7 @@ class PhysicsSystem3D extends System {
   final Vector3 _down = Vector3.zero();
   final Vector3 _stepUp = Vector3.zero();
   final Quaternion _q = Quaternion.identity();
+  final Float64List _jointNow = Float64List(_JointLink._capacity);
   static final Vector3 _zero = Vector3.zero();
 
   /// The entity whose body, or character's body, [body] is; null for one
@@ -99,6 +112,23 @@ class PhysicsSystem3D extends System {
 
   /// [entity]'s character, or 0.
   int characterOf(Entity entity) => _characters[entity]?.character ?? 0;
+
+  /// [model] was loaded again: its mesh and hull colliders take its new
+  /// triangles. Call once they are there — the `ModelAsset` at that path
+  /// answers with them — and each such body is made again, with no enter
+  /// or exit for what it touches; until the new triangles arrive, a body
+  /// keeps its old shape.
+  void reloadModel(String model) {
+    shapes.forgetModel(model);
+    for (final link in _bodies.values) {
+      final c = link.collider;
+      if (c.model == model &&
+          (c.shape == ColliderShape3D.mesh ||
+              c.shape == ColliderShape3D.convexHull)) {
+        link.reloading = true;
+      }
+    }
+  }
 
   @override
   void update(double deltaTime) {
@@ -117,7 +147,7 @@ class PhysicsSystem3D extends System {
       _stepIndex++;
     }
     _readBack();
-    _dispatchEvents();
+    _dispatchEvents(deltaTime > 0);
   }
 
   @override
@@ -137,9 +167,32 @@ class PhysicsSystem3D extends System {
     SixDofJoint3D,
   ];
 
-  /// Brings the link maps up to date when the world's structure changed.
+  /// What [_refresh] reads: a change to what any of them matches is a
+  /// change to the links.
+  static const List<List<Type>> _linkQueries = [
+    [TransformComponent, Collider3D],
+    [TransformComponent, CharacterBody3D],
+    [TransformComponent, FixedJoint3D],
+    [TransformComponent, PointJoint3D],
+    [TransformComponent, HingeJoint3D],
+    [TransformComponent, SliderJoint3D],
+    [TransformComponent, DistanceJoint3D],
+    [TransformComponent, SixDofJoint3D],
+  ];
+
+  /// The largest of [_linkQueries]' versions ([World.queryVersion]).
+  int _linksVersion() {
+    var version = -1;
+    for (final query in _linkQueries) {
+      final v = world.queryVersion(query);
+      if (v > version) version = v;
+    }
+    return version;
+  }
+
+  /// Brings the link maps up to date when what they are made from changed.
   void _refresh() {
-    final version = world.structureVersion;
+    final version = _linksVersion();
     if (version == _seenStructureVersion) return;
     _seenStructureVersion = version;
 
@@ -152,8 +205,7 @@ class PhysicsSystem3D extends System {
       final colliders = archetype.getColumn(Collider3D)!;
       final rigids = archetype.getColumn(RigidBody3D);
       for (var row = 0; row < ids.length; row++) {
-        final entity = world.getEntity(ids[row]);
-        if (entity == null) continue;
+        final entity = archetype.entityAt(row);
         final link = _bodies[entity] ??= _BodyLink(entity);
         link
           ..transform = transforms[row] as TransformComponent
@@ -170,8 +222,7 @@ class PhysicsSystem3D extends System {
       final transforms = archetype.getColumn(TransformComponent)!;
       final comps = archetype.getColumn(CharacterBody3D)!;
       for (var row = 0; row < ids.length; row++) {
-        final entity = world.getEntity(ids[row]);
-        if (entity == null) continue;
+        final entity = archetype.entityAt(row);
         final link = _characters[entity] ??= _CharacterLink(entity);
         link
           ..transform = transforms[row] as TransformComponent
@@ -187,8 +238,7 @@ class PhysicsSystem3D extends System {
         final ids = archetype.entityIds;
         final comps = archetype.getColumn(type)!;
         for (var row = 0; row < ids.length; row++) {
-          final entity = world.getEntity(ids[row]);
-          if (entity == null) continue;
+          final entity = archetype.entityAt(row);
           final comp = comps[row] as Joint3D;
           final link = _joints[comp] ??= _JointLink(entity, comp);
           link.version = version;
@@ -218,7 +268,7 @@ class PhysicsSystem3D extends System {
 
   void _syncBodies(double dt) {
     for (final link in _bodies.values) {
-      if (!link.entity.isActive) {
+      if (!link.entity.isActiveInHierarchy) {
         _removeBody(link);
         continue;
       }
@@ -228,7 +278,7 @@ class PhysicsSystem3D extends System {
       // entity's scale or (matching it) the entity's shape changed — or
       // while its triangles are loading.
       final source = link.collider.shape == ColliderShape3D.matchShape
-          ? _sourceOf(link.entity)
+          ? link.source()
           : null;
       final solidKey = source?.solidKey;
       final colliderChanged = !link.colliderMatches(
@@ -236,9 +286,17 @@ class PhysicsSystem3D extends System {
         transform.scale,
         solidKey,
       );
-      final shape = colliderChanged || link.shape == null
+      var shape = colliderChanged || link.shape == null || link.reloading
           ? shapes.build(link.collider, transform.scale, source: source)
           : link.shape;
+      if (link.reloading) {
+        // Its model is loading again: its old shape until the new is there.
+        if (shape == null && !colliderChanged) {
+          shape = link.shape;
+        } else {
+          link.reloading = false;
+        }
+      }
       if (colliderChanged) {
         link.rememberCollider(link.collider, transform.scale, solidKey);
       }
@@ -249,12 +307,14 @@ class PhysicsSystem3D extends System {
           link.keepVelocity = Vector3.copy(rigid.linearVelocity);
           link.keepSpin = Vector3.copy(rigid.angularVelocity);
         }
-        _removeBody(link);
+        _removeBody(link, rebuilt: true);
       }
       if (shape == null) continue; // Triangles still loading.
       if (link.body == 0) {
         // One that could not be made is tried again only once it changes.
-        if (link.failed && !colliderChanged && link.matches(rigid)) continue;
+        if (link.failed && !colliderChanged && link.failedWith(rigid)) {
+          continue;
+        }
         _createBody(link, shape);
         if (link.body == 0) continue;
       } else {
@@ -269,10 +329,9 @@ class PhysicsSystem3D extends System {
   /// [rigid]'s motion quality as the physics engine takes it: continuous
   /// collision is a linear cast.
   static MotionQuality3D _quality(RigidBody3D? rigid) =>
-      (rigid?.continuousCollision ?? false) ? MotionQuality3D.linearCast : MotionQuality3D.discrete;
-
-  static SolidShapeSource? _sourceOf(Entity entity) =>
-      entity.components.whereType<SolidShapeSource>().firstOrNull;
+      (rigid?.continuousCollision ?? false)
+      ? MotionQuality3D.linearCast
+      : MotionQuality3D.discrete;
 
   void _createBody(_BodyLink link, Shape3D shape) {
     final transform = link.transform;
@@ -411,10 +470,15 @@ class PhysicsSystem3D extends System {
     }
   }
 
-  void _removeBody(_BodyLink link) {
+  /// Destroys [link]'s body, if it has one — [rebuilt] when a new one takes
+  /// its place at once: its pairs of entities then wait for the new body
+  /// (see [ContactPairs]) and what it touched is woken, so the next step
+  /// looks for that body.
+  void _removeBody(_BodyLink link, {bool rebuilt = false}) {
     final body = link.body;
     if (body == 0) return;
     physics.destroyBody(body);
+    _forgetContactsOf(body, link.entity, rebuilt: rebuilt);
     _entityByBody.remove(body);
     _linkByBody.remove(body);
     link.body = 0;
@@ -431,29 +495,44 @@ class PhysicsSystem3D extends System {
   void _syncJoints() {
     for (final link in _joints.values) {
       final comp = link.comp;
-      final a = link.entity.isActive ? _bodies[link.entity]?.body ?? 0 : 0;
+      final a = link.entity.isActiveInHierarchy
+          ? _bodies[link.entity]?.body ?? 0
+          : 0;
       int? b = 0;
+      Entity? other;
       if (!comp.connectedBody.isNone) {
-        final other = comp.connectedBody.resolve(world, link.entity);
+        other = comp.connectedBody.resolve(world, link.entity);
         b = other == null ? null : _bodies[other]?.body;
         if (b == 0) b = null;
       }
       if (a == 0 || b == null) {
         _removeJoint(link);
+        link.heldB = null;
         continue;
       }
-      final signature = _JointSignature.of(comp, a, b);
-      if (link.joint != 0 &&
-          (signature != link.signature || !physics.isJoint(link.joint))) {
-        _removeJoint(link);
+      if (link.joint != 0) {
+        if (!link.madeFrom(comp, _jointNow) || !identical(link.other, other)) {
+          // Changed: made again from where the bodies are now.
+          _removeJoint(link);
+          link.heldB = null;
+        } else if (link.bodyA != a || link.bodyB != b) {
+          // A body was made again (a new shape or scale) and the physics
+          // engine took the joint with it: made again as it was, holding
+          // the second body where it did — not where the bodies have
+          // drifted to.
+          _removeJoint(link);
+        }
       }
       if (link.joint == 0) {
-        final settings = _jointSettings(link.entity, comp, b);
+        final settings = _jointSettings(link.entity, comp, b, link, other);
         final joint = physics.createJoint(a, b, settings);
         if (joint == 0) continue;
         link
           ..joint = joint
-          ..signature = signature
+          ..bodyA = a
+          ..bodyB = b
+          ..other = other
+          ..remember(comp)
           ..enabled = true
           ..motor = settings.motorState
           ..motorTarget = settings.motorTarget;
@@ -462,11 +541,15 @@ class PhysicsSystem3D extends System {
       if (comp.enabled != link.enabled) {
         physics.setJointEnabled(link.joint, link.enabled = comp.enabled);
       }
-      final (motor, target) = switch (comp) {
-        HingeJoint3D h => (h.motor, h.motorTarget),
-        SliderJoint3D s => (s.motor, s.motorTarget),
-        _ => (MotorState3D.off, 0.0),
-      };
+      var motor = MotorState3D.off;
+      var target = 0.0;
+      if (comp is HingeJoint3D) {
+        motor = comp.motor;
+        target = comp.motorTarget;
+      } else if (comp is SliderJoint3D) {
+        motor = comp.motor;
+        target = comp.motorTarget;
+      }
       if (motor != link.motor || target != link.motorTarget) {
         physics.setJointMotor(
           link.joint,
@@ -477,10 +560,22 @@ class PhysicsSystem3D extends System {
     }
   }
 
-  /// [comp]'s settings, in world space as the bodies are now.
-  JointSettings3D _jointSettings(Entity entity, Joint3D comp, int bodyB) {
+  /// [comp]'s settings, in world space as the bodies are now. Where it
+  /// holds the second body ([other]'s, [bodyB]; 0 for the world) is
+  /// [link]'s [_JointLink.heldB] when it has one, and kept there for the
+  /// next time.
+  JointSettings3D _jointSettings(
+    Entity entity,
+    Joint3D comp,
+    int bodyB,
+    _JointLink link,
+    Entity? other,
+  ) {
     final transform = entity.getComponent<TransformComponent>()!;
     final pointA = _worldPoint(transform, comp.anchor);
+    final pointB = comp is DistanceJoint3D
+        ? null
+        : _heldPoint(link, pointA, bodyB == 0 ? null : other);
     Vector3 axisOf(Vector3 local) {
       transform.rotationInto(_q);
       final out = Vector3.copy(local);
@@ -496,6 +591,7 @@ class PhysicsSystem3D extends System {
         return JointSettings3D(
           kind: JointKind3D.hinge,
           pointA: pointA,
+          pointB: pointB,
           axis: axis,
           normal: _perpendicular(axis),
           hasLimits: h.useLimits,
@@ -511,6 +607,7 @@ class PhysicsSystem3D extends System {
         return JointSettings3D(
           kind: JointKind3D.slider,
           pointA: pointA,
+          pointB: pointB,
           axis: axis,
           normal: _perpendicular(axis),
           hasLimits: s.useLimits,
@@ -543,6 +640,7 @@ class PhysicsSystem3D extends System {
         return JointSettings3D(
           kind: JointKind3D.sixDof,
           pointA: pointA,
+          pointB: pointB,
           axis: axisOf(x.axis),
           normal: axisOf(x.normal),
           sixDofModes: x.modes,
@@ -564,8 +662,32 @@ class PhysicsSystem3D extends System {
           ],
         );
       default:
-        return JointSettings3D(kind: comp.kind, pointA: pointA);
+        return JointSettings3D(kind: comp.kind, pointA: pointA, pointB: pointB);
     }
+  }
+
+  /// Where [link] holds its second body, in world space: as it first did,
+  /// in [other]'s space (the world's, held to the world), once it has been
+  /// made; [pointA] the first time, remembered for the next.
+  Vector3 _heldPoint(_JointLink link, Vector3 pointA, Entity? other) {
+    final t = other?.getComponent<TransformComponent>();
+    final held = link.heldB;
+    if (held != null) {
+      if (t == null) return Vector3.copy(held);
+      final out = Vector3.copy(held);
+      t.rotationInto(_q);
+      _q.rotate(out);
+      return out..add(t.position);
+    }
+    final local = Vector3.copy(pointA);
+    if (t != null) {
+      local.sub(t.position);
+      t.rotationInto(_q);
+      _q.conjugate();
+      _q.rotate(local);
+    }
+    link.heldB = local;
+    return Vector3.copy(pointA);
   }
 
   Vector3 _worldPoint(TransformComponent transform, Vector3 local) {
@@ -589,10 +711,9 @@ class PhysicsSystem3D extends System {
 
   void _removeJoint(_JointLink link) {
     if (link.joint == 0) return;
+    // Gone already when one of its bodies was destroyed: a no-op then.
     physics.destroyJoint(link.joint);
-    link
-      ..joint = 0
-      ..signature = null;
+    link.joint = 0;
     link.comp.joint = 0;
   }
 
@@ -602,12 +723,14 @@ class PhysicsSystem3D extends System {
     final gravity = physics.gravity;
     for (final link in _characters.values) {
       final comp = link.comp;
-      if (!link.entity.isActive) {
+      if (!link.entity.isActiveInHierarchy) {
         _removeCharacter(link);
         continue;
       }
       final transform = link.transform;
-      if (link.character != 0 && !link.matches(comp)) _removeCharacter(link);
+      if (link.character != 0 && !link.matches(comp)) {
+        _removeCharacter(link, rebuilt: comp.detectable);
+      }
       if (link.character == 0) {
         _up.setFrom(gravity);
         if (_up.normalize() == 0) _up.setValues(0, 1, 0);
@@ -705,10 +828,13 @@ class PhysicsSystem3D extends System {
     }
   }
 
-  void _removeCharacter(_CharacterLink link) {
+  void _removeCharacter(_CharacterLink link, {bool rebuilt = false}) {
     if (link.character == 0) return;
     physics.destroyCharacter(link.character);
-    if (link.innerBody != 0) _entityByBody.remove(link.innerBody);
+    if (link.innerBody != 0) {
+      _forgetContactsOf(link.innerBody, link.entity, rebuilt: rebuilt);
+      _entityByBody.remove(link.innerBody);
+    }
     link
       ..character = 0
       ..innerBody = 0;
@@ -779,16 +905,23 @@ class PhysicsSystem3D extends System {
     }
   }
 
-  void _dispatchEvents() {
+  void _dispatchEvents(bool stepped) {
     final events = physics.drainEvents();
-    if (events.isEmpty) return;
     final bus = world.events;
     for (final e in events) {
-      final a = _entityByBody[e.bodyA];
-      final b = _entityByBody[e.bodyB];
-      if (a == null || b == null) continue; // A body this system did not make.
       switch (e.type) {
         case PhysicsEventType3D.contactBegin:
+          final a = _entityByBody[e.bodyA];
+          final b = _entityByBody[e.bodyB];
+          if (a == null || b == null) continue; // Not a body it made.
+          final contact = _contacts.begin(
+            e.bodyA,
+            e.bodyB,
+            a,
+            b,
+            sensor: false,
+          );
+          if (contact == null || !contact.enters) continue;
           bus.fire(
             CollisionEnter3DEvent(
               entityA: a,
@@ -799,6 +932,9 @@ class PhysicsSystem3D extends System {
             ),
           );
         case PhysicsEventType3D.contactStay:
+          final a = _entityByBody[e.bodyA];
+          final b = _entityByBody[e.bodyB];
+          if (a == null || b == null) continue;
           bus.fire(
             CollisionStay3DEvent(
               entityA: a,
@@ -809,18 +945,56 @@ class PhysicsSystem3D extends System {
             ),
           );
         case PhysicsEventType3D.contactEnd:
-          bus.fire(CollisionExit3DEvent(entityA: a, entityB: b));
+          // Known by its bodies: a body destroyed since is ended already.
+          final contact = _contacts.end(e.bodyA, e.bodyB, sensor: false);
+          if (contact == null || !contact.exits) continue;
+          final pair = contact.entities;
+          bus.fire(CollisionExit3DEvent(entityA: pair.a, entityB: pair.b));
         case PhysicsEventType3D.sensorBegin:
+          final a = _entityByBody[e.bodyA];
+          final b = _entityByBody[e.bodyB];
+          if (a == null || b == null) continue;
           final (sensor, other) = _sensorFirst(a, b);
+          final contact = identical(sensor, a)
+              ? _contacts.begin(e.bodyA, e.bodyB, a, b, sensor: true)
+              : _contacts.begin(e.bodyB, e.bodyA, b, a, sensor: true);
+          if (contact == null || !contact.enters) continue;
           bus.fire(SensorEnter3DEvent(sensor: sensor, other: other));
         case PhysicsEventType3D.sensorEnd:
-          final (sensor, other) = _sensorFirst(a, b);
-          bus.fire(SensorExit3DEvent(sensor: sensor, other: other));
+          final contact = _contacts.end(e.bodyA, e.bodyB, sensor: true);
+          if (contact == null || !contact.exits) continue;
+          final pair = contact.entities;
+          bus.fire(SensorExit3DEvent(sensor: pair.a, other: pair.b));
         case PhysicsEventType3D.bodyActivated ||
             PhysicsEventType3D.bodyDeactivated:
           break;
       }
     }
+    // Pairs a body made again left apart, and its new body was not found
+    // touching: they have parted.
+    if (!stepped) return;
+    for (final pair in _contacts.settle()) {
+      final a = pair.a, b = pair.b;
+      if (!a.isAlive || !b.isAlive || !a.isActive || !b.isActive) continue;
+      bus.fire(
+        pair.sensor
+            ? SensorExit3DEvent(sensor: a, other: b)
+            : CollisionExit3DEvent(entityA: a, entityB: b),
+      );
+    }
+  }
+
+  /// [body]'s contacts end: with no exit when it is gone for good (its
+  /// entity destroyed, switched off or without its collider, as Unity
+  /// does); when it was [rebuilt], its pairs wait for its new body and what
+  /// it touched is woken.
+  void _forgetContactsOf(int body, Entity entity, {required bool rebuilt}) {
+    _contacts.removeBody(
+      body,
+      rebuilt: rebuilt,
+      entity: entity,
+      onGone: rebuilt ? (c) => physics.wake(c.other(body)) : null,
+    );
   }
 
   (Entity, Entity) _sensorFirst(Entity a, Entity b) =>
@@ -836,6 +1010,7 @@ class PhysicsSystem3D extends System {
       _joints.clear();
       _entityByBody.clear();
       _linkByBody.clear();
+      _contacts.clear();
       return;
     }
     for (final link in _joints.values) {
@@ -850,6 +1025,7 @@ class PhysicsSystem3D extends System {
     _joints.clear();
     _characters.clear();
     _bodies.clear();
+    _contacts.clear();
     _seenStructureVersion = -1;
   }
 }
@@ -864,9 +1040,34 @@ final class _BodyLink {
   RigidBody3D? rigid;
   int version = -1;
 
+  // The component whose shape a collider matching it takes, found when
+  // [version] was [_sourceVersion]: again only after the world's structure
+  // changes, not every step.
+  SolidShapeSource? _source;
+  int _sourceVersion = -2;
+
+  /// The entity's [SolidShapeSource], for a collider matching its shape.
+  SolidShapeSource? source() {
+    if (_sourceVersion != version) {
+      _sourceVersion = version;
+      _source = null;
+      for (final c in entity.components) {
+        if (c is SolidShapeSource) {
+          _source = c as SolidShapeSource;
+          break;
+        }
+      }
+    }
+    return _source;
+  }
+
   int body = 0;
   Shape3D? shape;
   bool failed = false;
+
+  /// Its model was loaded again: its shape is made again from the new
+  /// triangles once they are there.
+  bool reloading = false;
   bool kinematicMoved = false;
   int movedAt = -1;
   bool prevFromLast = false;
@@ -947,14 +1148,20 @@ final class _BodyLink {
       _rx == c.rotation.x &&
       _ry == c.rotation.y &&
       _rz == c.rotation.z &&
-      _esx == scale.x &&
-      _esy == scale.y &&
-      _esz == scale.z &&
+      _near(_esx, scale.x) &&
+      _near(_esy, scale.y) &&
+      _near(_esz, scale.z) &&
       _model == c.model &&
       _mesh == c.meshName &&
       identical(_heights, c.heights) &&
       _heightCount == c.heights.length &&
       _fieldSize == c.heightFieldSize;
+
+  /// Whether [now] is within [PhysicsSystem3D.scaleTolerance] of [made].
+  static bool _near(double made, double now) =>
+      made == now ||
+      (now - made).abs() <=
+          PhysicsSystem3D.scaleTolerance * math.max(made.abs(), now.abs());
 
   void savePrevious() {
     _px = _x;
@@ -991,6 +1198,14 @@ final class _BodyLink {
       _mass == (r?.mass ?? 0) &&
       _linearDamping == (r?.linearDamping ?? 0.05) &&
       _angularDamping == (r?.angularDamping ?? 0.05);
+
+  /// Whether [r] asks for the body exactly as the one that could not be
+  /// made: its layer too (one outside 0-15 is refused, and tried again once
+  /// it is fixed).
+  bool failedWith(RigidBody3D? r) =>
+      matches(r) &&
+      layer == (r?.layer ?? 0) &&
+      motionQuality == PhysicsSystem3D._quality(r);
 
   static final Quaternion _scratch = Quaternion.identity();
 
@@ -1095,95 +1310,94 @@ final class _JointLink {
   final Joint3D comp;
   int version = -1;
   int joint = 0;
-  _JointSignature? signature;
+
+  /// The bodies it holds, and the entity of the second (null: the world).
+  int bodyA = 0, bodyB = 0;
+  Entity? other;
+
+  /// Where it holds the second body, in that body's space (the world's,
+  /// held to the world), from when it was first made.
+  Vector3? heldB;
+
   bool enabled = true;
   MotorState3D motor = MotorState3D.off;
   double motorTarget = 0;
-}
 
-/// What a joint was made from, but its motor and on/off switch (those are
-/// changed on the live joint).
-final class _JointSignature {
-  _JointSignature(this.bodyA, this.bodyB, this.values);
+  // What it was made from, but its motor and on/off switch (those are
+  // changed on the live joint): compared field by field each step, with
+  // nothing built.
+  JointKind3D? _kind;
+  EntityTarget? _target;
+  final Float64List _made = Float64List(_capacity);
+  int _count = -1;
 
-  factory _JointSignature.of(Joint3D c, int a, int b) => _JointSignature(a, b, [
-    c.kind,
-    c.connectedBody,
-    c.anchor.x,
-    c.anchor.y,
-    c.anchor.z,
-    ...switch (c) {
-      HingeJoint3D h => [
-        h.axis.x,
-        h.axis.y,
-        h.axis.z,
-        h.useLimits,
-        h.minAngle,
-        h.maxAngle,
-        h.friction,
-        h.motorMaxTorque,
-      ],
-      SliderJoint3D s => [
-        s.axis.x,
-        s.axis.y,
-        s.axis.z,
-        s.useLimits,
-        s.minPosition,
-        s.maxPosition,
-        s.friction,
-        s.motorMaxForce,
-      ],
-      DistanceJoint3D d => [
-        d.connectedAnchor.x,
-        d.connectedAnchor.y,
-        d.connectedAnchor.z,
-        d.minDistance,
-        d.maxDistance,
-        d.springFrequency,
-        d.springDamping,
-      ],
-      SixDofJoint3D x => [
-        x.axis.x,
-        x.axis.y,
-        x.axis.z,
-        x.normal.x,
-        x.normal.y,
-        x.normal.z,
-        ...x.modes,
-        x.translationMin.x,
-        x.translationMin.y,
-        x.translationMin.z,
-        x.translationMax.x,
-        x.translationMax.y,
-        x.translationMax.z,
-        x.rotationMin.x,
-        x.rotationMin.y,
-        x.rotationMin.z,
-        x.rotationMax.x,
-        x.rotationMax.y,
-        x.rotationMax.z,
-      ],
-      _ => const <Object>[],
-    },
-  ]);
+  static const int _capacity = 40;
 
-  final int bodyA, bodyB;
-  final List<Object> values;
-
-  @override
-  bool operator ==(Object other) {
-    if (other is! _JointSignature ||
-        other.bodyA != bodyA ||
-        other.bodyB != bodyB) {
-      return false;
-    }
-    if (other.values.length != values.length) return false;
-    for (var i = 0; i < values.length; i++) {
-      if (other.values[i] != values[i]) return false;
+  /// Whether [c] asks for the joint as it was made; [now] is scratch room
+  /// for its settings.
+  bool madeFrom(Joint3D c, Float64List now) {
+    if (_kind != c.kind || _target != c.connectedBody) return false;
+    final n = _write(c, now);
+    if (n != _count) return false;
+    for (var i = 0; i < n; i++) {
+      final x = now[i], y = _made[i];
+      if (x != y && !(x.isNaN && y.isNaN)) return false;
     }
     return true;
   }
 
-  @override
-  int get hashCode => Object.hash(bodyA, bodyB, values.length);
+  void remember(Joint3D c) {
+    _kind = c.kind;
+    _target = c.connectedBody;
+    _count = _write(c, _made);
+  }
+
+  /// [c]'s settings as numbers into [out]; how many. Written out in full,
+  /// with no closure: it runs for every joint every step.
+  static int _write(Joint3D c, Float64List out) {
+    var n = _put3(out, 0, c.anchor);
+    switch (c) {
+      case HingeJoint3D h:
+        n = _put3(out, n, h.axis);
+        out[n++] = h.useLimits ? 1 : 0;
+        out[n++] = h.minAngle;
+        out[n++] = h.maxAngle;
+        out[n++] = h.friction;
+        out[n++] = h.motorMaxTorque;
+      case SliderJoint3D s:
+        n = _put3(out, n, s.axis);
+        out[n++] = s.useLimits ? 1 : 0;
+        out[n++] = s.minPosition;
+        out[n++] = s.maxPosition;
+        out[n++] = s.friction;
+        out[n++] = s.motorMaxForce;
+      case DistanceJoint3D d:
+        n = _put3(out, n, d.connectedAnchor);
+        out[n++] = d.minDistance;
+        out[n++] = d.maxDistance;
+        out[n++] = d.springFrequency;
+        out[n++] = d.springDamping;
+      case SixDofJoint3D x:
+        n = _put3(out, n, x.axis);
+        n = _put3(out, n, x.normal);
+        final modes = x.modes;
+        out[n++] = modes.length.toDouble();
+        for (var i = 0; i < modes.length && i < 6; i++) {
+          out[n++] = modes[i].index.toDouble();
+        }
+        n = _put3(out, n, x.translationMin);
+        n = _put3(out, n, x.translationMax);
+        n = _put3(out, n, x.rotationMin);
+        n = _put3(out, n, x.rotationMax);
+      default:
+    }
+    return n;
+  }
+
+  static int _put3(Float64List out, int n, Vector3 v) {
+    out[n] = v.x;
+    out[n + 1] = v.y;
+    out[n + 2] = v.z;
+    return n + 3;
+  }
 }

@@ -75,7 +75,7 @@ class RaycastHit {
 /// ```
 class RaycastSystem extends System {
   @override
-  List<Type> get requiredComponents => [
+  List<Type> get requiredComponents => const [
     TransformComponent,
     RaycastColliderComponent,
   ];
@@ -130,24 +130,33 @@ class RaycastSystem extends System {
     required double maxDist,
     required List<Offset> outNormal,
   }) {
-    // Inverse direction (handle near-zero components).
-    final invDx = dir.dx.abs() > 1e-12 ? 1.0 / dir.dx : double.infinity;
-    final invDy = dir.dy.abs() > 1e-12 ? 1.0 / dir.dy : double.infinity;
-
-    double txMin = (rect.left - origin.dx) * invDx;
-    double txMax = (rect.right - origin.dx) * invDx;
-    if (txMin > txMax) {
-      final tmp = txMin;
-      txMin = txMax;
-      txMax = tmp;
+    // A ray parallel to a pair of sides never crosses them: it is between
+    // them all along or never. (Dividing by its zero component instead gave
+    // 0 × ∞ = NaN for a ray running exactly along a side, and the far side.)
+    var txMin = double.negativeInfinity, txMax = double.infinity;
+    if (dir.dx.abs() > 1e-12) {
+      txMin = (rect.left - origin.dx) / dir.dx;
+      txMax = (rect.right - origin.dx) / dir.dx;
+      if (txMin > txMax) {
+        final tmp = txMin;
+        txMin = txMax;
+        txMax = tmp;
+      }
+    } else if (origin.dx < rect.left || origin.dx > rect.right) {
+      return null;
     }
 
-    double tyMin = (rect.top - origin.dy) * invDy;
-    double tyMax = (rect.bottom - origin.dy) * invDy;
-    if (tyMin > tyMax) {
-      final tmp = tyMin;
-      tyMin = tyMax;
-      tyMax = tmp;
+    var tyMin = double.negativeInfinity, tyMax = double.infinity;
+    if (dir.dy.abs() > 1e-12) {
+      tyMin = (rect.top - origin.dy) / dir.dy;
+      tyMax = (rect.bottom - origin.dy) / dir.dy;
+      if (tyMin > tyMax) {
+        final tmp = tyMin;
+        tyMin = tyMax;
+        tyMax = tmp;
+      }
+    } else if (origin.dy < rect.top || origin.dy > rect.bottom) {
+      return null;
     }
 
     // No overlap of the slab intervals → miss.

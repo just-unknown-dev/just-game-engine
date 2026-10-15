@@ -51,6 +51,10 @@ class _EffectEntry {
 class EffectPlayer {
   final List<_EffectEntry> _entries = [];
 
+  /// Whether [advanceTo] is walking [_entries]: an effect's callback that
+  /// cancels then only marks handles, and the walk drops them.
+  bool _advancing = false;
+
   /// The last [EffectHandle.id] this player handed out.
   int _nextHandleId = 0;
 
@@ -82,18 +86,19 @@ class EffectPlayer {
 
   /// Cancel the effect associated with [handle].
   ///
-  /// The entry is removed on the next [advanceTo] call.
+  /// Safe to call from an effect's own callbacks while the player advances.
   void cancel(EffectHandle handle) {
     handle.cancel();
-    _entries.removeWhere((e) => identical(e.handle, handle));
+    if (!_advancing) _entries.removeWhere((e) => identical(e.handle, handle));
   }
 
-  /// Cancel and remove all active effects.
+  /// Cancel and remove all active effects. Safe to call from an effect's own
+  /// callbacks while the player advances.
   void cancelAll() {
     for (final e in _entries) {
       e.handle.cancel();
     }
-    _entries.clear();
+    if (!_advancing) _entries.clear();
   }
 
   // ── Tick advance ────────────────────────────────────────────────────────
@@ -108,8 +113,21 @@ class EffectPlayer {
   ///   last advance.
   /// - Fires [DeterministicEffect.onComplete] and removes completed
   ///   non-looping entries.
-  /// - Resets and re-queues looping entries from [currentTick].
+  /// - Resets and re-queues looping entries, carrying the ticks past the end
+  ///   of a lap into the next one, so a wide jump lands where narrow steps
+  ///   would.
+  ///
+  /// Callbacks may cancel effects (this one or others) and add new ones.
   void advanceTo(int currentTick, EffectContext ctx) {
+    _advancing = true;
+    try {
+      _advance(currentTick, ctx);
+    } finally {
+      _advancing = false;
+    }
+  }
+
+  void _advance(int currentTick, EffectContext ctx) {
     int writeIdx = 0;
     for (int i = 0; i < _entries.length; i++) {
       final entry = _entries[i];
@@ -124,17 +142,35 @@ class EffectPlayer {
         continue;
       }
 
-      final targetElapsed = relativeElapsed.clamp(
-        0,
-        entry.effect.durationTicks,
-      );
+      final duration = entry.effect.durationTicks;
+      final targetElapsed = relativeElapsed.clamp(0, duration);
       if (targetElapsed > entry.processedElapsed) {
         entry.effect.applyTick(ctx, entry.processedElapsed, targetElapsed);
         entry.processedElapsed = targetElapsed;
       }
 
-      final isDone = entry.processedElapsed >= entry.effect.durationTicks;
-      if (!isDone) {
+      var isDone = entry.processedElapsed >= duration;
+      // Laps finished within this advance, each taking up where the last
+      // ended (a zero-length loop restarts from now instead, below).
+      while (isDone &&
+          entry.effect.loop &&
+          duration > 0 &&
+          !entry.handle.isCancelled) {
+        entry.effect.onLoopComplete?.call();
+        entry.effect.reset();
+        entry.startTick += duration;
+        entry.processedElapsed = 0;
+        final next = (currentTick - entry.startTick).clamp(0, duration);
+        if (next > 0) {
+          entry.effect.applyTick(ctx, 0, next);
+          entry.processedElapsed = next;
+        }
+        isDone = entry.processedElapsed >= duration;
+      }
+
+      if (entry.handle.isCancelled) {
+        // Cancelled by a callback: dropped.
+      } else if (!isDone) {
         _entries[writeIdx++] = entry;
       } else if (entry.effect.loop) {
         entry.effect.onLoopComplete?.call();
@@ -147,6 +183,8 @@ class EffectPlayer {
         // Entry is not written — it is dropped.
       }
     }
+    // Keep what callbacks added during the walk (after the last entry read)
+    // and drop what they cancelled.
     _entries.length = writeIdx;
   }
 

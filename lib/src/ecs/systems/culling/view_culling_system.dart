@@ -7,6 +7,8 @@ import 'package:just_dart/just_dart.dart' show Aabb3, Frustum, Matrix4, Vector3;
 
 import '../../ecs.dart';
 import '../../components/components.dart';
+import '../../serialization/component_definition_registry.dart';
+import '../../serialization/component_presentation.dart' show ComponentExtent;
 import '../../../interfaces/interfaces.dart';
 import '../../../subsystems/rendering/impl/renderable.dart' show Renderable;
 
@@ -95,7 +97,10 @@ class ViewCullingSystem extends System {
   int get priority => 91; // above PhysicsSystem(90)/MovementSystem(80) so they see this frame's fresh flags
 
   @override
-  List<Type> get requiredComponents => [TransformComponent, CullStateComponent];
+  List<Type> get requiredComponents => const [
+    TransformComponent,
+    CullStateComponent,
+  ];
 
   // The entity being tested's extent, as plain numbers — no Rect per entity.
   double _left = 0.0, _top = 0.0, _right = 0.0, _bottom = 0.0;
@@ -133,7 +138,7 @@ class ViewCullingSystem extends System {
       final culls = archetype.getColumn(CullStateComponent)!;
       final renderables = archetype.getColumn(RenderableComponent);
       for (var i = 0; i < transforms.length; i++) {
-        if (!archetype.entityAt(i).isActive) continue;
+        if (!archetype.entityAt(i).isActiveInHierarchy) continue;
         final cull = culls[i] as CullStateComponent;
         final renderable =
             (renderables?[i] as RenderableComponent?)?.renderable;
@@ -169,6 +174,61 @@ class ViewCullingSystem extends System {
   final Vector3 _eye = Vector3.zero();
   final Vector3 _centre = Vector3.zero();
 
+  // ── Which columns have an extent ──────────────────────────────────────
+  //
+  // Most of an entity's components imply no size (its transform, its cull
+  // state, its tags); only the columns holding one that does are read,
+  // found once per archetype and kept until the culled entities or the
+  // definitions change.
+
+  final Map<Archetype, List<_ExtentColumn>> _extentColumns = Map.identity();
+  final Map<Type, ComponentExtent?> _extentOfType = {};
+  int _extentsVersion = -1;
+  int _extentsRevision = -1;
+  ComponentDefinitionRegistry? _extentsFrom;
+
+  /// The extent [component]'s definition gives, looked up once per type.
+  ComponentExtent? _extentOf(
+    Component component,
+    ComponentDefinitionRegistry definitions,
+  ) {
+    final type = component.runtimeType;
+    if (_extentOfType.containsKey(type)) return _extentOfType[type];
+    return _extentOfType[type] = definitions.definitionFor(component)?.extent;
+  }
+
+  /// The columns of [archetype] holding a component with an extent.
+  List<_ExtentColumn> _extentColumnsOf(
+    Archetype archetype,
+    ComponentDefinitionRegistry definitions,
+  ) {
+    final known = _extentColumns[archetype];
+    if (known != null) return known;
+    final found = <_ExtentColumn>[];
+    for (final type in archetype.types) {
+      final column = archetype.getColumn(type)!;
+      ComponentExtent? first;
+      var any = false;
+      var mixed = false;
+      Type? previous;
+      for (var i = 0; i < column.length; i++) {
+        final component = column[i];
+        // A column is nearly always one type: look each run up once.
+        if (i > 0 && component.runtimeType == previous) continue;
+        previous = component.runtimeType;
+        final extent = _extentOf(component, definitions);
+        if (i == 0) {
+          first = extent;
+        } else if (!identical(extent, first)) {
+          mixed = true;
+        }
+        if (extent != null) any = true;
+      }
+      if (any) found.add(_ExtentColumn(column, mixed ? null : first));
+    }
+    return _extentColumns[archetype] = found;
+  }
+
   /// Culls against the camera's frustum. An entity's box is the union of
   /// its components' 3-D extents (see `ComponentExtent.boundsInto`) placed
   /// by its full transform, or a 1×1×1 box at its position when none has
@@ -178,23 +238,40 @@ class ViewCullingSystem extends System {
     _frustum.setFromViewProjection(_matrix);
     camera.viewMatrixInto(_matrix);
     _matrix.invert();
-    _eye.setValues(_matrix.storage[12], _matrix.storage[13], _matrix.storage[14]);
+    _eye.setValues(
+      _matrix.storage[12],
+      _matrix.storage[13],
+      _matrix.storage[14],
+    );
     final m = hysteresisMargin;
     final definitions = world.context.definitions;
+    final version = world.queryVersion(requiredComponents);
+    if (!identical(definitions, _extentsFrom) ||
+        definitions.revision != _extentsRevision) {
+      _extentsFrom = definitions;
+      _extentsRevision = definitions.revision;
+      _extentOfType.clear();
+      _extentColumns.clear();
+    } else if (version != _extentsVersion) {
+      _extentColumns.clear();
+    }
+    _extentsVersion = version;
 
     for (final archetype in world.queryArchetypes(requiredComponents)) {
       final transforms = archetype.getColumn(TransformComponent)!;
       final culls = archetype.getColumn(CullStateComponent)!;
       final renderables = archetype.getColumn(RenderableComponent);
+      final extents = _extentColumnsOf(archetype, definitions);
       for (var i = 0; i < transforms.length; i++) {
         final entity = archetype.entityAt(i);
-        if (!entity.isActive) continue;
+        if (!entity.isActiveInHierarchy) continue;
         final cull = culls[i] as CullStateComponent;
         final transform = transforms[i] as TransformComponent;
 
         _local.setEmpty();
-        for (final component in entity.components) {
-          final extent = definitions.definitionFor(component)?.extent;
+        for (final columnOf in extents) {
+          final component = columnOf.column[i];
+          final extent = columnOf.extent ?? _extentOf(component, definitions);
           if (extent != null && extent.boundsInto(component, _part)) {
             _local.addBox(_part);
           }
@@ -210,8 +287,7 @@ class ViewCullingSystem extends System {
         final show = _frustum.intersectsAabb(_box);
         _box.centerInto(_centre);
         cull.isVisible = show;
-        cull.isActive =
-            show || _centre.distanceTo(_eye) <= activeDistance;
+        cull.isActive = show || _centre.distanceTo(_eye) <= activeDistance;
 
         final renderable =
             (renderables?[i] as RenderableComponent?)?.renderable;
@@ -315,4 +391,16 @@ class ViewCullingSystem extends System {
     if (wy < _top) _top = wy;
     if (wy > _bottom) _bottom = wy;
   }
+}
+
+/// A column of an archetype holding components with an extent.
+class _ExtentColumn {
+  _ExtentColumn(this.column, this.extent);
+
+  /// The archetype's column.
+  final List<Component> column;
+
+  /// The extent every component in it shares — null when they are of
+  /// types with different ones, looked up per component.
+  final ComponentExtent? extent;
 }

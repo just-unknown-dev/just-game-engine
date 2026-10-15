@@ -45,7 +45,7 @@ class CheckpointSystem extends System {
   int get priority => SystemPriorities.checkpoint;
 
   @override
-  List<Type> get requiredComponents => [
+  List<Type> get requiredComponents => const [
     TransformComponent,
     CheckpointComponent,
   ];

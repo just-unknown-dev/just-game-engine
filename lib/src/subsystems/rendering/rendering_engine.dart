@@ -134,7 +134,7 @@ class RenderingEngine implements RenderStatsSink {
   bool _viewStale = true;
 
   /// How far between two fixed steps the coming frame is drawn (0..1), set
-  /// each tick by the game widget from the game loop. [view] passes it on.
+  /// each frame by the engine from the game loop. [view] passes it on.
   double interpolation = 1.0;
 
   /// The camera of the frame being drawn, as matrices — filled at most once
@@ -626,9 +626,10 @@ class RenderingEngine implements RenderStatsSink {
   ///
   /// The frame, in order:
   ///
-  /// 1. clear to [backgroundColor];
-  /// 2. [backgroundHooks], in screen space (parallax);
-  /// 3. post-process layers are opened, and the camera's pre-effects run;
+  /// 1. post-process layers are opened, and the camera's pre-effects run
+  ///    (motion blur), so they take in everything below;
+  /// 2. clear to [backgroundColor];
+  /// 3. [backgroundHooks], in screen space (parallax);
   /// 4. the [sceneRenderers], in screen space, from [view] — where a 3-D
   ///    backend draws its image;
   /// 5. the renderables, through the camera transform, layer by layer;
@@ -656,23 +657,14 @@ class RenderingEngine implements RenderStatsSink {
     // Update camera viewport
     camera.viewportSize = size;
 
-    // Clear background
-    _backgroundPaint.color = backgroundColor;
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      _backgroundPaint,
-    );
-
     _refreshRenderableTracking();
     if (_layersDirty) {
       _sortRenderables();
     }
 
-    // Render parallax backgrounds in screen space (before camera transform).
-    backgroundHooks(canvas, size);
-
     // ── Post-process: push offscreen layers (outermost first) ─────────────
-    // Each active pass wraps the scene+overlay in a saveLayer so Flutter's
+    // Each active pass wraps the whole frame — background and parallax
+    // included, which it used to leave out — in a saveLayer so Flutter's
     // compositor applies the FragmentShader when restoring the layer.
     int activePasses = 0;
     // Where shaders cannot filter layers (the web, Skia) the passes are
@@ -701,9 +693,20 @@ class RenderingEngine implements RenderStatsSink {
 
     // ── Camera effect pre-render (inside post-process context) ───────────
     // Called AFTER post-process layers are pushed so the motion-blur
-    // saveLayer is innermost — wrapping both subsystem renderables and ECS
-    // entities, while post-process shaders see the already-blurred output.
+    // saveLayer is innermost — wrapping the background, subsystem
+    // renderables and ECS entities, while post-process shaders see the
+    // already-blurred output.
     camera.effectManager.preRender(canvas, size);
+
+    // Clear background
+    _backgroundPaint.color = backgroundColor;
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      _backgroundPaint,
+    );
+
+    // Render parallax backgrounds in screen space (before camera transform).
+    backgroundHooks(canvas, size);
 
     // ── Scene renderers (a 3-D backend's image), screen space ─────────────
     if (_sceneRenderers.isNotEmpty) {
@@ -756,8 +759,9 @@ class RenderingEngine implements RenderStatsSink {
       _layersDirty = false;
     }
     // Sprites batch in draw order: a batch is drawn before anything that
-    // is not batched, when the zOrder changes, and at the end of the layer,
-    // so a plain renderable between two sprites stays between them. (Batches
+    // is not batched, before a sprite from another image, when the zOrder
+    // changes, and at the end of the layer, so a plain renderable — or
+    // another atlas's sprite — between two sprites stays between them. (Batches
     // used to be drawn only after the whole layer, over everything in it.)
     for (final layerIndex in _sortedLayerKeys) {
       final layer = _sortedLayerLists[layerIndex];
@@ -793,7 +797,13 @@ class RenderingEngine implements RenderStatsSink {
           }
           batchZ = renderable.zOrder;
           final batch = _batchCache.batchFor(_plan.image!, _plan.quality);
-          if (!_pendingBatches.contains(batch)) _pendingBatches.add(batch);
+          // Only the newest batch takes more: joining an older one would
+          // draw this sprite under what another image's batch queued since.
+          if (_pendingBatches.isEmpty ||
+              !identical(_pendingBatches.last, batch)) {
+            drawCalls += _flushPending(canvas);
+            _pendingBatches.add(batch);
+          }
           _plan.addTo(batch);
 
           renderedCount++;

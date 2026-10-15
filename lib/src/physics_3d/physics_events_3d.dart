@@ -1,4 +1,6 @@
-import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_dart/just_dart.dart';
+
+import '../ecs/ecs.dart';
 
 /// Two entities' bodies started touching. Fired on the world's event bus by
 /// [PhysicsSystem3D] after the step:

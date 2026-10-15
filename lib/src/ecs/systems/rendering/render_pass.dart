@@ -61,15 +61,29 @@ class ComponentPainterPass extends RenderPass {
 
   /// The definitions with painters the entries were found for, in order.
   final List<ComponentDefinition> _painted = [];
+
+  /// The query each painted definition's entries came from.
+  final List<List<Type>> _queries = [];
   World? _builtFor;
+
+  /// The largest of [_queries]' versions when the entries were found.
   int _builtVersion = -1;
+
+  int _queriesVersion(World world) {
+    var version = -1;
+    for (final query in _queries) {
+      final v = world.queryVersion(query);
+      if (v > version) version = v;
+    }
+    return version;
+  }
 
   @override
   void render(Canvas canvas, RenderContext ctx, RenderPassFilter filter) {
     final world = ctx.world;
     _using = definitions ?? world.context.definitions;
     if (!identical(world, _builtFor) ||
-        world.structureVersion != _builtVersion ||
+        _queriesVersion(world) != _builtVersion ||
         _paintersChanged()) {
       _rebuild(world);
     }
@@ -82,7 +96,7 @@ class ComponentPainterPass extends RenderPass {
 
     for (final e in _entries) {
       final entity = e.entity;
-      if (!entity.isActive || !filter(entity)) continue;
+      if (!entity.isActiveInHierarchy || !filter(entity)) continue;
       if (!e.painter.isVisibleAny(e.component)) continue;
       final t = e.transform;
       canvas
@@ -114,27 +128,25 @@ class ComponentPainterPass extends RenderPass {
     _pool.addAll(_entries);
     _entries.clear();
     _painted.clear();
+    _queries.clear();
     var seq = 0;
     for (final definition in _using.definitions) {
       final painter = definition.painter;
       if (painter == null) continue;
       _painted.add(definition);
       final type = definition.componentType;
-      for (final archetype in world.queryArchetypes([
-        TransformComponent,
-        type,
-      ])) {
+      final query = List<Type>.unmodifiable([TransformComponent, type]);
+      _queries.add(query);
+      for (final archetype in world.queryArchetypes(query)) {
         final ids = archetype.entityIds;
         final transforms = archetype.getColumn(TransformComponent)!;
         final components = archetype.getColumn(type)!;
         for (var row = 0; row < ids.length; row++) {
           final component = components[row];
           if (component.runtimeType != type) continue;
-          final entity = world.getEntity(ids[row]);
-          if (entity == null) continue;
           _entries.add(
             (_pool.isNotEmpty ? _pool.removeLast() : _Paintable())
-              ..entity = entity
+              ..entity = archetype.entityAt(row)
               ..component = component
               ..painter = painter
               ..transform = transforms[row] as TransformComponent
@@ -144,7 +156,7 @@ class ComponentPainterPass extends RenderPass {
       }
     }
     _builtFor = world;
-    _builtVersion = world.structureVersion;
+    _builtVersion = _queriesVersion(world);
   }
 
   static int _compare(_Paintable a, _Paintable b) {

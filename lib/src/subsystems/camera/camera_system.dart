@@ -369,15 +369,23 @@ class Camera implements GameCamera {
         Offset(viewportSize.width / 2, viewportSize.height / 2);
   }
 
-  /// The world area in view — for a camera in space, the part of the world
-  /// plane z = 0 its corners see (everything, when a corner misses it).
+  /// The world area in view, as an axis-aligned box: with a roll
+  /// ([rotation]) the screen shows a turned rectangle, and this is the box
+  /// around it — what culling must keep. For a camera in space, the part of
+  /// the world plane z = 0 its corners see (everything, when a corner misses
+  /// it).
   @override
   Rect getVisibleBounds() {
     if (!isPlanar) return _visibleOnPlane();
+    final w = viewportSize.width / zoom, h = viewportSize.height / zoom;
+    if (rotation == 0.0) {
+      return Rect.fromCenter(center: position, width: w, height: h);
+    }
+    final c = math.cos(rotation).abs(), s = math.sin(rotation).abs();
     return Rect.fromCenter(
       center: position,
-      width: viewportSize.width / zoom,
-      height: viewportSize.height / zoom,
+      width: w * c + h * s,
+      height: w * s + h * c,
     );
   }
 
@@ -403,11 +411,24 @@ class Camera implements GameCamera {
     return Rect.fromLTRB(l!, t!, r!, b!);
   }
 
-  /// Whether the world point [point] lies inside [getVisibleBounds].
-  bool isVisible(Offset point) => getVisibleBounds().contains(point);
+  /// Whether the world point [point] is on screen. For a rolled 2-D camera
+  /// that is the turned rectangle the screen shows, not the box around it;
+  /// otherwise whether [point] lies inside [getVisibleBounds].
+  bool isVisible(Offset point) {
+    if (!isPlanar || rotation == 0.0) {
+      return getVisibleBounds().contains(point);
+    }
+    final s = worldToScreen(point);
+    return s.dx >= 0 &&
+        s.dx < viewportSize.width &&
+        s.dy >= 0 &&
+        s.dy < viewportSize.height;
+  }
 
-  /// Whether the world rectangle [rect] overlaps [getVisibleBounds]. A null
-  /// [rect] — nothing known about its size — counts as visible.
+  /// Whether the world rectangle [rect] overlaps [getVisibleBounds] — for a
+  /// rolled camera the box around the screen, so a rectangle near a corner
+  /// may count as visible while just off screen. A null [rect] — nothing
+  /// known about its size — counts as visible.
   bool isRectVisible(Rect? rect) {
     if (rect == null) return true;
     return getVisibleBounds().overlaps(rect);

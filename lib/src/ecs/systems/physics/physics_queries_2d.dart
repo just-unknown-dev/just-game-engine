@@ -95,7 +95,11 @@ final class Physics2DQueries {
     bool includeSensors = false,
   }) {
     if (direction == Offset.zero || maxDistance <= 0) return const [];
-    final ray = Ray(origin: origin, direction: direction, maxDistance: maxDistance);
+    final ray = Ray(
+      origin: origin,
+      direction: direction,
+      maxDistance: maxDistance,
+    );
     return [
       for (final hit in physics.castRayAll(ray, exclude: _exclude(ignore)))
         if (_passes(hit.body, layerMask, includeSensors))
@@ -150,7 +154,12 @@ final class Physics2DQueries {
     int layerMask = 0xFFFF,
     Entity? ignore,
     bool includeSensors = false,
-  }) => _entities(physics.queryCircle(center, radius), layerMask, ignore, includeSensors);
+  }) => _entities(
+    physics.queryCircle(center, radius),
+    layerMask,
+    ignore,
+    includeSensors,
+  );
 
   /// The entities whose bodies overlap [rect].
   List<Entity> overlapBox(
@@ -166,9 +175,15 @@ final class Physics2DQueries {
   }
 
   static bool _passes(PhysicsBody body, int layerMask, bool includeSensors) =>
-      (body.categoryBits & layerMask) != 0 && (includeSensors || !body.isSensor);
+      (body.categoryBits & layerMask) != 0 &&
+      (includeSensors || !body.isSensor);
 
-  List<Entity> _entities(List<PhysicsBody> bodies, int layerMask, Entity? ignore, bool includeSensors) {
+  List<Entity> _entities(
+    List<PhysicsBody> bodies,
+    int layerMask,
+    Entity? ignore,
+    bool includeSensors,
+  ) {
     final seen = <Entity>{};
     for (final body in bodies) {
       if (!_passes(body, layerMask, includeSensors)) continue;

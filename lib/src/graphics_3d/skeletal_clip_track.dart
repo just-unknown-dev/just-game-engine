@@ -1,5 +1,4 @@
-import 'package:just_game_engine/just_game_engine.dart';
-
+import '../subsystems/timeline/timeline.dart';
 import 'graphics_components.dart';
 
 /// A timeline track playing clips on the bound entity's 3-D model (its
@@ -77,21 +76,40 @@ class _SkeletalClipRunner extends TrackRunner {
   double _speedBefore = 1;
   bool _loopBefore = true;
 
+  // Time came round into the current block over its start again — a
+  // loop's wrap: its clip starts over.
+  bool _reentered = false;
+
   @override
   void begin(TimelineContext context) {
     _current = null;
     _player = null;
     _clipBefore = null;
+    _reentered = false;
+  }
+
+  @override
+  void advance(TimelineContext context, double from, double to) {
+    final current = _current;
+    if (current == null) return;
+    // Forwards over its start, or backwards over its end (as a backwards
+    // loop wraps to it); a ping-pong turning round inside it is neither.
+    if (to > from
+        ? from < current.start && to >= current.start
+        : from > current.end && to <= current.end) {
+      _reentered = true;
+    }
   }
 
   @override
   void apply(TimelineContext context, double time) {
-    final block = track.blockAt(time);
+    final block = track.blockAt(time, includeEnd: context.endsAt(time));
     final player = context
         .resolve(track.binding)
         ?.getComponent<AnimationPlayerComponent>();
     if (player == null) return;
-    if (!identical(block, _current)) {
+    if (!identical(block, _current) || _reentered) {
+      _reentered = false;
       _current = block;
       if (block == null) {
         _restore();
@@ -103,11 +121,12 @@ class _SkeletalClipRunner extends TrackRunner {
         _speedBefore = player.speed;
         _loopBefore = player.loop;
       }
+      // Played first, so what fades out keeps its own speed and looping.
       player
-        ..speed = block.speed
-        ..loop = block.loop
         // A scrub cuts; playing through crossfades.
-        ..play(block.value, fade: context.isPreview ? 0 : null, restart: true);
+        ..play(block.value, fade: context.isPreview ? 0 : null, restart: true)
+        ..speed = block.speed
+        ..loop = block.loop;
     }
     if (block != null && context.isPreview) {
       // Scrubbing: the clip stands where the timeline says.
@@ -121,9 +140,9 @@ class _SkeletalClipRunner extends TrackRunner {
     final player = _player, clip = _clipBefore;
     if (player == null || clip == null) return;
     player
+      ..play(clip, restart: true)
       ..speed = _speedBefore
-      ..loop = _loopBefore
-      ..play(clip, restart: true);
+      ..loop = _loopBefore;
     _clipBefore = null;
   }
 

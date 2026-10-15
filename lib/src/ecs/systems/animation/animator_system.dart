@@ -77,7 +77,7 @@ class AnimatorSystem extends System {
   int get priority => SystemPriorities.animation;
 
   @override
-  List<Type> get requiredComponents => [AnimatorComponent];
+  List<Type> get requiredComponents => const [AnimatorComponent];
 
   /// The graph [entity] is running, once loaded.
   AnimatorGraph? graphOf(Entity entity) => _running[entity]?.graph;
@@ -148,7 +148,14 @@ class AnimatorSystem extends System {
 
       final next = _transitionToTake(entity, graph, animator, sprite, target);
       if (next == null) {
-        _blend(entity, animator, sprite, target, graph.stateNamed(animator.currentState)!, deltaTime);
+        _blend(
+          entity,
+          animator,
+          sprite,
+          target,
+          graph.stateNamed(animator.currentState)!,
+          deltaTime,
+        );
         return;
       }
       for (final c in next.conditions) {

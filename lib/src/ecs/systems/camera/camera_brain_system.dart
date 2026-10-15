@@ -27,7 +27,7 @@ class CameraBrainSystem extends System implements FrameSystem {
   int get priority => SystemPriorities.camera;
 
   @override
-  List<Type> get requiredComponents => [
+  List<Type> get requiredComponents => const [
     TransformComponent,
     VirtualCameraComponent,
   ];

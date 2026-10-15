@@ -172,7 +172,8 @@ void main() {
   });
 
   group('each frame', () {
-    test('the transform is synced; interpolated only with physics', () {
+    test('the transform is synced; interpolated only when its previous '
+        'pose was captured in the last update', () {
       final sprite = _Logged('s', log);
       final entity = world.createEntityWithComponents([
         TransformComponent(position: Vector3(10, 20, 0), angle: 0.5),
@@ -183,18 +184,29 @@ void main() {
       expect(sprite.position, Vector3(10, 20, 0));
       expect(sprite.rotation, 0.5);
 
+      // A previous pose left behind, never captured: drawn where it is.
       final t = entity.getComponent<TransformComponent>()!
         ..prevPosition.setValues(0, 0, 0)
         ..position.setValues(100, 0, 0);
-      entity.addComponent(
-        PhysicsBodyRefComponent(
-          PhysicsBody(position: Vector2(0, 0), shape: CircleShape(1)),
-        ),
-      );
       render.interpolation = 0.25;
+      world.update(1 / 60);
+      frame();
+      expect(sprite.position.x, 100);
+
+      // Captured in an update, as a physics step does: drawn between.
+      t
+        ..position.setValues(0, 0, 0)
+        ..capturePrevious()
+        ..position.setValues(100, 0, 0);
+      world.update(1 / 60);
       frame();
       expect(sprite.position.x, closeTo(25, 1e-9));
       expect(t.position.x, 100);
+
+      // An update that captures nothing: where it is again.
+      world.update(1 / 60);
+      frame();
+      expect(sprite.position.x, 100);
     });
 
     test('a particle emitter on an entity is drawn, in layer order', () {

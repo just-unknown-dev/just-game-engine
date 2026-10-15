@@ -2,7 +2,7 @@
 
 **E**ngine · **S**ignal · **P**resentation — a three-layer pattern for structuring an app on top of Just Game Engine. It isn't new machinery: it's the same shape already backing the Subtitle (`SubtitleController` + `SubtitleOverlay`) and Narrative (`NarrativeSignals`) subsystems (see [ARCHITECTURE.md](ARCHITECTURE.md)), generalized for app code and built from pieces that already exist — the engine's `EventBus` and reactive ECS (`ComponentSignal`, `EntitySignal`, `WorldSignal`), and `just_signals`' `Signal`, `Computed` and `SignalBuilder`.
 
-> **`just_signals` is not re-exported.** `package:just_game_engine/just_game_engine.dart` does not export `Signal`, `Computed`, `SignalBuilder` or `SignalSelector`. Add `just_signals` to your app's `pubspec.yaml` and `import 'package:just_signals/just_signals.dart';` in the state and presentation layers. (`ComponentSignal` and the other reactive wrappers come from the engine and extend `just_signals`' `Signal`.)
+> **Only `Signal` and `Computed` are re-exported.** `package:just_game_engine/just_game_engine.dart` exports those two `just_signals` types (the engine's reactive wrappers return them), but not `SignalBuilder`, `Effect` or `SignalSelector`. Add `just_signals` to your app's `pubspec.yaml` and `import 'package:just_signals/just_signals.dart';` in the state and presentation layers. (`ComponentSignal` and the other reactive wrappers come from the engine and extend `just_signals`' `Signal`.)
 
 ```
    Engine layer                State layer                 Presentation layer

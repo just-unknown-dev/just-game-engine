@@ -15,7 +15,7 @@ dependencies:
   just_game_engine: ^2.0.0-dev.1
 ```
 
-Needs Flutter 3.47.1 or newer.
+Needs Flutter 3.47.1 or newer. To build for Linux, also install what the audio plugin links: OpenAL Soft and libsndfile (`sudo apt install libopenal-dev libsndfile1-dev` on Debian and Ubuntu; players need `libopenal1` and `libsndfile1`).
 
 ## Quick start
 
@@ -85,7 +85,7 @@ Future<void> loadFirstLevel(Engine engine) async {
 | `DefaultSystem` | Systems |
 |---|---|
 | `input` | `InputSystem` (the `player` map's actions onto each `InputComponent`) |
-| `physics` | `PhysicsSystem` |
+| `physics` | `PhysicsSystem`, `PhysicsJointBindingSystem` |
 | `movement` | `MovementSystem` |
 | `audio` | `AudioSystem` |
 | `rendering` | `RenderSystem`, `ParallaxRenderSystem` |
@@ -96,7 +96,7 @@ Future<void> loadFirstLevel(Engine engine) async {
 
 `DefaultSystems.all` is every one; `DefaultSystems.headless` leaves out `rendering` and `audio` (for a server, a simulation or a test). `registerDefaultSystems(world, engine, include: ...)` adds them to any world and skips systems it already has, so a game can add its own configured instance first.
 
-Add these yourself when you use them: `ParticleSystemECS`, `EffectSystemECS`, `PostProcessSystem`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `RaycastSystem`, `DialogueSystem`, `PhysicsJointBindingSystem`, `ViewCullingSystem`. Systems run in priority order (`SystemPriorities`), not in the order they were added.
+Add these yourself when you use them: `ParticleSystemECS`, `EffectSystemECS`, `PostProcessSystem`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `RaycastSystem`, `DialogueSystem`, `ViewCullingSystem`. Systems run in priority order (`SystemPriorities`), not in the order they were added.
 
 ## Features
 
@@ -109,7 +109,7 @@ Add these yourself when you use them: `ParticleSystemECS`, `EffectSystemECS`, `P
 
 ### Level maps
 
-- `LevelMapComponent`: a map of tile layers at its entity's position, saved in the scene, in its own `.map.json`, or read from a Tiled `.tmx` / `.tmj`. `TiledInterop` imports and exports Tiled maps and tilesets.
+- `LevelMapComponent`: a map of tile layers at its entity's position, saved in the scene, in its own `.map.json`, or read from a Tiled `.tmx` / `.tmj`. `TiledInterop` imports and exports Tiled maps and tilesets; its signatures use `package:just_tiled` models (`TiledMap`, `Tileset`, …), so import that package to call it.
 - Orthogonal, isometric, staggered and hexagonal maps (`MapGeometry`); animated, flipped and rotated tiles; layers that sort among the level's sprites, with parallax, tint and opacity.
 - Collision from the tiles' shapes (`MapCollisionSystem`), with `solid` and `oneWay` built in and a game's own kinds in `MapCollisionKinds`.
 - Entities on a map layer (`LayerComponent.mapLayer`) draw between that layer's tiles and the next layer's.
@@ -134,6 +134,9 @@ Add these yourself when you use them: `ParticleSystemECS`, `EffectSystemECS`, `P
 - With no virtual camera in the world, `engine.cameraSystem.mainCamera` is yours to move.
 
 ```dart
+import 'package:flutter/painting.dart' show Offset;
+import 'package:just_game_engine/just_game_engine.dart';
+
 void addCameras(Engine engine) {
   final world = engine.world;
   world.createEntityWithComponents([
@@ -152,7 +155,7 @@ void addCameras(Engine engine) {
 
 ### Physics
 
-- The same model as 3-D (`package:just_game_engine/physics_3d.dart`), with a `2D` suffix: `RigidBody2D` is how a body moves (static, kinematic or dynamic; mass, friction, bounce, damping, gravity scale, sensor, layer and filter) and `Collider2D` its shape (box, circle, capsule, polygon, segment, chain, or *match shape*: whatever the entity draws; offset, rotation, one-way). A collider alone is a static body. `PhysicsSystem` steps `engine.physics` and syncs transforms and velocities back.
+- The same model as 3-D (`package:just_game_engine/physics_3d.dart`), with a `2D` suffix (but `PhysicsSystem` and `BodyType`, which keep their 1.x names): `RigidBody2D` is how a body moves (static, kinematic or dynamic; mass, friction, bounce, damping, gravity scale, sensor, layer and filter) and `Collider2D` its shape (box, circle, capsule, polygon, segment, chain, or *match shape*: whatever the entity draws; offset, rotation, one-way). A collider alone is a static body. `PhysicsSystem` steps `engine.physics` and syncs transforms and velocities back.
 - Push a body from code with `addForce`, `addImpulse`, `addTorque`, `setVelocity` and the rest on `RigidBody2D`; it reports `isGrounded`, `groundNormal` and its velocities after each step.
 - `CharacterBody2D` is a character gameplay moves instead (3-D's `CharacterBody3D`): set its `moveVelocity`, call `jump`, and it walks slopes, climbs steps, rides platforms and stands on one-way ones, the same on every platform. It needs no rigid body or collider.
 - Physics comes from `just_physics_engine`: Box2D v3 through FFI where its native library loads, and a pure-Dart engine with the same API on the web or wherever it does not.
@@ -162,19 +165,24 @@ void addCameras(Engine engine) {
 ### 3-D graphics
 
 ```dart
+import 'package:flutter/painting.dart' show Offset;
 import 'package:just_game_engine/graphics_3d.dart';
+import 'package:just_game_engine/just_game_engine.dart';
 
-final engine = Engine(config: EngineConfig(graphics3D: Graphics3D()));
-await engine.initialize();
-await SceneLoader.loadAsset(engine.world, 'assets/scenes/level.scene.json');
+Future<Engine> start3D() async {
+  final engine = Engine(config: EngineConfig(graphics3D: Graphics3D()));
+  await engine.initialize();
+  await SceneLoader.loadAsset(engine.world, 'assets/scenes/level.scene.json');
 
-// A perspective camera, in metres (+Y is down, so -Y is up).
-engine.rendering.camera
-  ..lens = const CameraLens.perspective(near: 0.1, far: 500)
-  ..position = const Offset(0, -3)
-  ..z = -8
-  ..pitch = -0.36;
-engine.start();
+  // A perspective camera, in metres (+Y is down, so -Y is up).
+  engine.rendering.camera
+    ..lens = const CameraLens.perspective(near: 0.1, far: 500)
+    ..position = const Offset(0, -3)
+    ..z = -8
+    ..pitch = -0.36;
+  engine.start();
+  return engine;
+}
 ```
 
 - `EngineConfig(graphics3D: Graphics3D())`, from `package:just_game_engine/graphics_3d.dart`, draws 3-D scenes with [just_graphics_engine](https://pub.dev/packages/just_graphics_engine) on Flutter GPU: `ModelComponent` (a `.glb` or `.gltf` model; its `bounds` fill in once it loads), `LightComponent` (directional, point or spot, shining along the entity's +Z; a scene with no lights gets a default sun), `EnvironmentComponent` (a gradient sky or an `.hdr` skybox, ambient light, reflections, fog, exposure), `AnimationPlayerComponent` (glTF clips with crossfades and blends; animator graphs and timelines play on a model's skeleton) and `SocketComponent` (pins a child entity to a joint).
@@ -196,7 +204,7 @@ engine.start();
         build: true
   ```
 
-- A game without a `Physics3D` is 2-D only: its release build holds no 3-D code and no Jolt. The 3-D world is made with the first 3-D body. Where 3-D cannot run (the web, Jolt not built), `initialize()` fails with a `Physics3DUnsupportedError`; `Physics3D.isSupported` asks first.
+- A game without a `Physics3D` is 2-D only: its release build holds no 3-D code and no Jolt. The 3-D world is made with the first 3-D body. Where 3-D cannot run (the web, Jolt not built), `initialize()` fails with an `EngineInitException` whose `cause` is a `Physics3DUnsupportedError`; `Physics3D.isSupported` asks first, so a game for the web and native platforms passes `physics3D: Physics3D.isSupported ? Physics3D() : null`.
 
 ### Particles, effects and post-processing
 
@@ -276,7 +284,7 @@ The engine's foundations do not assume 2-D: transforms have three axes and Euler
 
 ### Web and WebAssembly
 
-The library has no `dart:io` outside one conditional import, so a game builds for the web with JavaScript or WebAssembly. On the web, physics is pure Dart, audio waits for the first input, shaders are skipped (above), gamepads work in JavaScript builds only (`just_gamepads` has no WebAssembly backend yet), and 3-D scenes load but are not drawn (Flutter GPU is not on the web; the 3-D view says so).
+The library has no `dart:io` outside one conditional import, so a game builds for the web with JavaScript or WebAssembly. On the web, physics is pure Dart, audio waits for the first input, shaders are skipped (above), gamepads work in JavaScript and WebAssembly builds once a button is pressed (browsers hide pads until then), and 3-D scenes load but are not drawn (Flutter GPU is not on the web; the 3-D view says so).
 
 ## Upgrading from 1.x
 
@@ -297,7 +305,7 @@ The biggest changes; [MIGRATION.md](MIGRATION.md) covers every one.
 - `just_platformer_kit` (not published): platformer components and systems.
 - `just_game_engine_editor` (not published): the level editor.
 
-The engine is built on `just_physics_engine`, `just_graphics_engine`, `just_inputs`, `just_audio_engine`, `just_tiled`, `just_signals`, `just_memory`, `just_storage`, `just_database` and `just_dart`.
+The engine is built on `just_physics_engine`, `just_graphics_engine`, `just_inputs`, `just_audio_engine`, `just_tiled`, `just_deflate`, `just_game_engine_formats`, `just_signals`, `just_memory`, `just_storage`, `just_database` and `just_dart`.
 
 ## Documentation
 

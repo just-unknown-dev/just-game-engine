@@ -155,6 +155,14 @@ class _DialogueBoxWidgetState extends State<DialogueBoxWidget> {
   }
 
   void _startTypewriter(String text) {
+    // Where each character the reader sees ends — an emoji or an accented
+    // letter can be several UTF-16 units, never to be cut in two.
+    final ends = <int>[];
+    var offset = 0;
+    for (final character in text.characters) {
+      offset += character.length;
+      ends.add(offset);
+    }
     final intervalMs = (1000.0 / widget.typewriterSpeed).round();
     _timer = Timer.periodic(Duration(milliseconds: intervalMs), (t) {
       if (!mounted) {
@@ -162,14 +170,14 @@ class _DialogueBoxWidgetState extends State<DialogueBoxWidget> {
         return;
       }
       _charIndex++;
-      if (_charIndex >= text.length) {
+      if (_charIndex >= ends.length) {
         t.cancel();
         setState(() {
           _displayText = text;
           _typewriterDone = true;
         });
       } else {
-        setState(() => _displayText = text.substring(0, _charIndex));
+        setState(() => _displayText = text.substring(0, ends[_charIndex - 1]));
       }
     });
   }

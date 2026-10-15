@@ -36,8 +36,9 @@ final class PhysicsCharacters2D {
   /// A character's body was made.
   final void Function(PhysicsBody body, Entity entity) onBody;
 
-  /// A character's body is gone.
-  final void Function(PhysicsBody body) onBodyGone;
+  /// A character's body is gone: [rebuilt] when a new one takes its place
+  /// at once (what it is made of changed), not when the character is.
+  final void Function(PhysicsBody body, {required bool rebuilt}) onBodyGone;
 
   late final CharacterMover2D _mover = CharacterMover2D(physics);
   final Map<Entity, _CharacterLink> _links = {};
@@ -49,7 +50,11 @@ final class PhysicsCharacters2D {
 
   /// Moves every character in [world] by [dt] seconds. [entityForBody]
   /// names the entity of a body it stands on.
-  void move(World world, double dt, Entity? Function(PhysicsBody body) entityForBody) {
+  void move(
+    World world,
+    double dt,
+    Entity? Function(PhysicsBody body) entityForBody,
+  ) {
     _refresh(world);
     if (_active.isEmpty) return;
 
@@ -60,17 +65,23 @@ final class PhysicsCharacters2D {
 
     for (final link in _active) {
       final entity = link.entity, comp = link.comp, transform = link.transform;
-      if (!entity.isActive) {
+      if (!entity.isActiveInHierarchy) {
         _removeBody(link);
         continue;
       }
       final category = 1 << PhysicsLayers.clampLayer(comp.layer);
-      final mask = (comp.collidesWith ?? layers.maskOf(comp.layer)) & PhysicsLayers.all;
+      final mask =
+          (comp.collidesWith ?? layers.maskOf(comp.layer)) & PhysicsLayers.all;
       final shape = comp.moverShape;
-      final at = Offset(transform.position.x + comp.offset.dx, transform.position.y + comp.offset.dy);
+      final at = Offset(
+        transform.position.x + comp.offset.dx,
+        transform.position.y + comp.offset.dy,
+      );
 
       // Its own body, made again when what it is made of changes.
-      if (link.body != null && !link.matches(comp, category, mask)) _removeBody(link);
+      if (link.body != null && !link.matches(comp, category, mask)) {
+        _removeBody(link, rebuilt: comp.detectable);
+      }
       if (link.body == null && comp.detectable) {
         final body = PhysicsBody(
           position: Vector2(at.dx, at.dy),
@@ -84,13 +95,37 @@ final class PhysicsCharacters2D {
           maskBits: mask,
         );
         physics.addBody(body);
-        link.body = body;
+        link
+          ..body = body
+          ..culled = false;
         onBody(body, entity);
       }
       link.remember(comp, category, mask);
 
+      // Culled (opt-in view culling): frozen where it is, as a body is, and
+      // its body out of the simulation — on the native backend, which does
+      // not read the flag, by touching nothing — until it is back.
+      final culled = link.cull?.isActive == false;
+      final body = link.body;
+      if (culled != link.culled) {
+        link.culled = culled;
+        if (body != null) {
+          body.isActive = !culled;
+          if (physics is Box2DPhysicsEngine) {
+            physics.setBodyFilter(
+              body,
+              categoryBits: culled ? 0 : category,
+              maskBits: culled ? 0 : mask,
+            );
+          }
+        }
+      }
+      if (culled) continue;
+
       // A transform written since the last move (a respawn) is a teleport.
-      if (link.moved && (link.lastX != transform.position.x || link.lastY != transform.position.y)) {
+      if (link.moved &&
+          (link.lastX != transform.position.x ||
+              link.lastY != transform.position.y)) {
         transform.capturePrevious();
         comp
           ..velocity = Offset.zero
@@ -130,7 +165,11 @@ final class PhysicsCharacters2D {
         stepHeight: comp.stepHeight,
         stickToFloor: comp.stickToFloor,
         wasGrounded: comp.isGrounded,
-        filter: MoverFilter(categoryBits: category, maskBits: mask, ignore: link.body),
+        filter: MoverFilter(
+          categoryBits: category,
+          maskBits: mask,
+          ignore: link.body,
+        ),
         mass: comp.mass,
         pushStrength: comp.pushStrength,
       );
@@ -160,7 +199,6 @@ final class PhysicsCharacters2D {
             : Offset(ground.velocity.x, ground.velocity.y)
         ..groundEntity = ground == null ? null : entityForBody(ground);
 
-      final body = link.body;
       if (body != null) {
         physics.setBodyTransform(body, result.position.dx, result.position.dy);
         body.velocity.setZero();
@@ -179,23 +217,30 @@ final class PhysicsCharacters2D {
   }
 
   void _refresh(World world) {
-    final version = world.structureVersion;
+    final version = world.queryVersion(const [
+      TransformComponent,
+      CharacterBody2D,
+    ]);
     if (version == _seenVersion) return;
     _seenVersion = version;
     _active.clear();
-    for (final archetype in world.queryArchetypes(const [TransformComponent, CharacterBody2D])) {
+    for (final archetype in world.queryArchetypes(const [
+      TransformComponent,
+      CharacterBody2D,
+    ])) {
       final ids = archetype.entityIds;
       final transforms = archetype.getColumn(TransformComponent)!;
       final comps = archetype.getColumn(CharacterBody2D)!;
       final velocities = archetype.getColumn(VelocityComponent);
+      final culls = archetype.getColumn(CullStateComponent);
       for (var row = 0; row < ids.length; row++) {
-        final entity = world.getEntity(ids[row]);
-        if (entity == null) continue;
+        final entity = archetype.entityAt(row);
         final link = _links[entity] ??= _CharacterLink(entity);
         link
           ..transform = transforms[row] as TransformComponent
           ..comp = comps[row] as CharacterBody2D
           ..velocity = velocities?[row] as VelocityComponent?
+          ..cull = culls?[row] as CullStateComponent?
           ..version = version;
         _active.add(link);
       }
@@ -207,19 +252,23 @@ final class PhysicsCharacters2D {
     });
   }
 
-  void _removeBody(_CharacterLink link) {
+  void _removeBody(_CharacterLink link, {bool rebuilt = false}) {
     final body = link.body;
     if (body == null) return;
-    link.body = null;
+    link
+      ..body = null
+      ..culled = false;
     physics.removeBody(body);
-    onBodyGone(body);
+    onBodyGone(body, rebuilt: rebuilt);
   }
 
   /// The body shape of a mover [shape]: the same capsule or rounded box.
   static CollisionShape _shapeOf(MoverShape shape) {
     final p = shape.points;
     if (p.length == 1) return CircleShape(shape.radius);
-    if (p.length == 2) return CapsuleShape(center1: p[0], center2: p[1], radius: shape.radius);
+    if (p.length == 2) {
+      return CapsuleShape(center1: p[0], center2: p[1], radius: shape.radius);
+    }
     return RoundedPolygonShape(p, shape.radius);
   }
 
@@ -236,6 +285,12 @@ final class _CharacterLink {
 
   /// Its velocity component, if it has one: written, never read.
   VelocityComponent? velocity;
+
+  /// Its view-culling state, if it opted into culling.
+  CullStateComponent? cull;
+
+  /// Culled at the last move: frozen.
+  bool culled = false;
   int version = -1;
 
   /// Its own body, while it is detectable.

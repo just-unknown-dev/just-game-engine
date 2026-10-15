@@ -191,7 +191,8 @@ class EnumerationFieldType extends FieldType<Object> {
   @override
   String get id => 'enumeration';
   @override
-  Object? encode(Object value) => value.toString().split('.').last;
+  Object? encode(Object value) =>
+      value is Enum ? value.name : value.toString().split('.').last;
   @override
   Object? decode(Object? json, FieldConstraints c) {
     if (json is! String) return json;
@@ -490,10 +491,17 @@ class ShapePaintStyleFieldType extends FieldType<ShapePaintStyle> {
     final colors = colorsRaw is List
         ? [for (final e in colorsRaw.whereType<num>()) Color(e.toInt())]
         : <Color>[];
-    if (colors.isEmpty) return null;
+    // A gradient needs two colours; Flutter asserts otherwise, on every
+    // paint.
+    if (colors.length < 2) return null;
     final stopsRaw = raw['stops'];
-    final stops = stopsRaw is List
+    final stopValues = stopsRaw is List
         ? [for (final e in stopsRaw.whereType<num>()) e.toDouble()]
+        : null;
+    // Stops that don't pair one-to-one with the colours are dropped (even
+    // spacing), rather than kept to throw when drawn.
+    final stops = stopValues != null && stopValues.length == colors.length
+        ? stopValues
         : null;
     final tileRaw = raw['tileMode'];
     final tileMode = tileRaw is num

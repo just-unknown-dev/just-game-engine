@@ -66,4 +66,4 @@ There is no CI workflow in this repository; the checks above were run locally.
 
 ## Dependencies
 
-`just_physics_engine`, `just_inputs`, `just_audio_engine`, `just_storage`, `just_database`, `just_signals`, `just_memory`, `just_tiled`, `just_dart`, `just_deflate`, `path_provider`, `meta`, and the Flutter SDK packages `flutter` and `flutter_web_plugins`. Versions are in [pubspec.yaml](pubspec.yaml).
+`just_physics_engine`, `just_inputs`, `just_audio_engine`, `just_storage`, `just_database`, `just_signals`, `just_memory`, `just_tiled`, `just_dart`, `just_deflate`, `path_provider`, `meta`, `just_graphics_engine`, `just_game_engine_formats`, and the Flutter SDK package `flutter`. Versions are in [pubspec.yaml](pubspec.yaml).

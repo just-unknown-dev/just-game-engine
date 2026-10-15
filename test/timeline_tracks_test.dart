@@ -166,11 +166,34 @@ void main() {
       heard.clear();
       playing(asset, door, preview: true).update(1.5);
       expect(heard, isEmpty);
+    });
 
-      // The default asks the engine's audio system through a component.
-      world.context.timelineAudio = TimelineAudio.viaComponent;
+    test('by default a sound is a one-shot from the audio system', () {
+      final audio = _HeardAudio();
+      world = World()..initialize();
+      addTearDown(world.dispose);
+      world.addSystem(AudioSystem(engine: audio));
+      final door = world.createEntity(name: 'Door');
+      final components = door.components.length;
+      final asset = TimelineAsset(
+        duration: 2,
+        tracks: [
+          AudioTrack(
+            binding: const TrackBinding.name('Door'),
+            blocks: const [
+              TimelineBlock(start: 0, value: 'creak.wav', amount: 0.5),
+              TimelineBlock(start: 0.05, value: 'knock.wav', speed: 2),
+            ],
+          ),
+        ],
+      );
       playing(asset, world.createEntity()).update(0.1);
-      expect(door.getComponent<AudioPlayComponent>()!.clipPath, 'creak.wav');
+      expect(audio.heard, isEmpty, reason: 'played at the system update');
+      world.update(_dt);
+      // Both, though in one frame: one used to be dropped. And nothing was
+      // added to the door for them.
+      expect(audio.heard, ['creak.wav@0.5x1.0', 'knock.wav@1.0x2.0']);
+      expect(door.components, hasLength(components));
     });
 
     test('activation switches an entity off and finds it again', () {
@@ -496,4 +519,29 @@ void main() {
       expect(animator.currentState, 'idle', reason: 'the timeline finished');
     });
   });
+}
+
+/// Records the sounds played, as `file@volume x speed`, and plays nothing.
+class _HeardAudio extends AudioEngine {
+  final List<String> heard = [];
+
+  @override
+  bool get isInitialized => true;
+
+  @override
+  Future<String?> playSfx(
+    String path, {
+    double volume = 1.0,
+    bool loop = false,
+    double pan = 0.0,
+    double pitch = 1.0,
+    double speed = 1.0,
+    List<AudioEffect> effects = const [],
+    Audio3DPosition? position3d,
+    AudioSpatial spatial = const AudioSpatial(),
+    AudioChannel channel = AudioChannel.sfx,
+  }) async {
+    heard.add('$path@${volume}x$speed');
+    return 'sfx-${heard.length}';
+  }
 }

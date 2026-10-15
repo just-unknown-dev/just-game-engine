@@ -9,16 +9,20 @@ import 'package:just_game_engine/just_game_engine.dart';
 // Internal: the reference below is the hierarchy as it was, pass by pass.
 import 'package:just_game_engine/src/ecs/base/transform/hierarchy_math.dart';
 
-/// The hierarchy pass as it was before, composing every child every frame.
+/// The hierarchy pass as it was before, composing every child every frame
+/// — switched off or not, as the hierarchy keeps every child in step.
 void referencePropagate(World world) {
   bool isRoot(Entity e) {
     final parentId = e.getComponent<ParentComponent>()?.parentId;
     if (parentId == null) return true;
-    final parent = world.getEntity(parentId);
-    return parent == null || !parent.isActive;
+    return world.getEntity(parentId) == null;
   }
 
-  for (final root in world.query(const [ChildrenComponent])) {
+  final roots = [
+    for (final archetype in world.queryArchetypes(const [ChildrenComponent]))
+      for (var row = 0; row < archetype.length; row++) archetype.entityAt(row),
+  ];
+  for (final root in roots) {
     if (!isRoot(root)) continue;
     final stack = [root];
     while (stack.isNotEmpty) {
@@ -28,7 +32,10 @@ void referencePropagate(World world) {
       final pt = parent.getComponent<TransformComponent>();
       for (final id in children.childIds) {
         final child = world.getEntity(id);
-        if (child == null || !child.isActive) continue;
+        if (child == null) continue;
+        if (child.getComponent<ParentComponent>()?.parentId != parent.id) {
+          continue;
+        }
         if (pt != null) {
           final link = child.getComponent<ParentComponent>();
           final t = child.getComponent<TransformComponent>();

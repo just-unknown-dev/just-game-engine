@@ -31,6 +31,11 @@ abstract class EnginePlugin {
 }
 
 /// The plugins attached to one engine.
+///
+/// A plugin may register or unregister plugins — itself included — from
+/// its own [EnginePlugin.update] or [EnginePlugin.renderOverlay]: one
+/// unregistered before its turn is not called, and one registered is
+/// called from the next frame on.
 class PluginHost {
   /// An empty host for the given engine; each plugin registered is attached
   /// to it.
@@ -39,8 +44,19 @@ class PluginHost {
   final Engine _engine;
   final Map<String, EnginePlugin> _plugins = {};
 
-  /// Every attached plugin, in registration order.
-  Iterable<EnginePlugin> get all => _plugins.values;
+  /// [_plugins]' values as of its last change: what a frame walks.
+  List<EnginePlugin>? _snapshot;
+
+  List<EnginePlugin> get _current =>
+      _snapshot ??= List<EnginePlugin>.unmodifiable(_plugins.values);
+
+  /// Whether [plugin] is still the one registered under its id.
+  bool _isRegistered(EnginePlugin plugin) =>
+      identical(_plugins[plugin.id], plugin);
+
+  /// Every attached plugin, in registration order. A snapshot: registering
+  /// or unregistering while walking it is safe.
+  Iterable<EnginePlugin> get all => _current;
 
   /// The plugin with [id], or null.
   EnginePlugin? byId(String id) => _plugins[id];
@@ -50,31 +66,39 @@ class PluginHost {
   Future<void> register(EnginePlugin plugin) async {
     _plugins.remove(plugin.id)?.detach();
     _plugins[plugin.id] = plugin;
+    _snapshot = null;
     await plugin.attach(_engine);
   }
 
   /// Detaches and forgets the plugin with [id].
-  void unregister(String id) => _plugins.remove(id)?.detach();
+  void unregister(String id) {
+    final plugin = _plugins.remove(id);
+    if (plugin == null) return;
+    _snapshot = null;
+    plugin.detach();
+  }
 
   /// Forwards an engine update to every plugin.
   void update(double dt) {
-    for (final plugin in _plugins.values) {
-      plugin.update(dt);
+    for (final plugin in _current) {
+      if (_isRegistered(plugin)) plugin.update(dt);
     }
   }
 
   /// Forwards an overlay render to every plugin.
   void renderOverlay(Canvas canvas, Size size) {
-    for (final plugin in _plugins.values) {
-      plugin.renderOverlay(canvas, size);
+    for (final plugin in _current) {
+      if (_isRegistered(plugin)) plugin.renderOverlay(canvas, size);
     }
   }
 
   /// Detaches everything.
   void detachAll() {
-    for (final plugin in _plugins.values) {
+    final all = _current;
+    _plugins.clear();
+    _snapshot = null;
+    for (final plugin in all) {
       plugin.detach();
     }
-    _plugins.clear();
   }
 }

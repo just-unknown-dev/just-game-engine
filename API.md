@@ -292,17 +292,17 @@ Also: `InputSystem`, `PlayerInputManager`, `PlayerInput`, `CacheInputOverrideSto
 - **`AudioEngine`** — `engine.audio`.
   - `Future<String?> playSfx(String path, {…})`
   - `Future<void> playMusic(String path, {…})`
-- **`AudioSourceComponent`** — a sound on an entity.
+- **`AudioSourceComponent`** — a sound on an entity; `play()`, `pause()`, `resume()` and `stop()` ask the `AudioSystem` to control it (`AudioRequests`); `playOnAdd` is never changed by the system.
   - `AudioSourceComponent({required String clipPath, …})`
-- **`AudioPlayComponent`** — a one-shot sound request.
-  - `AudioPlayComponent({required String clipPath, …})`
+- **`AudioSystem`** — plays the world's sounds.
+  - `void playOneShot(String clipPath, {Vector3? position, …})` — a sound played once, with nothing added to an entity.
 - **`AudioListenerComponent`** — where 3-D sounds are heard from.
   - `AudioListenerComponent({bool atCamera = false, bool faceCamera = false})`
 - **`AudioSpatial`** — how a 3-D sound is heard: `minDistance`, `maxDistance`, `rolloff`, `dopplerLevel`, `farCutoff`; `mix(...)` works it out.
 - `enum AudioChannel { master, music, sfx, voice, ambient }` — mixer channels.
 - `enum AudioRolloff { inverse, linear, none }` — how a 3-D sound fades with distance.
 
-Also: `AudioSystem`, `MusicManager`, `SoundEffectManager`, `AudioStreamComponent`, `AudioStopComponent`, `AudioSpatialMix`.
+Also: `MusicManager`, `SoundEffectManager`, `AudioStreamComponent`, `AudioRequests`, `AudioRequest`, `AudioSpatialMix`; `Engine.suspendAudio()` / `resumeAudio()` (what `GameWidget` does as the app goes to the background and comes back).
 
 ## Particles and effects
 

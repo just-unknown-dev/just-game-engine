@@ -186,6 +186,7 @@ const inputAsset = '''
 {
   "format": "just_inputs",
   "version": 3,
+  "nextId": 7,
   "maps": [
     {
       "id": "m1",

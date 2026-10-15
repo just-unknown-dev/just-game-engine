@@ -92,7 +92,11 @@ void main() {
     _box(world, x: 0, name: 'Wheel');
     world.update(_frame);
     final wheel = physics.joints.single as WheelJoint;
-    expect((wheel.springStiffness, wheel.springDamping), (30.0, 0.5));
+    // Hertz and a damping ratio, in the pure-Dart joint's own terms.
+    expect((
+      wheel.springStiffness,
+      wheel.springDamping,
+    ), PhysicsJointBindingSystem.dartSpring(30, 0.5));
     expect(wheel.motorEnabled, isTrue);
     expect((wheel.motorSpeed, wheel.maxMotorTorque), (7.0, 90.0));
   });

@@ -22,7 +22,7 @@ class CameraTargetGroupSystem extends System {
   int get priority => SystemPriorities.camera + 2;
 
   @override
-  List<Type> get requiredComponents => [
+  List<Type> get requiredComponents => const [
     TransformComponent,
     CameraTargetGroupComponent,
   ];
@@ -74,7 +74,9 @@ class CameraTargetGroupSystem extends System {
 ///
 /// Several triggers may drive one camera. In
 /// [CameraTriggerMode.enableWhileInside] the camera is enabled while the
-/// target is inside *any* of them. In [CameraTriggerMode.boostPriority] each
+/// target is inside *any* of them — and switched off once none of them
+/// asks for it, even when the last one was switched off, destroyed or
+/// pointed at another camera while it held the camera on. In [CameraTriggerMode.boostPriority] each
 /// trigger adds its own boost, and takes back exactly what it added: when
 /// the target leaves, when its `amount` is edited (the new amount replaces
 /// the old), and when the trigger is switched off, destroyed or loses its
@@ -90,11 +92,15 @@ class CameraTriggerSystem extends System {
   final Map<VirtualCameraComponent, bool> _enable = Map.identity();
   final Set<CameraTriggerComponent> _boosting = Set.identity();
 
+  // The cameras triggers held on after the last frame, and this frame's.
+  Set<VirtualCameraComponent> _heldOn = Set.identity();
+  Set<VirtualCameraComponent> _holding = Set.identity();
+
   @override
   int get priority => SystemPriorities.camera + 1;
 
   @override
-  List<Type> get requiredComponents => [
+  List<Type> get requiredComponents => const [
     TransformComponent,
     CameraTriggerComponent,
   ];
@@ -127,7 +133,18 @@ class CameraTriggerSystem extends System {
           }
       }
     }
-    enable.forEach((vcam, on) => vcam.enabled = on);
+    final holding = _holding..clear();
+    for (final MapEntry(key: vcam, value: on) in enable.entries) {
+      vcam.enabled = on;
+      if (on) holding.add(vcam);
+    }
+    // A camera a trigger held on that no trigger votes for now — its
+    // trigger went away — is let go.
+    for (final vcam in _heldOn) {
+      if (!enable.containsKey(vcam)) vcam.enabled = false;
+    }
+    _holding = _heldOn;
+    _heldOn = holding;
     // A boost whose trigger no longer asks for it — the target left, the
     // trigger went away, or it now drives another camera — is taken back.
     if (_boosts.length > boosting.length) {

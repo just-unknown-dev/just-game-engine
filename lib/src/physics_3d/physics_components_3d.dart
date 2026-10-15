@@ -1,5 +1,6 @@
-import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_physics_engine/physics_3d.dart';
+
+import '../ecs/ecs.dart';
 
 // The 3-D physics components. Plain data with no native code, so scenes
 // that hold them load everywhere, the web included (where nothing simulates

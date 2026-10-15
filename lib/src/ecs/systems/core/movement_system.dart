@@ -6,12 +6,16 @@ import '../../base/system_priorities.dart';
 
 /// Movement system - Applies velocity to transform
 ///
-/// Entities switched off ([Entity.isActive] false) do not move.
+/// Entities switched off — themselves or with a parent
+/// ([Entity.isActiveInHierarchy] false) — do not move.
 class MovementSystem extends System {
   @override
   int get priority => SystemPriorities.movement;
   @override
-  List<Type> get requiredComponents => [TransformComponent, VelocityComponent];
+  List<Type> get requiredComponents => const [
+    TransformComponent,
+    VelocityComponent,
+  ];
 
   @override
   void update(double deltaTime) {
@@ -24,7 +28,10 @@ class MovementSystem extends System {
       // actually add Collider2D pay for this check, same opt-in-cost
       // pattern as the CullStateComponent check below. A CharacterBody2D is
       // moved by PhysicsSystem too.
-      if (archetype.types.contains(Collider2D) || archetype.types.contains(CharacterBody2D)) continue;
+      if (archetype.types.contains(Collider2D) ||
+          archetype.types.contains(CharacterBody2D)) {
+        continue;
+      }
 
       final transforms = archetype.getColumn(TransformComponent)!;
       final velocities = archetype.getColumn(VelocityComponent)!;
@@ -36,7 +43,7 @@ class MovementSystem extends System {
           : null;
       for (int i = 0; i < transforms.length; i++) {
         // An archetype holds switched-off entities too; they stay put.
-        if (!archetype.entityAt(i).isActive) continue;
+        if (!archetype.entityAt(i).isActiveInHierarchy) continue;
         if (cullStates != null &&
             !(cullStates[i] as CullStateComponent).isActive) {
           continue;

@@ -59,7 +59,8 @@ class TransformComponent extends Component {
   /// Create a transform.
   ///
   /// [euler] (radians, x/y/z) sets all three rotation angles and wins over
-  /// [angle], which sets only the turn about Z.
+  /// [angle], which sets only the turn about Z. [position] and [scale] are
+  /// copied: the vectors given stay the caller's.
   TransformComponent({
     Vector3? position,
     double angle = 0.0,
@@ -67,7 +68,7 @@ class TransformComponent extends Component {
     Vector3? scale,
   }) : position = Vector3.copy(position ?? Vector3.zero()),
        prevPosition = Vector3.copy(position ?? Vector3.zero()),
-       scale = scale ?? Vector3(1.0, 1.0, 1.0),
+       scale = scale == null ? Vector3(1.0, 1.0, 1.0) : Vector3.copy(scale),
        _ex = euler?.x ?? 0.0,
        _ey = euler?.y ?? 0.0,
        _ez = euler?.z ?? angle,
@@ -181,14 +182,43 @@ class TransformComponent extends Component {
     _captures++;
   }
 
-  /// How many times the previous pose has been captured ([capturePrevious]
-  /// and [capturePreviousWithRotation]).
+  /// Sets the previous pose outright — at [position], turned [angle] about
+  /// Z, or by [rotation] when given — and counts it as a capture. For the
+  /// transform hierarchy, which places a child's previous pose under its
+  /// parent's previous one so the two are drawn moving together.
+  void setPreviousPose(
+    Vector3 position, {
+    double angle = 0.0,
+    Quaternion? rotation,
+  }) {
+    prevPosition.setFrom(position);
+    if (rotation == null) {
+      prevAngle = angle;
+      _prevPlanar = true;
+    } else {
+      prevRotation
+        ..setFrom(rotation)
+        ..normalize();
+      _scratch.setValues(_ex, _ey, _ez);
+      prevRotation.eulerInto(_scratch, hint: _scratch);
+      prevAngle = _scratch.z;
+      _prevPlanar = false;
+    }
+    _captures++;
+  }
+
+  /// How many times the previous pose has been captured ([capturePrevious],
+  /// [capturePreviousWithRotation] and [setPreviousPose]).
   ///
   /// A renderer that sees it change over a fixed update knows the previous
   /// pose is where that update started, so drawing between the two is
   /// right. One that stays the same — a transform only gameplay writes —
   /// has a previous pose that may be long out of date.
   int get captureCount => _captures;
+
+  /// Whether the previous pose only turns about Z ([prevAngle] holds it
+  /// all), as the transform was [isPlanar] when it was captured.
+  bool get previousIsPlanar => _prevPlanar;
 
   /// Write the rotation the previous pose was captured with into [out],
   /// whether the transform was [isPlanar] then or not.

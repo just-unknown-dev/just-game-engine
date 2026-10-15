@@ -50,6 +50,9 @@ class TimelinePlayerComponent extends Component {
   });
 
   /// The asset to play. Empty plays [inline].
+  ///
+  /// Changed while a timeline is playing — or just before [play] — the
+  /// player plays the new timeline from its start once it has loaded.
   String timelinePath;
 
   /// A timeline saved inside the scene, for a one-off.
@@ -140,11 +143,15 @@ class TimelinePlayerComponent extends Component {
     if (!p.playFrom(marker)) p.play(from: 0);
   });
 
-  /// Plays forwards from where it is — from the start, once finished.
+  /// Plays forwards from where it is — from the start when it is at the
+  /// end. A timeline that finished at its start (played backwards) turns
+  /// round there, so a relative track keeps the value it is relative to.
   void forwards() => _do((p) {
     speed = speed.abs();
     p.speed = speed;
-    p.play(from: p.isFinished || p.time >= p.duration ? 0 : null);
+    // A timeline that finished at its end has nowhere to go on to but the
+    // start; one sitting at its start turns round there.
+    p.play(from: p.time >= p.rangeEnd ? p.rangeStart : null);
   });
 
   /// Plays [path] from its start, in place of whatever was playing — what an

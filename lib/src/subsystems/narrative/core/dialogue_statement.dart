@@ -91,8 +91,9 @@ class ChoiceOption {
   /// Audio key from a `#audio:key` tag.
   final String? audioKey;
 
-  /// Optional Yarn expression string (from `#if <expr>` tag or `<<if>>` on
-  /// the choice header). When `null` the choice is always available.
+  /// Optional Yarn expression string (from an `<<if expr>>` on the choice
+  /// line, or a `#if expr` tag; both together must hold). When `null` the
+  /// choice is always available.
   final String? condition;
 
   /// Metadata tags found on the `->` line.
@@ -125,10 +126,17 @@ class StopStatement extends DialogueStatement {
 // Variable assignment
 // ---------------------------------------------------------------------------
 
-/// `<<set $variable = expression>>` — assigns a value to a Yarn variable.
+/// `<<set $variable = expression>>` (or `to` for `=`) — assigns a value to a
+/// Yarn variable; `<<declare $variable = expression>>` — gives it a first
+/// value, only when it has none yet.
 class SetStatement extends DialogueStatement {
-  /// An assignment of [expression] to [variable] (named without the `$`).
-  const SetStatement({required this.variable, required this.expression});
+  /// An assignment of [expression] to [variable] (named without the `$`);
+  /// with [isDeclaration], only when [variable] is not set yet.
+  const SetStatement({
+    required this.variable,
+    required this.expression,
+    this.isDeclaration = false,
+  });
 
   /// Variable name **without** the leading `$`.
   final String variable;
@@ -136,6 +144,11 @@ class SetStatement extends DialogueStatement {
   /// Raw right-hand-side expression string (e.g. `"true"`, `"42"`,
   /// `"$gold + 5"`).
   final String expression;
+
+  /// Whether this is a `<<declare>>`: it sets [variable] only when the
+  /// variable store has no value for it yet, so a saved game's value — or
+  /// one the game set beforehand — is kept.
+  final bool isDeclaration;
 }
 
 // ---------------------------------------------------------------------------

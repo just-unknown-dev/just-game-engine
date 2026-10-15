@@ -20,6 +20,10 @@ class _Source {
   final TimelineAsset? inline;
   bool failed = false;
   bool loading = false;
+
+  /// The player was playing the timeline this source replaced: it plays
+  /// this one from its start as soon as it is there.
+  bool carryOn = false;
 }
 
 /// Runs every [TimelinePlayerComponent]: loads its timeline, plays it, and
@@ -57,7 +61,8 @@ class TimelineSystem extends System {
   void _onSignal(String name) {
     if (!isActive) return;
     for (final entity in entities) {
-      final player = entity.getComponent<TimelinePlayerComponent>()!;
+      final player = entity.getComponent<TimelinePlayerComponent>();
+      if (player == null) continue; // gone, by an earlier listener's hand
       if (player.listenSignal == name && !player.suspended) player.restart();
     }
   }
@@ -72,7 +77,7 @@ class TimelineSystem extends System {
   int get priority => SystemPriorities.animation + 2;
 
   @override
-  List<Type> get requiredComponents => [TimelinePlayerComponent];
+  List<Type> get requiredComponents => const [TimelinePlayerComponent];
 
   /// The timeline [entity] is playing, once loaded.
   TimelineAsset? assetOf(Entity entity) =>
@@ -100,14 +105,16 @@ class TimelineSystem extends System {
     // Only a structural change can take a player away; a player whose
     // entity is merely switched off keeps its playback, and carries on
     // where it was when it is switched back on.
-    if (world.structureVersion != _prunedAt) {
-      _prunedAt = world.structureVersion;
+    final version = world.queryVersion(requiredComponents);
+    if (version != _prunedAt) {
+      _prunedAt = version;
       _prune();
     }
 
     forEach((entity) {
-      final player = entity.getComponent<TimelinePlayerComponent>()!;
-      if (player.suspended) return;
+      // An event handler earlier this frame may have taken it away.
+      final player = entity.getComponent<TimelinePlayerComponent>();
+      if (player == null || player.suspended) return;
       final path = player.timelinePath.trim();
       var source = _sources[entity];
       if (source == null ||
@@ -115,14 +122,17 @@ class TimelineSystem extends System {
           !identical(source.inline, player.inline) ||
           (player.playback == null && !source.failed && !source.loading)) {
         // Not reset(): what was asked of the player while it had no
-        // timeline is still owed.
+        // timeline is still owed. A player that was playing — told to
+        // play just now, perhaps, with its new path — plays the new one.
+        final carryOn = source != null && (player.playback?.isPlaying ?? false);
         player.playback?.dispose();
         player.playback = null;
-        source = _sources[entity] = _Source(player, path, player.inline);
+        source = _sources[entity] = _Source(player, path, player.inline)
+          ..carryOn = carryOn;
         if (path.isNotEmpty) {
           _load(entity, player, source);
         } else if (player.inline != null) {
-          _start(entity, player, player.inline!);
+          _start(entity, player, player.inline!, source);
         } else {
           source.failed = true;
         }
@@ -165,7 +175,7 @@ class TimelineSystem extends System {
         // was loading.
         source.loading = false;
         if (!identical(_sources[entity], source)) return;
-        _start(entity, player, asset);
+        _start(entity, player, asset, source);
       },
       onError: (Object error) {
         // Remembered, so a missing file is not asked for every frame — and
@@ -192,6 +202,7 @@ class TimelineSystem extends System {
     Entity entity,
     TimelinePlayerComponent player,
     TimelineAsset asset,
+    _Source source,
   ) {
     final playback =
         TimelinePlayback(
@@ -207,6 +218,8 @@ class TimelineSystem extends System {
     if (!player.initialized) {
       player.initialized = true;
       if (player.playOnStart) playback.play();
+    } else if (source.carryOn) {
+      playback.play();
     }
     player.flushPending();
   }

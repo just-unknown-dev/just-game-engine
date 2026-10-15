@@ -38,7 +38,7 @@ class EffectSystemECS extends System implements EffectRuntime {
   // ── System overrides ────────────────────────────────────────────────────
 
   @override
-  List<Type> get requiredComponents => [EffectComponent];
+  List<Type> get requiredComponents => const [EffectComponent];
 
   @override
   int get priority => SystemPriorities.effects;

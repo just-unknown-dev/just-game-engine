@@ -195,6 +195,22 @@ class CameraBrain {
   final Vector3 _targetAt = Vector3.zero();
   final Quaternion _targetTurn = Quaternion.identity();
 
+  // Each camera's pipeline and target scratch, kept between evaluations.
+  final Map<EntityId, _CameraCache> _caches = {};
+
+  // An evaluation's workings, kept to be reused: the enabled cameras, the
+  // ones managers own, the rest; and which cameras stand now and stood at
+  // the last evaluation, to forget what went away.
+  final List<Entity> _all = [];
+  final Set<EntityId> _managed = {};
+  final List<Entity> _unmanaged = [];
+  Set<EntityId> _alive = {};
+  Set<EntityId> _wasAlive = {};
+  bool _strays = false;
+
+  // Whether [id] was not among this evaluation's cameras.
+  bool _gone(EntityId id, Object? _) => !_alive.contains(id);
+
   /// The virtual camera that is live, or null when the world has none.
   Entity? get liveCamera => _live;
 
@@ -242,7 +258,10 @@ class CameraBrain {
   void sampleTargets(World world) {
     targets.beginFrame(world);
     _sample++;
-    for (final camera in world.query([TransformComponent, VirtualCameraComponent])) {
+    for (final camera in world.query([
+      TransformComponent,
+      VirtualCameraComponent,
+    ])) {
       final vcam = camera.getComponent<VirtualCameraComponent>()!;
       if (!camera.isActive || !vcam.enabled || !vcam.hasTarget) continue;
       final target = targets.resolveTarget(vcam.follow, owner: camera);
@@ -273,6 +292,9 @@ class CameraBrain {
   void reset() {
     impulses.clear();
     _poses.clear();
+    _caches.clear();
+    _alive.clear();
+    _wasAlive.clear();
     _memory.clear();
     _states.clear();
     _activation.clear();
@@ -297,30 +319,32 @@ class CameraBrain {
     impulses.update(dt);
 
     _frame++;
-    final all = <Entity>[
-      for (final entity in world.query([
-        TransformComponent,
-        VirtualCameraComponent,
-      ]))
-        if (entity.isActive &&
-            entity.getComponent<VirtualCameraComponent>()!.enabled)
-          entity,
-    ];
+    final all = _all..clear();
+    for (final entity in world.query(const [
+      TransformComponent,
+      VirtualCameraComponent,
+    ])) {
+      if (entity.isActive &&
+          entity.getComponent<VirtualCameraComponent>()!.enabled) {
+        all.add(entity);
+      }
+    }
     // A manager's children are its own business: the brain sees only the
     // manager, at the manager's priority.
-    final managed = <EntityId>{};
+    final managed = _managed..clear();
     for (final entity in all) {
       if (managers.managerOf(entity) == null) continue;
       for (final child in _childrenOf(world, entity)) {
         managed.add(child.id);
       }
     }
-    final cameras = managed.isEmpty
-        ? all
-        : [
-            for (final entity in all)
-              if (!managed.contains(entity.id)) entity,
-          ];
+    var cameras = all;
+    if (managed.isNotEmpty) {
+      cameras = _unmanaged..clear();
+      for (final entity in all) {
+        if (!managed.contains(entity.id)) cameras.add(entity);
+      }
+    }
     _forgetAllBut(cameras, managed);
     if (cameras.isEmpty) {
       _live = null;
@@ -329,7 +353,9 @@ class CameraBrain {
       return;
     }
     for (final camera in cameras) {
-      _activation.putIfAbsent(camera.id, () => ++_activationCounter);
+      if (!_activation.containsKey(camera.id)) {
+        _activation[camera.id] = ++_activationCounter;
+      }
     }
 
     final next = _pick(cameras);
@@ -441,6 +467,7 @@ class CameraBrain {
     bool snap,
   ) {
     final transform = camera.getComponent<TransformComponent>()!;
+    final cache = _caches[camera.id] ??= _CameraCache();
     final target = vcam.hasTarget
         ? targets.resolveTarget(vcam.follow, owner: camera)
         : null;
@@ -456,14 +483,19 @@ class CameraBrain {
           pose.previous.y + (pose.current.y - pose.previous.y) * _alpha,
           pose.previous.z + (pose.current.z - pose.previous.z) * _alpha,
         );
-        _targetTurn.setSlerp(pose.previousRotation, pose.currentRotation, _alpha);
+        _targetTurn.setSlerp(
+          pose.previousRotation,
+          pose.currentRotation,
+          _alpha,
+        );
         blended = Offset(_targetAt.x, _targetAt.y);
       } else {
         _targetAt.setFrom(targetTransform.position);
         targetTransform.rotationInto(_targetTurn);
       }
-      at = Vector3.copy(_targetAt);
-      turn = Quaternion.copy(_targetTurn);
+      // The camera's own copies: a stage may change them as it goes.
+      at = cache.targetAt..setFrom(_targetAt);
+      turn = cache.targetTurn..setFrom(_targetTurn);
     }
     final context = CameraStageContext(
       brain: this,
@@ -512,7 +544,9 @@ class CameraBrain {
           ) ??
           state;
     }
-    for (final (stage, component) in stages.pipelineOf(camera)) {
+    final steps = cache.pipelineOf(camera, stages);
+    for (var i = 0; i < steps.length; i++) {
+      final (stage, component) = steps[i];
       state = stage.applyAny(context, component, state, dt);
     }
     memory.initialized = true;
@@ -526,7 +560,7 @@ class CameraBrain {
     return [
       for (final id in ids)
         if (world.getEntity(id) case final child?
-            when child.isActive &&
+            when child.isActiveInHierarchy &&
                 child.hasComponent<TransformComponent>() &&
                 (child.getComponent<VirtualCameraComponent>()?.enabled ??
                     false))
@@ -539,6 +573,9 @@ class CameraBrain {
     if (vcam == null) return null;
     final ranAt = _ranAt[child.id];
     if (ranAt == _frame) return _states[child.id];
+    // Not one of the managers' children the brain knows of: forgotten at
+    // the next evaluation unless it is one by then.
+    if (!_alive.contains(child.id)) _strays = true;
     _ranAt[child.id] = _frame;
     final memory = _memory.putIfAbsent(child.id, CameraRigMemory.new);
     // A child that sat out a frame — its manager was on standby, or showed
@@ -549,14 +586,74 @@ class CameraBrain {
   }
 
   void _forgetAllBut(List<Entity> cameras, Set<EntityId> managed) {
-    if (_memory.isEmpty && _states.isEmpty && _activation.isEmpty) return;
-    final alive = {for (final camera in cameras) camera.id, ...managed};
-    _ranAt.removeWhere((id, _) => !alive.contains(id));
-    _memory.removeWhere((id, _) => !alive.contains(id));
-    _states.removeWhere((id, _) => !alive.contains(id));
-    _activation.removeWhere((id, _) => !alive.contains(id));
+    // This evaluation's cameras, in last evaluation's set, made the current.
+    final alive = _wasAlive..clear();
+    for (final camera in cameras) {
+      alive.add(camera.id);
+    }
+    alive.addAll(managed);
+    _wasAlive = _alive;
+    _alive = alive;
     if (soloEntity != null && !alive.contains(soloEntity)) soloEntity = null;
+    // Everything remembered is of a camera that stood at some evaluation
+    // since the last time things were forgotten: while none of those has
+    // gone, there is nothing to forget.
+    var lost = _strays;
+    _strays = false;
+    if (!lost) {
+      for (final id in _wasAlive) {
+        if (!alive.contains(id)) {
+          lost = true;
+          break;
+        }
+      }
+    }
+    if (!lost) return;
+    _ranAt.removeWhere(_gone);
+    _memory.removeWhere(_gone);
+    _states.removeWhere(_gone);
+    _activation.removeWhere(_gone);
+    _caches.removeWhere(_gone);
     // The live camera is kept even when it is gone: the next pick needs to
     // know what it is cutting away from.
+  }
+}
+
+/// What the brain keeps of one camera between evaluations: its stage
+/// pipeline, built again only when its stage components change, and its
+/// copies of the target's pose.
+class _CameraCache {
+  final Vector3 targetAt = Vector3.zero();
+  final Quaternion targetTurn = Quaternion.identity();
+
+  // The stage components the pipeline was built from, in the entity's
+  // order, and the registry's revision then.
+  final List<Component> _found = [];
+  int _revision = -1;
+  List<(CameraStage, Component)> _steps = const [];
+
+  /// [camera]'s pipeline: the last one, while its stage components and
+  /// [stages] are as they were.
+  List<(CameraStage, Component)> pipelineOf(
+    Entity camera,
+    CameraStageRegistry stages,
+  ) {
+    var same = _revision == stages.revision;
+    var count = 0;
+    for (final component in camera.components) {
+      if (stages.stageFor(component) == null) continue;
+      if (same &&
+          (count >= _found.length || !identical(_found[count], component))) {
+        same = false;
+      }
+      count++;
+    }
+    if (same && count == _found.length) return _steps;
+    _found.clear();
+    for (final component in camera.components) {
+      if (stages.stageFor(component) != null) _found.add(component);
+    }
+    _revision = stages.revision;
+    return _steps = stages.pipelineOf(camera);
   }
 }

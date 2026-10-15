@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/painting.dart';
 import 'package:just_physics_engine/just_physics_engine.dart';
 
@@ -17,6 +19,15 @@ import 'physics_system.dart';
 /// changes, and a joint's other entity is looked up again only when the one
 /// it had no longer answers to its target. A joint switched off
 /// ([Joint2D.enabled]) is taken down.
+///
+/// Springs ([DistanceJoint2D.stiffness], [WheelJoint2D.stiffness]) are a
+/// frequency in hertz and a damping ratio on both backends, as Box2D and
+/// the 3-D joints take them; for the pure-Dart joints they are turned into
+/// that engine's own terms here. A slider's and a wheel's axis is in the
+/// joint entity's space, turned to the world's as the joint is made. With
+/// [Joint2D.collideConnected] off, the two bodies' contacts send no events
+/// (the native backend never lets jointed bodies collide; the pure-Dart one
+/// still does, but quietly).
 class PhysicsJointBindingSystem extends System {
   /// A system making its joints in [physics].
   PhysicsJointBindingSystem(this.physics);
@@ -46,13 +57,15 @@ class PhysicsJointBindingSystem extends System {
   @override
   void update(double deltaTime) {
     _frame++;
-    final structureChanged = world.structureVersion != _seenStructureVersion;
+    final structureChanged =
+        world.queryVersion(const [PhysicsBodyRefComponent]) !=
+        _seenStructureVersion;
     if (structureChanged) _refreshOwners();
 
     var wanted = 0;
     for (final owner in _owners) {
       final entity = owner.entity;
-      if (!entity.isActive) continue;
+      if (!entity.isActiveInHierarchy) continue;
       final bodyA = owner.ref.body;
       final comp = owner.joint;
       if (!comp.enabled) continue;
@@ -62,7 +75,7 @@ class PhysicsJointBindingSystem extends System {
       var target = binding?.target;
       if (structureChanged ||
           target == null ||
-          !target.isActive ||
+          !target.isActiveInHierarchy ||
           !_answers(target, want)) {
         target = want.resolve(world, entity);
       }
@@ -83,15 +96,20 @@ class PhysicsJointBindingSystem extends System {
         continue;
       }
       if (binding != null) _destroyBinding(binding);
-      final created = _create(entity, bodyA, bodyB, comp);
+      final created = _create(entity, target, bodyA, bodyB, comp);
       if (created == null) {
         _bindings.remove(comp);
         continue;
       }
+      final physicsSystem = world.getSystem<PhysicsSystem>();
       _bindings[comp] = created
         ..target = target
-        ..owner = world.getSystem<PhysicsSystem>()
+        ..owner = physicsSystem
         ..frame = _frame;
+      if (!comp.collideConnected) {
+        created.quiet = true;
+        physicsSystem?.jointedPair(bodyA, bodyB, joined: true);
+      }
       wanted++;
     }
 
@@ -125,7 +143,7 @@ class PhysicsJointBindingSystem extends System {
   /// checking an entity's joints in the order distance, fixed, slider,
   /// wheel.
   void _refreshOwners() {
-    _seenStructureVersion = world.structureVersion;
+    _seenStructureVersion = world.queryVersion(const [PhysicsBodyRefComponent]);
     _owners.clear();
     for (final archetype in world.queryArchetypes(const [
       PhysicsBodyRefComponent,
@@ -138,8 +156,7 @@ class PhysicsJointBindingSystem extends System {
       if (columns.isEmpty) continue;
       final refs = archetype.getColumn(PhysicsBodyRefComponent)!;
       for (var row = 0; row < ids.length; row++) {
-        final entity = world.getEntity(ids[row]);
-        if (entity == null) continue;
+        final entity = archetype.entityAt(row);
         final ref = refs[row] as PhysicsBodyRefComponent;
         for (final column in columns) {
           _owners.add(_JointOwner(entity, ref, column[row] as Joint2D));
@@ -156,14 +173,16 @@ class PhysicsJointBindingSystem extends System {
   ];
 
   /// Whether [entity] is still what [target] means.
-  static bool _answers(Entity entity, EntityTarget target) => switch (target.kind) {
-    EntityTargetKind.name => entity.name == target.value,
-    EntityTargetKind.tag => entity.hasTag(target.value),
-    EntityTargetKind.self => false,
-  };
+  static bool _answers(Entity entity, EntityTarget target) =>
+      switch (target.kind) {
+        EntityTargetKind.name => entity.name == target.value,
+        EntityTargetKind.tag => entity.hasTag(target.value),
+        EntityTargetKind.self => false,
+      };
 
   _JointBinding? _create(
     Entity a,
+    Entity b,
     PhysicsBody bodyA,
     PhysicsBody bodyB,
     Component comp,
@@ -179,6 +198,12 @@ class PhysicsJointBindingSystem extends System {
           stiffness: comp.stiffness,
           damping: comp.damping,
         );
+        if (joint is DistanceJoint && comp.stiffness > 0) {
+          final (k, c) = dartSpring(comp.stiffness, comp.damping);
+          joint
+            ..stiffness = k
+            ..damping = c;
+        }
         return _DistanceBinding(bodyA, bodyB, [joint], comp);
 
       case FixedJoint2D():
@@ -189,7 +214,7 @@ class PhysicsJointBindingSystem extends System {
         final joint = physics.addPrismaticJoint(
           bodyA,
           bodyB,
-          _normalizeAxis(comp.axis),
+          _worldAxis(a, comp.axis),
         );
         _configurePrismaticJoint(
           joint,
@@ -206,7 +231,7 @@ class PhysicsJointBindingSystem extends System {
         return _WheelBinding(
           bodyA,
           bodyB,
-          _createWheel(a, bodyA, bodyB, comp),
+          _createWheel(a, b, bodyA, bodyB, comp),
           comp,
         );
     }
@@ -215,17 +240,21 @@ class PhysicsJointBindingSystem extends System {
 
   List<JointConstraint> _createWheel(
     Entity a,
+    Entity b,
     PhysicsBody bodyA,
     PhysicsBody bodyB,
     WheelJoint2D comp,
   ) {
-    final axis = _normalizeAxis(comp.axis);
+    final axis = _worldAxis(a, comp.axis);
     final physics = this.physics;
     if (physics is Box2DPhysicsEngine) {
+      // Its axle: the wheel's own point (its centre, unless
+      // connectedAnchor says otherwise) — not the chassis's, which the
+      // wheel would orbit.
       final wheel = physics.createWheelJoint(
         bodyA,
         bodyB,
-        _worldAnchor(a, Offset.zero),
+        _worldAnchor(b, comp.connectedAnchor),
         axis,
       );
       if (wheel != null) {
@@ -243,8 +272,11 @@ class PhysicsJointBindingSystem extends System {
     // the Dart one — sprung along the axis, its motor spinning the wheel.
     final wheel = physics.addWheelJoint(bodyA, bodyB, axis);
     if (wheel is WheelJoint) {
+      final (k, c) = comp.stiffness > 0
+          ? dartSpring(comp.stiffness, comp.damping)
+          : (0.0, 0.0);
       wheel
-        ..setWheelSpring(comp.stiffness, comp.damping)
+        ..setWheelSpring(k, c)
         ..setWheelMotor(
           comp.motorSpeed,
           comp.motorMaxTorque,
@@ -266,6 +298,9 @@ class PhysicsJointBindingSystem extends System {
   /// its body (removing a body takes its joints) is gone already, and
   /// destroying it again does nothing: just_box_2d checks every handle.
   void _destroyBinding(_JointBinding binding) {
+    if (binding.quiet) {
+      binding.owner?.jointedPair(binding.bodyA, binding.bodyB, joined: false);
+    }
     for (final joint in binding.joints) {
       if (joint is Box2DJoint) joint.destroy();
       physics.removeJoint(joint);
@@ -305,15 +340,43 @@ class PhysicsJointBindingSystem extends System {
     }
   }
 
+  /// [local], a point in [entity]'s space, in the world's.
   Offset _worldAnchor(Entity entity, Offset local) {
     final t = entity.getComponent<TransformComponent>();
     if (t == null) return local;
-    return Offset(t.position.x + local.dx, t.position.y + local.dy);
+    final cos = math.cos(t.angle), sin = math.sin(t.angle);
+    final x = local.dx * t.scale.x, y = local.dy * t.scale.y;
+    return Offset(
+      t.position.x + x * cos - y * sin,
+      t.position.y + x * sin + y * cos,
+    );
   }
 
-  Offset _normalizeAxis(Offset axis) {
-    if (axis.distance <= 0.00001) return const Offset(1, 0);
-    return axis / axis.distance;
+  /// [axis], in [entity]'s space, as a unit axis in the world's: turned as
+  /// the entity is.
+  Offset _worldAxis(Entity entity, Offset axis) {
+    final length = axis.distance;
+    if (length <= 0.00001) return const Offset(1, 0);
+    final angle = entity.getComponent<TransformComponent>()?.angle ?? 0.0;
+    final cos = math.cos(angle), sin = math.sin(angle);
+    final x = axis.dx / length, y = axis.dy / length;
+    return Offset(x * cos - y * sin, x * sin + y * cos);
+  }
+
+  /// A spring of [hertz] and damping [ratio] — what Box2D takes — as the
+  /// pure-Dart joints take one: the pull per unit stretched and per unit of
+  /// speed, both per unit of the bodies' mass. Worked out as Box2D's soft
+  /// step does for the engine's fixed step, so a stiff spring holds rather
+  /// than blowing up, and both backends settle alike.
+  static (double, double) dartSpring(double hertz, double ratio) {
+    if (!(hertz > 0)) return (0.0, 0.0);
+    const h = PhysicsEngine.fixedDeltaTime;
+    final omega = 2 * math.pi * hertz;
+    final a1 = 2 * ratio + h * omega;
+    final a2 = h * omega * a1;
+    final massScale = a2 / (1 + a2);
+    final biasRate = omega / a1;
+    return (massScale * biasRate / h, massScale / h);
   }
 }
 
@@ -347,17 +410,17 @@ sealed class _JointBinding {
   /// The update that last wanted this joint.
   int frame = 0;
 
+  /// Whether its bodies' contacts were silenced ([Joint2D.collideConnected]
+  /// off).
+  bool quiet = false;
+
   /// Whether [comp] still asks for exactly this joint.
   bool matches(Component comp);
 }
 
 final class _DistanceBinding extends _JointBinding {
-  _DistanceBinding(
-    super.bodyA,
-    super.bodyB,
-    super.joints,
-    DistanceJoint2D c,
-  ) : length = c.length,
+  _DistanceBinding(super.bodyA, super.bodyB, super.joints, DistanceJoint2D c)
+    : length = c.length,
       stiffness = c.stiffness,
       damping = c.damping,
       collideConnected = c.collideConnected;
@@ -398,12 +461,8 @@ final class _WeldBinding extends _JointBinding {
 }
 
 final class _PrismaticBinding extends _JointBinding {
-  _PrismaticBinding(
-    super.bodyA,
-    super.bodyB,
-    super.joints,
-    SliderJoint2D c,
-  ) : axis = c.axis,
+  _PrismaticBinding(super.bodyA, super.bodyB, super.joints, SliderJoint2D c)
+    : axis = c.axis,
       enableLimit = c.useLimits,
       lowerTranslation = c.minPosition,
       upperTranslation = c.maxPosition,

@@ -57,8 +57,13 @@ class SystemManager implements ILifecycle {
   late final UnmodifiableMapView<String, double> _unmodifiableTaskTimesView =
       UnmodifiableMapView(_lastTaskTimesMs);
 
-  // Cached stats map — rebuilt once per frame at end of runUpdateCycle.
-  Map<String, dynamic> _cachedSchedulerStats = const {};
+  /// Whether [runUpdateCycle] times each task ([lastTaskTimesMs],
+  /// [lastFrameMs]).
+  ///
+  /// On by default in debug and profile builds and off in release, where
+  /// the stopwatch reads cost time for numbers nothing reads. Switched
+  /// off, the timings stay empty and 0.
+  bool profiling = !kReleaseMode;
 
   /// Check if initialized
   bool get isInitialized => _isInitialized;
@@ -66,11 +71,15 @@ class SystemManager implements ILifecycle {
   /// Get the number of registered systems
   int get systemCount => _systems.length;
 
-  /// Latest scheduler timing snapshot.
-  ///
-  /// Rebuilt once per [runUpdateCycle]; subsequent reads in the same frame
-  /// return the same cached map without any allocation.
-  Map<String, dynamic> get schedulerStats => _cachedSchedulerStats;
+  /// Latest scheduler timing snapshot, made when read: `systemCount`,
+  /// `updateTaskCount`, `lastFrameMs` and `taskTimesMs` (a live view of
+  /// [lastTaskTimesMs]). The timings are measured only while [profiling].
+  Map<String, dynamic> get schedulerStats => {
+    'systemCount': _systems.length,
+    'updateTaskCount': _updateOrder.length,
+    'lastFrameMs': _lastFrameMs,
+    'taskTimesMs': _unmodifiableTaskTimesView,
+  };
 
   /// Latest task timings in milliseconds.
   ///
@@ -204,10 +213,18 @@ class SystemManager implements ILifecycle {
 
   /// Execute one scheduled update cycle in registration order.
   void runUpdateCycle(double deltaTime) {
+    if (_lastTaskTimesMs.isNotEmpty) _lastTaskTimesMs.clear();
+    if (!profiling) {
+      for (final name in _updateOrder) {
+        _updateTasks[name]?.call(deltaTime);
+      }
+      _lastFrameMs = 0.0;
+      return;
+    }
+
     _frameStopwatch
       ..reset()
       ..start();
-    _lastTaskTimesMs.clear();
 
     for (final name in _updateOrder) {
       final task = _updateTasks[name];
@@ -226,14 +243,6 @@ class SystemManager implements ILifecycle {
 
     _frameStopwatch.stop();
     _lastFrameMs = _frameStopwatch.elapsedMicroseconds / 1000.0;
-
-    // Rebuild cached stats map once per frame so the getter is allocation-free.
-    _cachedSchedulerStats = {
-      'systemCount': _systems.length,
-      'updateTaskCount': _updateOrder.length,
-      'lastFrameMs': _lastFrameMs,
-      'taskTimesMs': _unmodifiableTaskTimesView,
-    };
   }
 
   /// Get all registered system names

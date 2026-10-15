@@ -46,7 +46,6 @@ class CircleComponent extends RenderableComponent {
   }) {
     late CircleComponent self;
     final shape = ShapeRenderable(
-      layer: 8,
       getBoundsCallback: () => Rect.fromCircle(
         center: Offset.zero,
         radius: self.radius + self.strokeWidth,

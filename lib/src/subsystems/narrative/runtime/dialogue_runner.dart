@@ -3,6 +3,8 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
+
 import '../core/dialogue_choice.dart';
 import '../core/dialogue_graph.dart';
 import '../core/dialogue_line.dart';
@@ -95,13 +97,10 @@ class DialogueRunner {
 
   late final ExpressionEvaluator _evaluator;
 
-  /// Execution stack — enables nested choice bodies without recursion.
-  final _stack = <_Frame>[];
-
-  Completer<void>? _advanceCompleter;
-  Completer<int>? _choiceCompleter;
-
-  bool _loopRunning = false;
+  /// The session playing now; null while idle. A [start] replaces it, and
+  /// the one replaced — still awaiting a line, a choice or a command —
+  /// finds itself over the moment it wakes and goes no further.
+  _Session? _session;
 
   // ---------------------------------------------------------------------------
   // Public API
@@ -112,8 +111,13 @@ class DialogueRunner {
 
   /// Starts (or restarts) dialogue from [nodeTitle].
   ///
-  /// Returns a [Future] that completes when the dialogue ends naturally
-  /// (or [stop] is called).
+  /// Returns a [Future] that completes when the dialogue ends naturally,
+  /// when [stop] is called, or when another [start] takes over. A command
+  /// handler that throws ends the session, and the future completes with
+  /// its error.
+  ///
+  /// Throws an [ArgumentError] when the graph has no node [nodeTitle];
+  /// whatever was playing goes on then.
   Future<void> start(String nodeTitle) async {
     final node = graph.getNode(nodeTitle);
     if (node == null) {
@@ -123,82 +127,102 @@ class DialogueRunner {
     }
 
     // Cancel any previous session
-    if (_loopRunning) await _terminate();
+    final previous = _session;
+    if (previous != null) _finish(previous);
 
+    final session = _session = _Session()
+      ..stack.add(_Frame(node.statements, 0));
     signals.isDialogueActive.value = true;
     signals.activeNodeTitle.value = nodeTitle;
-    _stack.clear();
-    _stack.add(_Frame(node.statements, 0));
 
-    _loopRunning = true;
-    await _runLoop();
-    _loopRunning = false;
+    try {
+      await _runLoop(session);
+    } finally {
+      _finish(session);
+    }
   }
 
   /// Advances past the current line.
   ///
   /// Call this when the player finishes reading.  Has no effect while waiting
-  /// for a choice.
+  /// for a choice. It may be called from a `signals.currentLine` listener.
   void advance() {
-    if (_advanceCompleter != null && !_advanceCompleter!.isCompleted) {
-      _advanceCompleter!.complete();
-    }
+    final waiting = _session?.advance;
+    if (waiting != null && !waiting.isCompleted) waiting.complete();
   }
 
   /// Selects a player choice by zero-based [index].
   ///
-  /// Only has effect when `signals.hasChoices` is `true`.
+  /// Only has effect when `signals.hasChoices` is `true`, and only for an
+  /// index in range whose choice is available: anything else is ignored
+  /// (and said in the log in a debug build), and the choices stay up.
   void selectChoice(int index) {
-    if (_choiceCompleter != null && !_choiceCompleter!.isCompleted) {
-      _choiceCompleter!.complete(index);
+    final session = _session;
+    final waiting = session?.choice;
+    if (session == null || waiting == null || waiting.isCompleted) return;
+    final offered = session.offered;
+    if (index < 0 || index >= offered.length || !offered[index].isAvailable) {
+      if (kDebugMode) {
+        debugPrint(
+          'DialogueRunner: choice $index cannot be picked '
+          '(${offered.length} offered); ignored.',
+        );
+      }
+      return;
     }
+    waiting.complete(index);
   }
 
   /// Stops the current dialogue immediately.
   Future<void> stop() async {
-    if (_loopRunning) await _terminate();
+    final session = _session;
+    if (session != null) _finish(session);
   }
 
   // ---------------------------------------------------------------------------
   // Execution loop
   // ---------------------------------------------------------------------------
 
-  Future<void> _runLoop() async {
-    while (_stack.isNotEmpty) {
-      final frame = _stack.last;
+  Future<void> _runLoop(_Session session) async {
+    final stack = session.stack;
+    // Each await may wake to a session that was stopped or replaced
+    // meanwhile; it then goes no further.
+    while (!session.over && stack.isNotEmpty) {
+      final frame = stack.last;
 
       if (frame.index >= frame.statements.length) {
-        _stack.removeLast();
+        stack.removeLast();
         continue;
       }
 
       final stmt = frame.statements[frame.index];
       frame.index++;
 
-      final shouldStop = await _executeStatement(stmt);
+      final shouldStop = await _executeStatement(session, stmt);
       if (shouldStop) break;
     }
-
-    await _terminate();
   }
 
   /// Returns `true` when the loop should stop (e.g. [StopStatement]).
-  Future<bool> _executeStatement(DialogueStatement stmt) async {
+  Future<bool> _executeStatement(
+    _Session session,
+    DialogueStatement stmt,
+  ) async {
     switch (stmt) {
       case LineStatement():
-        await _executeLine(stmt);
+        await _executeLine(session, stmt);
         return false;
 
       case ChoiceSetStatement():
-        await _executeChoiceSet(stmt);
+        await _executeChoiceSet(session, stmt);
         return false;
 
       case JumpStatement():
-        _executeJump(stmt);
+        _executeJump(session, stmt);
         return false;
 
       case StopStatement():
-        _stack.clear();
+        session.stack.clear();
         return true;
 
       case SetStatement():
@@ -206,7 +230,7 @@ class DialogueRunner {
         return false;
 
       case ConditionalStatement():
-        _executeConditional(stmt);
+        _executeConditional(session, stmt);
         return false;
 
       case CommandStatement():
@@ -218,24 +242,32 @@ class DialogueRunner {
 
   // ---- Statement handlers --------------------------------------------------
 
-  Future<void> _executeLine(LineStatement stmt) async {
+  Future<void> _executeLine(_Session session, LineStatement stmt) async {
     final text = _resolveText(stmt.rawText, stmt.lineKey);
+    final character = stmt.character == null
+        ? null
+        : _substitute(stmt.character!);
+    // Waiting before the line is shown: a listener may advance at once.
+    final waiting = session.advance = Completer<void>();
     signals.currentLine.value = DialogueLine(
-      character: stmt.character,
+      character: character,
       text: text,
       audioKey: stmt.audioKey,
       tags: stmt.tags,
       lineKey: stmt.lineKey,
     );
-    signals.activeSpeaker.value = stmt.character;
+    if (session.over) return;
+    signals.activeSpeaker.value = character;
 
     // Wait for advance()
-    _advanceCompleter = Completer<void>();
-    await _advanceCompleter!.future;
-    _advanceCompleter = null;
+    await waiting.future;
+    if (identical(session.advance, waiting)) session.advance = null;
   }
 
-  Future<void> _executeChoiceSet(ChoiceSetStatement stmt) async {
+  Future<void> _executeChoiceSet(
+    _Session session,
+    ChoiceSetStatement stmt,
+  ) async {
     final resolved = <DialogueChoice>[];
     for (int i = 0; i < stmt.choices.length; i++) {
       final opt = stmt.choices[i];
@@ -252,45 +284,59 @@ class DialogueRunner {
       );
     }
 
+    // Waiting before the choices are shown: a listener may pick at once.
+    session.offered = resolved;
+    final waiting = session.choice = Completer<int>();
     signals.choices.value = resolved;
+    if (session.over) return;
     signals.currentLine.value = null;
 
     // Wait for selectChoice()
-    _choiceCompleter = Completer<int>();
-    final selected = await _choiceCompleter!.future;
-    _choiceCompleter = null;
+    final selected = await waiting.future;
+    if (identical(session.choice, waiting)) session.choice = null;
+    session.offered = const [];
+    if (session.over) return;
 
     signals.choices.value = const [];
 
-    // Only process valid, available choices
-    if (selected >= 0 &&
-        selected < stmt.choices.length &&
-        resolved[selected].isAvailable) {
-      final body = stmt.choices[selected].body;
-      if (body.isNotEmpty) {
-        _stack.add(_Frame(body, 0));
-      }
+    // selectChoice only lets through valid, available choices.
+    final body = stmt.choices[selected].body;
+    if (body.isNotEmpty) {
+      session.stack.add(_Frame(body, 0));
     }
   }
 
-  void _executeJump(JumpStatement stmt) {
+  void _executeJump(_Session session, JumpStatement stmt) {
     final node = graph.getNode(stmt.target);
     if (node == null) return; // silently skip unknown targets
-    _stack.clear();
+    session.stack
+      ..clear()
+      ..add(_Frame(node.statements, 0));
     signals.activeNodeTitle.value = stmt.target;
-    _stack.add(_Frame(node.statements, 0));
   }
 
   void _executeSet(SetStatement stmt) {
-    variables.set(stmt.variable, _resolveExpressionValue(stmt.expression));
+    // A declaration only gives a first value.
+    if (stmt.isDeclaration && variables.has(stmt.variable)) return;
+    final value = _resolveExpressionValue(stmt.expression);
+    if (value == null) {
+      if (kDebugMode) {
+        debugPrint(
+          'Dialogue: \$${stmt.variable} was left as it was — '
+          '"${stmt.expression}" has no value.',
+        );
+      }
+      return;
+    }
+    variables.set(stmt.variable, value);
   }
 
-  void _executeConditional(ConditionalStatement stmt) {
+  void _executeConditional(_Session session, ConditionalStatement stmt) {
     for (final branch in stmt.branches) {
       if (branch.condition == null ||
           _evaluator.evaluateBool(branch.condition!)) {
         if (branch.body.isNotEmpty) {
-          _stack.add(_Frame(branch.body, 0));
+          session.stack.add(_Frame(branch.body, 0));
         }
         return;
       }
@@ -298,7 +344,7 @@ class DialogueRunner {
   }
 
   Future<void> _executeCommand(CommandStatement stmt) async {
-    await commands.execute(stmt.name, stmt.rawArgs);
+    await commands.execute(stmt.name, _substitute(stmt.rawArgs));
   }
 
   // ---- Helpers -------------------------------------------------------------
@@ -312,16 +358,20 @@ class DialogueRunner {
       text = localizer!.localize(lineKey, fallback: rawText);
     }
 
-    // Inline variable substitution: {$varName}
-    text = text.replaceAllMapped(
+    return _substitute(text);
+  }
+
+  /// [text] with each `{$varName}` replaced by the variable's value (empty
+  /// when it has none).
+  String _substitute(String text) {
+    if (!text.contains(r'{$')) return text;
+    return text.replaceAllMapped(
       RegExp(r'\{\$([a-zA-Z0-9_]+)\}'),
       (m) => variables.getRaw(m.group(1) ?? '')?.toString() ?? '',
     );
-
-    return text;
   }
 
-  /// Evaluates the RHS of a `<<set>>` expression.
+  /// Evaluates the RHS of a `<<set>>` expression; null when it has no value.
   dynamic _resolveExpressionValue(String expr) {
     final trimmed = expr.trim();
     final lower = trimmed.toLowerCase();
@@ -335,29 +385,29 @@ class DialogueRunner {
     final asDouble = double.tryParse(trimmed);
     if (asDouble != null) return asDouble;
 
-    // String literals
-    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-        (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-      return trimmed.substring(1, trimmed.length - 1);
-    }
+    // A string literal and nothing else — `"a" == "b"` is a comparison.
+    final literal = _stringLiteral.firstMatch(trimmed);
+    if (literal != null) return literal.group(1) ?? literal.group(2);
 
-    // Variable reference
-    if (trimmed.startsWith(r'$')) {
-      return variables.getRaw(trimmed.substring(1));
-    }
+    // A variable and nothing else — `$gold >= 100` is an expression.
+    final variable = _variableOnly.firstMatch(trimmed);
+    if (variable != null) return variables.getRaw(variable.group(1)!);
 
-    return _evaluator.evaluate(expr);
+    return _evaluator.evaluate(trimmed);
   }
 
-  Future<void> _terminate() async {
-    // Unblock any pending awaits
-    if (_advanceCompleter != null && !_advanceCompleter!.isCompleted) {
-      _advanceCompleter!.complete();
-    }
-    if (_choiceCompleter != null && !_choiceCompleter!.isCompleted) {
-      _choiceCompleter!.complete(-1);
-    }
-    _stack.clear();
+  /// Ends [session]: whatever it awaits is let go, and — while it is the
+  /// one playing — the runner goes idle and its signals are cleared.
+  void _finish(_Session session) {
+    if (session.over) return;
+    session.over = true;
+    final advance = session.advance;
+    if (advance != null && !advance.isCompleted) advance.complete();
+    final choice = session.choice;
+    if (choice != null && !choice.isCompleted) choice.complete(-1);
+    session.stack.clear();
+    if (!identical(_session, session)) return;
+    _session = null;
     signals.currentLine.value = null;
     signals.choices.value = const [];
     signals.activeSpeaker.value = null;
@@ -367,8 +417,26 @@ class DialogueRunner {
 }
 
 // ---------------------------------------------------------------------------
-// Internal frame
+// Internal session and frame
 // ---------------------------------------------------------------------------
+
+/// One run of the runner, from [DialogueRunner.start] to its end.
+class _Session {
+  /// Execution stack — enables nested choice bodies without recursion.
+  final stack = <_Frame>[];
+
+  /// What a line waits on, until [DialogueRunner.advance].
+  Completer<void>? advance;
+
+  /// What a choice set waits on, until [DialogueRunner.selectChoice].
+  Completer<int>? choice;
+
+  /// The choices on offer while [choice] waits.
+  List<DialogueChoice> offered = const [];
+
+  /// Stopped, replaced or finished: it does nothing more.
+  bool over = false;
+}
 
 /// A single execution frame on the runner's statement stack.
 class _Frame {
@@ -376,3 +444,7 @@ class _Frame {
   final List<DialogueStatement> statements;
   int index;
 }
+
+final RegExp _stringLiteral = RegExp(r'''^(?:"([^"]*)"|'([^']*)')$''');
+
+final RegExp _variableOnly = RegExp(r'^\$(\w+)$');

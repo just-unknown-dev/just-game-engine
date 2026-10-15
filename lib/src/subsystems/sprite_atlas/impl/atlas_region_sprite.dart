@@ -93,15 +93,15 @@ class AtlasRegionSprite extends Sprite {
     // inside it mirrors too.
     if (flipX || flipY) canvas.scale(flipX ? -1.0 : 1.0, flipY ? -1.0 : 1.0);
 
+    // Faded once, by the paint; the filter carries only the tint's colour —
+    // as [Sprite.render] and a batch draw it.
+    final t = tint;
     _framePaint
       ..filterQuality = filterQuality
-      ..color = (tint ?? Colors.white).withValues(alpha: opacity)
-      ..colorFilter = tint == null
+      ..color = Colors.white.withValues(alpha: Sprite.tintedAlpha(t, opacity))
+      ..colorFilter = t == null
           ? null
-          : ColorFilter.mode(
-              tint!.withValues(alpha: opacity),
-              BlendMode.modulate,
-            );
+          : ColorFilter.mode(t.withValues(alpha: 1.0), BlendMode.modulate);
 
     // The untrimmed box is centred on the sprite; the frame sits in it where
     // the exporter cut it from.

@@ -65,6 +65,9 @@ final class ServiceHost {
   final List<EngineService> _services = [];
   final Set<EngineService> _started = Set.identity();
 
+  /// The services whose `start()` has not finished, with its Future.
+  final Map<EngineService, Future<void>> _starting = Map.identity();
+
   /// Every service, in start order.
   List<EngineService> get all => List.unmodifiable(_services);
 
@@ -107,15 +110,43 @@ final class ServiceHost {
     if (_engine.isInitialized) await _start(service);
   }
 
-  /// Stops [service], if it was started, and takes it out.
+  /// Stops [service], if it was started, and takes it out. One still
+  /// starting is stopped once its `start()` has finished.
   Future<void> remove(EngineService service) async {
     if (!_services.remove(service)) return;
+    final starting = _starting.remove(service);
+    if (starting != null) return _stopAfter(service, starting);
     if (_started.remove(service)) await service.stop();
   }
 
   Future<void> _start(EngineService service) async {
-    await service.start(_context);
+    final starting = service.start(_context);
+    _starting[service] = starting;
+    try {
+      await starting;
+    } catch (_) {
+      if (identical(_starting[service], starting)) _starting.remove(service);
+      rethrow;
+    }
+    // Removed, or the engine disposed, while it started: whoever took it
+    // out of [_starting] stops it.
+    if (!identical(_starting[service], starting)) return;
+    _starting.remove(service);
     _started.add(service);
+  }
+
+  /// Stops [service] once [starting], its `start()`, has finished — unless
+  /// it failed, when there is nothing to stop.
+  static Future<void> _stopAfter(
+    EngineService service,
+    Future<void> starting,
+  ) async {
+    try {
+      await starting;
+    } catch (_) {
+      return;
+    }
+    await service.stop();
   }
 
   /// Starts every service not yet started, in order — those added while
@@ -134,9 +165,17 @@ final class ServiceHost {
 
   /// Calls `stop()` on every started service, last first, and returns their
   /// Futures. A service that throws at once is reported and passed over.
+  /// One still starting — added to an initialized engine just before it
+  /// was disposed — is stopped once its `start()` has finished, and its
+  /// Future waits for that.
   List<Future<void>> _stopAll() {
     final stopping = <Future<void>>[];
     for (final service in _services.reversed.toList()) {
+      final starting = _starting.remove(service);
+      if (starting != null) {
+        stopping.add(_stopAfter(service, starting));
+        continue;
+      }
       if (!_started.remove(service)) continue;
       try {
         stopping.add(service.stop());

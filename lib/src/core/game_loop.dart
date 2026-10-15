@@ -16,8 +16,9 @@ typedef UpdateCallback = void Function(double deltaTime);
 typedef RenderCallback = void Function();
 
 /// Called once per rendered frame, after its fixed updates: [deltaTime] is
-/// the frame's length in seconds (scaled by the time scale), [alpha] how far
-/// the frame lies between the last two fixed updates (0..1).
+/// the frame's length in seconds — at most [TimeManager.maxDeltaTime], then
+/// scaled by the time scale — [alpha] how far the frame lies between the
+/// last two fixed updates (0..1).
 typedef FrameCallback = void Function(double deltaTime, double alpha);
 
 /// Main game loop implementation
@@ -28,6 +29,10 @@ typedef FrameCallback = void Function(double deltaTime, double alpha);
 /// The loop is *externally driven* — call [tick] once per frame (typically
 /// from a `Ticker` in [GameWidget]).  For headless / server scenarios you can
 /// call [tick] from your own timer or test harness.
+///
+/// Several drivers may tick one loop — two `GameWidget`s showing one engine
+/// — as long as they pass the frame's own timestamp: a second tick with the
+/// stamp of the last is the same frame and is ignored.
 class GameLoop {
   /// Update callback function
   final UpdateCallback onUpdate;
@@ -65,9 +70,13 @@ class GameLoop {
   /// Last frame timestamp in microseconds from [_clock].
   int _lastFrameMicros = 0;
 
-  /// The frame timestamp the last [tick] was given, in microseconds; null
-  /// before the first such tick and after [start] or [resume].
+  /// The frame timestamp the next frame is measured from, in microseconds;
+  /// null before the first stamped tick and after [start] or [resume].
   int? _lastTickMicros;
+
+  /// The frame timestamp of the last stamped [tick], in microseconds — kept
+  /// through [resume], so a frame ticked by two drivers counts once.
+  int? _lastStampMicros;
 
   /// Frame counter for FPS calculation
   int _frameCount = 0;
@@ -125,6 +134,7 @@ class GameLoop {
       ..start();
     _lastFrameMicros = 0;
     _lastTickMicros = null;
+    _lastStampMicros = null;
 
     if (kDebugMode) debugPrint('Game loop started (Target UPS: $targetUPS)');
   }
@@ -172,13 +182,16 @@ class GameLoop {
   /// Call this once per vsync frame from the rendering widget's `Ticker`,
   /// or from a manual timer / test harness for headless usage.
   ///
-  /// [frameTime] is the frame's timestamp — the ticker's `elapsed` — and
-  /// the frame lasts from the previous one's to it. Without it the loop
-  /// times the frame with its own stopwatch, read when [tick] is called.
-  /// Pass it when you have it: vsync timestamps are exact, and the time a
-  /// callback happens to run is not — on the web `performance.now()` is
-  /// coarsened, and a stopwatch-timed 60 Hz frame there alternates between
-  /// none and two fixed updates.
+  /// [frameTime] is the frame's timestamp on a clock every caller shares —
+  /// the vsync frame's `SchedulerBinding.currentFrameTimeStamp`, which is
+  /// what [GameWidget] passes — and the frame lasts from the previous one's
+  /// to it. A tick with the same stamp as the last is the same frame, asked
+  /// for again by another driver, and does nothing. Without a stamp the
+  /// loop times the frame with its own stopwatch, read when [tick] is
+  /// called. Pass it when you have it: vsync timestamps are exact, and the
+  /// time a callback happens to run is not — on the web `performance.now()`
+  /// is coarsened, and a stopwatch-timed 60 Hz frame there alternates
+  /// between none and two fixed updates.
   void tick([Duration? frameTime]) {
     if (!_isRunning) return;
 
@@ -186,20 +199,24 @@ class GameLoop {
     final int frameMicros;
     if (frameTime != null) {
       final stamp = frameTime.inMicroseconds;
+      // This frame has been ticked already, by another view of the engine.
+      if (stamp == _lastStampMicros) return;
+      _lastStampMicros = stamp;
       final last = _lastTickMicros;
-      // The first stamped frame, or a new ticker counting from zero again,
+      // The first stamped frame, or a new clock counting from zero again,
       // has nothing to measure from.
       frameMicros = last == null || stamp < last ? 0 : stamp - last;
       _lastTickMicros = stamp;
     } else {
       frameMicros = _lastFrameMicros == 0 ? 0 : nowMicros - _lastFrameMicros;
       _lastTickMicros = null;
+      _lastStampMicros = null;
     }
     _lastFrameMicros = nowMicros;
     final frameSeconds = frameMicros / 1000000.0;
 
-    // Update time manager
-    timeManager.update(frameSeconds);
+    // Game time stands still while paused; real time goes on.
+    timeManager.update(frameSeconds, paused: _isPaused);
 
     // Calculate FPS
     _calculateFPS(frameMicros);
@@ -226,7 +243,9 @@ class GameLoop {
         _accumulator -= _fixedDeltaTime;
       }
 
-      onFrame?.call(frameSeconds * timeManager.timeScale, interpolation);
+      // Clamped like the time manager's: after a hitch the per-frame phase
+      // gets a long frame, not seconds of one.
+      onFrame?.call(timeManager.deltaTime, interpolation);
     }
 
     // Optional render callback (no-op when CustomPainter renders).

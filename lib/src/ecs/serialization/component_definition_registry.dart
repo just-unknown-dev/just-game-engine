@@ -43,12 +43,33 @@ class ComponentDefinitionRegistry {
   /// which [refresh] therefore leaves alone.
   final Set<String> _kept = {};
 
+  /// Types whose registration came from `registerAll(ifAbsent: true)` — a
+  /// built-in default, which another such registration finding it in place
+  /// does not mark as [_kept].
+  final Set<String> _defaults = {};
+
+  int _revision = 0;
+
+  /// Moves on whenever a definition or codec is registered, replaced or
+  /// removed — for a cache of what the definitions say (which component
+  /// types have an extent, say) to know when to look again.
+  int get revision => _revision;
+
   /// Registers [codec] — a definition, or a plain codec that becomes the
   /// wire format for its type.
   void register(ComponentCodec codec, {bool override = false}) {
+    _register(codec, override: override);
+    _defaults.remove(codec.type);
+  }
+
+  void _register(ComponentCodec codec, {required bool override}) {
     if (override) _kept.add(codec.type);
     if (codec is ComponentDefinition) {
+      final replaced = _definitions[codec.type];
       _put(_definitions, _definitionsByType, codec, override);
+      if (replaced != null && !identical(replaced, codec)) {
+        _aliases.removeWhere((_, target) => target == codec.type);
+      }
       for (final alias in codec.aliases) {
         _aliases[alias] = codec.type;
       }
@@ -71,8 +92,16 @@ class ComponentDefinitionRegistry {
         'registerAll(ifAbsent: true) to keep what is there.',
       );
     }
+    // A replacement for another Dart type must not leave the old type
+    // still pointing at the definition it replaced.
+    if (existing != null &&
+        !identical(existing, codec) &&
+        identical(byType[existing.componentType], existing)) {
+      byType.remove(existing.componentType);
+    }
     byName[codec.type] = codec;
     byType[codec.componentType] = codec;
+    _revision++;
   }
 
   /// Registers several codecs. With [ifAbsent], types already registered
@@ -85,11 +114,21 @@ class ComponentDefinitionRegistry {
   }) {
     for (final codec in codecs) {
       if (ifAbsent && _has(codec)) {
-        // Someone else's is in place, and is to stay in place.
-        if (!identical(_existing(codec), codec)) _kept.add(codec.type);
+        // Someone else's is in place, and is to stay in place — unless it
+        // is a default too (the same built-ins registered again), which a
+        // refresh may still replace.
+        if (!identical(_existing(codec), codec) &&
+            !_defaults.contains(codec.type)) {
+          _kept.add(codec.type);
+        }
         continue;
       }
-      register(codec, override: override);
+      _register(codec, override: override);
+      if (ifAbsent) {
+        _defaults.add(codec.type);
+      } else {
+        _defaults.remove(codec.type);
+      }
     }
   }
 
@@ -97,7 +136,8 @@ class ComponentDefinitionRegistry {
       ? _definitions.containsKey(codec.type)
       : _wire.containsKey(codec.type);
 
-  ComponentCodec? _existing(ComponentCodec codec) => codec is ComponentDefinition
+  ComponentCodec? _existing(ComponentCodec codec) =>
+      codec is ComponentDefinition
       ? _definitions[codec.type]
       : _wire[codec.type];
 
@@ -116,6 +156,7 @@ class ComponentDefinitionRegistry {
       final old = _existing(codec);
       if (identical(old, codec)) continue;
       if (old != null && !override && _kept.contains(codec.type)) continue;
+      _revision++;
       if (codec is ComponentDefinition) {
         if (old != null &&
             identical(_definitionsByType[old.componentType], old)) {
@@ -139,19 +180,40 @@ class ComponentDefinitionRegistry {
 
   /// Forgets everything registered under [type] (definition and wire codec).
   void unregister(String type) {
+    _revision++;
     final d = _definitions.remove(type);
     if (d != null) {
-      _definitionsByType.remove(d.componentType);
+      _unindex(_definitionsByType, _definitions.values, d);
       _aliases.removeWhere((_, target) => target == type);
     }
     final w = _wire.remove(type);
-    if (w != null) _wireByType.remove(w.componentType);
+    if (w != null) _unindex(_wireByType, _wire.values, w);
     _kept.remove(type);
+    _defaults.remove(type);
+  }
+
+  /// Drops [gone] from [byType] when it is what its Dart type points at,
+  /// handing the Dart type to another registration of it, if any.
+  static void _unindex<C extends ComponentCodec>(
+    Map<Type, C> byType,
+    Iterable<C> remaining,
+    C gone,
+  ) {
+    if (!identical(byType[gone.componentType], gone)) return;
+    byType.remove(gone.componentType);
+    for (final other in remaining) {
+      if (other.componentType == gone.componentType) {
+        byType[gone.componentType] = other;
+        break;
+      }
+    }
   }
 
   /// Removes every registration. Mainly for tests.
   void clear() {
+    _revision++;
     _kept.clear();
+    _defaults.clear();
     _definitions.clear();
     _definitionsByType.clear();
     _wire.clear();
@@ -165,7 +227,12 @@ class ComponentDefinitionRegistry {
   /// Every definition.
   Iterable<ComponentDefinition> get definitions => _definitions.values;
 
-  String _canonical(String typeOrAlias) => _aliases[typeOrAlias] ?? typeOrAlias;
+  /// A registered type name is itself, even where an alias of another
+  /// type has the same spelling; otherwise the alias's type.
+  String _canonical(String typeOrAlias) =>
+      _definitions.containsKey(typeOrAlias) || _wire.containsKey(typeOrAlias)
+      ? typeOrAlias
+      : _aliases[typeOrAlias] ?? typeOrAlias;
 
   /// The definition for a type name or alias, or null.
   ComponentDefinition? definitionByType(String typeOrAlias) =>

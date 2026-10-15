@@ -19,7 +19,7 @@ class TimelineTriggerSystem extends System {
   int get priority => SystemPriorities.animation + 3;
 
   @override
-  List<Type> get requiredComponents => [
+  List<Type> get requiredComponents => const [
     TransformComponent,
     TimelineTriggerComponent,
   ];

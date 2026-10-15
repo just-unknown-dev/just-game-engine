@@ -9,7 +9,9 @@ topics:
   - gamedev
   - ecs
   - game
+  - physics
   - 2d
+  - 3d
 
 screenshots:
   - description: "Sprite animation"
@@ -24,7 +26,8 @@ screenshots:
     path: assets/screenshots/jge_tile_map.png
 
 # Declared, so pub.dev does not infer platforms from dependencies. The engine
-# runs everywhere Flutter does; on the web, gamepads wait on just_gamepads.
+# runs everywhere Flutter does; 3-D draws where Flutter GPU does (not the
+# web) and 3-D physics runs where Jolt is built (not the web).
 platforms:
   android:
   ios:
@@ -42,13 +45,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # just_audio_engine registers a web plugin without depending on
-  # flutter_web_plugins, so a game with no other web plugin fails to compile
-  # for the web. Depending on it here puts it in every game's package config.
-  flutter_web_plugins:
-    sdk: flutter
   just_physics_engine: ^1.4.0
-  just_inputs: ^0.1.0
+  just_inputs: ^0.1.1
   just_audio_engine: ^1.1.0
   just_storage: ^1.2.1
   # Finds the folder of the engine's own storage file. Imported only by

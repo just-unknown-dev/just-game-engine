@@ -32,8 +32,10 @@
 /// - Of the packages the engine is built on, only what a game uses through
 ///   the engine is re-exported: the run-time input API of `just_inputs`,
 ///   the math types of `just_dart`, the memory diagnostics of
-///   `just_memory`, the audio types of `just_audio_engine` and the physics
-///   types of `just_physics_engine`. For anything else, import the package.
+///   `just_memory`, the audio types of `just_audio_engine`, the physics
+///   types of `just_physics_engine`, the saved formats of
+///   `just_game_engine_formats` and the `Signal` and `Computed` of
+///   `just_signals`. For anything else, import the package.
 /// - Achievements, sign-in, leaderboards, currency, inventory and ads are
 ///   in the package `just_game_services`, as opt-in `EngineService`s.
 library;

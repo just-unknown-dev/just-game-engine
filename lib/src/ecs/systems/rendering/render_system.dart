@@ -26,7 +26,7 @@ export 'render_pass.dart';
 /// It draws, in one sorted order, every entity's [RenderableComponent], each
 /// [RenderItem] of a [RenderItemsComponent], and every
 /// [ParticleEmitterComponent]'s emitter.
-class RenderSystem extends System {
+class RenderSystem extends System implements FrameSystem {
   @override
   int get priority => SystemPriorities.render;
 
@@ -98,16 +98,13 @@ class RenderSystem extends System {
     'batchedSprites': _lastBatchedSprites,
   };
 
-  /// Reusable buffer for the depth-sorted (`Renderable.ySort`) pass — avoids
-  /// per-frame list allocation. See the [ySort] handling in [render].
-  final List<Renderable> _ySortBuffer = [];
-
   /// Sprite batches by atlas image — the image object itself, not a hash of
   /// it — then by filter quality. A batch not used in a frame is dropped at
   /// its end, so an image the level no longer shows is not held.
   final SpriteBatchCache _spriteBatches;
 
-  /// Batches holding sprites not drawn yet, in the order first used.
+  /// The batch holding sprites not drawn yet — at most one: a sprite from
+  /// another image draws what is queued first, so batching never reorders.
   final List<SpriteBatchRenderer> _pendingSprites = [];
 
   /// Reused to work out how each sprite is batched.
@@ -155,7 +152,7 @@ class RenderSystem extends System {
   final FrameView Function()? viewOf;
 
   @override
-  List<Type> get requiredComponents => [TransformComponent];
+  List<Type> get requiredComponents => const [TransformComponent];
 
   /// Whether some outer context has already applied the camera transform.
   /// When true, [render] skips its own save/transform/restore.
@@ -177,17 +174,21 @@ class RenderSystem extends System {
 
   /// Sub-frame interpolation factor in `[0.0, 1.0]`.
   ///
-  /// Set each tick by [GameWidget] from [GameLoop.interpolation] so that
-  /// physics-driven entities are smoothly lerped between their previous and
-  /// current positions, eliminating stutter on high-refresh-rate displays.
-  /// Defaults to 1.0 (no interpolation — render at current position).
+  /// Set each rendered frame from the frame phase's alpha ([frame]) — the
+  /// game loop's [GameLoop.interpolation] — so that physics-driven entities
+  /// are smoothly lerped between their previous and current positions,
+  /// eliminating stutter on high-refresh-rate displays. Defaults to 1.0 (no
+  /// interpolation — render at current position).
   double interpolation = 1.0;
+
+  @override
+  void frame(double deltaTime, double alpha) => interpolation = alpha;
 
   bool _attached = false;
 
   /// Whether this system is in a world: added, and not removed or disposed
-  /// since. [GameWidget] keeps a reference to the world's render system and
-  /// asks this before trusting it.
+  /// since. Something keeping a reference to the world's render system asks
+  /// this before trusting it.
   bool get isAttached => _attached;
 
   @override
@@ -210,12 +211,17 @@ class RenderSystem extends System {
   @visibleForTesting
   int get debugSpriteBatchCount => _spriteBatches.length;
 
+  /// The world-space rectangle the offscreen layer of [renderable]'s
+  /// per-entity `ShaderComponent` covers. For tests.
+  @visibleForTesting
+  static Rect? debugShaderBounds(Renderable renderable) =>
+      _shaderBounds(renderable);
+
   /// Drops every batch and every cached reference to the world's entities.
   void _release() {
     _spriteBatches.clear();
     _pendingSprites.clear();
     _shapeBatch.clear();
-    _ySortBuffer.clear();
     _entryPool.clear();
     _entries.clear();
     _watches.clear();
@@ -234,8 +240,11 @@ class RenderSystem extends System {
   // Every renderable, emitter and item becomes one entry in a single list,
   // sorted by layer, then zOrder, then a sub-order — which keeps the
   // entities on a map layer between that layer's tiles and the next one's —
-  // with the order it was found in as the last tie-break, so two things on
-  // the same layer never swap from one frame to the next. Layer and zOrder
+  // then, for a renderable that asks for it (Renderable.ySort), by world y
+  // after the rest of its place, with the order it was found in as the last
+  // tie-break, so two things on the same layer never swap from one frame to
+  // the next. An entity's LayerComponent gives its layer and zOrder; without
+  // one, its renderable's own `layer` and `zOrder` do. Layer and zOrder
   // are compared as two numbers: they used to be packed into one by
   // shifting the layer left 20 bits, which on the web — where a shift makes
   // an unsigned 32-bit number — sorted every negative layer after all the
@@ -258,7 +267,17 @@ class RenderSystem extends System {
   final List<_ItemsWatch> _watches = [];
 
   World? _builtFor;
+
+  /// The largest of the draw list's queries' versions when it was built.
   int _builtVersion = -1;
+
+  /// [World.updateCount] when the entries' captures were last checked.
+  int _seenUpdates = -1;
+
+  /// What a rebuild knew of each transform's captures, so a rebuild does
+  /// not stop interpolation for a step: its count times two, plus one when
+  /// it was fresh.
+  final Map<TransformComponent, int> _knownCaptures = Map.identity();
 
   /// Beyond this many out-of-order neighbours a frame sorts from scratch
   /// rather than by insertion.
@@ -277,12 +296,29 @@ class RenderSystem extends System {
   _DrawEntry _takeEntry() =>
       _entryPool.isNotEmpty ? _entryPool.removeLast() : _DrawEntry();
 
+  /// The largest version of the queries the draw list is built from: it
+  /// moves on only when what they match changes.
+  int _queriesVersion() {
+    final w = world;
+    return math.max(
+      w.queryVersion(_renderableQuery),
+      math.max(w.queryVersion(_emitterQuery), w.queryVersion(_itemsQuery)),
+    );
+  }
+
   /// Brings the draw list up to date and into order.
   void _prepare() {
     if (!identical(_builtFor, world) ||
-        _builtVersion != world.structureVersion ||
+        _builtVersion != _queriesVersion() ||
         _itemsChanged()) {
       _rebuild();
+    }
+    final updates = world.updateCount;
+    if (updates != _seenUpdates) {
+      _seenUpdates = updates;
+      for (final e in _entries) {
+        e.checkCaptures();
+      }
     }
     for (final e in _entries) {
       e.refreshKey();
@@ -303,6 +339,15 @@ class RenderSystem extends System {
   }
 
   void _rebuild() {
+    final known = _knownCaptures..clear();
+    if (identical(_builtFor, world)) {
+      for (final e in _entries) {
+        final t = e.transform;
+        if (t != null) known[t] = e.captures * 2 + (e.fresh ? 1 : 0);
+      }
+    } else {
+      _seenUpdates = world.updateCount;
+    }
     for (final e in _entries) {
       e.clear();
     }
@@ -320,19 +365,30 @@ class RenderSystem extends System {
       final hasPhysics = archetype.types.contains(PhysicsBodyRefComponent);
       final bodies = archetype.getColumn(PhysicsBodyRefComponent);
       for (var row = 0; row < ids.length; row++) {
-        final entity = world.getEntity(ids[row]);
-        if (entity == null) continue;
-        _entries.add(
-          _takeEntry()
-            ..entity = entity
-            ..transform = transforms[row] as TransformComponent
-            ..renderComp = renderables[row] as RenderableComponent
-            ..layer = layers?[row] as LayerComponent?
-            ..shader = shaders?[row] as ShaderComponent?
-            ..hasPhysics = hasPhysics
-            ..physicsRef = bodies?[row] as PhysicsBodyRefComponent?
-            ..seq = seq++,
-        );
+        final transform = transforms[row] as TransformComponent;
+        final physicsRef = bodies?[row] as PhysicsBodyRefComponent?;
+        final entry = _takeEntry()
+          ..entity = archetype.entityAt(row)
+          ..transform = transform
+          ..renderComp = renderables[row] as RenderableComponent
+          ..layer = layers?[row] as LayerComponent?
+          ..shader = shaders?[row] as ShaderComponent?
+          ..hasPhysics = hasPhysics
+          ..physicsRef = physicsRef
+          ..seq = seq++;
+        final seen = known[transform];
+        if (seen != null) {
+          entry
+            ..captures = seen >> 1
+            ..fresh = seen & 1 == 1;
+        } else {
+          // Nothing seen of it yet: a moving body's previous pose is taken
+          // to be fresh, as physics captures it every step.
+          entry
+            ..captures = transform.captureCount
+            ..fresh = hasPhysics && !(physicsRef?.body.isStatic ?? false);
+        }
+        _entries.add(entry);
       }
     }
 
@@ -343,8 +399,7 @@ class RenderSystem extends System {
       final layers = archetype.getColumn(LayerComponent);
       final renderables = archetype.getColumn(RenderableComponent);
       for (var row = 0; row < ids.length; row++) {
-        final entity = world.getEntity(ids[row]);
-        if (entity == null) continue;
+        final entity = archetype.entityAt(row);
         final emitter = (emitters[row] as ParticleEmitterComponent).emitter;
         // Already drawn as the entity's renderable (how emitters had to be
         // shown before the render system drew them).
@@ -365,8 +420,7 @@ class RenderSystem extends System {
       final itemColumn = archetype.getColumn(RenderItemsComponent)!;
       final layers = archetype.getColumn(LayerComponent);
       for (var row = 0; row < ids.length; row++) {
-        final entity = world.getEntity(ids[row]);
-        if (entity == null) continue;
+        final entity = archetype.entityAt(row);
         final component = itemColumn[row] as RenderItemsComponent;
         final layer = layers?[row] as LayerComponent?;
         final items = component.items;
@@ -383,14 +437,20 @@ class RenderSystem extends System {
       }
     }
 
+    known.clear();
     _builtFor = world;
-    _builtVersion = world.structureVersion;
+    _builtVersion = _queriesVersion();
   }
 
   static int _compareEntries(_DrawEntry a, _DrawEntry b) {
     if (a.layerKey != b.layerKey) return a.layerKey < b.layerKey ? -1 : 1;
     if (a.zKey != b.zKey) return a.zKey < b.zKey ? -1 : 1;
     if (a.sub != b.sub) return a.sub < b.sub ? -1 : 1;
+    // What sorts by height (Renderable.ySort) draws after the rest of its
+    // place, the highest on screen first.
+    if (a.ySort != b.ySort) return a.ySort ? 1 : -1;
+    final byY = a.yKey.compareTo(b.yKey);
+    if (byY != 0) return byY;
     return a.seq - b.seq;
   }
 
@@ -432,7 +492,7 @@ class RenderSystem extends System {
     return [
       for (final e in _entries)
         if (e.emitter == null &&
-            e.entity.isActive &&
+            e.entity.isActiveInHierarchy &&
             !(e.layer?.hiddenByMap ?? false) &&
             (filter == null || filter(e.entity)))
           (e.entity, e.item),
@@ -484,7 +544,12 @@ class RenderSystem extends System {
     if (!_shapeBatch.isEmpty || !_sameBatchKey(entry)) _flushBatches(canvas);
     _setBatchKey(entry);
     final batch = _spriteBatches.batchFor(plan.image!, plan.quality);
-    if (!_pendingSprites.contains(batch)) _pendingSprites.add(batch);
+    // Only the newest batch takes more: joining an older one would draw
+    // this sprite under what another image's batch queued since.
+    if (_pendingSprites.isEmpty || !identical(_pendingSprites.last, batch)) {
+      _flushSprites(canvas);
+      _pendingSprites.add(batch);
+    }
     plan.addTo(batch);
     _rendered++;
     _batchedSprites++;
@@ -534,7 +599,7 @@ class RenderSystem extends System {
 
     for (final entry in _entries) {
       final entity = entry.entity;
-      if (!entity.isActive) continue;
+      if (!entity.isActiveInHierarchy) continue;
       if (filter != null && !filter(entity)) continue;
       if (entry.layer?.hiddenByMap ?? false) continue;
 
@@ -574,17 +639,13 @@ class RenderSystem extends System {
       // Sync transform if enabled
       if (renderComp.syncTransform) {
         final transform = entry.transform!;
-        // Sub-frame interpolation only applies to physics-driven entities.
-        // PhysicsSystem captures the previous pose before each
-        // physics step; non-physics entities (orbit, velocity, etc.) never
-        // update prevPosition, so interpolating them renders them frozen at
-        // their spawn position when interpolation ≈ 0 (the typical case at
-        // matching UPS/FPS). Use position directly for non-physics entities.
-        // Not static ones: they never move between steps, and their
-        // previous pose can lag behind a write from outside physics.
-        if (interpolating &&
-            entry.hasPhysics &&
-            !(entry.physicsRef?.body.isStatic ?? false)) {
+        // Sub-frame interpolation only for a transform whose previous pose
+        // was captured in the last fixed update ([_DrawEntry.fresh]): a
+        // moving physics body, or a child of one (the transform hierarchy
+        // captures it with its parent's). Anything else — moved by
+        // gameplay, or a static body — never captures, or not every step,
+        // and its previous pose may be long out of date: drawn where it is.
+        if (interpolating && entry.fresh) {
           final prev = transform.prevPosition, now = transform.position;
           renderable.position.setValues(
             prev.x + (now.x - prev.x) * interpolation,
@@ -607,16 +668,9 @@ class RenderSystem extends System {
         continue;
       }
 
-      // Depth-sorted entities (Renderable.ySort) skip both the batched and
-      // immediate paths below — they're collected here and drawn afterward,
-      // sorted by world-space Y, so e.g. a tree can draw in front of the
-      // player when it's visually "further down" the screen and behind it
-      // otherwise. Regular (non-ySort) entities are entirely unaffected —
-      // same batch-or-immediate logic as before.
-      if (renderable.ySort) {
-        _ySortBuffer.add(renderable);
-        continue;
-      }
+      // Depth-sorted entities (Renderable.ySort) are already in place: the
+      // sort puts them after the rest of their layer and zOrder, by world
+      // Y. (They used to be drawn after everything, without their shader.)
 
       // Entities with a per-entity shader cannot be batched — they require
       // an isolated offscreen layer to composite the shader correctly.
@@ -648,22 +702,6 @@ class RenderSystem extends System {
     // Whatever is still batched belongs to the topmost sorted content.
     _flushBatches(canvas);
     _spriteBatches.endFrame();
-
-    // Depth-sorted pass: draw every ySort-opted-in renderable individually,
-    // ordered by world Y, on top of everything batched/drawn above. Drawing
-    // individually (rather than via SpriteBatch) sacrifices atlas batching
-    // for this group, but it's the only way to interleave draw order across
-    // different atlases/renderable types — acceptable since this group is
-    // expected to be view-culled down to a small on-screen count.
-    if (_ySortBuffer.isNotEmpty) {
-      _ySortBuffer.sort((a, b) => a.position.y.compareTo(b.position.y));
-      for (final renderable in _ySortBuffer) {
-        renderable.render(canvas, size);
-      }
-      _drawCalls += _ySortBuffer.length;
-      _rendered += _ySortBuffer.length;
-      _ySortBuffer.clear();
-    }
 
     if (passes.isNotEmpty) {
       final context = RenderContext(
@@ -738,13 +776,29 @@ class RenderSystem extends System {
 
   /// The world-space rectangle a shaded [renderable]'s layer covers.
   ///
-  /// World-space bounds (a sprite's) are used as they are. Local bounds (a
-  /// shape's, centred on its origin) are placed as the renderable is:
-  /// used as they were, they put the layer — which clips — around the world
-  /// origin, and the shape vanished.
+  /// World-space bounds (a sprite's) are used as they are when the
+  /// renderable is not turned; they are not turned with it, so for a turned
+  /// one they are turned about its position, as it draws, and the box
+  /// around them is used — as they were, the layer clipped a turned
+  /// sprite's corners. Local bounds (a shape's, centred on its origin) are
+  /// placed as the renderable is: used as they were, they put the layer —
+  /// which clips — around the world origin, and the shape vanished.
   static Rect? _shaderBounds(Renderable renderable) {
     final bounds = renderable.getBounds();
-    if (bounds == null || renderable.boundsAreWorldSpace) return bounds;
+    if (bounds == null) return null;
+    if (renderable.boundsAreWorldSpace) {
+      final angle = renderable.rotation;
+      if (angle == 0.0) return bounds;
+      final px = renderable.position.x, py = renderable.position.y;
+      final c = math.cos(angle).abs(), s = math.sin(angle).abs();
+      final dx = math.max((bounds.left - px).abs(), (bounds.right - px).abs());
+      final dy = math.max((bounds.top - py).abs(), (bounds.bottom - py).abs());
+      return Rect.fromCenter(
+        center: Offset(px, py),
+        width: 2 * (dx * c + dy * s),
+        height: 2 * (dx * s + dy * c),
+      );
+    }
     return _placed(renderable, bounds);
   }
 
@@ -823,10 +877,32 @@ class _DrawEntry {
   PhysicsBodyRefComponent? physicsRef;
   int seq = 0;
 
+  /// [transform]'s capture count when last checked.
+  int captures = 0;
+
+  /// Whether [transform]'s previous pose was captured in the last fixed
+  /// update, so it is drawn between that pose and its pose.
+  bool fresh = false;
+
+  /// After a fixed update: whether the transform captured its previous
+  /// pose in it.
+  void checkCaptures() {
+    final t = transform;
+    if (t == null) return;
+    final count = t.captureCount;
+    fresh = count != captures;
+    captures = count;
+  }
+
   // The sort key, refreshed every frame.
   int layerKey = 0;
   int zKey = 0;
   int sub = 0;
+
+  /// Whether the renderable sorts by its height on screen
+  /// (`Renderable.ySort`), and that height — its world y.
+  bool ySort = false;
+  double yKey = 0.0;
 
   void refreshKey() {
     final i = item;
@@ -834,18 +910,36 @@ class _DrawEntry {
       layerKey = i.layer;
       zKey = i.zOrder;
       sub = i.subOrder;
+      ySort = false;
+      yKey = 0.0;
       return;
     }
     final l = layer;
-    if (l == null) {
-      layerKey = 0;
-      zKey = 0;
-      sub = 0;
-    } else {
+    final Renderable? r = renderComp?.renderable ?? emitter;
+    if (l != null) {
       layerKey = l.layer;
       zKey = l.zOrder;
       sub = l.subOrder;
+    } else if (r != null) {
+      // No LayerComponent: the renderable's own layer and zOrder count.
+      layerKey = r.layer;
+      zKey = r.zOrder;
+      sub = 0;
+    } else {
+      layerKey = 0;
+      zKey = 0;
+      sub = 0;
     }
+    ySort = r != null && r.ySort;
+    if (!ySort) {
+      yKey = 0.0;
+      return;
+    }
+    // Read before the renderable is moved to its transform this frame.
+    final t = transform;
+    yKey = t != null && (renderComp?.syncTransform ?? false)
+        ? t.position.y
+        : r!.position.y;
   }
 
   void clear() {
@@ -857,6 +951,8 @@ class _DrawEntry {
     shader = null;
     hasPhysics = false;
     physicsRef = null;
+    captures = 0;
+    fresh = false;
   }
 }
 

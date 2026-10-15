@@ -5,11 +5,15 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart'
     show compute, debugPrint, visibleForTesting;
 import 'package:flutter/painting.dart';
-import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_dart/just_dart.dart' show JustMatrix4, Matrix4;
 import 'package:just_graphics_engine/assets.dart';
 import 'package:just_graphics_engine/gpu.dart';
 import 'package:just_graphics_engine/renderer.dart';
 
+import '../core/core.dart';
+import '../ecs/components/components.dart';
+import '../ecs/ecs.dart';
+import '../subsystems/rendering/rendering.dart';
 import 'animation_system.dart';
 import 'graphics_components.dart';
 import 'graphics_models.dart';
@@ -20,8 +24,9 @@ import 'shapes/primitive_3d.dart';
 /// from the engine's camera — the [SceneRenderer] a `Graphics3D` adds.
 ///
 /// Each frame it brings its [scene] up to date with the world: the model
-/// and shape instances are rebuilt only when the world's structure changes
-/// or a model finishes loading, and otherwise just follow their entities'
+/// and shape instances are looked over only when the world's structure
+/// changes or a model finishes loading — what still stands is kept, only
+/// what is new is made — and otherwise just follow their entities'
 /// transforms — a shape whose sizes or look changed takes another mesh or
 /// material from [shapes].
 /// It then renders into a texture at the viewport's size in physical pixels
@@ -65,7 +70,18 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   late final GraphicsShapes shapes = GraphicsShapes(
     renderer.uploader,
     models.read,
+    inUse: _shapesInUse,
   );
+
+  /// The meshes and materials the shapes are drawn with now.
+  Iterable<Object> _shapesInUse() sync* {
+    for (final proxy in _shapeProxies) {
+      final instance = proxy.instance;
+      if (instance == null) continue;
+      yield instance.primitive;
+      yield instance.material;
+    }
+  }
 
   /// Fraction of the physical resolution rendered (0.25..1 makes sense;
   /// above 1 supersamples).
@@ -116,6 +132,9 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   final List<_ShapeProxy> _shapeProxies = [];
   int _shapeRevision = -1;
   final List<PunctualLight> _lightPool = [];
+  // Each light's colour made linear, worked out again only when it changes.
+  final List<_LinearColor> _lightColors = [];
+  final _LinearColor _sunColor = _LinearColor();
   World? _world;
   int _structureVersion = -1;
   int _seenUpdates = -1;
@@ -174,7 +193,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   void update(FrameView view) {
     final world = engine.world;
     if (!identical(world, _world) ||
-        world.structureVersion != _structureVersion ||
+        _queriesVersion(world) != _structureVersion ||
         _dirty ||
         _pathsChanged()) {
       _rebuild(world);
@@ -215,6 +234,12 @@ final class GraphicsSceneRenderer extends SceneRenderer {
     _view.cameraPosition.setFrom(view.cameraPosition);
   }
 
+  /// The largest version of the queries [_rebuild] reads.
+  static int _queriesVersion(World world) => math.max(
+    world.queryVersion(const [TransformComponent, ModelComponent]),
+    world.queryVersion(const [TransformComponent, Primitive3D]),
+  );
+
   bool _pathsChanged() {
     for (final proxy in _proxies) {
       if (proxy.component.model != proxy.path) return true;
@@ -223,21 +248,24 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   }
 
   void _rebuild(World world) {
-    // What was known of each transform's captures carries over, so a
-    // rebuild (a pickup taken) doesn't stop interpolation for a step.
-    final known = Map<TransformComponent, _Follower>.identity();
+    // What stands from the last build is kept — its instances, its pose,
+    // what it knew of its transform's captures — so a rebuild (a pickup
+    // taken) makes only what is new and doesn't stop interpolation for a
+    // step.
+    final knownModels = Map<TransformComponent, _Proxy>.identity();
+    final knownShapes = Map<TransformComponent, _ShapeProxy>.identity();
     if (identical(world, _world)) {
       for (final f in _proxies) {
-        known[f.transform] = f;
+        knownModels[f.transform] = f;
       }
       for (final f in _shapeProxies) {
-        known[f.transform] = f;
+        knownShapes[f.transform] = f;
       }
     } else {
       _seenUpdates = world.updateCount;
     }
     _world = world;
-    _structureVersion = world.structureVersion;
+    _structureVersion = _queriesVersion(world);
     _dirty = false;
     _proxies.clear();
     scene.instances.clear();
@@ -248,22 +276,32 @@ final class GraphicsSceneRenderer extends SceneRenderer {
       final transforms = archetype.getColumn(TransformComponent)!;
       final components = archetype.getColumn(ModelComponent)!;
       for (var row = 0; row < archetype.length; row++) {
-        if (!archetype.entityAt(row).isActive) continue;
+        final entity = archetype.entityAt(row);
+        if (!entity.isActiveInHierarchy) continue;
         final component = components[row] as ModelComponent;
         final path = component.model;
         final model = path.isEmpty ? null : models.get(path);
         final transform = transforms[row] as TransformComponent;
-        final proxy = _Proxy(transform, component, path)
-          ..carryFrom(known[transform]);
+        final player = model == null
+            ? null
+            : entity.getComponent<AnimationPlayerComponent>();
+        final known = knownModels[transform];
+        if (known != null && known.fits(component, path, model, player)) {
+          _proxies.add(known);
+          scene.instances.addAll(known.instances);
+          if (model != null) {
+            model.data.bounds.transformInto(gltfToEngine, component.bounds);
+          }
+          continue;
+        }
+        final proxy = _Proxy(transform, component, path, model)
+          ..carryFrom(known ?? knownShapes[transform]);
         _proxies.add(proxy);
         if (model == null) {
           component.bounds.setEmpty();
           continue;
         }
         model.data.bounds.transformInto(gltfToEngine, component.bounds);
-        final player = archetype
-            .entityAt(row)
-            .getComponent<AnimationPlayerComponent>();
         if (player != null) {
           // Animated: posed every frame, its instances placed by the pose.
           final posed = PosedModel(model);
@@ -290,16 +328,23 @@ final class GraphicsSceneRenderer extends SceneRenderer {
       final transforms = archetype.getColumn(TransformComponent)!;
       final column = archetype.getColumn(Primitive3D)!;
       for (var row = 0; row < archetype.length; row++) {
-        if (!archetype.entityAt(row).isActive) continue;
+        if (!archetype.entityAt(row).isActiveInHierarchy) continue;
         final transform = transforms[row] as TransformComponent;
+        final shape = column[row] as Primitive3D;
+        final known = knownShapes[transform];
+        if (known != null && identical(known.shape, shape)) {
+          _shapeProxies.add(known);
+          final instance = known.instance;
+          if (instance != null) scene.instances.add(instance);
+          continue;
+        }
+        // Made at the next follow, with its mesh.
         _shapeProxies.add(
-          _ShapeProxy(transform, column[row] as Primitive3D)
-            ..carryFrom(known[transform]),
+          _ShapeProxy(transform, shape)
+            ..carryFrom(known ?? knownModels[transform]),
         );
       }
     }
-    // Made at the next follow, with their meshes.
-    _shapeRevision = -1;
   }
 
   /// Brings each shape's instance up to date: its mesh when its sizes (or,
@@ -311,18 +356,22 @@ final class GraphicsSceneRenderer extends SceneRenderer {
     for (final proxy in _shapeProxies) {
       final shape = proxy.shape;
       final scale = proxy.transform.scale;
-      final key = shape.shapeKey;
+      // Its values against the last frame's: plain numbers, nothing made.
+      final sizes = proxy.sizes..begin();
+      shape.writeShapeValues(sizes);
+      final reshaped = sizes.end();
+      final look = proxy.look..begin();
+      shape.writeMaterialValues(look);
+      var restyled = look.end();
       final metres = shape.tileInMetres && shape.texture.isNotEmpty;
       var instance = proxy.instance;
-      if (instance == null ||
-          key != proxy.shapeKey ||
+      if (reshaped ||
           metres != proxy.metres ||
           (metres &&
               (scale.x != proxy.sx ||
                   scale.y != proxy.sy ||
                   scale.z != proxy.sz))) {
         proxy
-          ..shapeKey = key
           ..metres = metres
           ..sx = scale.x
           ..sy = scale.y
@@ -336,7 +385,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
               shapes.materialFor(shape),
               Matrix4.zero(),
             );
-            proxy.materialKey = shape.materialKey;
+            restyled = false;
             scene.instances.add(instance);
           } else {
             instance.primitive = mesh;
@@ -344,10 +393,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
         }
       }
       if (instance == null) continue;
-      if (refresh || shape.materialKey != proxy.materialKey) {
-        proxy.materialKey = shape.materialKey;
-        instance.material = shapes.materialFor(shape);
-      }
+      if (refresh || restyled) instance.material = shapes.materialFor(shape);
       instance
         ..visible = shape.visible && proxy.mesh != null
         ..castShadows = shape.castShadows;
@@ -441,7 +487,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
       final transforms = archetype.getColumn(TransformComponent)!;
       final lights = archetype.getColumn(LightComponent)!;
       for (var row = 0; row < archetype.length; row++) {
-        if (!archetype.entityAt(row).isActive) continue;
+        if (!archetype.entityAt(row).isActiveInHierarchy) continue;
         final light = lights[row] as LightComponent;
         (transforms[row] as TransformComponent).localToWorldInto(_scratch);
         final m = _scratch.storage;
@@ -450,7 +496,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
           if (suns++ > 0) continue;
           sun
             ..enabled = true
-            ..color = _linear(light.color)
+            ..color = _sunColor.of(light.color)
             ..intensity = light.intensity;
           sun.direction
             ..setValues(m[8], m[9], m[10])
@@ -459,12 +505,14 @@ final class GraphicsSceneRenderer extends SceneRenderer {
         }
         if (count == _lightPool.length) {
           _lightPool.add(PunctualLight(type: LightType.point));
+          _lightColors.add(_LinearColor());
         }
+        final colour = _lightColors[count].of(light.color);
         final p = _lightPool[count++]
           ..type = light.kind == LightKind.spot
               ? LightType.spot
               : LightType.point
-          ..color = _linear(light.color)
+          ..color = colour
           ..intensity = light.intensity
           ..range = light.range > 0 ? light.range : null
           ..innerConeAngle = light.innerConeAngle
@@ -496,6 +544,16 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   // shared across engines.
   final Environment _defaults = Environment();
 
+  // The environment's colours made linear, worked out again only when one
+  // changes.
+  final _LinearColor _zenith = _LinearColor(),
+      _horizon = _LinearColor(),
+      _ground = _LinearColor(),
+      _ambientSky = _LinearColor(),
+      _ambientGround = _LinearColor(),
+      _background = _LinearColor(),
+      _fogColor = _LinearColor();
+
   void _extractEnvironment(World world) {
     final env = scene.environment;
     for (final archetype in world.queryArchetypes(const [
@@ -503,21 +561,21 @@ final class GraphicsSceneRenderer extends SceneRenderer {
     ])) {
       final column = archetype.getColumn(EnvironmentComponent)!;
       for (var row = 0; row < archetype.length; row++) {
-        if (!archetype.entityAt(row).isActive) continue;
+        if (!archetype.entityAt(row).isActiveInHierarchy) continue;
         final c = column[row] as EnvironmentComponent;
         env
           ..reflections = c.reflectionStrength
           ..skybox = c.skybox.isNotEmpty
           ..skyboxBlur = c.skyboxBlur
           ..sky = c.sky
-          ..zenith = _linear(c.zenith)
-          ..horizon = _linear(c.horizon)
-          ..ground = _linear(c.ground)
-          ..ambientSky = _linear(c.ambientSky)
-          ..ambientGround = _linear(c.ambientGround)
+          ..zenith = _zenith.of(c.zenith)
+          ..horizon = _horizon.of(c.horizon)
+          ..ground = _ground.of(c.ground)
+          ..ambientSky = _ambientSky.of(c.ambientSky)
+          ..ambientGround = _ambientGround.of(c.ambientGround)
           ..exposure = c.exposure
-          ..clearColor = _linear(c.background)
-          ..fogColor = _linear(c.fogColor)
+          ..clearColor = _background.of(c.background)
+          ..fogColor = _fogColor.of(c.fogColor)
           ..fogDensity = c.fog ? c.fogDensity : 0
           ..fogStart = c.fogStart;
         _updateMap(c);
@@ -537,9 +595,13 @@ final class GraphicsSceneRenderer extends SceneRenderer {
       ..fogDensity = 0;
   }
 
-  // The environment map: what it was asked to be built from, and whether
+  // The environment map: what it was last asked to be built from (a skybox,
+  // or the gradient sky's colours), which request that was, and whether
   // this renderer is still in use when it arrives.
-  Object? _mapKey;
+  String _mapSkybox = '';
+  bool _mapGradient = false;
+  (double, double, double)? _mapZenith, _mapHorizon, _mapGround;
+  int _mapAsked = 0;
   bool _disposed = false;
   bool _mapFailed = false;
 
@@ -549,21 +611,27 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   /// hemisphere light stands in.
   void _updateMap(EnvironmentComponent? c) {
     final env = scene.environment;
-    final Object? wanted = c == null || !_gpu
-        ? null
-        : c.skybox.isNotEmpty
-        ? ('skybox', c.skybox)
-        : c.reflections
-        ? ('gradient', env.zenith, env.horizon, env.ground)
-        : null;
-    if (wanted == _mapKey) return;
-    _mapKey = wanted;
-    if (wanted == null) {
+    final skybox = c == null || !_gpu ? '' : c.skybox;
+    final gradient = c != null && _gpu && skybox.isEmpty && c.reflections;
+    // Asked for as it was: nothing to do, and nothing made to find that out.
+    if (skybox == _mapSkybox &&
+        gradient == _mapGradient &&
+        (!gradient ||
+            (env.zenith == _mapZenith &&
+                env.horizon == _mapHorizon &&
+                env.ground == _mapGround))) {
+      return;
+    }
+    _mapSkybox = skybox;
+    _mapGradient = gradient;
+    final asked = ++_mapAsked;
+    if (skybox.isEmpty && !gradient) {
       env.map = null;
       return;
     }
-    final skybox = c!.skybox;
-    final (z, h, g) = (env.zenith, env.horizon, env.ground);
+    final z = _mapZenith = env.zenith;
+    final h = _mapHorizon = env.horizon;
+    final g = _mapGround = env.ground;
     Future<EnvironmentMapData> build() async {
       if (skybox.isNotEmpty) {
         final image = await compute(
@@ -578,7 +646,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
     unawaited(
       build().then(
         (data) {
-          if (_disposed || _mapKey != wanted) return;
+          if (_disposed || asked != _mapAsked) return;
           scene.environment.map = GpuEnvironmentMap.upload(
             renderer.device,
             data,
@@ -675,12 +743,28 @@ abstract class _Follower {
 
 /// One entity's model in the scene.
 final class _Proxy extends _Follower {
-  _Proxy(super.transform, this.component, this.path);
+  _Proxy(super.transform, this.component, this.path, this.model);
 
   final ModelComponent component;
 
   /// The path it was built for; a change means a rebuild.
   final String path;
+
+  /// The model it was built from: null while it loads.
+  final GpuModel? model;
+
+  /// Whether it still shows [component] as it would be built now: for the
+  /// same path, model and player.
+  bool fits(
+    ModelComponent component,
+    String path,
+    GpuModel? model,
+    AnimationPlayerComponent? player,
+  ) =>
+      identical(component, this.component) &&
+      path == this.path &&
+      identical(model, this.model) &&
+      identical(player, this.player);
 
   /// The entity's transform when last followed; zero forces the first.
   final Matrix4 world = Matrix4.zero();
@@ -708,15 +792,29 @@ final class _ShapeProxy extends _Follower {
   GpuPrimitive? mesh;
 
   // What its mesh and material were made from.
-  Object? shapeKey;
-  Object? materialKey;
+  final ShapeValues sizes = ShapeValues();
+  final ShapeValues look = ShapeValues();
   bool metres = false;
   double sx = 0, sy = 0, sz = 0;
 }
 
-/// sRGB [c] as linear RGB.
-(double, double, double) _linear(Color c) =>
-    (_toLinear(c.r), _toLinear(c.g), _toLinear(c.b));
+/// An sRGB colour as linear RGB, worked out again only when the colour
+/// changes.
+final class _LinearColor {
+  double _r = -1, _g = -1, _b = -1;
+  (double, double, double) _value = (0, 0, 0);
+
+  /// [c] as linear RGB.
+  (double, double, double) of(Color c) {
+    if (c.r != _r || c.g != _g || c.b != _b) {
+      _r = c.r;
+      _g = c.g;
+      _b = c.b;
+      _value = (_toLinear(_r), _toLinear(_g), _toLinear(_b));
+    }
+    return _value;
+  }
+}
 
 double _toLinear(double v) =>
     v <= 0.04045 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4).toDouble();

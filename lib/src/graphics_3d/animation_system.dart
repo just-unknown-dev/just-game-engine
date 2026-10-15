@@ -1,9 +1,14 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
-import 'package:just_game_engine/just_game_engine.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:just_dart/just_dart.dart' show Matrix4, Quaternion;
 import 'package:just_graphics_engine/assets.dart';
 import 'package:just_graphics_engine/renderer.dart';
 
+import '../ecs/components/components.dart';
+import '../ecs/ecs.dart';
+import '../ecs/systems/systems.dart';
 import 'graphics_components.dart';
 import 'graphics_models.dart';
 
@@ -150,7 +155,11 @@ double _cycleOf(
 /// [SocketComponent] entity to its node in its parent's posed model.
 ///
 /// The renderer draws the pose between the last two updates, so motion is
-/// smooth at any frame rate. Added to the world by `Graphics3D`.
+/// smooth at any frame rate. A socket's entity gets a previous pose too —
+/// its node where the update began, on its parent as the renderer draws it
+/// there — so it is drawn between the two, in the hand, not ahead of it.
+/// Each parent is posed once an update, however many sockets it carries.
+/// Added to the world by `Graphics3D`.
 final class AnimationSystem3D extends System {
   /// A system reading clip lengths and skeletons from [models].
   AnimationSystem3D(this.models) {
@@ -164,12 +173,20 @@ final class AnimationSystem3D extends System {
   List<Type> get requiredComponents => const [AnimationPlayerComponent];
 
   // One posed copy per socket parent, kept while the parent lives.
-  final Map<Entity, (PosedModel, PlayerScratch)> _parents = {};
-  final Map<(PosedModel, String), int> _nodes = {};
-  final Matrix4 _parentWorld = Matrix4.identity();
+  final Map<Entity, _SocketParent> _parents = {};
+  final Matrix4 _socketWorld = Matrix4.identity();
   final Matrix4 _node = Matrix4.identity();
   final Quaternion _rotation = Quaternion.identity();
   int _structure = -1;
+  int _updates = 0;
+
+  /// How many socket parents are posed for their sockets, for tests.
+  @visibleForTesting
+  int get debugSocketParents => _parents.length;
+
+  /// How many times a socket parent has been posed, for tests.
+  @visibleForTesting
+  int debugPoses = 0;
 
   @override
   void update(double deltaTime) {
@@ -180,7 +197,7 @@ final class AnimationSystem3D extends System {
       final players = archetype.getColumn(AnimationPlayerComponent)!;
       final modelColumn = archetype.getColumn(ModelComponent)!;
       for (var row = 0; row < archetype.length; row++) {
-        if (!archetype.entityAt(row).isActive) continue;
+        if (!archetype.entityAt(row).isActiveInHierarchy) continue;
         final path = (modelColumn[row] as ModelComponent).model;
         final model = path.isEmpty ? null : models.get(path);
         _advance(players[row] as AnimationPlayerComponent, model, deltaTime);
@@ -227,26 +244,29 @@ final class AnimationSystem3D extends System {
     if (p.fade < 1) {
       final seconds = p.fadeSeconds;
       p.fade = seconds <= 0 ? 1 : math.min(1, p.fade + dt / seconds);
+      // What fades out goes on as it played: at its own speed, looping or
+      // holding at its end.
+      final step = dt * p.fadingFromSpeed;
       if (p.fadingFromBlend.isNotEmpty) {
         final cycle = _cycleOf(
           model,
           p.fadingFromBlend,
           p.fadingFromWeights,
-          const [],
+          p.fadingFromSpeeds,
         );
         if (cycle > 0) {
-          p.fadingFromPhase = _wrap(
-            p.fadingFromPhase + dt * p.speed / cycle,
-            1,
-          );
+          final next = p.fadingFromPhase + step / cycle;
+          p.fadingFromPhase = p.fadingFromLoop
+              ? _wrap(next, 1)
+              : next.clamp(0.0, 1.0);
         }
       } else {
         final fromDuration = model?.clips[p.fadingFrom]?.duration ?? 0;
         if (fromDuration > 0) {
-          p.fadingFromTime = _wrap(
-            p.fadingFromTime + dt * p.speed,
-            fromDuration,
-          );
+          final next = p.fadingFromTime + step;
+          p.fadingFromTime = p.fadingFromLoop
+              ? _wrap(next, fromDuration)
+              : next.clamp(0.0, fromDuration);
         }
       }
       if (p.fade >= 1) {
@@ -258,10 +278,15 @@ final class AnimationSystem3D extends System {
   }
 
   void _placeSockets() {
-    if (world.structureVersion != _structure) {
-      _structure = world.structureVersion;
+    final version = world.queryVersion(const [
+      TransformComponent,
+      ModelComponent,
+    ]);
+    if (version != _structure) {
+      _structure = version;
       _parents.removeWhere((entity, _) => !entity.isAlive);
     }
+    _updates++;
     for (final archetype in world.queryArchetypes(const [
       SocketComponent,
       ParentComponent,
@@ -271,7 +296,7 @@ final class AnimationSystem3D extends System {
       final links = archetype.getColumn(ParentComponent)!;
       final transforms = archetype.getColumn(TransformComponent)!;
       for (var row = 0; row < archetype.length; row++) {
-        if (!archetype.entityAt(row).isActive) continue;
+        if (!archetype.entityAt(row).isActiveInHierarchy) continue;
         final parentId = (links[row] as ParentComponent).parentId;
         final parent = parentId == null ? null : world.getEntity(parentId);
         final parentTransform = parent?.getComponent<TransformComponent>();
@@ -285,38 +310,77 @@ final class AnimationSystem3D extends System {
             ? null
             : models.get(modelComponent.model);
         if (model == null) continue;
-        final (posed, scratch) = _parents.putIfAbsent(parent, () {
-          final posed = PosedModel(model);
-          return (posed, PlayerScratch(model.data.nodes.length));
-        });
-        if (!identical(posed.model, model)) {
-          _parents.remove(parent);
-          continue;
+        var posed = _parents[parent];
+        if (posed == null || !identical(posed.posed.model, model)) {
+          posed = _parents[parent] = _SocketParent(model, parentTransform);
         }
-        final socket = sockets[row] as SocketComponent;
-        final node = _nodes.putIfAbsent((
-          posed,
-          socket.node,
-        ), () => posed.nodeNamed(socket.node));
+        final node = posed.nodeNamed((sockets[row] as SocketComponent).node);
         if (node < 0) continue;
-        final player = parent.getComponent<AnimationPlayerComponent>();
-        if (player != null) {
-          samplePlayer(player, model, posed.pose, scratch);
-        } else {
-          posed.pose.setRest(model.data);
+        if (posed.posedAt != _updates) {
+          _pose(posed, parent, parentTransform);
+          posed.posedAt = _updates;
         }
-        model.skeleton.evaluate(posed.pose, posed.nodeMatrices);
-        parentTransform.localToWorldInto(_parentWorld);
-        posed.nodeMatrixInto(node, _node);
-        // The joint's frame in engine axes: a model hung on the socket gets
-        // its own axis turn when drawn, so the joint's is undone after.
-        _parentWorld
-          ..multiply(gltfToEngine)
-          ..multiply(_node)
-          ..multiply(gltfToEngine);
-        _place(transforms[row] as TransformComponent, _parentWorld);
+        final t = transforms[row] as TransformComponent;
+        // Where the update began, kept as its previous pose; then where it
+        // is now.
+        _socketInto(posed.previousWorld, posed.previousNodes, node);
+        _place(t, _socketWorld);
+        t.capturePrevious();
+        _socketInto(posed.world, posed.posed.nodeMatrices, node);
+        _place(t, _socketWorld);
       }
     }
+  }
+
+  /// Poses [p]'s model as [parent] shows it at the update's start and now,
+  /// and where [transform] puts it then and now — the start from its
+  /// previous pose when something captured one in the update (as the
+  /// renderer draws it), else from where it is.
+  void _pose(_SocketParent p, Entity parent, TransformComponent transform) {
+    debugPoses++;
+    final count = transform.captureCount;
+    final fresh = count != p.captures && p.posedAt == _updates - 1;
+    p.captures = count;
+    transform.localToWorldInto(p.world);
+    if (fresh) {
+      transform.interpolatedToWorldInto(p.previousWorld, 0);
+    } else {
+      p.previousWorld.setFrom(p.world);
+    }
+    final posed = p.posed;
+    final model = posed.model;
+    final player = parent.getComponent<AnimationPlayerComponent>();
+    final moving =
+        player != null &&
+        (player.previousTime != player.time ||
+            player.previousPhase != player.phase);
+    if (moving) {
+      samplePlayer(player, model, posed.pose, p.scratch, alpha: 0);
+      model.skeleton.evaluate(posed.pose, p.previousNodes);
+    }
+    if (player != null) {
+      samplePlayer(player, model, posed.pose, p.scratch);
+    } else {
+      posed.pose.setRest(model.data);
+    }
+    model.skeleton.evaluate(posed.pose, posed.nodeMatrices);
+    if (!moving) p.previousNodes.setAll(0, posed.nodeMatrices);
+  }
+
+  /// Into [_socketWorld]: the frame of [node] — its matrix in [nodes] — on
+  /// a model placed at [parentWorld], in engine axes.
+  void _socketInto(Matrix4 parentWorld, Float32List nodes, int node) {
+    final m = _node.storage;
+    for (var i = 0; i < 16; i++) {
+      m[i] = nodes[node * 16 + i];
+    }
+    // The joint's frame in engine axes: a model hung on the socket gets its
+    // own axis turn when drawn, so the joint's is undone after.
+    _socketWorld
+      ..setFrom(parentWorld)
+      ..multiply(gltfToEngine)
+      ..multiply(_node)
+      ..multiply(gltfToEngine);
   }
 
   /// Moves [t] to [m]'s position and rotation, keeping [t]'s scale.
@@ -340,4 +404,38 @@ final class AnimationSystem3D extends System {
     );
     t.setRotation(_rotation);
   }
+}
+
+/// A socket parent's model, posed for its sockets once an update.
+final class _SocketParent {
+  _SocketParent(GpuModel model, TransformComponent transform)
+    : posed = PosedModel(model),
+      scratch = PlayerScratch(model.data.nodes.length),
+      previousNodes = Float32List(model.data.nodes.length * 16),
+      captures = transform.captureCount;
+
+  /// The model in its pose now.
+  final PosedModel posed;
+
+  /// Where a blend is put together.
+  final PlayerScratch scratch;
+
+  /// Every node's model-space matrix at the update's start, 16 floats each.
+  final Float32List previousNodes;
+
+  /// Where the parent is now, and where it was drawn from at the update's
+  /// start.
+  final Matrix4 world = Matrix4.identity();
+  final Matrix4 previousWorld = Matrix4.identity();
+
+  /// The parent transform's capture count when last posed.
+  int captures;
+
+  /// The update it was last posed in.
+  int posedAt = -1;
+
+  final Map<String, int> _nodes = {};
+
+  /// The index of the node called [name], or -1.
+  int nodeNamed(String name) => _nodes[name] ??= posed.nodeNamed(name);
 }

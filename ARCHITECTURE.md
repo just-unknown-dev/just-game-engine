@@ -55,7 +55,7 @@ What 2.0 changed in the architecture:
 | Platforms | Android, iOS, Linux, macOS, Windows, Web (declared in `pubspec.yaml`) |
 | Public libraries | `package:just_game_engine/just_game_engine.dart` (the engine and the hosting widget), `package:just_game_engine/widgets.dart` (optional screen UI), `package:just_game_engine/graphics_3d.dart` (3-D graphics, opt-in), `package:just_game_engine/physics_3d.dart` (3-D physics, opt-in) |
 | Source | `lib/`: 332 Dart files, about 56,600 lines; 64 component classes; 31 concrete systems (plus the abstract `ReactiveSystem` and `AutoSyncSystem`) |
-| Tests | `test/`: 119 test files; `flutter test`: 1,581 passed, 4 skipped (October 15, 2026) |
+| Tests | `test/`: 159 test files; `flutter test`: 1,874 passed, 4 skipped (October 15, 2026) |
 | Repository | https://github.com/just-unknown-dev/just-game-engine |
 
 ---
@@ -189,14 +189,13 @@ From `pubspec.yaml`:
 | Dependency | Version | What the engine uses it for |
 |---|---|---|
 | `flutter` | SDK | everything |
-| `flutter_web_plugins` | SDK | `just_audio_engine` registers a web plugin without depending on it; depending on it here puts it in every game's package config, so a game with no other web plugin compiles for the web |
 | `just_physics_engine` | `^1.4.0` | `engine.physics`: Box2D through FFI on native platforms, pure Dart on the web; re-exported with a `show` list (`subsystems/physics/physics.dart`) |
 | `just_inputs` | `^0.1.0` | `engine.input` (`InputService`): actions, devices, players, rebinding, pointer lock; re-exported with a `show` list of 43 names, widgets through `widgets.dart` |
 | `just_audio_engine` | `^1.1.0` | `engine.audio`, `music`, `sfx`; re-exported with a `show` list of 17 names (`subsystems/audio/audio.dart`) |
 | `just_storage` | `^1.2.1` | the key-value store behind `CacheManager` |
 | `path_provider` | `^2.1.5` | finds the folder of the engine's storage file; imported only by `memory/engine_storage_io.dart` |
 | `just_database` | `^1.4.2` | the binary cache database |
-| `just_signals` | `^1.0.2` | signals for the reactive layer, localization, narrative, subtitles and `GameWidget`'s FPS badge; **not** re-exported |
+| `just_signals` | `^1.0.2` | signals for the reactive layer, localization, narrative, subtitles and `GameWidget`'s FPS badge; `Signal` and `Computed` re-exported (`reactive/reactive.dart`), since the reactive wrappers return them |
 | `just_memory` | `^0.1.0` | budgeted caches in `CacheManager`, `MemoryScope` for assets, diagnostics; 11 names re-exported |
 | `just_tiled` | `^0.4.1` | reading and writing Tiled's TMX/TSX/TMJ/TSJ files (`TiledInterop`, `TileAssets`) |
 | `just_deflate` | `^0.1.0` | zlib for tile-map chunks: pure Dart, the same bytes on every platform |
@@ -317,7 +316,7 @@ A disposed engine cannot be initialized again: make a new `Engine()`.
 | `animatorGraphs` | `AnimatorGraphLoader` for `.animator.json` files |
 | `timelines` | `TimelineLoader` for `.timeline.json` files (parsed with `trackKinds` and migrated with `migrations`) |
 | `tiles` | `TileAssets` — tileset and map files, what was loaded of them, and the built-in tilesets' pictures; its `readText` is the fourth loader seam |
-| `timelineAudio` | `TimelineAudioPlayer` — how a timeline's audio track makes a sound; `TimelineAudio.viaComponent` by default |
+| `timelineAudio` | `TimelineAudioPlayer` — how a timeline's audio track makes a sound; `TimelineAudio.viaAudioSystem` by default |
 | `signals` | `TimelineSignals` — named signals for every world on this context (a UI button emits one, a timeline listening for it starts) |
 | `localization` | `LocalizationManager?` — the game's strings; `GameWidget` provides it through a `LocalizationScope` |
 
@@ -329,7 +328,7 @@ The five runtime registries — `TimelineTrackKinds`, `KeyEasings`, `AnimatorBin
 |---|---|
 | The engine's `EngineContext` (shared by every world given it) | definitions, field types, migration hooks, track kinds, easings, animator bindings, collision kinds, effect types; the bundle, the `AssetManager` and the sprite, animator and timeline loaders; the tile reader and tile caches; the signal bus; the timeline audio hook; localization; package slots |
 | The engine's session subsystems | rendering, physics, input, audio and music, cache, camera system (output camera and brain), deprecated parallax list, services, plugins, layers, terminal |
-| Each `World` | entities, archetypes and the query cache, the name and tag indexes, the command buffer, the event bus, the transform hierarchy, the systems, `structureVersion` |
+| Each `World` | entities, archetypes and the query cache, the name and tag indexes, the command buffer, the event bus, the transform hierarchy, the systems, the query versions |
 | The camera brain (`engine.cameraSystem.brain`) | camera memory, noise time, the impulse bus and its seeds; reset by `CameraBrain.reset()` |
 | Each `EffectPlayer` | effect-handle ids |
 
@@ -482,11 +481,11 @@ There is no physics task. `PhysicsSystem` steps the physics engine inside the EC
 for each system, highest priority first:        (sorted when added)
     before the first system with priority < SystemPriorities.hierarchy (50):
         transformHierarchy.propagate()           (§7.5; at the end if no such system)
-    if system.isActive: system.update(dt)        timed into World.stats
+    if system.isActive: system.update(dt)        timed into World.stats while World.profiling is on
     if the command buffer holds anything: commands.flush()
 ```
 
-- The order comes from `System.priority` alone; `addSystem` sorts the list. Systems of equal priority have no guaranteed order among themselves.
+- The order comes from `System.priority`; systems of equal priority run in the order they were added, and `sortSystems` keeps that order. Systems may be added and removed while the systems run — a system may remove itself or call `clearSystems`: one removed before its turn is skipped, one added runs from the next update. Adding a system already in the world does nothing.
 - Commands queued by one system are applied before the next one runs (§8.6).
 - An exception from a system ends the update; the engine does not catch it.
 
@@ -614,22 +613,23 @@ Entities with exactly the same set of component types share an `Archetype`: one 
 
 Archetypes are found by a Zobrist hash of their type set: each `Type` gets a random 31-bit key (31 bits, so keys are the same integers on the web), and a set hashes to the XOR of its keys. A hash is only a hash: every hit is checked against the type set itself. Archetypes live until the world is cleared (`destroyAllEntities`, `dispose`).
 
-### 8.3 Queries, the query cache and structureVersion
+### 8.3 Queries, the query cache and query versions
 
-`world.query(List<Type> componentTypes)` returns the switched-on entities that have every one of those types, as an unmodifiable `List<Entity>`:
+`world.query(List<Type> componentTypes)` returns the entities active in the hierarchy (§8.4) that have every one of those types, as an unmodifiable `List<Entity>`:
 
 - There is one cache entry per distinct type set. It holds the archetypes that match (extended when a new matching archetype is made) and the last result.
 - A result is dropped only when an archetype it matches gains or loses a row, or one of its entities is switched on or off. Unrelated queries keep theirs. Asking again in the same frame is a lookup.
 - A returned list is never changed; a later change makes a new one.
 
-`world.queryArchetypes(types)` returns the matching archetypes, for systems that walk columns directly (`getColumn(type)`, `entityIds`, `entityAt(row)`). It does **not** leave out switched-off entities: the caller checks `archetype.entityAt(row).isActive`.
+`world.queryArchetypes(types)` returns the matching archetypes, for systems that walk columns directly (`getColumn(type)`, `entityIds`, `entityAt(row)`). It does **not** leave out switched-off entities: the caller checks `archetype.entityAt(row).isActiveInHierarchy`. `getColumn` and `entityIds` are the live lists and marked `@internal`; game code reads rows with `getComponent`, `getComponentByType` and `entityAt`.
 
-`world.structureVersion` goes up whenever an entity is created or destroyed, switched on or off, or gains or loses a component. A system that keeps its own per-entity state compares it with the value it last saw and rebuilds only when it moved. `RenderSystem`, `PhysicsSystem`, `LevelMapSystem` and the sprite, animator and timeline systems do this.
+`world.queryVersion(types)` is each cached query's own version. It moves on only when what that query matches may have changed: an entity with all of the types is created or destroyed, gains or loses any component, has one replaced, or is switched on or off (itself or through a parent), or a new matching archetype appears. Changes to entities the query cannot match leave it alone. Versions are unique within the world and only go up, so a system reading several queries compares the largest. `RenderSystem`, `ComponentPainterPass`, `PhysicsSystem`, `PhysicsSystem3D`, the 2-D character and joint-binding systems, `GraphicsSceneRenderer`, `AnimationSystem3D`, `ViewCullingSystem`, `LevelMapSystem` and the sprite and timeline systems keep what they built per entity until one of their own queries' versions moves. There is no world-wide structure counter.
 
 ### 8.4 isActive and isAlive
 
 - `isAlive` — the entity exists: its world has not destroyed it.
-- `isActive` — the entity is switched on: the scene's saved "enabled" flag. A switched-off entity stays in the world but drops out of `query` results, so systems pass it by. The setter tells the world, which refreshes the affected queries and tag lists and moves `structureVersion` on. `SceneLoader` switches off entities saved with `enabled: false`.
+- `isActive` — the entity itself is switched on: the scene's saved "enabled" flag, which the editor shows and saves. `SceneLoader` switches off entities saved with `enabled: false`.
+- `isActiveInHierarchy` — it is switched on and so is every parent above it (Unity's `activeInHierarchy`). This is what `query`, `findTagged` / `allTagged`, `findEntityByName(includeInactive: false)`, `activeEntities` and the engine's systems go by: switching a parent off takes its whole subtree out of queries, drawing and simulation without changing the children's own flags. The world keeps it cached, updating it as entities are switched, re-parented, made and destroyed, and moves the affected queries' versions on.
 
 ### 8.5 Names and tags
 
@@ -664,7 +664,7 @@ Entity ids count up for the life of the world and are never reused, not even aft
 
 ### 8.9 The reactive layer
 
-`lib/src/reactive/` wraps the ECS in `just_signals` signals for Flutter UI: `ComponentSignal<C, T>` (a `Signal` over one component field, with `TransformSignals`, `VelocitySignals` and `HealthSignals` ready-made), `EntitySignal`, `WorldSignal`, `ReactiveSystem` (processes only entities marked dirty), `AutoSyncSystem` with `SignalSyncMixin`, and the `ReactiveComponent` mixin. It is optional: nothing else in the engine depends on it. The `just_signals` types themselves (`Signal`, `Computed`, `SignalBuilder`) are not re-exported; see [ESP_ARCHITECTURE.md](ESP_ARCHITECTURE.md).
+`lib/src/reactive/` wraps the ECS in `just_signals` signals for Flutter UI: `ComponentSignal<C, T>` (a `Signal` over one component field, with `TransformSignals`, `VelocitySignals` and `HealthSignals` ready-made), `EntitySignal`, `WorldSignal`, `ReactiveSystem` (processes only entities marked dirty), `AutoSyncSystem` with `SignalSyncMixin`, and the `ReactiveComponent` mixin. It is optional: nothing else in the engine depends on it. Of `just_signals` itself only `Signal` and `Computed` are re-exported, the types these wrappers return; import the package for `SignalBuilder`, `Effect` and the rest (see [ESP_ARCHITECTURE.md](ESP_ARCHITECTURE.md)).
 
 ---
 
@@ -775,9 +775,10 @@ Scenes, timelines, maps, tilesets, the tag library and animator graphs throw `Un
 
 - **What.** Every entity's `RenderableComponent`, every `RenderItem` of a `RenderItemsComponent` (a level map's layers, say), and every `ParticleEmitterComponent`'s emitter — one sorted draw list.
 - **Order.** By layer, then `zOrder`, then sub-order, then the order it was found in. An entity's keys come from its `LayerComponent` (0, 0, 0 without one); a render item carries its own `layer`, `zOrder` and `subOrder`. The sub-order (`LayerComponent.subOrder`, `RenderItem.subOrder`) is how an entity on a map layer draws between that layer's tiles and the next's. Layer and `zOrder` are compared as two numbers; they used to be packed into one with a shift, which on the web sorted every negative layer last.
-- **Cost.** The list is kept between frames and rebuilt only when `world.structureVersion` moves or an entity's render items change; otherwise each frame refreshes the keys and re-sorts by insertion (one pass when nothing moved). Each entry holds its entity's components, found once per archetype.
-- **Transforms.** Each renderable is synced from its `TransformComponent`. Entities with a `PhysicsBodyRefComponent` are drawn between their previous and current poses by `interpolation`.
-- **After the list.** Renderables with `ySort` are drawn last, sorted by world y. Then the `passes` run, in ascending order: by default one `ComponentPainterPass`, which draws every component whose definition has a painter (world-space text and buttons from `just_ui_editor`, for one).
+- **Cost.** The list is kept between frames and rebuilt only when one of its queries' versions moves (`world.queryVersion`) or an entity's render items change; otherwise each frame refreshes the keys and re-sorts by insertion (one pass when nothing moved). Each entry holds its entity's components, found once per archetype.
+- **Transforms.** Each renderable is synced from its `TransformComponent`. A renderable whose transform captured its previous pose in the last fixed update (`TransformComponent.captureCount` — moving physics bodies, and children of them) is drawn between its previous and current poses by `interpolation`, which `RenderSystem` takes in its `frame` phase; anything else is drawn where it is.
+- **Within a key.** Renderables with `ySort` are drawn after the rest of their layer, zOrder and sub-order, by world y, through the same batch and shader path. An entity with no `LayerComponent` is keyed by its renderable's own `layer` and `zOrder`; a sprite from another image ends the pending batch, so batching never changes the order.
+- **After the list.** The `passes` run, in ascending order: by default one `ComponentPainterPass`, which draws every component whose definition has a painter (world-space text and buttons from `just_ui_editor`, for one).
 - **Filters.** `shouldRender` lets a tool skip entities without touching them. An entity on a hidden map layer (`LayerComponent.hiddenByMap`) is skipped here and in every pass. `RenderSystem.debugDrawOrder()` lists the order, for tests.
 - **Counts.** `RenderSystem.stats` holds what the last `render()` drew (`drawCalls`, `renderedObjects`, `culledObjects`, `batchedSprites`; the passes' own drawing is not counted), and the same counts go to `statsSink` when it has one (§10.1).
 
@@ -836,7 +837,7 @@ Both have the same API: bodies (`PhysicsBody`, with `CircleShape`, `RectangleSha
 
 Details:
 
-- Its list of entities is rebuilt only when `world.structureVersion` moves.
+- Its list of entities is rebuilt only when the versions of the queries it reads move (`world.queryVersion`).
 - A switched-off entity leaves the simulation; switched back on, it gets a fresh body where its transform then is.
 - **Sleep.** A body at rest may fall asleep, as the physics engine decides. Anything the ECS does to it wakes it: a velocity different from the one the last step left, a teleport through the transform, a force or torque waiting to be applied, a changed `RigidBody2D` or `Collider2D` setting, a return from view culling, or a change of gravity.
 - **Removal.** Taking the system out of its world, or disposing it, removes every body it made, so none stay behind colliding as ghosts.
@@ -874,10 +875,10 @@ Related: `PhysicsJointBindingSystem` (priority 88) makes and keeps joints from `
 - `engine.audio` (`AudioEngine`), `engine.music` (`MusicManager`) and `engine.sfx` (`SoundEffectManager`) come from `just_audio_engine`. `EngineConfig.createAudio` builds another, for example `AudioEngine.withBackend(...)`.
 - **On the web the audio engine starts at the first key or pointer press** anywhere in the app, not in `initialize()`. A browser keeps an audio context made before any user gesture suspended, and `just_audio_engine` makes its context when it initializes. `EngineConfig.deferAudioUntilInput` chooses (null: on the web only). A sound played before that press starts the audio engine early, and the browser may then keep it silent.
 - An initialization error is logged and the game goes on without sound (headless runs, tests, a platform without the plugin).
-- **ECS.** `AudioSystem` (priority −10, a `FrameSystem`) starts `AudioSourceComponent`s on the fixed step, fires one-shot `AudioPlayComponent`s and removes them, handles `AudioPauseComponent`, `AudioResumeComponent` and `AudioStopComponent`, and drives `AudioStreamComponent`s — once the audio engine has started. Once per rendered frame, after the camera has moved, it sends the listener's pose (`AudioListenerComponent`, or the camera when there is none) and each moved 3-D source, only when they change. It stops what a removed component or entity played.
+- **ECS.** `AudioSystem` (priority −10, a `FrameSystem`) starts `AudioSourceComponent`s on the fixed step, carries out their `AudioRequests` (`pause`, `resume`, `stop`) and plays the one-shots asked for with `playOneShot`, and drives `AudioStreamComponent`s — once the audio engine has started. A switched-off entity's sound pauses and plays on when it is switched back on; `suspend` / `resumeSuspended` pause and restore everything for the app's background (`Engine.suspendAudio`, which `GameWidget` calls). While the engine is paused the audio engine still updates every frame, so volume changes are heard. Once per rendered frame, after the camera has moved, it sends the listener's pose (`AudioListenerComponent`, or the camera when there is none) and each moved 3-D source, only when they change. It stops what a removed component or entity played.
 - **3-D sound is worked out in Dart**, by `just_audio_engine`: the `audio` frame task (`AudioEngine.update`, last in the frame) turns each 3-D sound's position, the listener and their velocities into a volume, pan, pitch and low-pass cutoff (`AudioSpatial.mix`) and sends the ones that changed to the platform in one call. Every platform hears the same; none of their own 3-D engines is used.
 - A 3-D source (`is3d` on an entity with a transform) is placed, not panned. A sound plays on its component's `channel`.
-- A timeline's audio track plays through `context.timelineAudio`, by default `TimelineAudio.viaComponent`, which adds an `AudioPlayComponent`.
+- A timeline's audio track plays through `context.timelineAudio`, by default `TimelineAudio.viaAudioSystem`, a one-shot from the world's `AudioSystem`.
 - Disposal starts the audio shutdown; `engine.dispose()`'s Future waits for it.
 
 ---
@@ -1063,7 +1064,7 @@ A `SceneRenderer` renders its scene into a texture and draws the image over the 
 - **`GraphicsModels`** loads each model path once: it reads through the engine's bundle (relative `.gltf` URIs resolve next to the file), prefers a cooked `<model>.jmodel` the bundle's manifest lists, parses in an isolate and uploads. `GraphicsModelAsset` is the engine-side `ModelAsset`. Its bounds and triangles are in engine axes; a mesh used by several nodes gives one triangle set per placement.
 - **Animation.** `AnimationPlayerComponent` saves the clip, speed, loop and crossfade; `AnimationSystem3D` (priority `animation`) moves time on. The scene renderer samples each animated entity at `FrameView.interpolation` between its last two updates. `SocketComponent` pins a child entity to a joint: each update the system writes the joint's frame as the child's world transform (`parent · G · joint · G`, where G is `gltfToEngine`, so a model hung there is not turned twice), and the hierarchy works the local offset out from it.
 - **`GraphicsSceneRenderer`** (a `SceneRenderer`, order -100) runs inside the frame:
-  1. **Extract.** It rebuilds the `RenderScene`'s instances only when the world changes identity or `structureVersion`, a model finishes loading, or a `ModelComponent.model` path changes. Otherwise it only compares each entity's transform with the last one and moves that entity's instances. Each instance keeps its entity-from-primitive matrix (`gltfToEngine` x node), so following is one multiply. A shape has one instance; each frame its keys are compared with the last, and a change of size or look swaps the instance's primitive or material.
+  1. **Extract.** It rebuilds the `RenderScene`'s instances only when the world changes identity or its model or shape query's version moves, a model finishes loading, or a `ModelComponent.model` path changes. Otherwise it only compares each entity's transform with the last one and moves that entity's instances. Each instance keeps its entity-from-primitive matrix (`gltfToEngine` x node), so following is one multiply. A shape has one instance; each frame its keys are compared with the last, and a change of size or look swaps the instance's primitive or material.
   2. **Lights.** Lights and the environment are re-read every frame; they are few. The first directional light is the sun. A scene with no lights at all gets a default sun, so a dropped-in model is readable. Colours are authored in sRGB and converted to linear.
   3. **Draw.** It renders at viewport x device pixel ratio x `renderScale` x `dynamicResolution.scale` into a `GpuSurface` (one per `FrameView` it draws, so an editor's second view in the same frame doesn't overwrite the game's), then draws `surface.image` over the viewport with `drawImageRect` and disposes it. The frame is submitted without waiting; `lastFrame` completes when the GPU is done.
   - **Interpolation.** A transform whose `captureCount` changed over the last fixed step (physics bodies and characters) is drawn between its previous and current pose at `FrameView.interpolation`; anything else is drawn where it is.
@@ -1143,8 +1144,7 @@ Also deprecated, for removal in 3.0: `Engine.getSystem` (use `subsystem`), `Hier
 ### 20.6 Smaller items
 
 - Logging is `debugPrint`, about seventy calls, with no hook for a game's own logger.
-- On the web, app code that calls `clear()` on its own `JustStorage.standard()` also clears the engine's keys: `just_storage` gives every browser key the same prefix. On native platforms the files are separate.
 - The engine's loop runs at 60 updates a second; `EngineConfig` has no setting for it.
 - `ParticleSystemECS` is not a default system; a game with particle emitter components adds it.
-- Waiting on `just_physics_engine`: joint anchors (`anchor` / `connectedAnchor` of distance and fixed joints) and `collideConnected` are not passed to it; on native Box2D the distance-joint spring is never switched on (the joint holds its length rigidly), and slider joints do nothing (`PhysicsJointBindingSystem` says so once in debug builds). The Dart backend and the native one also read a distance joint's `stiffness` / `damping` differently (force per unit against hertz and damping ratio).
-- Waiting on `just_audio_engine`: `AudioSourceComponent.channel` and `AudioPlayComponent.channel` are ignored (every sound effect plays on the sfx channel), and a stream is not routed through `AudioStreamComponent.channel`.
+- Waiting on `just_physics_engine`: joint anchors (`anchor` / `connectedAnchor` of distance and fixed joints) are not passed to it; with `collideConnected` off the pure-Dart backend still pushes jointed bodies apart (the engine only keeps their contact events back); native Box2D queries skip bodies whose collision mask is 0. Joint springs are hertz and damping ratio everywhere: `PhysicsJointBindingSystem.dartSpring` converts them for the Dart backend.
+- Waiting on `just_audio_engine`: a stream is not routed through `AudioStreamComponent.channel`'s volume, and a playing sound's pitch, pan, speed and loop cannot change.

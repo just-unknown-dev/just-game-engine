@@ -3,12 +3,16 @@
 // (saved by name in a key's `e`). The expected values were taken from the
 // implementations before they were merged — EffectEasings.resolve and the
 // animation subsystem's Easings — so a saved effect or timeline eases
-// exactly as it did.
+// as it did. They were recorded on Windows; sin and pow come from each
+// platform's maths library and may differ in the last bit, hence [_same].
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
 const _ts = [0.0, 0.25, 0.5, 0.75, 1.0];
+
+/// The recorded value, to within the last bits of a double.
+Matcher _same(double expected) => closeTo(expected, 1e-12);
 
 /// Every EasingType name, in declaration order (an effect saves the name),
 /// with its value at 0, 0.25, 0.5, 0.75 and 1.
@@ -81,12 +85,13 @@ void main() {
     }
   });
 
-  test('every EasingType eases exactly as before', () {
+  test('every EasingType eases as before', () {
     for (final MapEntry(key: name, value: expected) in _effectCurves.entries) {
       final type = EasingType.values.byName(name);
       for (var i = 0; i < _ts.length; i++) {
-        expect(type.transform(_ts[i]), expected[i], reason: '$name(${_ts[i]})');
-        expect(type.curve(_ts[i]), expected[i], reason: '$name(${_ts[i]})');
+        final at = '$name(${_ts[i]})';
+        expect(type.transform(_ts[i]), _same(expected[i]), reason: at);
+        expect(type.curve(_ts[i]), _same(expected[i]), reason: at);
       }
     }
   });
@@ -98,13 +103,13 @@ void main() {
     );
   });
 
-  test('every KeyEasings name eases exactly as before', () {
+  test('every KeyEasings name eases as before', () {
     for (final name in _timelineNames) {
       final expected = _effectCurves[name]!;
       for (var i = 0; i < _ts.length; i++) {
         expect(
           KeyEasings.builtIn.apply(name, _ts[i]),
-          expected[i],
+          _same(expected[i]),
           reason: '$name(${_ts[i]})',
         );
       }

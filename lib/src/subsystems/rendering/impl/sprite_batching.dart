@@ -109,13 +109,15 @@ class SpriteBatchPlan {
   }
 
   /// The colour a batched sprite is multiplied by, as 0xAARRGGBB: its
-  /// [tint] with [opacity] for alpha, or white at [opacity] — the colour it
-  /// was given as an object, `tint.withValues(alpha: opacity)` or
-  /// `Color.fromRGBO(255, 255, 255, opacity)`, without making one.
+  /// [tint]'s colour, or white, at [opacity] times the tint's own alpha —
+  /// what [Sprite.render] draws the sprite by itself with, and how a shape
+  /// folds its tint in (see [Sprite.tintedAlpha]).
   static int spriteColor(Color? tint, double opacity) {
-    // Both colours hold opacity as their alpha, and reached the canvas as
-    // toARGB32(), which rounds it to 8 bits.
-    final alpha = (opacity * 255.0).round().clamp(0, 255);
+    // Rounded to 8 bits, as toARGB32() rounds a colour's alpha.
+    final alpha = (Sprite.tintedAlpha(tint, opacity) * 255.0).round().clamp(
+      0,
+      255,
+    );
     return (alpha << 24) |
         (tint == null ? 0x00FFFFFF : tint.toARGB32() & 0x00FFFFFF);
   }

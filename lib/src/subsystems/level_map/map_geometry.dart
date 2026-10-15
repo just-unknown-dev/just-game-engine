@@ -497,17 +497,30 @@ class MapGeometry {
   }
 
   /// The box around [range]'s cells, in pixels.
+  ///
+  /// On a staggered or hexagonal map the shifted rows (or columns) reach
+  /// half a tile past the others, so the corner cells alone can fall short:
+  /// the rows (or columns) next to each edge count too.
   Rect boundsOf(TileRange range) {
     if (range.isEmpty) return Rect.zero;
-    var rect = cellBounds(range.x0, range.y0);
-    for (final c in [
-      TileCoord(range.x1 - 1, range.y0),
-      TileCoord(range.x0, range.y1 - 1),
-      TileCoord(range.x1 - 1, range.y1 - 1),
-    ]) {
-      rect = rect.expandToInclude(cellBounds(c.x, c.y));
+    final xs = {range.x0, range.x1 - 1};
+    final ys = {range.y0, range.y1 - 1};
+    if (_isStaggered(orientation)) {
+      for (final x in [range.x0 + 1, range.x1 - 2]) {
+        if (x >= range.x0 && x < range.x1) xs.add(x);
+      }
+      for (final y in [range.y0 + 1, range.y1 - 2]) {
+        if (y >= range.y0 && y < range.y1) ys.add(y);
+      }
     }
-    return rect;
+    Rect? rect;
+    for (final x in xs) {
+      for (final y in ys) {
+        final cell = cellBounds(x, y);
+        rect = rect == null ? cell : rect.expandToInclude(cell);
+      }
+    }
+    return rect!;
   }
 
   /// Orders cells back to front, the way they must be drawn so that taller

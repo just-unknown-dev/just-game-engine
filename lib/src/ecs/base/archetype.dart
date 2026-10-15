@@ -10,7 +10,9 @@ part of '../ecs.dart';
 ///
 /// Only its [World] adds and removes rows. Systems read it — through
 /// [World.queryArchetypes] — and must skip rows whose entity is not
-/// [Entity.isActive] ([entityAt]).
+/// [Entity.isActiveInHierarchy] ([entityAt]). Game code reads a row with
+/// [getComponent], [getComponentByType] and [entityAt]; the raw columns
+/// ([getColumn], [entityIds]) are the engine's own.
 class Archetype {
   /// The canonical set of component types in this archetype.
   Set<Type> get types => _typesView;
@@ -77,15 +79,22 @@ class Archetype {
     return _columnList.map((col) => col[row]);
   }
 
-  /// Direct access to a column for tight system loops. Read it; never
-  /// resize it.
+  /// Direct access to a column for the engine's tight system loops: the
+  /// live list the world keeps, not a copy. Read it; never change it.
+  ///
+  /// Internal to the engine — outside it, read rows with [getComponent].
+  @internal
   List<Component>? getColumn(Type type) => _columns[type];
 
-  /// The entity IDs stored in insertion order. Read it; never resize it.
+  /// The entity IDs stored in row order: the live list the world keeps.
+  /// Read it; never change it.
+  ///
+  /// Internal to the engine — outside it, use [entityAt] and [length].
+  @internal
   List<EntityId> get entityIds => _entityIds;
 
-  /// The entity in [row] — to check [Entity.isActive] while walking the
-  /// columns.
+  /// The entity in [row] — to check [Entity.isActiveInHierarchy] while
+  /// walking the columns.
   Entity entityAt(int row) => _entities[row];
 
   /// Whether this holds exactly [types] (in any order).

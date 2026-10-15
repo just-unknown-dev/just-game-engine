@@ -34,11 +34,26 @@ abstract class System {
   /// Whether this system is active
   bool isActive = true;
 
-  /// Priority for system execution order (higher = earlier)
+  /// Priority for system execution order (higher = earlier). Systems of
+  /// the same priority run in the order they were added.
   int priority = 0;
 
-  /// What [World.stats] files this system's time under — its type's name,
-  /// worked out once rather than every frame.
+  /// The world this system is in — set by [World.addSystem], cleared by
+  /// [World.removeSystem] — so a world can tell a system removed while the
+  /// systems run from one still there.
+  World? _addedTo;
+
+  /// When this system was added among its world's: the tie-break between
+  /// equal priorities.
+  int _addOrder = 0;
+
+  /// What [World.stats] files this system's time under (`systemTimesMs`).
+  ///
+  /// Its type's name by default, worked out once. A release build for the
+  /// web shortens type names to something unreadable; a system whose
+  /// timings are read there can override this with a fixed name.
+  String get profileName => _profileName;
+
   late final String _profileName = runtimeType.toString();
 
   /// Initialize the system

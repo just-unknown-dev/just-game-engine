@@ -41,13 +41,33 @@ class SpriteAtlasPage {
   /// standard loading pipeline.
   ///
   /// Throws [StateError] if the image file cannot be found or decoded.
+  ///
+  /// The page keeps its own handle — a [ui.Image.clone] of the cached image
+  /// — so unloading the image asset does not leave the atlas's sprites
+  /// drawing a disposed image; [dispose] releases it.
   Future<void> loadImage(AssetManager assets) async {
     if (image != null) return;
     final imgAsset = await assets.loadImage(imagePath);
-    if (imgAsset.image == null) {
+    final cached = imgAsset.image;
+    if (cached == null) {
       throw StateError('Failed to decode atlas page texture: $imagePath');
     }
-    image = imgAsset.image;
+    image = _ownedImage = cached.clone();
+  }
+
+  /// The handle [loadImage] made, which this page disposes.
+  ui.Image? _ownedImage;
+
+  /// Releases the image handle [loadImage] took; the page is unloaded
+  /// after. An image given to the constructor, or set from outside, belongs
+  /// to whoever gave it and is left alone. Sprites made from the page share
+  /// its image: done when the atlas is unloaded, after they are gone.
+  void dispose() {
+    final owned = _ownedImage;
+    if (owned == null) return;
+    _ownedImage = null;
+    if (identical(image, owned)) image = null;
+    owned.dispose();
   }
 
   /// Whether this page's texture has been loaded into GPU memory.

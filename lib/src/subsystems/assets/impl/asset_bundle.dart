@@ -55,14 +55,20 @@ class GameAssetBundle {
 class AssetScope {
   final AssetManager _manager;
   final List<String> _ownedPaths = [];
+  bool _disposed = false;
 
   /// Create a scope backed by `manager`.
   AssetScope(this._manager);
 
-  /// Acquire an asset, incrementing its reference count.
+  /// Acquire an asset, incrementing its reference count. One that arrives
+  /// after the scope was disposed is released at once.
   Future<Asset> acquire(String path, AssetType type) async {
     final asset = await _manager.acquire(path, type);
-    _ownedPaths.add(path);
+    if (_disposed) {
+      _manager.release(path);
+    } else {
+      _ownedPaths.add(path);
+    }
     return asset;
   }
 
@@ -87,6 +93,7 @@ class AssetScope {
   /// Assets still held by other scopes will remain loaded; only the
   /// reference count from *this* scope is decremented.
   void dispose() {
+    _disposed = true;
     for (final path in _ownedPaths) {
       _manager.release(path);
     }

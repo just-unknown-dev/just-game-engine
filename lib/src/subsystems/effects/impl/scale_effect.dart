@@ -41,8 +41,11 @@ class ScaleEffect extends DeterministicEffect {
     final transform = ctx.getComponent<TransformComponent>();
     if (transform == null) return;
 
+    final scale = transform.scale;
     if (prevElapsed == 0) {
-      _capturedFrom = from ?? (transform.scale.x + transform.scale.y) / 2;
+      // The size, whatever the mirroring: a flipped sprite (x < 0) scales
+      // as big as an unflipped one and stays flipped.
+      _capturedFrom = from ?? (scale.x.abs() + scale.y.abs()) / 2;
     }
     final effectiveFrom = _capturedFrom;
     if (effectiveFrom == null) return;
@@ -51,10 +54,12 @@ class ScaleEffect extends DeterministicEffect {
     final prevEased = easing.transform(tAt(prevElapsed));
     final currEased = easing.transform(tAt(currElapsed));
     final delta = totalDelta * (currEased - prevEased);
-    transform.scale.x += delta;
-    transform.scale.y += delta;
-    transform.scale.z += delta;
+    scale.x += _sign(scale.x) * delta;
+    scale.y += _sign(scale.y) * delta;
+    scale.z += _sign(scale.z) * delta;
   }
+
+  static double _sign(double v) => v < 0 ? -1.0 : 1.0;
 
   @override
   void reset() {

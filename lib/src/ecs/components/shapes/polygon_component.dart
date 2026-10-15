@@ -54,7 +54,6 @@ class PolygonComponent extends RenderableComponent {
       filled: filled,
       strokeWidth: strokeWidth,
       renderable: CustomRenderable(
-        layer: 8,
         getBoundsCallback: () {
           if (self.vertices.isEmpty) return Rect.zero;
           double minX = self.vertices.first.dx, maxX = minX;

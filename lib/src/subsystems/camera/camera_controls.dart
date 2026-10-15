@@ -14,6 +14,8 @@
 /// value actually changes, via a scoped [ValueListenableBuilder].
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -157,10 +159,13 @@ class _GameCameraControlsState extends State<GameCameraControls> {
 
     if (_isDragging && widget.enablePan) {
       final delta = event.position - _dragLastPos;
-      // Convert screen-space delta to world-space (divide by zoom)
-      widget.camera.moveBy(
-        Offset(-delta.dx / widget.camera.zoom, -delta.dy / widget.camera.zoom),
-      );
+      // The screen-space drag in world space: scaled by the zoom and turned
+      // by the camera's roll, as Camera.screenToWorld does — so the world
+      // follows the pointer whichever way the camera is turned.
+      final camera = widget.camera;
+      final dx = -delta.dx / camera.zoom, dy = -delta.dy / camera.zoom;
+      final c = math.cos(-camera.rotation), s = math.sin(-camera.rotation);
+      camera.moveBy(Offset(dx * c - dy * s, dx * s + dy * c));
       _dragLastPos = event.position;
     }
   }
@@ -206,8 +211,12 @@ class _GameCameraControlsState extends State<GameCameraControls> {
                 showZoomLevel: widget.showZoomLevel,
                 heroIn: _heroIn,
                 heroOut: _heroOut,
-                onZoomIn: () => _applyZoom(zoom + widget.zoomStep),
-                onZoomOut: () => _applyZoom(zoom - widget.zoomStep),
+                // From the camera's zoom as it is now: something else (a
+                // virtual camera, the game) may have changed it since.
+                onZoomIn: () =>
+                    _applyZoom(widget.camera.zoom + widget.zoomStep),
+                onZoomOut: () =>
+                    _applyZoom(widget.camera.zoom - widget.zoomStep),
               ),
             ),
           ),

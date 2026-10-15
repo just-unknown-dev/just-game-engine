@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart' show IconData, Icons;
 import 'package:flutter/painting.dart';
-import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_dart/just_dart.dart';
 import 'package:just_physics_engine/physics_3d.dart';
 
+import '../ecs/ecs.dart';
+import '../ecs/serialization/serialization.dart';
+import '../foundation/dimensions.dart';
 import 'camera_collision_3d.dart';
 import 'physics_components_3d.dart';
 
@@ -72,7 +75,8 @@ abstract final class Physics3DSchemas {
         ),
         'mass': FieldHint(
           label: 'Mass',
-          description: 'How heavy it is, in kg; 0 works it out from the collider.',
+          description:
+              'How heavy it is, in kg; 0 works it out from the collider.',
           scrub: const ScrubHint(step: 0.5, fractionDigits: 1, suffix: 'kg'),
           visibleWhen: (c) => (c as RigidBody3D).bodyType == BodyType3D.dynamic,
         ),
@@ -133,12 +137,14 @@ abstract final class Physics3DSchemas {
         ),
         'initialVelocity': FieldHint(
           label: 'Start velocity',
-          description: 'The velocity it starts with, in m/s: a thrown crate, a platform already on its way.',
+          description:
+              'The velocity it starts with, in m/s: a thrown crate, a platform already on its way.',
           visibleWhen: (c) => (c as RigidBody3D).bodyType != BodyType3D.static,
         ),
         'initialAngularVelocity': FieldHint(
           label: 'Start spin',
-          description: 'The spin it starts with, in radians per second about each axis.',
+          description:
+              'The spin it starts with, in radians per second about each axis.',
           visibleWhen: (c) => (c as RigidBody3D).bodyType != BodyType3D.static,
         ),
       },
@@ -250,7 +256,8 @@ abstract final class Physics3DSchemas {
         fields: {
           'shape': const FieldHint(
             label: 'Shape',
-            description: 'Match shape: the shape the entity is drawn as (a Cube, Stairs, …), following it.',
+            description:
+                'Match shape: the shape the entity is drawn as (a Cube, Stairs, …), following it.',
           ),
           'size': FieldHint(
             label: 'Size',
@@ -920,52 +927,73 @@ abstract final class Physics3DSchemas {
   ];
 
   /// [CameraCollision3D].
-  static ComponentSchema<CameraCollision3D> get cameraCollision =>
-      ComponentSchema<CameraCollision3D>(
-        type: 'CameraCollision3D',
-        id: 'camera_collision_3d_5d27c0e1',
-        create: CameraCollision3D.new,
-        hints: ComponentHints(
-          dimensions: Dimensions.threeD,
-          name: 'Camera Collision 3D',
-          group: _group,
-          description: 'Keeps a virtual camera out of walls: pulled in towards its target when something is in the way, eased back out once clear.',
-          icon: Icons.videocam_off_outlined,
-          accentColor: const Color(0xFF40E0D0),
-          fields: {
-            'radius': const FieldHint(
-              label: 'Radius',
-              scrub: ScrubHint(step: 0.05, fractionDigits: 2, suffix: 'm'),
-            ),
-            'minDistance': const FieldHint(
-              label: 'Closest',
-              scrub: ScrubHint(step: 0.05, fractionDigits: 2, suffix: 'm'),
-            ),
-            'recover': const FieldHint(
-              label: 'Ease out',
-              description: 'Seconds to move back out once the way is clear.',
-              scrub: ScrubHint(step: 0.05, fractionDigits: 2, suffix: 's'),
-            ),
-            'layerMask': const FieldHint(label: 'Blocked by'),
-            'offset': const FieldHint(
-              label: 'Looks from',
-              description: 'From the target, without an orbit pivot (-Y is up).',
-            ),
-          },
+  static ComponentSchema<CameraCollision3D>
+  get cameraCollision => ComponentSchema<CameraCollision3D>(
+    type: 'CameraCollision3D',
+    id: 'camera_collision_3d_5d27c0e1',
+    create: CameraCollision3D.new,
+    hints: ComponentHints(
+      dimensions: Dimensions.threeD,
+      name: 'Camera Collision 3D',
+      group: _group,
+      description:
+          'Keeps a virtual camera out of walls: pulled in towards its target when something is in the way, eased back out once clear.',
+      icon: Icons.videocam_off_outlined,
+      accentColor: const Color(0xFF40E0D0),
+      fields: {
+        'radius': const FieldHint(
+          label: 'Radius',
+          scrub: ScrubHint(step: 0.05, fractionDigits: 2, suffix: 'm'),
         ),
-        fields: [
-          _decimal<CameraCollision3D>('radius', (c) => c.radius, (c, v) => c.radius = v, min: 0),
-          _decimal<CameraCollision3D>('minDistance', (c) => c.minDistance, (c, v) => c.minDistance = v, min: 0),
-          _decimal<CameraCollision3D>('recover', (c) => c.recover, (c, v) => c.recover = v, min: 0),
-          SchemaField(
-            name: 'layerMask',
-            kind: FieldTypes.physicsLayerMask,
-            read: (c) => (c as CameraCollision3D).layerMask,
-            write: (c, v) => (c as CameraCollision3D).layerMask = (v as num).toInt(),
-          ),
-          _vector<CameraCollision3D>('offset', (c) => c.offset, (c, v) => c.offset = Vector3.copy(v)),
-        ],
-      );
+        'minDistance': const FieldHint(
+          label: 'Closest',
+          scrub: ScrubHint(step: 0.05, fractionDigits: 2, suffix: 'm'),
+        ),
+        'recover': const FieldHint(
+          label: 'Ease out',
+          description: 'Seconds to move back out once the way is clear.',
+          scrub: ScrubHint(step: 0.05, fractionDigits: 2, suffix: 's'),
+        ),
+        'layerMask': const FieldHint(label: 'Blocked by'),
+        'offset': const FieldHint(
+          label: 'Looks from',
+          description: 'From the target, without an orbit pivot (-Y is up).',
+        ),
+      },
+    ),
+    fields: [
+      _decimal<CameraCollision3D>(
+        'radius',
+        (c) => c.radius,
+        (c, v) => c.radius = v,
+        min: 0,
+      ),
+      _decimal<CameraCollision3D>(
+        'minDistance',
+        (c) => c.minDistance,
+        (c, v) => c.minDistance = v,
+        min: 0,
+      ),
+      _decimal<CameraCollision3D>(
+        'recover',
+        (c) => c.recover,
+        (c, v) => c.recover = v,
+        min: 0,
+      ),
+      SchemaField(
+        name: 'layerMask',
+        kind: FieldTypes.physicsLayerMask,
+        read: (c) => (c as CameraCollision3D).layerMask,
+        write: (c, v) =>
+            (c as CameraCollision3D).layerMask = (v as num).toInt(),
+      ),
+      _vector<CameraCollision3D>(
+        'offset',
+        (c) => c.offset,
+        (c, v) => c.offset = Vector3.copy(v),
+      ),
+    ],
+  );
 
   static SchemaField _decimal<T extends Component>(
     String name,

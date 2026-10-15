@@ -81,9 +81,13 @@ class CameraState {
   /// which is what reads as "halfway" on screen; a linear 2.5× looks like the
   /// blend rushes at one end. Every angle takes the short way round; depth
   /// blends linearly and the lens as [CameraLens.lerp] says.
+  ///
+  /// [t] beyond 0..1 carries on past the shots — what an overshooting
+  /// curve (`Curves.easeOutBack`, `Curves.elasticOut`) asks of a blend —
+  /// except for the lens, which stays between the two.
   static CameraState lerp(CameraState a, CameraState b, double t) {
-    if (t <= 0) return a;
-    if (t >= 1) return b;
+    if (t == 0) return a;
+    if (t == 1) return b;
     final za = a.zoom <= 0 ? 0.0001 : a.zoom;
     final zb = b.zoom <= 0 ? 0.0001 : b.zoom;
     return CameraState(

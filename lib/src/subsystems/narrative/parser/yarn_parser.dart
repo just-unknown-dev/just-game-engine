@@ -21,12 +21,19 @@ import 'yarn_tokenizer.dart';
 /// * Dialogue lines with optional `Character: ` prefix
 /// * `#line:key`, `#audio:key`, and arbitrary `#tag` annotations
 /// * `{$varName}` inline variable substitution markers (preserved for runtime)
-/// * `-> choice` options with optional indented bodies and `#if condition` tags
+/// * `-> choice` options with optional indented bodies, and a condition as
+///   `-> text <<if condition>>` or a `#if condition` tag
 /// * `<<if>>` / `<<elseif>>` / `<<else>>` / `<<endif>>` conditional blocks
 /// * `<<jump NodeTitle>>`, `<<stop>>`
-/// * `<<set $var = expr>>` variable assignment
+/// * `<<set $var = expr>>` / `<<set $var to expr>>` variable assignment
+/// * `<<declare $var = expr>>` (an `as Type` after it is ignored): the
+///   variable's first value, set only while it has none
 /// * Custom `<<commandName arg1 arg2>>` commands
 /// * `// comment` stripping
+/// * Escapes in lines and options: `\#`, `\\`, `\{`, `\}`, `\<`, `\>`,
+///   `\[`, `\]` and `\/` stand for the character itself, so `Item \#5` is
+///   text, not a tag. A `{$var}` written with escaped braces is still
+///   filled in when the line runs.
 ///
 /// **Usage**
 /// ```dart
@@ -37,8 +44,10 @@ class YarnParser {
   ///
   /// Throws a [YarnParseException], with the line it is on, on malformed
   /// input: a node with no `title:`, two nodes with the same title, an
-  /// `<<if>>` with no `<<endif>>` before its node ends, or an
-  /// `<<elseif>>`, `<<else>>` or `<<endif>>` with no `<<if>>`.
+  /// `<<if>>` with no `<<endif>>` before its node ends, an
+  /// `<<elseif>>`, `<<else>>` or `<<endif>>` with no `<<if>>`, or a
+  /// `<<set>>` or `<<declare>>` that is not `$name = value` (or
+  /// `$name to value`).
   static DialogueGraph parse(String source, {required String id}) {
     final tokens = YarnTokenizer.tokenize(source);
     final nodes = <String, DialogueNode>{};
@@ -224,7 +233,7 @@ class YarnParser {
           statements.add(const StopStatement());
           cursor++;
 
-        case TokenType.commandSet:
+        case TokenType.commandSet || TokenType.commandDeclare:
           statements.add(_parseSet(tok));
           cursor++;
 
@@ -419,7 +428,7 @@ class YarnParser {
     );
   }
 
-  /// Parses a `-> choice text #tags #if condition` header.
+  /// Parses a `-> choice text <<if condition>> #tags #if condition` header.
   static (
     String rawText,
     List<String> tags,
@@ -428,11 +437,18 @@ class YarnParser {
     String? condition,
   )
   _parseChoiceHeader(String raw) {
-    final (text, tags) = _extractTags(raw);
+    var header = raw;
+    String? lineCondition;
+    final inline = _optionCondition.firstMatch(header);
+    if (inline != null) {
+      lineCondition = inline.group(1)!.trim();
+      header = header.replaceRange(inline.start, inline.end, ' ');
+    }
+    final (text, tags) = _extractTags(header);
 
     String? lineKey;
     String? audioKey;
-    String? condition;
+    String? tagCondition;
     final remaining = <String>[];
 
     for (final tag in tags) {
@@ -441,43 +457,87 @@ class YarnParser {
       } else if (tag.startsWith('audio:')) {
         audioKey = tag.substring(6);
       } else if (tag.startsWith('if ')) {
-        condition = tag.substring(3).trim();
+        tagCondition = tag.substring(3).trim();
       } else {
         remaining.add(tag);
       }
     }
 
+    final condition = switch ((lineCondition, tagCondition)) {
+      (final a?, final b?) => '($a) && ($b)',
+      (final a?, null) => a,
+      (null, final b) => b,
+    };
     return (text.trim(), remaining, lineKey, audioKey, condition);
   }
 
   static SetStatement _parseSet(YarnToken tok) {
-    // tok.value = "$var = expression"
-    final eqIdx = tok.value.indexOf('=');
-    if (eqIdx < 0) {
+    final declare = tok.type == TokenType.commandDeclare;
+    final match = _assignment.firstMatch(tok.value);
+    if (match == null) {
+      // A lone `<<set $flag>>` sets it to true.
+      final flag = RegExp(r'^\$?(\w+)$').firstMatch(tok.value);
+      if (flag == null) {
+        throw YarnParseException(
+          '<<${declare ? 'declare' : 'set'} ${tok.value}>> is not '
+          '"\$name = value" or "\$name to value"',
+          lineNumber: tok.lineNumber,
+        );
+      }
       return SetStatement(
-        variable: tok.value.replaceAll(r'$', '').trim(),
+        variable: flag.group(1)!,
         expression: 'true',
+        isDeclaration: declare,
       );
     }
-    final varName = tok.value.substring(0, eqIdx).trim().replaceAll(r'$', '');
-    final expr = tok.value.substring(eqIdx + 1).trim();
-    return SetStatement(variable: varName, expression: expr);
+    var expression = match.group(2)!.trim();
+    if (declare) expression = expression.replaceFirst(_declaredType, '');
+    return SetStatement(
+      variable: match.group(1)!,
+      expression: expression,
+      isDeclaration: declare,
+    );
   }
 
-  /// Extracts trailing `#tag` annotations from [line].
+  /// [text] with its escapes replaced by the characters they stand for.
+  static String _unescape(String text) => text.contains(r'\')
+      ? text.replaceAllMapped(_escape, (m) => m.group(1)!)
+      : text;
+
+  /// Extracts trailing `#tag` annotations from [line], and resolves the
+  /// escapes in what is left.
   ///
-  /// Tags are only recognised outside `{...}` interpolation blocks.
-  /// Returns `(textWithoutTags, tagList)`.
+  /// Tags are only recognised outside `{...}` interpolation blocks, and an
+  /// escaped `\#` is text. Returns `(textWithoutTags, tagList)`.
   static (String, List<String>) _extractTags(String line) {
-    final tags = <String>[];
-    var text = line;
-    while (true) {
-      final hashIdx = _lastHashOutsideBraces(text);
-      if (hashIdx < 0) break;
-      tags.insert(0, text.substring(hashIdx + 1).trim());
-      text = text.substring(0, hashIdx).trim();
+    // Where tags start: `#`s outside braces that are not escaped.
+    final hashes = <int>[];
+    var depth = 0;
+    for (var i = 0; i < line.length; i++) {
+      switch (line[i]) {
+        case r'\':
+          i++; // the escaped character is text
+        case '{':
+          depth++;
+        case '}':
+          if (depth > 0) depth--;
+        case '#':
+          if (depth == 0) hashes.add(i);
+      }
     }
-    return (text, tags);
+    if (hashes.isEmpty) return (_unescape(line.trim()), <String>[]);
+    final tags = <String>[
+      for (var k = 0; k < hashes.length; k++)
+        _unescape(
+          line
+              .substring(
+                hashes[k] + 1,
+                k + 1 < hashes.length ? hashes[k + 1] : line.length,
+              )
+              .trim(),
+        ),
+    ];
+    return (_unescape(line.substring(0, hashes.first).trim()), tags);
   }
 
   static String _commandName(TokenType type) => switch (type) {
@@ -485,17 +545,6 @@ class YarnParser {
     TokenType.commandElse => 'else',
     _ => 'endif',
   };
-
-  static int _lastHashOutsideBraces(String text) {
-    int depth = 0;
-    for (int i = text.length - 1; i >= 0; i--) {
-      final c = text[i];
-      if (c == '}') depth++;
-      if (c == '{') depth--;
-      if (c == '#' && depth == 0) return i;
-    }
-    return -1;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -548,3 +597,18 @@ class _ConditionalResult {
   final int cursor;
   final ConditionalStatement statement;
 }
+
+/// An option's `<<if condition>>` (not an escaped `\<<`).
+final RegExp _optionCondition = RegExp(r'(?<!\\)<<\s*if\s+(.*)>>');
+
+/// `$name = value` or `$name to value` (the `$` optional).
+final RegExp _assignment = RegExp(
+  r'^\$?(\w+)\s*(?:=|\bto\b)\s*(.+)$',
+  caseSensitive: false,
+);
+
+/// A `<<declare>>`'s type, which a dynamic store has no use for.
+final RegExp _declaredType = RegExp(r'\s+as\s+\w+$', caseSensitive: false);
+
+/// The escapes Yarn has in text: a backslash, then the character meant.
+final RegExp _escape = RegExp(r'\\([\\#{}<>\[\]/])');

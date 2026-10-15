@@ -55,7 +55,6 @@ class RectangleComponent extends RenderableComponent {
   }) {
     late RectangleComponent self;
     final shape = ShapeRenderable(
-      layer: 8,
       getBoundsCallback: () => Rect.fromCenter(
         center: Offset.zero,
         width: self.width + self.strokeWidth * 2,

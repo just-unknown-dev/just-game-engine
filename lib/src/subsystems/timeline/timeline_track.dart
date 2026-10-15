@@ -107,6 +107,13 @@ abstract class TimelineContext {
   /// things in one step stops at the first that finds it true: what comes
   /// after them is no longer happening.
   bool get isInterrupted => false;
+
+  /// Whether the timeline comes to rest at [time] — the end of what it
+  /// plays, where it stops or turns round rather than going on to its
+  /// start. A block ending exactly at [time] still holds there (see
+  /// [BlockTrack.blockAt]), so what it does lasts once the timeline has
+  /// finished. False by default.
+  bool endsAt(double time) => false;
 }
 
 /// One row of a timeline. Immutable: an editor replaces a track to change

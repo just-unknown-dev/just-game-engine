@@ -20,7 +20,7 @@ library;
 
 export 'package:just_graphics_engine/just_graphics_engine.dart';
 
-export 'src/graphics_3d/animation_system.dart';
+export 'src/graphics_3d/animation_system.dart' hide PlayerScratch, samplePlayer;
 export 'src/graphics_3d/graphics_3d.dart';
 export 'src/graphics_3d/graphics_components.dart';
 export 'src/graphics_3d/graphics_definitions.dart';

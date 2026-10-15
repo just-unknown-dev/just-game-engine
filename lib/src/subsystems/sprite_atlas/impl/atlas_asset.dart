@@ -58,8 +58,11 @@ class AtlasAsset extends Asset {
 
   @override
   void unload() {
-    // Page images are owned by ImageAsset entries in AssetManager — do not
-    // dispose them here; let AssetManager manage their lifecycle.
+    // Each page holds its own handle (a clone of the ImageAsset's image),
+    // released here; the ImageAssets themselves are the AssetManager's.
+    for (final page in _atlas?.pages ?? const <SpriteAtlasPage>[]) {
+      page.dispose();
+    }
     _atlas = null;
     markAsUnloaded();
   }

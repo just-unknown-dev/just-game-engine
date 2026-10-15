@@ -1,16 +1,15 @@
 /// Draws physics bodies and ray-cast colliders as outlines, for debugging.
 library;
 
-import 'dart:math' as math;
 import 'dart:ui';
 
-import 'package:just_physics_engine/just_physics_engine.dart'
-    show CircleShape, PhysicsBody, PolygonShape, RectangleShape;
+import 'package:just_physics_engine/just_physics_engine.dart' show PhysicsBody;
 
 import '../../ecs.dart';
 import '../../components/components.dart';
 import '../../../subsystems/camera/camera_system.dart' show Camera;
 import '../../base/system_priorities.dart';
+import '../physics/collider_geometry.dart';
 
 /// Outlines every physics body ([PhysicsBodyRefComponent]) and every
 /// [RaycastColliderComponent] in [color], above everything else
@@ -54,15 +53,17 @@ class ColliderDebuggerSystem extends System {
   /// entity follows [includeRaycastColliders].
   final bool includeDynamicBodies;
 
-  /// Whether to outline [RaycastColliderComponent]s: a box when it has a
-  /// width and height, otherwise a circle of its radius (8 when unset).
+  /// Whether to outline [RaycastColliderComponent]s as `RaycastSystem`
+  /// tests them: a circle of its radius when it has no width or height,
+  /// otherwise an upright box (a missing side its radius either way of the
+  /// centre); nothing for one with no size, which no ray hits.
   final bool includeRaycastColliders;
 
   @override
   int get priority => SystemPriorities.debug;
 
   @override
-  List<Type> get requiredComponents => [TransformComponent];
+  List<Type> get requiredComponents => const [TransformComponent];
 
   @override
   void render(Canvas canvas, Size size) {
@@ -102,47 +103,18 @@ class ColliderDebuggerSystem extends System {
     }
   }
 
+  /// [body]'s shapes where it is, as the simulation has them: a circle
+  /// round its own centre, capsules, segments and chains too.
   void _drawPhysicsBody(Canvas canvas, Paint paint, PhysicsBody body) {
-    if (body.shape is CircleShape) {
-      final circle = body.shape as CircleShape;
-      canvas.drawCircle(
-        Offset(body.position.x, body.position.y),
-        circle.radius,
-        paint,
-      );
-      return;
+    canvas
+      ..save()
+      ..translate(body.position.x, body.position.y)
+      ..rotate(body.angle);
+    ColliderGeometry.paint(canvas, body.shape, paint);
+    for (final shape in body.additionalShapes) {
+      ColliderGeometry.paint(canvas, shape, paint);
     }
-
-    if (body.shape is RectangleShape) {
-      final rect = body.shape as RectangleShape;
-      canvas.save();
-      canvas.translate(body.position.x, body.position.y);
-      canvas.rotate(body.angle);
-      canvas.drawRect(
-        Rect.fromCenter(
-          center: Offset.zero,
-          width: rect.width,
-          height: rect.height,
-        ),
-        paint,
-      );
-      canvas.restore();
-      return;
-    }
-
-    if (body.shape is PolygonShape) {
-      final polygon = body.shape as PolygonShape;
-      final c = math.cos(body.angle);
-      final s = math.sin(body.angle);
-      final path = Path();
-      final vertices = polygon.vertices.map((v) {
-        final rx = v.dx * c - v.dy * s;
-        final ry = v.dx * s + v.dy * c;
-        return Offset(body.position.x + rx, body.position.y + ry);
-      });
-      path.addPolygon(vertices.toList(), true);
-      canvas.drawPath(path, paint);
-    }
+    canvas.restore();
   }
 
   void _drawRaycastCollider(
@@ -152,23 +124,20 @@ class ColliderDebuggerSystem extends System {
     RaycastColliderComponent collider,
   ) {
     final center = Offset(transform.position.x, transform.position.y);
-    if (collider.width > 0 && collider.height > 0) {
-      canvas.save();
-      canvas.translate(center.dx, center.dy);
-      canvas.rotate(transform.angle);
-      canvas.drawRect(
-        Rect.fromCenter(
-          center: Offset.zero,
-          width: collider.width,
-          height: collider.height,
-        ),
-        paint,
-      );
-      canvas.restore();
+    final w = collider.width, h = collider.height, r = collider.radius;
+    if (r <= 0 && w <= 0 && h <= 0) return;
+    if (r > 0 && w == 0 && h == 0) {
+      canvas.drawCircle(center, r, paint);
       return;
     }
-
-    final radius = collider.radius > 0 ? collider.radius : 8.0;
-    canvas.drawCircle(center, radius, paint);
+    // Axis-aligned, as the ray test has it: the entity's angle plays no part.
+    canvas.drawRect(
+      Rect.fromCenter(
+        center: center,
+        width: w > 0 ? w : 2 * r,
+        height: h > 0 ? h : 2 * r,
+      ),
+      paint,
+    );
   }
 }

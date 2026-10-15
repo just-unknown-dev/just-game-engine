@@ -176,7 +176,8 @@ Everything that shapes an engine is in one `EngineConfig`, given to the construc
 | `createRendering` | Builds your own `RenderingEngine`. |
 | `createAudio` | Builds the `AudioEngine`, for example `AudioEngine.withBackend(...)`. |
 | `createPhysics` | Builds the 2-D `PhysicsEngine` (`engine.physics`). Null makes the standard one: native Box2D, pure Dart on the web. |
-| `physics3D` | A `Physics3D` (`package:just_game_engine/physics_3d.dart`) gives the engine 3-D bodies on Jolt. Null: a 2-D game carries no 3-D. |
+| `graphics3D` | A `Graphics3D` (`package:just_game_engine/graphics_3d.dart`) draws 3-D on Flutter GPU. Null: 2-D only, no GPU device and no shaders loaded. |
+| `physics3D` | A `Physics3D` (`package:just_game_engine/physics_3d.dart`) gives the engine 3-D bodies on Jolt; the app's pubspec must build Jolt (`hooks: user_defines: just_jolt: build: true`). Null: a 2-D game carries no 3-D. |
 | `deferAudioUntilInput` | Start audio at the first key or pointer press. `null` (the default) means on the web only, where browsers keep audio made before a user gesture suspended. |
 
 `initialize(config: ...)` still takes a config and replaces the constructor's; prefer `Engine(config: ...)`.
@@ -240,7 +241,7 @@ final engine = Engine(
 );
 ```
 
-`DefaultSystems.all` adds `InputSystem`, `PhysicsSystem`, `MovementSystem`, `AudioSystem`, `RenderSystem` and `ParallaxRenderSystem`, the sprite, animator and timeline systems, `LevelMapSystem`, `MapCollisionSystem` and the camera systems. `DefaultSystems.headless` leaves out rendering and audio. Pick single ones with a set of `DefaultSystem` values. Nothing is added twice: a system you added yourself, configured your way, is kept. The same function is public as `registerDefaultSystems(world, engine)`.
+`DefaultSystems.all` adds `InputSystem`, `PhysicsSystem` (with `PhysicsJointBindingSystem`), `MovementSystem`, `AudioSystem`, `RenderSystem` and `ParallaxRenderSystem`, the sprite, animator and timeline systems, `LevelMapSystem`, `MapCollisionSystem` and the camera systems. `DefaultSystems.headless` leaves out rendering and audio. Pick single ones with a set of `DefaultSystem` values. Nothing is added twice: a system you added yourself, configured your way, is kept. The same function is public as `registerDefaultSystems(world, engine)`.
 
 `ParticleSystemECS`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `EffectSystemECS` and the rest are not defaults: add the ones you use.
 
@@ -751,7 +752,7 @@ void breakBlock(World world, Offset worldPoint) {
 If you built on a pre-release 2.0, two level-map details changed:
 
 - `MapBodySpec` is no longer `const`, and takes exactly one of `size` (a box) and `polygon`; both or neither throw an `ArgumentError`. Both used to mean the box.
-- `LevelMapRuntime.hiddenCells` is read-only, and so is `hiddenRevision`. Hide and show cells with `LevelMapHandle.setCellsHidden` or `setBodyHidden`, which also redraw them; `hiddenCellsOf(layerId)` reads one layer's hidden cells.
+- `LevelMapRuntime.hiddenCells` is read-only, and so is `hiddenRevision`. Hide and show cells with `LevelMapHandle.setCellsHidden` or `setBodyHidden`, which also redraw them; `LevelMapRuntime.hiddenCellsOf(layerId)` reads one layer's hidden cells.
 
 ## Sprites and animation
 
@@ -1005,6 +1006,9 @@ Future<Sprite> loadHero(Engine engine) =>
 | `just_dart` | `Vector2`, `Vector3`, `Matrix4`, `JustMatrix4`, `Quaternion`, `Aabb3`, `Ray3`, `Plane`, `Frustum` | `Quadtree` |
 | `just_memory` | `MemoryScope`, `DisposeCallback`, `MemoryProfiler`, `MemoryProfileSnapshot`, `MemoryStats`, `CacheBudgetStats`, `PoolManager`, `PoolStats`, `ArenaStats`, `MemoryCleanupResult`, `SystemMemorySnapshot` | `ObjectPool`, `PriorityPool`, `RoundRobinPool`, `Recyclable`, `MemoryArena`, `TypedBuffer`, `BudgetedCache`, `RefCountedRegistry`, `LeakTracker`, … |
 | `just_audio_engine` | `AudioEngine`, `MusicManager`, `SoundEffectManager`, `AudioChannel`, `AudioClip`, `AudioBus`, `AudioBusGraph`, `AudioEffect`, `AudioEffectType`, `AudioState`, `AudioStream`, `AudioBackend`, `Audio3DListener`, `Audio3DPosition`, `AudioSpatial`, `AudioRolloff`, `AudioSpatialMix` | `createAudioBackend` |
+| `just_physics_engine` | `PhysicsEngine`, `Box2DPhysicsEngine`, `PhysicsBody`, `RigidBody`, the shapes (`CircleShape` … `RoundedPolygonShape`), the joints (`DistanceJoint`, `MouseJoint`, `WeldJoint`, `RevoluteJoint`, `Box2DJoint`), `Ray`, `RayBodyHit`, `ShapeCastResult`, `BodyType`, `OneWayDirection`, `GroundState2D`, `MoverShape` and a few more (31 in all) | the 3-D side (through `package:just_game_engine/physics_3d.dart`), `CharacterMover2D`, `PhysicsEngineFactory`, the testing engines |
+| `just_game_engine_formats` | `SceneFormat`, `SceneManifest`, `SceneNames`, `SceneStarters`, `TimelineFormat`, `AnimatorGraph` and its parts, the migration types and `UnsupportedFormatVersionException` (37 in all) | nothing else; everything a game needs is re-exported |
+| `just_signals` | `Signal`, `Computed` (new in 2.0: the reactive wrappers return them) | `Effect`, `SignalBuilder`, `SignalScope`, … |
 
 ```dart
 import 'package:just_game_engine/just_game_engine.dart';
@@ -1028,6 +1032,24 @@ Add the package to your `pubspec.yaml` as well. A file that imported `package:ju
 - **Entity ids are never reused**, not even after `destroyAllEntities`, so state kept by id cannot attach to a newer entity. A stale handle passed to `destroyEntity` is ignored.
 - **`Component.onDetach` always runs**: on destroy, on `destroyAllEntities`, on `World.dispose`, and when a component is replaced by another of its type.
 - **Switching `isActive` takes effect at once**: cached queries refresh, and `MovementSystem` skips inactive entities.
+- **A switched-off parent switches off its subtree.** Queries, tag lookups and the engine's systems go by `Entity.isActiveInHierarchy`; each child keeps its own `isActive`. Code walking `queryArchetypes` checks `archetype.entityAt(row).isActiveInHierarchy`.
+- **Parenting an entity under itself or its own descendant throws an `ArgumentError`**; a scene whose parents loop loads with the closing link cut.
+- **Systems** of equal priority run in the order they were added; adding a system twice does nothing; systems and plugins may be added or removed while they run.
+- **`Entity.components`** is an unmodifiable `List`. `Archetype.getColumn` and `entityIds` are `@internal`.
+- **Interpolation**: `RenderSystem` draws between the last two poses every transform whose previous pose was captured in the last step (`captureCount`) — physics bodies and their children — instead of every entity with a `PhysicsBodyRefComponent`; call `capturePrevious()` before moving something in a step to have it drawn smoothly.
+- **While paused**, `engine.time.totalTime` and `deltaTime` stand still (`unscaledDeltaTime` and `unscaledTotalTime` go on), audio still updates, and camera effects (`ScreenFadeEffect`, `LetterboxEffect`) run on real time.
+- **In the background** `GameWidget` pauses the music and the world's sounds and mutes the rest, and restores exactly that when the app returns (`Engine.suspendAudio` / `resumeAudio`).
+- **Profiling timings** (`systemTimesMs`, `lastUpdateMs`) are taken only while `World.profiling` / `SystemManager.profiling` are on — not in release builds.
+- **`CommandBuffer.flush`** runs every command, then rethrows the first error. An `EventBus` listener cancelled during a dispatch is not called for that event.
+- **Physics events** are per pair of entities: a chain or compound collider sends one enter and one exit, an end and a begin in the same update cancel, and a body rebuilt because its collider, scale or sensor flag changed keeps its contacts (no second enter; an exit only if it no longer touches). A destroyed or switched-off entity still ends its contacts with no exit. Scale changes smaller than `scaleTolerance` (1e-4, relative) do not rebuild a body. A static sensor no longer reports static colliders on native Box2D.
+- **2-D joints**: `DistanceJoint2D` and `WheelJoint2D` `stiffness` is in hertz and `damping` a damping ratio on every backend; slider and wheel axes are in the joint entity's space; with `collideConnected` off, jointed bodies send no contact events between them.
+- **2-D bodies**: a kinematic `RigidBody2D` moved through its transform carries what stands on it (it is driven by velocity, like 3-D, instead of teleported); torque and angular impulses turn a body by its rotational inertia; view culling freezes bodies on native Box2D too, and 2-D characters; a capsule stretches with the entity's scale; an angle read back from native Box2D no longer wraps at ±π.
+- **3-D animation**: set `AnimationPlayerComponent.speed` / `loop` for a new clip after `play()`, not before; the clip fading out keeps the values it had. `CameraState.lerp` extrapolates for t outside 0..1, so blends with overshooting curves overshoot. `ParticleEmitter.isComplete` is false while sub-emitters live.
+- **Sprites**: a tint colour with alpha below 1 now fades the sprite (use an opaque tint for the old look). The built-in shapes' renderables are on layer 0 (they were on 8, which the ECS never read); an entity without a `LayerComponent` is ordered by its renderable's `layer` and `zOrder`.
+- **Timelines**: a camera shot block that runs to the very end of a `once` timeline keeps its camera until the player stops; end the block before the timeline ends to hand the camera back. Activation and sprite-clip blocks likewise hold at the end.
+- **Dialogue**: `!` binds tighter than comparisons (`!$a == $b` is `(!$a) == $b`); bare words in conditions are errors (false, logged) instead of strings; selecting an unavailable choice leaves the choices up.
+- **Localization**: files for a locale with a script code load from `<name>_zh_Hans.json`; tables for the same locale and namespace merge.
+- **Scenes with a value of the wrong type** fail with a `FormatException` naming the entity, component and field. `AssetManager` keeps assets by path and type; `unload(path)` unloads every type at the path, and `get<T>(path)` returns the `T` loaded there.
 - **`CommandBuffer` applies commands in the order they were queued** (it used to run every destroy first).
 - **`World.dispose()`** calls each system's `onRemovedFromWorld()` before its `dispose()`, highest priority first.
 - **`findEntityByName`** is indexed and takes `includeInactive`.
@@ -1082,6 +1104,11 @@ The [CHANGELOG](CHANGELOG.md) lists every other fix.
 | `LocalizationManager.instance` | `engine.context.localization`, `LocalizationScope.of(context)` |
 | `EffectSerializer.registerFactory` | `engine.context.effectTypes.register` |
 | `Archetype.addEntity`, `Archetype.removeEntity` (now internal) | add and remove components on the entity |
+| `entity.addComponent(AudioPlayComponent(clipPath: c, …))` | `world.getSystem<AudioSystem>()?.playOneShot(c, position: …, …)` |
+| `AudioPauseComponent`, `AudioResumeComponent`, `AudioStopComponent` | `source.pause()`, `source.resume()`, `source.stop()` on the `AudioSourceComponent` or `AudioStreamComponent`; `source.play()` plays it again from the start (setting `playOnAdd` no longer does: the system never changes that field) |
+| `TimelineAudio.viaComponent` | `TimelineAudio.viaAudioSystem` |
+| `World.structureVersion` | `world.queryVersion(types)` for the queries your system reads (the largest of several) |
+| `PlayerScratch`, `samplePlayer` (from `graphics_3d.dart`) | nothing: they were the renderer's helpers |
 | `AudioListenerComponent.forwardX`, `forwardY`, `forwardZ`, `upX`, `upY`, `upZ` | the entity's rotation; `atCamera` and `faceCamera` to hear from the camera, or face like it |
 
 ## Renamed APIs
@@ -1117,10 +1144,10 @@ These still work in 2.0 and go in 3.0. Each deprecation message names the replac
 
 These wait on `just_physics_engine` and `just_audio_engine`. The fields involved are saved as usual, so scenes need no change when the limits lift.
 
-- **Joint anchors.** `anchor` / `connectedAnchor` of `DistanceJoint2D` and `FixedJoint2D` are not passed to the physics engine: a distance joint holds the bodies by their centres, and a fixed joint holds them as they were when joined.
-- **`collideConnected`** is not passed to the physics engine for any joint; changing it only makes the joint again.
-- **Distance springs differ between the backends.** A `DistanceJoint2D`'s `stiffness` / `damping` are hertz and a damping ratio on native Box2D, and force per unit on the Dart backend (the web).
-- **Stream channels.** `AudioStreamComponent.channel` is handed to the stream, but the channel's volume does not apply to it.
+- **Joint anchors.** `anchor` / `connectedAnchor` of `DistanceJoint2D` and `FixedJoint2D` are not passed to the physics engine: a distance joint holds the bodies by their centres, and a fixed joint holds them as they were when joined. A wheel joint's axle anchor is honoured on native Box2D only.
+- **`collideConnected`.** Jointed bodies with `collideConnected` off send no contact events between them, but on the pure-Dart backend (the web) they still push each other apart.
+- **Queries on native Box2D** skip bodies whose collision mask is 0; the Dart backend finds them.
+- **Stream channels.** `AudioStreamComponent.channel` is handed to the stream, but the channel's volume does not apply to it. A playing sound's pitch, pan, speed and loop cannot change, and a stream that plays to its end still reports `isPlaying`.
 
 ## Saved data
 

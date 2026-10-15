@@ -146,7 +146,9 @@ class _Draw {
 ///
 /// A layer is cut into batches — a chunk each on orthogonal and isometric
 /// maps, a band of chunk rows on staggered and hexagonal ones (whose rows
-/// overlap across chunk boundaries) — and each batch is built once into
+/// overlap across chunk boundaries), and on orthogonal ones whose tiles can
+/// reach out of their cells (the band then holds the chunks in view) — and
+/// each batch is built once into
 /// `drawRawAtlas` buffers, then drawn every frame for as long as its cells,
 /// tilesets and images stay the same. Only batches in view are drawn.
 ///
@@ -226,6 +228,14 @@ class MapLayerPainter {
         orientation == MapOrientation.staggered ||
         orientation == MapOrientation.hexagonal;
     final iso = orientation == MapOrientation.isometric;
+    // Orthogonal tiles that can reach out of their cells are drawn row by
+    // row across the layer, as Tiled draws them: a band of chunks per chunk
+    // row, in order. (Drawn a chunk at a time, one run per tileset, a tall
+    // tile could be drawn before — and under — the row behind it, or under
+    // the next chunk.)
+    final rows =
+        banded ||
+        (orientation == MapOrientation.orthogonal && _tilesOverlap(geometry));
 
     // The chunks to walk: those in view, among those there are. A banded
     // layer's batch is a whole row of chunks, so only rows are culled.
@@ -249,12 +259,13 @@ class MapLayerPainter {
       batches,
       geometry,
       layerId,
-      ordered: banded || iso,
+      ordered: rows || iso,
       assets: Object.hash(
         runtime.assetsRevision,
         runtime.tilesetsRevision,
         runtime.base.revision,
         runtime.hiddenRevision,
+        rows,
       ),
       color: color,
     );
@@ -264,8 +275,8 @@ class MapLayerPainter {
     final group = _group;
     if ((cx1 - cx0) * (cy1 - cy0) > cells.chunkCount * 4 + 64) {
       // A few chunks spread far apart: walk those there are.
-      _drawSparse(draw, cells, cx0, cy0, cx1, cy1, banded: banded, iso: iso);
-    } else if (banded) {
+      _drawSparse(draw, cells, cx0, cy0, cx1, cy1, banded: rows, iso: iso);
+    } else if (rows) {
       // A band per row of chunks, top to bottom.
       for (var cy = cy0; cy < cy1; cy++) {
         group.clear();
@@ -296,6 +307,24 @@ class MapLayerPainter {
     }
     group.clear();
     canvas.restore();
+  }
+
+  /// Whether a tile of the map's tilesets can reach out of its cell on the
+  /// grid [g]: one bigger than a cell — either way round, since a tile can
+  /// be turned a quarter — or moved by its tileset's offset.
+  bool _tilesOverlap(MapGeometry g) {
+    for (final ts in runtime.tilesets) {
+      if (ts == null) continue;
+      final w = ts.tileWidth, h = ts.tileHeight;
+      if (w > g.tileWidth ||
+          h > g.tileHeight ||
+          ts.tileOffsetX != 0 ||
+          ts.tileOffsetY != 0 ||
+          (w != h && (h > g.tileWidth || w > g.tileHeight))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// The chunks of the batch being drawn, reused from batch to batch.

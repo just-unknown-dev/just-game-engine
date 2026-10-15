@@ -34,7 +34,11 @@ abstract class AnimationTarget {
 
   /// How far through [state]'s clip [entity] is, 0–1; a looping clip
   /// counts on past 1, so an exit time is reached once and stays reached.
-  double progress(Entity entity, AnimatorComponent animator, AnimatorState state);
+  double progress(
+    Entity entity,
+    AnimatorComponent animator,
+    AnimatorState state,
+  );
 
   /// Whether [state]'s clip has played to its end and stopped.
   bool isComplete(Entity entity, AnimatorState state);

@@ -4,5 +4,4 @@
 library;
 
 export 'package:just_game_engine_formats/just_game_engine_formats.dart'
-    show
-        UnsupportedFormatVersionException;
+    show UnsupportedFormatVersionException;

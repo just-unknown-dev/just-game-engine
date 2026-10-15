@@ -17,7 +17,7 @@ class SimpleMovementSystem extends System {
   int get priority => SystemPriorities.movement + 1;
 
   @override
-  List<Type> get requiredComponents => [
+  List<Type> get requiredComponents => const [
     TransformComponent,
     SimpleMovementComponent,
   ];

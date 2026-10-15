@@ -160,7 +160,8 @@ void main() {
   testWidgets('interpolation reaches a render system added later', (
     tester,
   ) async {
-    final engine = await pumpGame(tester, start: false);
+    // The frame phase hands it on, and runs while the engine runs.
+    final engine = await pumpGame(tester);
     final firstSystem = RenderSystem();
     engine.world.addSystem(firstSystem);
     await tester.pump(const Duration(milliseconds: 16));

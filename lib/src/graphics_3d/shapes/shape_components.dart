@@ -2,9 +2,10 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' show Offset;
 
-import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_dart/just_dart.dart' show Aabb3;
 import 'package:just_graphics_engine/assets.dart';
 
+import '../../ecs/components/components.dart';
 import 'outline.dart';
 import 'primitive_3d.dart';
 
@@ -47,6 +48,12 @@ class Cube3D extends Primitive3D {
 
   @override
   Object get shapeKey => ('cube', width, height, depth);
+
+  @override
+  void writeShapeValues(ShapeValues values) => values
+    ..add(width)
+    ..add(height)
+    ..add(depth);
 
   @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
@@ -114,6 +121,11 @@ class Plane3D extends Primitive3D {
 
   @override
   Object get shapeKey => ('plane', width, depth);
+
+  @override
+  void writeShapeValues(ShapeValues values) => values
+    ..add(width)
+    ..add(depth);
 
   @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
@@ -184,6 +196,13 @@ class Sphere3D extends Primitive3D {
 
   @override
   Object get shapeKey => ('sphere', radius, segments, rings, smooth);
+
+  @override
+  void writeShapeValues(ShapeValues values) => values
+    ..add(radius)
+    ..addInt(segments)
+    ..addInt(rings)
+    ..addBool(smooth);
 
   @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
@@ -260,6 +279,13 @@ class Cylinder3D extends Primitive3D {
   Object get shapeKey => ('cylinder', radius, height, segments, smooth);
 
   @override
+  void writeShapeValues(ShapeValues values) => values
+    ..add(radius)
+    ..add(height)
+    ..addInt(segments)
+    ..addBool(smooth);
+
+  @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
     final r = Primitive3D.size(radius), hy = Primitive3D.size(height) / 2;
     final s = Primitive3D.count(segments, 3, 128);
@@ -333,6 +359,14 @@ class Capsule3D extends Primitive3D {
 
   @override
   Object get shapeKey => ('capsule', radius, height, segments, rings, smooth);
+
+  @override
+  void writeShapeValues(ShapeValues values) => values
+    ..add(radius)
+    ..add(height)
+    ..addInt(segments)
+    ..addInt(rings)
+    ..addBool(smooth);
 
   /// Half the length of its straight part.
   double get _half =>
@@ -430,6 +464,13 @@ class Cone3D extends Primitive3D {
   Object get shapeKey => ('cone', radius, height, segments, smooth);
 
   @override
+  void writeShapeValues(ShapeValues values) => values
+    ..add(radius)
+    ..add(height)
+    ..addInt(segments)
+    ..addBool(smooth);
+
+  @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
     final r = Primitive3D.size(radius),
         h = Primitive3D.size(height),
@@ -517,6 +558,14 @@ class Torus3D extends Primitive3D {
 
   @override
   Object get shapeKey => ('torus', radius, tubeRadius, segments, sides, smooth);
+
+  @override
+  void writeShapeValues(ShapeValues values) => values
+    ..add(radius)
+    ..add(tubeRadius)
+    ..addInt(segments)
+    ..addInt(sides)
+    ..addBool(smooth);
 
   @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
@@ -613,6 +662,12 @@ class Ramp3D extends Primitive3D {
   @override
   Object get shapeKey => ('ramp', width, height, depth);
 
+  @override
+  void writeShapeValues(ShapeValues values) => values
+    ..add(width)
+    ..add(height)
+    ..add(depth);
+
   List<(double, double, double)> get _corners {
     final hx = Primitive3D.size(width) / 2,
         hy = Primitive3D.size(height) / 2,
@@ -699,6 +754,13 @@ class Stairs3D extends Primitive3D {
 
   @override
   Object get shapeKey => ('stairs', width, height, depth, steps);
+
+  @override
+  void writeShapeValues(ShapeValues values) => values
+    ..add(width)
+    ..add(height)
+    ..add(depth)
+    ..addInt(steps);
 
   @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
@@ -833,6 +895,15 @@ class Arch3D extends Primitive3D {
   @override
   Object get shapeKey =>
       ('arch', radius, thickness, depth, angle, segments, smooth);
+
+  @override
+  void writeShapeValues(ShapeValues values) => values
+    ..add(radius)
+    ..add(thickness)
+    ..add(depth)
+    ..add(angle)
+    ..addInt(segments)
+    ..addBool(smooth);
 
   double get _angle => angle.abs().clamp(0.01, 2 * math.pi);
   bool get _closed => _angle >= 2 * math.pi - 1e-6;
@@ -1009,6 +1080,17 @@ class Polygon3D extends Primitive3D {
 
   @override
   Object get shapeKey => ('polygon', height, _PointsKey(points));
+
+  @override
+  void writeShapeValues(ShapeValues values) {
+    values.add(height);
+    final points = this.points;
+    for (var i = 0; i < points.length; i++) {
+      values
+        ..add(points[i].dx)
+        ..add(points[i].dy);
+    }
+  }
 
   List<(double, double)> get _outline =>
       Outline.clean([for (final p in points) (p.dx, p.dy)]);

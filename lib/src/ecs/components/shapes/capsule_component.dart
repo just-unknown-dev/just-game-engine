@@ -58,7 +58,6 @@ class CapsuleComponent extends RenderableComponent {
       filled: filled,
       strokeWidth: strokeWidth,
       renderable: CustomRenderable(
-        layer: 8,
         getBoundsCallback: () => Rect.fromCenter(
           center: Offset.zero,
           width: self.width + self.strokeWidth * 2,

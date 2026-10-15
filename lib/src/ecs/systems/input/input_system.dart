@@ -29,7 +29,7 @@ class InputSystem extends System {
   int get priority => SystemPriorities.input;
 
   @override
-  List<Type> get requiredComponents => [InputComponent];
+  List<Type> get requiredComponents => const [InputComponent];
 
   @override
   void update(double deltaTime) {

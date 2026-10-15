@@ -18,6 +18,12 @@ abstract class SpriteAssetLoader {
   /// The decoded image at [path]. Throws when it cannot be read or decoded.
   Future<ui.Image> loadImage(String path);
 
+  /// Whether each image [loadImage] returns is the caller's own handle (a
+  /// [ui.Image.clone]) to dispose when done with it, rather than one the
+  /// loader keeps and shares. False unless a loader says so: what is not
+  /// the caller's is never disposed by it.
+  bool get callerDisposesImages => false;
+
   /// The atlas described by the JSON at [path], its page images loaded.
   /// Throws when the JSON or a page cannot be read.
   Future<SpriteAtlas> loadAtlas(String path);
@@ -41,6 +47,10 @@ class BundleSpriteAssetLoader extends SpriteAssetLoader {
   @override
   Future<ui.Image> loadImage(String path) =>
       Sprite.loadImageFromAsset(path, assets: assets);
+
+  /// True: [Sprite.loadImageFromAsset] hands out a clone of the cached image.
+  @override
+  bool get callerDisposesImages => true;
 
   @override
   Future<SpriteAtlas> loadAtlas(String path) =>

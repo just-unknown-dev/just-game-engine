@@ -119,7 +119,7 @@ What each part does:
 **The world updates in fixed steps.** `GameWidget` calls `engine.gameLoop.tick()` once per display frame. The world then updates in fixed steps of 1/60 s (`engine.gameLoop.fixedDeltaTime`): none, one or several per frame, with at most three steps' worth of time carried over, so a stall does not snowball. Every `System.update(deltaTime)` receives that fixed step times `engine.time.timeScale`.
 
 - Move things in `update`, by `deltaTime`. Do not read the wall clock.
-- Drawing happens once per display frame, between steps. `RenderSystem` draws physics bodies interpolated between their last two steps (`engine.gameLoop.interpolation`), so they stay smooth on a 120 Hz screen. Entities your own code moves are drawn where they are.
+- Drawing happens once per display frame, between steps. `RenderSystem` draws what captured its previous pose in the last step — moving physics bodies and their children — interpolated between their last two steps (`engine.gameLoop.interpolation`), so they stay smooth on a 120 Hz screen. Entities your own code moves are drawn where they are.
 - `engine.pause()` stops the steps. The screen still draws and input still updates, so a pause menu keeps working.
 
 **+Y is down.** The axes are `WorldAxes`: +X right, +Y down, +Z into the screen. Gravity is +Y and a jump is −Y. A positive `angle` turns clockwise.
@@ -179,6 +179,7 @@ Actions and their bindings live in an input asset (a `just_inputs` file), not in
 {
   "format": "just_inputs",
   "version": 3,
+  "nextId": 11,
   "name": "game",
   "maps": [
     {
@@ -423,7 +424,7 @@ A character's own body is kinematic, so sensors see it and dynamic bodies bump i
 - Collider shapes (`Collider2D.shape`): `box` (`size`, optional `cornerRadius`), `circle` (`radius`), `capsule` (`radius`, `height`), `polygon` (`points`), `segment` and `chain` (`points`, `loop`), and `matchShape` — whatever the entity draws (a rectangle, circle, polygon or sprite), followed as it changes. Centred on the entity unless `offset` moves them; `rotation` and `scale` turn and stretch the collider itself. It also grows and shrinks with the entity's scale, as its sprite does.
 - Rigid bodies are dynamic by default. `bodyType: BodyType.static` never moves; `BodyType.kinematic` moves only by the velocity you set (moving platforms). On the collider, `oneWay: true` makes a platform you can jump up through.
 - The defaults are the same as in 3-D: `friction: 0.5`, `restitution: 0` (no bounce), `mass: 0` (worked out from the collider's area: a 100 × 100 box weighs 1000 kg, as a 1 m cube does in 3-D) and a little damping (`linearDamping: 0.05`, `angularDamping: 0.05`). Bounce comes from `restitution` on both bodies; give both some for a bouncy hit. A character usually wants `friction: 0` (so it slides down walls instead of sticking to them) and `lockRotation: true`.
-- Collision layers: put a body on `layer: 1` to `15`, name the layers and say which collide in `assets/project/physics.json` (a `PhysicsLayers`; the editor's Physics Layers dock writes it), and list that file under `flutter: assets:`. A body's own `collidesWith` overrides the grid.
+- Collision layers: put a body on a layer from 0 (the default) to 15, name the layers and say which collide in `assets/project/physics.json` (a `PhysicsLayers`; the editor's Physics Layers dock writes it), and list that file under `flutter: assets:`. A body's own `collidesWith` overrides the grid.
 - `isGrounded`, `groundEntity`, `groundNormal`, `linearVelocity` and `angularVelocity` on `RigidBody2D` are kept up to date for you.
 - Push from code with `addForce`, `addImpulse`, `addTorque`, `addAngularImpulse`, `setVelocity` and `setAngularVelocity`; they apply at the next step.
 - Events: `CollisionEnter2DEvent` (the two entities, the contact `point` and `normal`) when a contact begins, `CollisionExit2DEvent` when it ends, `CollisionStay2DEvent` every step in between once you set `PhysicsSystem.reportContactStay`, and `SensorEnter2DEvent` / `SensorExit2DEvent` (`sensor` and `other`) for sensors.
@@ -798,7 +799,7 @@ void soundTheAlarm(Engine engine) => engine.context.signals.emit('alarm');
 
 - `TimelinePlayerComponent(playOnStart: true)` plays at once; `play()`, `reverse()`, `restart()`, `pause()`, `seek(t)` control it.
 - A timeline can also live in the scene (the `inline` field) instead of a file.
-- Track kinds: `property`, `event`, `spriteClip`, `cameraShot`, `audio`, `activation` and `nested`.
+- Track kinds: `property`, `event`, `spriteClip`, `cameraShot`, `audio`, `activation` and `nested`, and, with `Graphics3D`, `skeletalClip`.
 
 ---
 
@@ -855,7 +856,7 @@ void tagsAndTargets(World world) {
 ```
 
 - `SpawnPoints.spawnAll(world, spawners)` calls the matching spawner for every spawn point (step 7). `SpawnPoints.first(world, 'player')` finds one.
-- Switched-off entities (`entity.isActive = false`) are left out of queries, tag lookups and targets.
+- Switched-off entities (`entity.isActive = false`) are left out of queries, tag lookups and targets — and so is everything under them in the hierarchy (`entity.isActiveInHierarchy`), whose own `isActive` stays as it was.
 
 ---
 
@@ -919,9 +920,9 @@ Future<void> playJump(Engine engine) async {
   await engine.sfx.play('assets/audio/jump.wav', volume: 0.8);
 }
 
-/// From a system: AudioSystem plays it once and removes the component.
-void playCoin(Entity coin) =>
-    coin.addComponent(AudioPlayComponent(clipPath: 'assets/audio/coin.wav'));
+/// From a system: AudioSystem plays it once; nothing is added to an entity.
+void playCoin(World world) =>
+    world.getSystem<AudioSystem>()?.playOneShot('assets/audio/coin.wav');
 
 /// A looping sound placed in the world. It is heard from the entity that
 /// has an AudioListenerComponent (with none, from the camera): full volume
@@ -1158,7 +1159,8 @@ void main() {
 | A blank screen, nothing moves | No `defaultSystems` in `EngineConfig`, or `engine.start()` was not called. |
 | `EngineNotReadyError` | `engine.world` (or another subsystem) was used before `await engine.initialize()`, or after `dispose()`. |
 | `StateError` from `start()` | The engine is not initialized, or already running. |
-| Things appear in the wrong place | +Y is down, and the camera's position is the world point in the middle of the screen. || A sprite does not show | The file is not listed under `flutter: assets:`, or the atlas image is not beside its JSON. |
+| Things appear in the wrong place | +Y is down, and the camera's position is the world point in the middle of the screen. |
+| A sprite does not show | The file is not listed under `flutter: assets:`, or the atlas image is not beside its JSON. |
 | An animator never changes state | It needs a `SpriteAnimationComponent` on the same entity. A parameter whose `binding` is not registered in `engine.context.animatorBindings` silently keeps its default. |
 | Particles do not move | `ParticleSystemECS` was not added; it is not a default system. |
 | `UnknownComponentTypeException` loading a level | The package that defines the component was not given to `EngineConfig(extensions: ...)`. |

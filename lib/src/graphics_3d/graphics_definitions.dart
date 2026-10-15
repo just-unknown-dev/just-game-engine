@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
-import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_dart/just_dart.dart' show Aabb3;
 
+import '../core/core.dart';
+import '../ecs/ecs.dart';
+import '../ecs/serialization/serialization.dart';
+import '../foundation/dimensions.dart';
 import 'graphics_components.dart';
 
 /// How the 3-D components are saved and shown in an editor. Every one is a

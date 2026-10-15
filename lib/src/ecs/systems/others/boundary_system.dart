@@ -41,7 +41,7 @@ class BoundarySystem extends System {
   });
 
   @override
-  List<Type> get requiredComponents => [TransformComponent];
+  List<Type> get requiredComponents => const [TransformComponent];
 
   @override
   void update(double deltaTime) {

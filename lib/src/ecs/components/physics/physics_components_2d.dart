@@ -239,7 +239,14 @@ class Collider2D extends Component {
     this.oneWayDirection = OneWayDirection.fromAbove,
     this.showDebugOutline = true,
   }) : size = size ?? Vector2(64, 64),
-       points = points ?? [const Offset(-32, -32), const Offset(32, -32), const Offset(32, 32), const Offset(-32, 32)],
+       points =
+           points ??
+           [
+             const Offset(-32, -32),
+             const Offset(32, -32),
+             const Offset(32, 32),
+             const Offset(-32, 32),
+           ],
        scale = scale ?? Vector2(1, 1);
 
   /// Which shape.

@@ -29,6 +29,12 @@ class FadeEffect extends DeterministicEffect {
 
   double? _capturedFrom;
 
+  /// The opacity this fade last worked out, before clamping, and what it
+  /// wrote: an easing that overshoots (elastic, back) goes past 0 or 1 on
+  /// the way and still ends on [to].
+  double? _raw;
+  double? _written;
+
   /// Fades to opacity [to] (0..1, asserted) over [durationTicks] ticks (30
   /// by default), along [easing] (linear by default), starting from [from]
   /// or, when that is null, from the entity's opacity on the first tick.
@@ -48,6 +54,8 @@ class FadeEffect extends DeterministicEffect {
 
     if (prevElapsed == 0) {
       _capturedFrom = from ?? renderable.renderable.opacity;
+      _raw = null;
+      _written = null;
     }
     final effectiveFrom = _capturedFrom;
     if (effectiveFrom == null) return;
@@ -55,15 +63,23 @@ class FadeEffect extends DeterministicEffect {
     final totalDelta = to - effectiveFrom;
     final prevEased = easing.transform(tAt(prevElapsed));
     final currEased = easing.transform(tAt(currElapsed));
-    renderable.renderable.opacity =
-        (renderable.renderable.opacity + totalDelta * (currEased - prevEased))
-            .clamp(0.0, 1.0);
+    final current = renderable.renderable.opacity;
+    // Go on from the unclamped value while nothing else changed the
+    // opacity; another effect's change is taken as it is (they add up).
+    final base = _raw != null && _written == current ? _raw! : current;
+    final raw = base + totalDelta * (currEased - prevEased);
+    final written = raw.clamp(0.0, 1.0);
+    renderable.renderable.opacity = written;
+    _raw = raw;
+    _written = written;
   }
 
   @override
   void reset() {
     super.reset();
     _capturedFrom = null;
+    _raw = null;
+    _written = null;
   }
 
   @override

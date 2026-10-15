@@ -44,17 +44,39 @@ class World {
   /// What [entities] returns until the next create or destroy.
   UnmodifiableListView<Entity>? _entityList;
 
-  /// How many live entities are switched off.
+  /// How many live entities are not active in the hierarchy
+  /// ([Entity.isActiveInHierarchy]).
   int _inactiveCount = 0;
 
-  /// All systems in the world
+  /// All systems in the world, in the order they run: by priority, and in
+  /// the order they were added where priorities are equal.
   final List<System> _systems = [];
+
+  /// [_systems] as of its last change — what [update], [frame] and
+  /// [render] walk, so a system added or removed while they run changes
+  /// [_systems], never the list being walked.
+  List<System>? _systemsSnapshot;
+
+  List<System> get _running =>
+      _systemsSnapshot ??= List<System>.unmodifiable(_systems);
+
+  /// How many systems have been added, ever: each system's place among
+  /// those of the same priority.
+  int _systemsAdded = 0;
 
   /// Entity ID counter. Only ever goes up.
   int _nextEntityId = 0;
 
   /// Whether the world is initialized
   bool _initialized = false;
+
+  /// Whether [update] times each system and itself for [stats]
+  /// (`systemTimesMs`, `lastUpdateMs`).
+  ///
+  /// On by default in debug and profile builds and off in release, where
+  /// reading a stopwatch around every system each step costs time for
+  /// numbers nothing reads. Switched off, those stats stay empty and 0.
+  bool profiling = !kReleaseMode;
 
   /// Last measured per-system update costs in milliseconds.
   final Map<String, double> _lastSystemTimesMs = <String, double>{};
@@ -137,21 +159,17 @@ class World {
   // ── Query cache ─────────────────────────────────────────────────────────
   //
   // One entry per distinct query: the archetypes it matches, kept up to
-  // date as archetypes are made, and its result, dropped whenever one of
-  // those archetypes gains or loses an entity or one of its entities is
-  // switched on or off. Unrelated queries keep their results.
+  // date as archetypes are made, its result, and its version. Whenever one
+  // of those archetypes gains or loses an entity, has a component of one
+  // replaced, or one of its entities is switched on or off, the result is
+  // dropped and the version moves on. Unrelated queries keep both.
 
   final Map<int, List<_QueryCacheEntry>> _queryCache = {};
   final List<_QueryCacheEntry> _queryEntries = [];
 
-  int _structureVersion = 0;
-
-  /// Bumped whenever an entity is created or destroyed, switched on or off
-  /// ([Entity.isActive]), or a component is added to or removed from one.
-  /// A system that keeps its own per-entity state can compare it with the
-  /// value it last saw and prune only when it changed, instead of rebuilding
-  /// a set of live entities every frame.
-  int get structureVersion => _structureVersion;
+  /// Where every query's version comes from: one counter for the world, so
+  /// no two versions are ever the same.
+  int _versionClock = 0;
 
   int _updateCount = 0;
 
@@ -169,7 +187,10 @@ class World {
         if (entry.matches(componentTypes)) return entry;
       }
     }
-    final entry = _QueryCacheEntry(Set<Type>.of(componentTypes));
+    final entry = _QueryCacheEntry(
+      Set<Type>.of(componentTypes),
+      ++_versionClock,
+    );
     final matching = <Archetype>[];
     for (final archetype in _archetypeList) {
       if (archetype._typeSet.containsAll(entry.types)) {
@@ -190,14 +211,17 @@ class World {
       // A new list, never the old one grown: a caller may be walking it.
       entry.archetypes = UnmodifiableListView([...entry.archetypes, archetype]);
       entry.entities = null;
+      entry.version = ++_versionClock;
       archetype._queries.add(entry);
     }
   }
 
-  /// [archetype]'s rows changed: the queries it matches must look again.
+  /// [archetype]'s rows changed: the queries it matches must look again,
+  /// and their versions move on.
   void _touch(Archetype archetype) {
     for (final entry in archetype._queries) {
       entry.entities = null;
+      entry.version = ++_versionClock;
     }
   }
 
@@ -249,6 +273,11 @@ class World {
   }
 
   void _addComponentToEntity(Entity entity, Component component) {
+    // Refused before anything changes.
+    if (component is ParentComponent) {
+      final to = component.parentId;
+      if (to != null) _checkLink(entity, to);
+    }
     final type = component.componentType;
     final from = entity._archetype;
     final to = _withType(from, type);
@@ -263,9 +292,11 @@ class World {
     if (!identical(to, from)) {
       entity._order = List.unmodifiable([...?entity._order, type]);
     }
+    entity._components = null;
     if (from != null && !identical(from, to)) _touch(from);
+    // A replaced component changes no archetype, but its queries still
+    // hear of it: what a system keeps of the old one is out of date.
     _touch(to);
-    _structureVersion++;
 
     if (replaced != null && !identical(replaced, component)) {
       _detached(entity, replaced, replacedBy: component);
@@ -287,9 +318,9 @@ class World {
             for (final t in order)
               if (t != type) t,
           ]);
+    entity._components = null;
     _touch(from);
     if (to != null) _touch(to);
-    _structureVersion++;
 
     _detached(entity, removed);
   }
@@ -298,7 +329,10 @@ class World {
   void _attached(Entity entity, Component component) {
     if (component is TagComponent) _tagIndex.attach(entity, component);
     if (component is ParentComponent) {
-      component.bindRelink((from, to) => _relinkChild(entity, from, to));
+      component.bindRelink(
+        (from, to) => _relinkChild(entity, from, to),
+        check: (to) => _checkLink(entity, to),
+      );
       _relinkChild(entity, null, component.parentId);
     }
     component.onAttach(entity.id);
@@ -323,7 +357,9 @@ class World {
   /// the old parent's `ChildrenComponent` lets it go, and the new one's
   /// lists it — at the end, unless it is there already — made for the new
   /// parent when it has none. A parent that is not in this world, or the
-  /// child itself, is left alone.
+  /// child itself, is left alone. Under a switched-off parent now, or no
+  /// longer, the child's subtree is switched off or on with it
+  /// ([Entity.isActiveInHierarchy]).
   void _relinkChild(Entity child, EntityId? from, EntityId? to) {
     if (from == to) return;
     if (from != null) {
@@ -331,20 +367,83 @@ class World {
         child.id,
       );
     }
-    if (to == null) return;
-    final parent = _entityMap[to];
-    if (parent == null || identical(parent, child)) return;
-    var children = parent.getComponent<ChildrenComponent>();
-    if (children == null) {
-      children = ChildrenComponent();
-      parent.addComponent(children);
+    final parent = to == null ? null : _entityMap[to];
+    if (parent != null && !identical(parent, child)) {
+      var children = parent.getComponent<ChildrenComponent>();
+      if (children == null) {
+        children = ChildrenComponent();
+        parent.addComponent(children);
+      }
+      children.addChild(child.id);
     }
-    children.addChild(child.id);
+    _refreshActive(child);
+  }
+
+  /// Throws an [ArgumentError] when hanging [child] under the entity [to]
+  /// would make [child] its own ancestor: [to] is [child], or is under it.
+  void _checkLink(Entity child, EntityId to) {
+    var id = to;
+    // Bounded, in case links already loop (they cannot, made through here).
+    for (var steps = 0; steps <= _entities.length; steps++) {
+      if (id == child.id) {
+        throw ArgumentError.value(
+          to,
+          'parentId',
+          '$child cannot be parented under entity $to: that '
+              '${to == child.id ? 'is the entity itself' : 'is under it'}',
+        );
+      }
+      final next = _entityMap[id]?.getComponent<ParentComponent>()?.parentId;
+      if (next == null) return;
+      id = next;
+    }
   }
 
   /// [entity] was switched on or off (called by [Entity.isActive]).
-  void _activeChanged(Entity entity) {
-    _inactiveCount += entity._isActive ? -1 : 1;
+  void _activeChanged(Entity entity) => _refreshActive(entity);
+
+  /// Works out [entity]'s [Entity.isActiveInHierarchy] again — it is
+  /// switched on, and so is its parent in the hierarchy, when it has one in
+  /// this world — and, when that changed, its subtree's.
+  void _refreshActive(Entity entity) {
+    if (!identical(entity._world, this)) return;
+    final active = entity._isActive && _parentActive(entity);
+    if (active == entity._activeInHierarchy) return;
+    _setActiveInHierarchy(entity, active);
+
+    final stack = <Entity>[entity];
+    while (stack.isNotEmpty) {
+      final parent = stack.removeLast();
+      final children = parent.getComponent<ChildrenComponent>();
+      if (children == null) continue;
+      for (final id in children.childIds) {
+        final child = _entityMap[id];
+        if (child == null || identical(child, parent)) continue;
+        // Listed, but linked elsewhere: not this parent's to switch.
+        if (child.getComponent<ParentComponent>()?.parentId != parent.id) {
+          continue;
+        }
+        final now = child._isActive && parent._activeInHierarchy;
+        if (now == child._activeInHierarchy) continue;
+        _setActiveInHierarchy(child, now);
+        stack.add(child);
+      }
+    }
+  }
+
+  /// Whether [entity]'s parent is active in the hierarchy — true for an
+  /// entity with none in this world.
+  bool _parentActive(Entity entity) {
+    final parentId = entity.getComponent<ParentComponent>()?.parentId;
+    if (parentId == null) return true;
+    final parent = _entityMap[parentId];
+    if (parent == null || identical(parent, entity)) return true;
+    return parent._activeInHierarchy;
+  }
+
+  void _setActiveInHierarchy(Entity entity, bool active) {
+    entity._activeInHierarchy = active;
+    _inactiveCount += active ? -1 : 1;
     final archetype = entity._archetype;
     if (archetype != null) {
       _touch(archetype);
@@ -352,7 +451,6 @@ class World {
         _tagIndex.activeChanged(entity);
       }
     }
-    _structureVersion++;
   }
 
   /// [entity] was renamed from [old] (called by [Entity.name]).
@@ -387,18 +485,21 @@ class World {
   /// How many entities the world holds, switched off or not.
   int get entityCount => _entities.length;
 
-  /// Get all systems
-  UnmodifiableListView<System> get systems => UnmodifiableListView(_systems);
+  /// Every system, in the order they run. A snapshot: adding or removing
+  /// systems while walking it is safe.
+  UnmodifiableListView<System> get systems => UnmodifiableListView(_running);
 
-  /// Get active entities
-  Iterable<Entity> get activeEntities => _entities.where((e) => e.isActive);
+  /// The entities active in the hierarchy ([Entity.isActiveInHierarchy]),
+  /// oldest first.
+  Iterable<Entity> get activeEntities =>
+      _entities.where((e) => e._activeInHierarchy);
 
   /// Initialize the world
   void initialize() {
     if (_initialized) return;
 
-    for (final system in _systems) {
-      system.initialize();
+    for (final system in _running) {
+      if (identical(system._addedTo, this)) system.initialize();
     }
 
     _initialized = true;
@@ -414,7 +515,6 @@ class World {
     _entityMap[entity.id] = entity;
     _indexName(entity);
     _entityList = null;
-    _structureVersion++;
   }
 
   /// Create a new entity
@@ -540,16 +640,17 @@ class World {
       entity._archetypeRow = -1;
       entity._order = null;
     }
+    entity._components = null;
 
-    if (!entity._isActive) _inactiveCount--;
+    if (!entity._activeInHierarchy) _inactiveCount--;
     entity._isActive = false;
+    entity._activeInHierarchy = false;
     entity._world = null;
     _entityMap.remove(entity.id);
     _entities.remove(entity); // O(1) — LinkedHashSet
     final name = entity._name;
     if (name != null) _unindexName(entity, name);
     _entityList = null;
-    _structureVersion++;
 
     if (removed != null) {
       for (final component in removed) {
@@ -586,7 +687,9 @@ class World {
       entity._archetype = null;
       entity._archetypeRow = -1;
       entity._order = null;
+      entity._components = null;
       entity._isActive = false;
+      entity._activeInHierarchy = false;
     }
     _entities.clear();
     _entityMap.clear();
@@ -598,23 +701,36 @@ class World {
     _queryCache.clear();
     _queryEntries.clear();
     _tagIndex.clear();
-    _structureVersion++;
 
     for (var i = 0; i < gone.length; i++) {
       for (final component in parts[i]) {
         if (component is TagComponent && identical(component._owner, gone[i])) {
           component._owner = null;
         }
+        // No longer this world's to keep in step.
+        if (component is ParentComponent) component.bindRelink(null);
         component.onDetach(gone[i].id);
       }
     }
   }
 
-  /// Add a system to the world
+  /// Add a system to the world.
+  ///
+  /// It runs after every system of a higher priority, and after those of
+  /// the same priority added before it. Adding one while the systems run —
+  /// from a system's update, say — is safe: it runs from the next update
+  /// on. Adding a system that is already in this world does nothing.
   void addSystem(System system) {
+    if (identical(system._addedTo, this)) return;
     system.world = this;
-    _systems.add(system);
-    _systems.sort((a, b) => b.priority.compareTo(a.priority));
+    system._addedTo = this;
+    system._addOrder = _systemsAdded++;
+    var at = _systems.length;
+    while (at > 0 && _systems[at - 1].priority < system.priority) {
+      at--;
+    }
+    _systems.insert(at, system);
+    _systemsSnapshot = null;
 
     if (_initialized) {
       system.initialize();
@@ -623,27 +739,54 @@ class World {
     system.onAddedToWorld();
   }
 
-  /// Puts the systems in priority order again. They are sorted as each is
-  /// added; a [System.priority] that changed since — edited code after a
-  /// hot reload — takes effect only once this runs. Not while systems are
-  /// being updated.
-  void sortSystems() =>
-      _systems.sort((a, b) => b.priority.compareTo(a.priority));
+  /// Puts the systems in priority order again — those of the same priority
+  /// in the order they were added. They are placed as each is added; a
+  /// [System.priority] that changed since — edited code after a hot reload
+  /// — takes effect only once this runs. Systems already running this
+  /// update keep the order they started in.
+  void sortSystems() {
+    _systems.sort(_runOrder);
+    _systemsSnapshot = null;
+  }
+
+  static int _runOrder(System a, System b) {
+    final byPriority = b.priority.compareTo(a.priority);
+    return byPriority != 0 ? byPriority : a._addOrder.compareTo(b._addOrder);
+  }
 
   /// Runs every active [FrameSystem], in priority order: once per rendered
   /// frame, after its fixed updates (see [FrameSystem.frame]).
+  ///
+  /// When one ran, the [transformHierarchy] settles again afterwards, so
+  /// the children of what a frame system moved follow it in the same frame
+  /// rather than at the next fixed update.
   void frame(double deltaTime, double alpha) {
-    for (final system in _systems) {
-      if (system is! FrameSystem || !system.isActive) continue;
+    var ran = false;
+    for (final system in _running) {
+      if (system is! FrameSystem ||
+          !system.isActive ||
+          !identical(system._addedTo, this)) {
+        continue;
+      }
       (system as FrameSystem).frame(deltaTime, alpha);
+      ran = true;
       if (commands.isNotEmpty) commands.flush();
     }
+    if (ran && transformHierarchy.enabled) transformHierarchy.propagate();
   }
 
-  /// Remove a system from the world
+  /// Remove a system from the world: it hears
+  /// [System.onRemovedFromWorld], then [System.dispose].
+  ///
+  /// Safe while the systems run — a system may remove itself, or another,
+  /// from its own update; one removed before its turn does not run. A
+  /// system that is not in this world is left alone.
   void removeSystem(System system) {
+    if (!identical(system._addedTo, this)) return;
+    system._addedTo = null;
     system.onRemovedFromWorld();
     _systems.remove(system);
+    _systemsSnapshot = null;
     system.dispose();
   }
 
@@ -656,13 +799,22 @@ class World {
   ///
   /// Call this before rebuilding a scene to prevent stale systems from a
   /// previous screen visit accumulating in the shared [Engine] singleton.
+  ///
+  /// Safe while the systems run: the rest of that update skips the systems
+  /// removed, and systems added afterwards run from the next update on.
   void clearSystems() {
-    // Iterate a copy so removal mutations on _systems are safe.
-    for (final system in List.of(_systems)) {
+    final removed = List.of(_systems);
+    for (final system in removed) {
+      system._addedTo = null;
+    }
+    for (final system in removed) {
       system.onRemovedFromWorld();
       system.dispose();
     }
-    _systems.clear();
+    // Only those: one added by a callback above stays.
+    final gone = Set<System>.identity()..addAll(removed);
+    _systems.removeWhere(gone.contains);
+    _systemsSnapshot = null;
   }
 
   /// Get a system by type
@@ -673,32 +825,44 @@ class World {
   /// Whether a system of type [T] (or a subtype) is in this world.
   bool hasSystem<T extends System>() => _systems.any((s) => s is T);
 
-  /// Update all active systems
+  /// Update all active systems, in order (see [addSystem]).
+  ///
+  /// Systems may add and remove systems — themselves included — and clear
+  /// them all ([clearSystems]) while this runs: a system removed before its
+  /// turn does not run, and one added runs from the next update on.
   void update(double deltaTime) {
     _updateCount++;
-    _totalStopwatch
-      ..reset()
-      ..start();
+    final profile = profiling;
+    if (profile) {
+      _totalStopwatch
+        ..reset()
+        ..start();
+    }
+    if (_lastSystemTimesMs.isNotEmpty) _lastSystemTimesMs.clear();
     var flushCount = 0;
 
-    _lastSystemTimesMs.clear();
-
     var hierarchyDone = !transformHierarchy.enabled;
-    for (final system in _systems) {
+    for (final system in _running) {
       if (!hierarchyDone && system.priority < SystemPriorities.hierarchy) {
-        _runHierarchy();
+        _runHierarchy(profile);
         hierarchyDone = true;
       }
+      // Removed by a system that ran before it.
+      if (!identical(system._addedTo, this)) continue;
       if (system.isActive) {
-        _systemStopwatch
-          ..reset()
-          ..start();
-        try {
+        if (profile) {
+          _systemStopwatch
+            ..reset()
+            ..start();
+          try {
+            system.update(deltaTime);
+          } finally {
+            _systemStopwatch.stop();
+            _lastSystemTimesMs[system.profileName] =
+                _systemStopwatch.elapsedMicroseconds / 1000.0;
+          }
+        } else {
           system.update(deltaTime);
-        } finally {
-          _systemStopwatch.stop();
-          _lastSystemTimesMs[system._profileName] =
-              _systemStopwatch.elapsedMicroseconds / 1000.0;
         }
       }
       // Flush deferred commands between system ticks so later systems
@@ -709,14 +873,22 @@ class World {
       }
     }
 
-    if (!hierarchyDone) _runHierarchy();
+    if (!hierarchyDone) _runHierarchy(profile);
 
-    _totalStopwatch.stop();
-    _lastUpdateTimeMs = _totalStopwatch.elapsedMicroseconds / 1000.0;
+    if (profile) {
+      _totalStopwatch.stop();
+      _lastUpdateTimeMs = _totalStopwatch.elapsedMicroseconds / 1000.0;
+    } else {
+      _lastUpdateTimeMs = 0.0;
+    }
     _lastCommandFlushCount = flushCount;
   }
 
-  void _runHierarchy() {
+  void _runHierarchy(bool profile) {
+    if (!profile) {
+      transformHierarchy.propagate();
+      return;
+    }
     _systemStopwatch
       ..reset()
       ..start();
@@ -728,14 +900,17 @@ class World {
 
   /// Render all active systems
   void render(Canvas canvas, Size size) {
-    for (final system in _systems) {
-      if (system.isActive) {
+    for (final system in _running) {
+      if (system.isActive && identical(system._addedTo, this)) {
         system.render(canvas, size);
       }
     }
   }
 
-  /// Find the switched-on entities that have every one of [componentTypes].
+  /// Find the entities active in the hierarchy
+  /// ([Entity.isActiveInHierarchy]) that have every one of
+  /// [componentTypes]. An entity switched off, or under a parent that is,
+  /// is left out.
   ///
   /// Results are cached per query and refreshed only when an archetype the
   /// query matches changes — an entity added or removed, or switched on or
@@ -744,7 +919,7 @@ class World {
   /// [componentTypes] are scanned, skipping unrelated entities.
   ///
   /// The list is never changed after it is returned; a later change makes
-  /// a new one.
+  /// a new one (and moves [queryVersion] on).
   List<Entity> query(List<Type> componentTypes) {
     final entry = _queryEntryFor(componentTypes);
     return entry.entities ??= _collect(entry);
@@ -754,11 +929,31 @@ class World {
     final result = <Entity>[];
     for (final archetype in entry.archetypes) {
       for (final entity in archetype._entities) {
-        if (entity._isActive) result.add(entity);
+        if (entity._activeInHierarchy) result.add(entity);
       }
     }
     return UnmodifiableListView(result);
   }
+
+  /// A number that moves on whenever the entities [componentTypes] match
+  /// may have changed — for a system that keeps something per matching
+  /// entity (a draw list, physics bodies, a cache of components) and
+  /// rebuilds it only when its own queries changed.
+  ///
+  /// It changes when an entity with all of [componentTypes] is created or
+  /// destroyed, gains or loses any component (which moves it to another
+  /// archetype), has a component replaced (`addComponent` of a type it
+  /// already has), or is switched on or off — itself, or with a parent
+  /// ([Entity.isActiveInHierarchy]) — and when a new archetype the query
+  /// matches appears ([queryArchetypes]). What happens to entities the
+  /// query cannot match leaves it alone.
+  ///
+  /// Versions are unique within the world and only go up, so the largest
+  /// of several queries' versions changes whenever any one of them does,
+  /// and a query asked for the first time — or again after
+  /// [destroyAllEntities] — never has a version seen before.
+  int queryVersion(List<Type> componentTypes) =>
+      _queryEntryFor(componentTypes).version;
 
   /// Return all [Archetype]s whose component set is a superset of
   /// [componentTypes].
@@ -769,38 +964,41 @@ class World {
   ///
   /// Unlike [query], this does **not** leave out entities that are switched
   /// off: an archetype holds every entity with its components. A caller
-  /// must skip rows whose entity is not [Entity.isActive]
-  /// (`archetype.entityAt(row).isActive`).
+  /// must skip rows whose entity is not active in the hierarchy
+  /// (`archetype.entityAt(row).isActiveInHierarchy`).
   Iterable<Archetype> queryArchetypes(List<Type> componentTypes) =>
       _queryEntryFor(componentTypes).archetypes;
 
   /// The oldest entity named [name], or null.
   ///
   /// Switched-off entities count unless [includeInactive] is false, when
-  /// the oldest switched-on one is returned. Backed by an index, so it
+  /// the oldest one active in the hierarchy
+  /// ([Entity.isActiveInHierarchy]) is returned. Backed by an index, so it
   /// costs a map lookup rather than a scan.
   Entity? findEntityByName(String name, {bool includeInactive = true}) {
     final named = _byName[name];
     if (named == null) return null;
     for (final entity in named) {
-      if (includeInactive || entity._isActive) return entity;
+      if (includeInactive || entity._activeInHierarchy) return entity;
     }
     return null;
   }
 
-  /// The oldest entity tagged [tag], or null. Entities switched off are
-  /// passed over unless [includeInactive].
+  /// The oldest entity tagged [tag], or null. Entities not active in the
+  /// hierarchy ([Entity.isActiveInHierarchy]) are passed over unless
+  /// [includeInactive].
   ///
   /// Backed by an index, so it costs a map lookup rather than a scan.
   Entity? findTagged(String tag, {bool includeInactive = false}) =>
       _tagIndex.first(tag, includeInactive);
 
-  /// Every entity tagged [tag], oldest first. Entities switched off are
-  /// left out unless [includeInactive].
+  /// Every entity tagged [tag], oldest first. Entities not active in the
+  /// hierarchy ([Entity.isActiveInHierarchy]) are left out unless
+  /// [includeInactive].
   ///
   /// The list cannot be changed, and is shared: it is reused until a tag
-  /// set or an entity's [Entity.isActive] changes, so asking every frame
-  /// does not allocate.
+  /// set or an entity's [Entity.isActiveInHierarchy] changes, so asking
+  /// every frame does not allocate.
   List<Entity> allTagged(String tag, {bool includeInactive = false}) =>
       _tagIndex.all(tag, includeInactive);
 
@@ -841,7 +1039,10 @@ class World {
     if (kDebugMode) debugPrint('ECS World disposed');
   }
 
-  /// Get statistics
+  /// Statistics, made when read. `activeEntities` counts the entities
+  /// active in the hierarchy; `lastUpdateMs` and `systemTimesMs` (each
+  /// system's last update, by [System.profileName]) are measured only
+  /// while [profiling] is on.
   Map<String, dynamic> get stats => {
     'totalEntities': _entities.length,
     'activeEntities': _entities.length - _inactiveCount,
@@ -854,12 +1055,16 @@ class World {
   };
 }
 
-/// One cached query: the archetypes it matches, and its current result.
+/// One cached query: the archetypes it matches, its current result, and
+/// its version.
 class _QueryCacheEntry {
-  _QueryCacheEntry(this.types);
+  _QueryCacheEntry(this.types, this.version);
 
   /// The component types asked for.
   final Set<Type> types;
+
+  /// See [World.queryVersion].
+  int version;
 
   /// Every archetype holding all of [types], oldest first. Replaced, never
   /// changed, when a new one appears.

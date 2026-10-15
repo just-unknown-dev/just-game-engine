@@ -528,8 +528,9 @@ void main() {
       // inline from within the 'ecs' task instead (see Engine.physics'
       // doc comment for why).
       // Audio is a frame task: it places sounds once the frame has moved
-      // everything.
-      const expectedTasks = ['input', 'camera', 'parallax', 'ecs'];
+      // everything. The camera's post effects advance once per frame on
+      // real time, outside the fixed step.
+      const expectedTasks = ['input', 'parallax', 'ecs'];
       expect(taskTimes.keys, containsAll(expectedTasks));
       expect(
         scheduler['updateTaskCount'],

@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui' show Color;
 
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_dart/just_dart.dart' show Vector3;
 import 'package:just_graphics_engine/assets.dart';
 import 'package:just_graphics_engine/gpu.dart';
 import 'package:just_graphics_engine/renderer.dart';
@@ -17,16 +17,24 @@ import 'shapes/primitive_3d.dart';
 /// instanced draw.
 ///
 /// Textures load in the background; a shape draws in its colour until its
-/// texture arrives. What no shape has used for a while is let go.
+/// texture arrives. What no shape has used for a while is let go — never
+/// what [inUse] says is on screen, nor a texture such a material holds.
 final class GraphicsShapes {
-  /// Shapes uploaded with [uploader], their textures read by [read].
-  GraphicsShapes(this.uploader, this.read);
+  /// Shapes uploaded with [uploader], their textures read by [read]; what is
+  /// drawn now is told by [inUse].
+  GraphicsShapes(this.uploader, this.read, {this.inUse});
 
   /// Where meshes and materials go.
   final ModelUploader uploader;
 
   /// The bytes of an asset (a texture).
   final Future<Uint8List> Function(String path) read;
+
+  /// The meshes and materials drawn now, asked for only when old ones are
+  /// let go: these are kept however long ago they were asked for. A
+  /// renderer asks [meshFor] and [materialFor] only when a shape changes,
+  /// so what stays on screen unchanged would otherwise look unused.
+  final Iterable<Object> Function()? inUse;
 
   final Map<Object, _Entry<GpuPrimitive>> _meshes = {};
   final Map<Object, _Entry<GpuMaterial>> _materials = {};
@@ -89,8 +97,8 @@ final class GraphicsShapes {
   }
 
   /// [shape]'s look as a glTF-style material: colours made linear, blended
-  /// when it is not opaque, its texture (as texture 0) repeated [tiling]
-  /// times.
+  /// when it is not opaque, its texture (as texture 0) repeated
+  /// [Primitive3D.tiling] times.
   static MaterialData materialDataOf(Primitive3D shape) {
     final (r, g, b) = linear(shape.color);
     final (er, eg, eb) = linear(shape.emission);
@@ -150,13 +158,15 @@ final class GraphicsShapes {
   }
 
   /// A frame has been drawn: now and then, lets go of what has not been
-  /// used for [keepFrames] frames.
+  /// used for [keepFrames] frames and is not [inUse].
   void endFrame() {
     _frame++;
     if (_frame % 120 != 0) return;
     final old = _frame - keepFrames;
-    _meshes.removeWhere((_, e) => e.used < old);
-    _materials.removeWhere((_, e) => e.used < old);
+    final live = Set<Object>.identity()..addAll(inUse?.call() ?? const []);
+    _meshes.removeWhere((_, e) => e.used < old && !live.contains(e.value));
+    _materials.removeWhere((_, e) => e.used < old && !live.contains(e.value));
+    // What a kept material shows stays, so it can be reloaded.
     final textured = {for (final m in _materials.values) m.texture};
     _textures.removeWhere(
       (path, t) => t.texture != null && !textured.contains(path),

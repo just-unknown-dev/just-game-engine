@@ -3,9 +3,11 @@ part of '../effect_system.dart';
 /// Applies a damped oscillating positional shake to [TransformComponent].
 ///
 /// ### Determinism
-/// The shake uses `sin` and `cos` driven by the integer tick count so
-/// every peer with the same `(amplitude, frequency, durationTicks)` tuple
-/// produces bit-identical results.
+/// The shake uses `sin` and `cos` driven by the integer tick count, so
+/// peers on the same platform with the same `(amplitude, frequency,
+/// durationTicks)` produce bit-identical results. Across platforms `sin`
+/// and `cos` come from each one's maths library and may differ in the last
+/// bit.
 ///
 /// The X axis oscillates with `sin`, the Y axis with `cos − 1`, creating a
 /// circular shake pattern that starts and ends exactly where the entity

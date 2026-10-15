@@ -18,7 +18,7 @@ class HealthSystem extends System {
   final List<Entity> _toDie = [];
 
   @override
-  List<Type> get requiredComponents => [HealthComponent];
+  List<Type> get requiredComponents => const [HealthComponent];
 
   @override
   void update(double deltaTime) {

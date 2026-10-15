@@ -15,6 +15,7 @@ import 'package:just_inputs/just_inputs.dart';
 import 'package:just_physics_engine/just_physics_engine.dart';
 
 import '../ecs/ecs.dart';
+import '../ecs/systems/audio/audio_system.dart';
 import 'register_default_systems.dart';
 import '../memory/cache_manager.dart';
 import '../graphics_3d/graphics_3d.dart' show Graphics3D;
@@ -268,9 +269,6 @@ class Engine {
   /// paused.
   double _inputTime = 0;
 
-  /// Last measured subsystem update costs in milliseconds.
-  final Map<String, double> _lastUpdateBreakdownMs = <String, double>{};
-
   double _lastUpdateTotalMs = 0.0;
   double _lastDeltaTime = 0.0;
   int _frameNumber = 0;
@@ -282,7 +280,9 @@ class Engine {
     'lastUpdateMs': _lastUpdateTotalMs,
     'budgetRemainingMs': 16.67 - _lastUpdateTotalMs,
     'isOverBudget': _lastUpdateTotalMs > 16.67,
-    'systemTimesMs': Map<String, double>.unmodifiable(_lastUpdateBreakdownMs),
+    'systemTimesMs': Map<String, double>.unmodifiable(
+      _systemManager?.lastTaskTimesMs ?? const <String, double>{},
+    ),
     'scheduler': _systemManager?.schedulerStats ?? const <String, dynamic>{},
   };
 
@@ -554,10 +554,8 @@ class Engine {
       _inputTime += gameLoop.fixedDeltaTime;
       input.update(_inputTime);
     });
-    systems.registerUpdateTask(
-      'camera',
-      (deltaTime) => cameraSystem.update(deltaTime),
-    );
+    // The camera's post effects (a fade, letterbox bars) advance once per
+    // frame on real time, also while paused — see [_frame].
     systems.registerUpdateTask(
       'parallax',
       (deltaTime) =>
@@ -640,25 +638,87 @@ class Engine {
     _state = EngineState.initialized;
   }
 
-  /// Update the engine state (called every frame)
-  /// Once per frame, after the fixed steps: plugins tick here, on wall-clock
-  /// time, so an editor keeps working while the game is paused or its time
-  /// scale is zero.
+  // ── Audio in the background ─────────────────────────────────────────────
+
+  bool _audioSuspended = false;
+  bool _musicSuspended = false;
+  bool _mutedBySuspend = false;
+
+  /// Whether [suspendAudio] has silenced the game, until [resumeAudio].
+  bool get isAudioSuspended => _audioSuspended;
+
+  /// Silences the game for the app going to the background: pauses the
+  /// music if it is playing, and every sound and stream the world's
+  /// [AudioSystem] plays, and mutes the rest (sounds played straight
+  /// through [audio] or [sfx]). [resumeAudio] undoes exactly that — what
+  /// the player had paused stays paused.
+  ///
+  /// `GameWidget` calls both as the app goes to the background and comes
+  /// back. Calling it again before [resumeAudio] does nothing; before
+  /// [initialize] and after [dispose] it does nothing.
+  void suspendAudio() {
+    final audio = _audio;
+    if (_audioSuspended || audio == null) return;
+    _audioSuspended = true;
+    if (audio.isMusicPlaying) {
+      _musicSuspended = true;
+      unawaited(audio.pauseMusic());
+    }
+    for (final system in _world?.systems ?? const <System>[]) {
+      if (system is AudioSystem) system.suspend();
+    }
+    if (!audio.isMuted) {
+      _mutedBySuspend = true;
+      audio.mute();
+    }
+  }
+
+  /// Plays again what [suspendAudio] paused and unmutes what it muted;
+  /// does nothing when audio is not suspended.
+  void resumeAudio() {
+    if (!_audioSuspended) return;
+    _audioSuspended = false;
+    final audio = _audio;
+    final music = _musicSuspended;
+    final muted = _mutedBySuspend;
+    _musicSuspended = _mutedBySuspend = false;
+    if (audio == null) return;
+    if (muted && audio.isMuted) audio.unmute();
+    if (music) unawaited(audio.resumeMusic());
+    for (final system in _world?.systems ?? const <System>[]) {
+      if (system is AudioSystem) system.resumeSuspended();
+    }
+  }
+
+  /// Once per frame, after the fixed steps and the per-frame phase: what
+  /// runs on real time, so it keeps working while the game is paused or its
+  /// time scale is zero — plugins (an editor), the camera's post effects (a
+  /// fade into a pause menu or out of a scene), and, while paused, input
+  /// and audio.
   void _frame() {
     final time = _timeManager;
     if (time == null) return;
-    // Paused, the fixed steps stop — but a menu still needs its buttons, and
-    // a rebind its keys.
+    final realTime = time.unscaledDeltaTime;
     if (isPaused) {
-      _inputTime += time.unscaledDeltaTime;
+      // Paused, the fixed steps stop — but a menu still needs its buttons,
+      // and a rebind its keys.
+      _inputTime += realTime;
       input.update(_inputTime);
+      // And a volume slider must be heard: a channel's new volume reaches
+      // the playing sounds when audio updates.
+      _audio?.update(dt: 0);
     }
-    plugins.update(time.unscaledDeltaTime);
+    _cameraSystem?.update(realTime);
+    plugins.update(realTime);
   }
 
   /// The per-frame phase: after the frame's fixed updates.
   void _perFrame(double deltaTime, double alpha) {
     if (_state != EngineState.running) return;
+    // How far between two steps this frame is drawn: the game loop's, for
+    // the frame's view (3-D). The world's RenderSystem takes it from the
+    // frame cycle below.
+    _rendering?.interpolation = alpha;
     _systemManager!.runFrameCycle(deltaTime, alpha);
   }
 
@@ -670,9 +730,6 @@ class Engine {
     _lastDeltaTime = deltaTime;
 
     systems.runUpdateCycle(deltaTime);
-    _lastUpdateBreakdownMs
-      ..clear()
-      ..addAll(systems.lastTaskTimesMs);
     _lastUpdateTotalMs = systems.lastFrameMs;
   }
 

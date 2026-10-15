@@ -74,7 +74,7 @@ class CameraTargetResolver {
     if (name.isEmpty) return null;
     return _byName.putIfAbsent(name, () {
       final first = world.findEntityByName(name);
-      if (first == null || first.isActive) return first;
+      if (first == null || first.isActiveInHierarchy) return first;
       for (final entity in world.activeEntities) {
         if (entity.name == name) return entity;
       }

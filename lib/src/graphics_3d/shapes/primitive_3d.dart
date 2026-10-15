@@ -1,8 +1,13 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' show Color;
 
-import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_dart/just_dart.dart' show Aabb3, Vector2;
 import 'package:just_graphics_engine/assets.dart';
+
+import '../../ecs/components/components.dart';
+import '../../ecs/ecs.dart';
+import '../../subsystems/assets/assets.dart';
 
 /// A 3-D shape made from its own sizes rather than a model file — the base
 /// of `Cube3D`, `Sphere3D`, `Plane3D`, `Cylinder3D`, `Capsule3D`,
@@ -89,6 +94,28 @@ abstract class Primitive3D extends Component implements SolidShapeSource {
   /// Equal for as long as its mesh stays the same: its sizes and detail.
   Object get shapeKey;
 
+  /// Gives [values] what [shapeKey] is made from, one by one, so a renderer
+  /// can tell each frame whether the mesh changed without making a key.
+  /// A shape of the engine's gives plain numbers; the default gives
+  /// [shapeKey] itself.
+  void writeShapeValues(ShapeValues values) => values.addObject(shapeKey);
+
+  /// Gives [values] what [materialKey] is made from, one by one, so a
+  /// renderer can tell each frame whether the look changed without making a
+  /// key.
+  void writeMaterialValues(ShapeValues values) => values
+    ..addInt(color.toARGB32())
+    ..add(metallic)
+    ..add(roughness)
+    ..addInt(emission.toARGB32())
+    ..add(emissionStrength)
+    ..add(opacity)
+    ..addBool(unlit)
+    ..addObject(texture)
+    ..add(tiling.x)
+    ..add(tiling.y)
+    ..addBool(doubleSided);
+
   /// Its triangles, textured by [uv].
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]);
 
@@ -125,6 +152,70 @@ abstract class Primitive3D extends Component implements SolidShapeSource {
 
   /// [v] kept within [lo]..[hi]: a count of segments.
   static int count(int v, int lo, int hi) => v < lo ? lo : (v > hi ? hi : v);
+}
+
+/// What a shape's mesh or look was last made from, kept to tell cheaply
+/// whether it has changed: a renderer keeps one per shape and each frame
+/// gives it the shape's values ([Primitive3D.writeShapeValues],
+/// [Primitive3D.writeMaterialValues]) between [begin] and [end]. Numbers
+/// are compared in place, so nothing is made while nothing changes.
+final class ShapeValues {
+  Float64List _numbers = Float64List(16);
+  int _numberCount = -1; // Nothing seen yet: the first look differs.
+  int _number = 0;
+  final List<Object?> _objects = [];
+  int _object = 0;
+  bool _changed = false;
+
+  /// Starts a frame's look at the values.
+  void begin() {
+    _number = 0;
+    _object = 0;
+    _changed = false;
+  }
+
+  /// The next number is [v].
+  void add(double v) {
+    final at = _number++;
+    if (at < _numberCount && _numbers[at] == v) return;
+    if (at == _numbers.length) {
+      _numbers = Float64List(at * 2)..setRange(0, at, _numbers);
+    }
+    _numbers[at] = v;
+    _changed = true;
+  }
+
+  /// The next number is [v].
+  void addInt(int v) => add(v.toDouble());
+
+  /// The next number is 1 for [v], else 0.
+  void addBool(bool v) => add(v ? 1 : 0);
+
+  /// The next value is [v], compared with `==`.
+  void addObject(Object? v) {
+    final at = _object++;
+    if (at < _objects.length) {
+      if (_objects[at] == v) return;
+      _objects[at] = v;
+    } else {
+      _objects.add(v);
+    }
+    _changed = true;
+  }
+
+  /// Ends the look: whether anything differs from the last one (always so
+  /// the first time).
+  bool end() {
+    if (_number != _numberCount) {
+      _numberCount = _number;
+      _changed = true;
+    }
+    if (_object != _objects.length) {
+      _objects.length = _object;
+      _changed = true;
+    }
+    return _changed;
+  }
 }
 
 /// A [ShapeMesh] as the engine's [ModelGeometry], for picking and colliders.

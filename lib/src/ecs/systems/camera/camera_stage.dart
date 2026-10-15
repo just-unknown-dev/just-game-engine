@@ -190,6 +190,11 @@ abstract class CameraStage<T extends Component> {
 class CameraStageRegistry {
   final Map<Type, CameraStage> _stages = {};
 
+  /// Changes whenever a stage is registered or unregistered, so a pipeline
+  /// kept from [pipelineOf] knows to be built again.
+  int get revision => _revision;
+  int _revision = 0;
+
   /// Registers [stage] for its component type. A second stage for the same
   /// type is refused unless [override] is set — replacing a built-in should
   /// be something a project says out loud.
@@ -200,6 +205,7 @@ class CameraStageRegistry {
       );
     }
     _stages[stage.componentType] = stage;
+    _revision++;
   }
 
   /// [register]s each of [stages] in turn; without [override], one whose
@@ -211,7 +217,9 @@ class CameraStageRegistry {
   }
 
   /// Removes the stage for [componentType], if any.
-  void unregister(Type componentType) => _stages.remove(componentType);
+  void unregister(Type componentType) {
+    if (_stages.remove(componentType) != null) _revision++;
+  }
 
   /// The stage registered for [component]'s exact runtime type (not a
   /// supertype), or null.

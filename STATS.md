@@ -91,7 +91,7 @@ The state of the ECS world after its last update.
 | Key | Type | Description |
 |-----|------|-------------|
 | `totalEntities` | `int` | Entities in the world, switched on or off. |
-| `activeEntities` | `int` | Entities switched on (`Entity.isActive`). |
+| `activeEntities` | `int` | Entities active in the hierarchy (`Entity.isActiveInHierarchy`): switched on, and every parent too. |
 | `systems` | `int` | ECS systems in the world. |
 | `activeSystems` | `int` | Systems with `System.isActive == true`. |
 | `archetypes` | `int` | Archetypes (distinct component-type combinations) made since the world was last cleared (`destroyAllEntities`). A number that keeps growing points to component churn. |
@@ -99,7 +99,7 @@ The state of the ECS world after its last update.
 | `lastCommandFlushes` | `int` | How many times the command buffer was flushed during the last update — once after each system that left commands queued. Not the number of commands. |
 | `systemTimesMs` | `Map<String, double>` | Milliseconds of each active system's `update`, keyed by the system's runtime type name (two systems of one type share a key), plus `TransformHierarchy` for the world's hierarchy pass. |
 
-Other live getters: `world.entityCount`, `world.structureVersion` (moves whenever an entity is created, destroyed, switched on or off, or gains or loses a component), `world.tagsInUse`.
+Other live getters: `world.entityCount`, `world.queryVersion(types)` (moves whenever what that query matches may have changed), `world.tagsInUse`.
 
 **Example:**
 ```dart

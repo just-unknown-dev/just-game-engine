@@ -1,8 +1,12 @@
 import 'dart:math' as math;
 import 'dart:ui' show Offset;
 
-import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_dart/just_dart.dart';
 
+import '../ecs/components/camera/camera_rig_3d_components.dart';
+import '../ecs/ecs.dart';
+import '../ecs/systems/camera/camera_stage.dart';
+import '../subsystems/camera/camera_state.dart';
 import 'physics_queries_3d.dart';
 import 'physics_system_3d.dart';
 
@@ -57,8 +61,14 @@ class CameraCollisionStage extends CameraStage<CameraCollision3D> {
     final target = context.targetPosition3;
     final system = context.world.getSystem<PhysicsSystem3D>();
     if (target == null || system == null) return state;
-    final pivot = context.entity.getComponent<OrbitFollowComponent>()?.pivot ?? collision.offset;
-    final from = Vector3(target.x + pivot.x, target.y + pivot.y, target.z + pivot.z);
+    final pivot =
+        context.entity.getComponent<OrbitFollowComponent>()?.pivot ??
+        collision.offset;
+    final from = Vector3(
+      target.x + pivot.x,
+      target.y + pivot.y,
+      target.z + pivot.z,
+    );
     final to = Vector3(state.position.dx, state.position.dy, state.z);
     final dir = to - from;
     final length = dir.length;
@@ -78,7 +88,9 @@ class CameraCollisionStage extends CameraStage<CameraCollision3D> {
       layerMask: collision.layerMask,
       ignore: context.target,
     );
-    final clear = hit == null ? length : math.max(collision.minDistance, math.min(length, hit.distance));
+    final clear = hit == null
+        ? length
+        : math.max(collision.minDistance, math.min(length, hit.distance));
 
     // In at once, out gently.
     final key = (CameraCollisionStage, #distance);
@@ -87,7 +99,8 @@ class CameraCollisionStage extends CameraStage<CameraCollision3D> {
     if (last == null || context.snap || clear <= last) {
       distance = clear;
     } else {
-      distance = last + (clear - last) * CameraStage.damp(collision.recover, dt);
+      distance =
+          last + (clear - last) * CameraStage.damp(collision.recover, dt);
     }
     context.memory.extra[key] = distance;
     if (distance >= length - 1e-9) return state;

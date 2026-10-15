@@ -112,14 +112,17 @@ class Sprite extends Renderable implements BatchableSprite {
     if (t != _filterTint || opacity != _filterOpacity) {
       _filterTint = t;
       _filterOpacity = opacity;
-      _paint.color =
-          t?.withValues(alpha: opacity) ??
-          Colors.white.withValues(alpha: opacity);
-      // Apply tint if specified. A filter handed to a paint is converted for
-      // the engine each time, so it is only replaced when the tint changes.
+      // The paint fades the sprite, once, by opacity times the tint's own
+      // alpha; the filter carries only the tint's colour — as a batched
+      // sprite and a shape are drawn. (The filter used to carry the opacity
+      // too, so a tinted sprite faded twice: half opacity drew at a quarter,
+      // and changed when the sprite left a batch.)
+      _paint.color = Colors.white.withValues(alpha: tintedAlpha(t, opacity));
+      // A filter handed to a paint is converted for the engine each time,
+      // so it is only replaced when the tint changes.
       _paint.colorFilter = t == null
           ? null
-          : ColorFilter.mode(t.withValues(alpha: opacity), BlendMode.modulate);
+          : ColorFilter.mode(t.withValues(alpha: 1.0), BlendMode.modulate);
     }
 
     // Draw the image
@@ -131,6 +134,12 @@ class Sprite extends Renderable implements BatchableSprite {
 
     restoreTransform(canvas);
   }
+
+  /// How opaque a sprite tinted [tint] at [opacity] is drawn: [opacity]
+  /// times the tint's own alpha, as shapes fold a tint in. The tint's
+  /// colour multiplies the image's; its alpha fades it like opacity does.
+  static double tintedAlpha(Color? tint, double opacity) =>
+      tint == null ? opacity : tint.a * opacity;
 
   @override
   Rect? getBounds() {

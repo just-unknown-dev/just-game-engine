@@ -7,7 +7,8 @@ import '../../ecs.dart';
 /// The ECS render path draws in archetype/query order, which is effectively
 /// arbitrary — this gives it a stable, authorable sort key. `RenderSystem`
 /// sorts by ([layer], [zOrder]) so a background rectangle reliably stays
-/// behind the player and a foreground one in front.
+/// behind the player and a foreground one in front. An entity without one
+/// sorts by its renderable's own `Renderable.layer` and `Renderable.zOrder`.
 ///
 /// [layerId] is the human-facing name the level designer's layer panel groups
 /// by; [layer] is what actually sorts.

@@ -90,10 +90,15 @@ class SpriteRegion {
   /// the trim offset and the configured [pivot].
   ///
   /// Use this as `anchorX` when building an [RSTransform] for [Canvas.drawAtlas].
-  double get anchorX => spriteSourceOffset.dx + sourceSize.width * pivot.dx;
+  ///
+  /// The pivot is a point of the untrimmed box, `sourceSize · pivot` in it;
+  /// the frame starts [spriteSourceOffset] into that box, so in the frame's
+  /// own coordinates the pivot is that much nearer: a 100-wide box trimmed
+  /// to start 20 in pivots on its centre 30 into the frame.
+  double get anchorX => sourceSize.width * pivot.dx - spriteSourceOffset.dx;
 
-  /// Y anchor in source-rect local coordinates.
-  double get anchorY => spriteSourceOffset.dy + sourceSize.height * pivot.dy;
+  /// Y anchor in source-rect local coordinates; see [anchorX].
+  double get anchorY => sourceSize.height * pivot.dy - spriteSourceOffset.dy;
 
   @override
   String toString() =>

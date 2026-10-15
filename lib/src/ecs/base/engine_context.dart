@@ -195,10 +195,10 @@ final class EngineContext {
     }
   }
 
-  /// How a timeline's audio track makes a sound. By default an
-  /// `AudioPlayComponent` for the engine's audio system
-  /// ([TimelineAudio.viaComponent]); a game with its own audio replaces it.
-  TimelineAudioPlayer timelineAudio = TimelineAudio.viaComponent;
+  /// How a timeline's audio track makes a sound. By default a one-shot from
+  /// the world's audio system ([TimelineAudio.viaAudioSystem]); a game with
+  /// its own audio replaces it.
+  TimelineAudioPlayer timelineAudio = TimelineAudio.viaAudioSystem;
 
   /// Named signals, for every world on this context: a timeline event or an
   /// interface button emits one, and timeline players listening for it

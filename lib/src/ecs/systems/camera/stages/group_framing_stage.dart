@@ -31,9 +31,16 @@ class GroupFramingStage extends CameraStage<CameraGroupFramingComponent> {
     final viewport = context.viewportSize;
     if (group == null || group.resolved == 0 || viewport.isEmpty) return state;
 
+    // The camera centres on the group's weighted centre, not the middle of
+    // its box: the view must reach the box's far side from there, so a
+    // heavy member off to one side doesn't push a light one off screen.
+    final box = group.bounds;
+    final centre = context.targetPosition ?? box.center;
     final room = 1 + framing.padding;
-    final width = group.bounds.width * room;
-    final height = group.bounds.height * room;
+    final width =
+        2 * math.max(centre.dx - box.left, box.right - centre.dx).abs() * room;
+    final height =
+        2 * math.max(centre.dy - box.top, box.bottom - centre.dy).abs() * room;
     // A group with no extent — one member, no radius — fits at any zoom, so
     // it gets the closest the shot allows.
     final fit = math.min(

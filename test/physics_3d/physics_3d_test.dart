@@ -102,7 +102,9 @@ void main() {
     await expectLater(
       engine.initialize(),
       throwsA(
-        isA<EngineInitException>().having(
+        isA<EngineInitException>()
+            .having((e) => e.stage, 'stage', 'service:Physics3D')
+            .having(
           (e) => e.cause,
           'cause',
           isA<Physics3DUnsupportedError>().having((e) => e.message, 'message', contains('not here')),

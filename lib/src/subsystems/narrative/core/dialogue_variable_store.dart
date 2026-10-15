@@ -72,11 +72,16 @@ class DialogueVariableStore {
   /// Returns a copy of the internal map suitable for JSON serialization.
   Map<String, dynamic> toMap() => Map<String, dynamic>.from(_vars);
 
-  /// Restores state from a previously serialized [map].
+  /// Restores state from a previously serialized [map]. Its names are read
+  /// as [set] reads one — a leading `$` dropped, case ignored — so a map
+  /// written by hand finds the same variables.
   void loadFromMap(Map<String, dynamic> map) {
     _vars
       ..clear()
-      ..addAll(map);
+      ..addAll({
+        for (final MapEntry(:key, :value) in map.entries)
+          _normalize(key): value,
+      });
   }
 
   // ---------------------------------------------------------------------------

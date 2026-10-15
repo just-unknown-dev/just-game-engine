@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:meta/meta.dart' show internal;
 
 import '../../ecs.dart';
 import '../../components/components.dart';
@@ -11,8 +12,11 @@ import '../../../interfaces/interfaces.dart';
 import 'package:just_physics_engine/just_physics_engine.dart';
 import 'package:just_dart/just_dart.dart';
 import '../../base/system_priorities.dart';
+import '../../serialization/component_definition_registry.dart';
+import '../../serialization/component_presentation.dart';
 import '../../../subsystems/physics/physics_layers.dart';
 import 'collider_geometry.dart';
+import 'contact_pairs.dart';
 import 'physics_characters_2d.dart';
 import 'physics_events_2d.dart';
 
@@ -78,7 +82,7 @@ class PhysicsSystem extends System {
   GameCamera? camera;
 
   @override
-  List<Type> get requiredComponents => [TransformComponent, Collider2D];
+  List<Type> get requiredComponents => const [TransformComponent, Collider2D];
 
   /// Below this positional difference (world units), an ECS/body mismatch is
   /// float round-trip noise rather than a deliberate teleport.
@@ -89,6 +93,12 @@ class PhysicsSystem extends System {
 
   /// Angular counterpart of [_teleportEpsilon], in radians.
   static const double _teleportAngleEpsilon = 1e-5;
+
+  /// The smallest change of an entity's scale, as a fraction of the scale
+  /// its body was built at, that builds the body again. Less is float noise
+  /// — an animation or a tween ending at 1.0000001 — and rebuilding for it
+  /// every frame cost a new body and its joints made again each frame.
+  static const double scaleTolerance = 1e-4;
 
   /// The mass, in kg, of a square unit of a body whose own mass is 0: water
   /// 1 m (100 units) deep, as a 3-D body is worked out from its volume. A
@@ -128,7 +138,8 @@ class PhysicsSystem extends System {
   /// The same links by entity, so a rebuild keeps each entity's body.
   final Map<Entity, _BodyLink> _linkByEntity = {};
 
-  /// [World.structureVersion] when [_links] was last brought up to date.
+  /// [World.queryVersion] of [requiredComponents] when [_links] was last
+  /// brought up to date.
   int _seenStructureVersion = -1;
 
   /// Whether the world had no bodies at the last update.
@@ -152,13 +163,41 @@ class PhysicsSystem extends System {
   // [PhysicsEngine].
   final Map<Entity, int> _groundContactCount = {};
 
-  // Which entity a given contact pair grounded, if any — consulted on
-  // contact-end to know which counter to decrement.
-  final Map<BodyPair, Entity> _groundedEntityForPair = {};
+  // The pairs of bodies touching or overlapping, and of entities as
+  // gameplay was told: what turns the backend's begins and ends into enter
+  // and exit events, keeps a body made again from sending a second enter,
+  // and holds each contact's ground and stay state.
+  final ContactPairs<PhysicsBody> _contacts = ContactPairs();
 
-  // The pairs touching, for [CollisionStay2DEvent]: the normal they began
-  // with, and whether they began this step.
-  final Map<BodyPair, (Offset, bool)> _touching = {};
+  // Pairs of bodies a joint holds with collideConnected off, and how many
+  // such joints: their contacts send no events.
+  final Map<BodyPair, int> _jointed = {};
+
+  /// A joint with `collideConnected` off now holds [a] and [b] ([joined]),
+  /// or no longer does: while one does, their contacts send no events —
+  /// the native backend never lets them collide, and the pure-Dart one
+  /// does, but quietly. For `PhysicsJointBindingSystem`.
+  @internal
+  void jointedPair(PhysicsBody a, PhysicsBody b, {required bool joined}) {
+    final pair = BodyPair(a, b);
+    final count = (_jointed[pair] ?? 0) + (joined ? 1 : -1);
+    if (count > 0) {
+      _jointed[pair] = count;
+    } else {
+      _jointed.remove(pair);
+    }
+    if (!joined) return;
+    // Touching as they were joined: that contact ends now (Box2D ends it
+    // too), and none begins while the joint holds them.
+    final contact = _contacts.end(a, b, sensor: false, all: true);
+    if (contact == null) return;
+    _removeGroundContact(contact);
+    if (!contact.exits) return;
+    final entities = contact.entities;
+    world.events.fire(
+      CollisionExit2DEvent(entityA: entities.a, entityB: entities.b),
+    );
+  }
 
   /// The entity [body] belongs to while this system keeps it in the
   /// simulation — null for a body it did not make, or one it has removed.
@@ -169,30 +208,40 @@ class PhysicsSystem extends System {
 
   /// The simulated body of [entity], or null while it has none — for a
   /// character, the body sensors and rays see it by.
-  PhysicsBody? bodyOf(Entity entity) => _linkByEntity[entity]?.body ?? _characters.bodyOf(entity);
+  PhysicsBody? bodyOf(Entity entity) =>
+      _linkByEntity[entity]?.body ?? _characters.bodyOf(entity);
 
   /// The characters this system moves.
   late final PhysicsCharacters2D _characters = PhysicsCharacters2D(
     physics,
     onBody: (body, entity) => _bodyEntityMap[body] = entity,
-    onBodyGone: (body) {
-      final entity = _bodyEntityMap.remove(body);
-      if (entity != null) _forgetGroundContactsOf(body, entity);
-      _touching.removeWhere((pair, _) => identical(pair.a, body) || identical(pair.b, body));
-    },
+    onBodyGone: (body, {required rebuilt}) =>
+        _forgetContactsOf(body, _bodyEntityMap.remove(body), rebuilt: rebuilt),
   );
 
   @override
   void update(double deltaTime) {
+    _frameTime = deltaTime;
     _syncIn();
     if (deltaTime > 0) _characters.move(world, deltaTime, entityForBody);
     // A world with no bodies (a 3-D scene, a menu) is not stepped; the step
     // after the last body goes still runs, so its end events get through.
     final empty = physics.bodyCount == 0;
-    if (!(empty && _wasEmpty)) physics.update(deltaTime);
+    var stepped = false;
+    if (!(empty && _wasEmpty)) {
+      final alpha = physics.alpha;
+      physics.update(deltaTime);
+      // Whether a step ran: under a fixed step a frame may run none (a
+      // 120 Hz display runs one every other frame), and a body made again
+      // is only looked for by the next one.
+      stepped = physics.fixedTimestep
+          ? alpha + deltaTime / PhysicsEngine.fixedDeltaTime - physics.alpha >
+                0.5
+          : deltaTime > 0;
+    }
     _wasEmpty = empty;
     _syncOut();
-    _dispatchEvents();
+    _dispatchEvents(stepped);
   }
 
   @override
@@ -206,7 +255,7 @@ class PhysicsSystem extends System {
   /// added, and entities that were destroyed or lost theirs are queued in
   /// [_leaving].
   void _refreshLinks() {
-    final version = world.structureVersion;
+    final version = world.queryVersion(requiredComponents);
     if (version == _seenStructureVersion) return;
 
     _links.clear();
@@ -219,8 +268,7 @@ class PhysicsSystem extends System {
       final velocities = archetype.getColumn(VelocityComponent);
       final culls = archetype.getColumn(CullStateComponent);
       for (var row = 0; row < ids.length; row++) {
-        final entity = world.getEntity(ids[row]);
-        if (entity == null) continue;
+        final entity = archetype.entityAt(row);
         final link = _linkByEntity[entity] ??= _BodyLink(entity);
         link
           ..transform = transforms[row] as TransformComponent
@@ -255,7 +303,7 @@ class PhysicsSystem extends System {
       final entity = link.entity;
       // Switched off: out of the simulation until switched back on, when it
       // gets a fresh body where its transform then is.
-      if (!entity.isActive) {
+      if (!entity.isActiveInHierarchy) {
         if (link.body != null) _leaving.add(link);
         continue;
       }
@@ -272,30 +320,36 @@ class PhysicsSystem extends System {
       // sensor flag and locked rotation are fixed when a body is made — the
       // native Box2D backend cannot change them on a live body — so a
       // change to any rebuilds it, carrying over how it was moving.
+      final matching = collider.shape == ColliderShape2D.matchShape;
+      if (matching) link.findLook(definitions);
       final (sx, sy) = _scaleKey(collider, transform, link);
-      final matchKey = collider.shape == ColliderShape2D.matchShape
-          ? ColliderGeometry.visualKeyOf(entity, definitions: definitions)
-          : null;
       double? keepVx, keepVy, keepSpin;
       if (body != null &&
-          (!link.builtMatches(collider, sx, sy, matchKey) ||
+          (!link.builtMatches(collider, sx, sy) ||
+              (matching && !link.sameLook()) ||
               body.isSensor != rigid.isSensor ||
               body.fixedRotation != rigid.lockRotation)) {
         keepVx = body.velocity.x;
         keepVy = body.velocity.y;
         keepSpin = body.angularVelocity;
-        _removeBody(link);
+        _removeBody(link, rebuilt: true);
         body = null;
       }
       final layers = world.context.physicsLayers;
       final category = 1 << PhysicsLayers.clampLayer(rigid.layer);
-      final mask = (rigid.collidesWith ?? layers.maskOf(rigid.layer)) & PhysicsLayers.all;
+      final mask =
+          (rigid.collidesWith ?? layers.maskOf(rigid.layer)) &
+          PhysicsLayers.all;
       if (body == null) {
-        final shape = ColliderGeometry.shapeOf(collider, entity: entity, definitions: definitions);
+        final shape = ColliderGeometry.shapeOf(
+          collider,
+          entity: entity,
+          definitions: definitions,
+        );
         // No shape yet — a polygon of too few points, a collider matching
         // the shape of an entity that draws none: no body until it has one.
         if (shape == null) {
-          link.remember(collider, sx, sy, matchKey);
+          link.remember(collider, sx, sy, matching: matching);
           continue;
         }
         final built = ColliderGeometry.build(
@@ -305,10 +359,12 @@ class PhysicsSystem extends System {
           sx: sx,
           sy: sy,
         );
+        final mass = massOf(rigid, built);
         body = PhysicsBody(
           position: Vector2(transform.position.x, transform.position.y),
           shape: built,
-          mass: massOf(rigid, built),
+          mass: mass,
+          inertia: ColliderGeometry.inertiaOf(built, mass),
           friction: rigid.friction,
           restitution: rigid.restitution,
           drag: _linearDampingOf(rigid),
@@ -349,10 +405,10 @@ class PhysicsSystem extends System {
           ..body = body
           ..syncOutPending = true
           ..wasCulled = false
-          ..remember(collider, sx, sy, matchKey);
+          ..remember(collider, sx, sy, matching: matching);
         _bodyEntityMap[body] = entity;
         entity.addComponent(PhysicsBodyRefComponent(body));
-      } else {
+      } else if (!culled) {
         // Each setting that changes can matter to a body at rest, so a
         // change wakes it. Routed through the engine rather than written to
         // the body: on the Box2D backend each needs a native call, and a
@@ -361,7 +417,9 @@ class PhysicsSystem extends System {
         // instead; see above.)
         final mass = massOf(rigid, body.shape);
         if (body.mass != mass) {
-          body.mass = mass;
+          body
+            ..mass = mass
+            ..inertia = ColliderGeometry.inertiaOf(body.shape, mass);
           wake = true;
         }
         final useGravity = !rigid.isStatic;
@@ -394,8 +452,13 @@ class PhysicsSystem extends System {
           physics.setBodyCanSleep(body, rigid.canSleep);
           wake = true;
         }
-        if (body.isOneWay != collider.oneWay || body.oneWayDirection != collider.oneWayDirection) {
-          physics.setBodyOneWay(body, collider.oneWay, direction: collider.oneWayDirection);
+        if (body.isOneWay != collider.oneWay ||
+            body.oneWayDirection != collider.oneWayDirection) {
+          physics.setBodyOneWay(
+            body,
+            collider.oneWay,
+            direction: collider.oneWayDirection,
+          );
           wake = true;
         }
         if (body.bodyType != rigid.bodyType) {
@@ -407,7 +470,9 @@ class PhysicsSystem extends System {
           wake = true;
         }
         // Layers, the project's grid, or the body's own list changed.
-        if (body.categoryBits != category || body.maskBits != mask || body.groupIndex != rigid.groupIndex) {
+        if (body.categoryBits != category ||
+            body.maskBits != mask ||
+            body.groupIndex != rigid.groupIndex) {
           physics.setBodyFilter(
             body,
             categoryBits: category,
@@ -420,15 +485,18 @@ class PhysicsSystem extends System {
 
       // Opt-in view culling: freeze the body in place while inactive rather
       // than stepping it, matching the pre-unification behaviour of
-      // excluding culled entities from force application/broad-phase.
+      // excluding culled entities from force application/broad-phase. Its
+      // settings above wait until it is back.
       body.isActive = !culled;
       link.culled = culled;
       if (culled) {
+        if (!link.wasCulled) _freeze(link, body);
         link.wasCulled = true;
         continue;
       }
       if (link.wasCulled) {
         link.wasCulled = false;
+        _thaw(link, body);
         wake = true;
       }
 
@@ -449,10 +517,21 @@ class PhysicsSystem extends System {
       // the solver's warm start), and this runs for every body every frame.
       // Ordinary motion never trips it, because sync-out wrote this exact
       // value back from the body a moment ago.
-      final dx = (transform.position.x - body.position.x).abs();
-      final dy = (transform.position.y - body.position.y).abs();
-      final dAngle = (transform.angle - body.angle).abs();
-      if (dx > _teleportEpsilon || dy > _teleportEpsilon || dAngle > _teleportAngleEpsilon) {
+      final dx = transform.position.x - body.position.x;
+      final dy = transform.position.y - body.position.y;
+      // A turn apart is the same angle: the native backend keeps its angles
+      // within ±π, the transform does not.
+      final dAngle = _angleBetween(transform.angle, body.angle);
+      final moved =
+          dx.abs() > _teleportEpsilon ||
+          dy.abs() > _teleportEpsilon ||
+          dAngle.abs() > _teleportAngleEpsilon;
+      // A kinematic body moved there by gameplay — a platform on a path —
+      // is carried there by the physics over this frame's steps, as 3-D
+      // moves one: what it carries goes with it, and a character on it
+      // reads its velocity.
+      final carry = moved && rigid.bodyType == BodyType.kinematic;
+      if (moved && !carry) {
         physics.setBodyTransform(
           body,
           transform.position.x,
@@ -464,9 +543,27 @@ class PhysicsSystem extends System {
         link.syncOutPending = true;
       }
       if (velocityComp != null) {
-        body.velocity.setValues(velocityComp.velocity.x, velocityComp.velocity.y);
+        body.velocity.setValues(
+          velocityComp.velocity.x,
+          velocityComp.velocity.y,
+        );
       }
       if (_flushCommands(link.rigid, body, velocityComp)) wake = true;
+      if (carry) {
+        final time = _stepTime;
+        body.velocity.setValues(dx / time, dy / time);
+        body.angularVelocity = dAngle / time;
+        velocityComp?.setVelocityXY(body.velocity.x, body.velocity.y);
+        link.carried = true;
+        wake = true;
+      } else if (link.carried) {
+        // Gameplay stopped moving it: it stops too, rather than going on
+        // with the velocity its last move gave it.
+        link.carried = false;
+        body.velocity.setZero();
+        body.angularVelocity = 0;
+        velocityComp?.setVelocityXY(0, 0);
+      }
 
       // Woken only when the ECS side has really changed something since the
       // last step — never merely because another frame began. Forcing every
@@ -481,10 +578,7 @@ class PhysicsSystem extends System {
             body.acceleration.y != 0.0 ||
             body.torque != 0.0;
       }
-      if (wake) {
-        body.isAwake = true;
-        body.sleepTimer = 0.0;
-      }
+      if (wake) _wake(body);
     }
 
     for (final link in _leaving) {
@@ -495,13 +589,78 @@ class PhysicsSystem extends System {
     // Adding and removing PhysicsBodyRefComponent above changed the world's
     // structure, but not in a way _links needs to see: each link keeps its
     // component objects, which moved with their entity.
-    _seenStructureVersion = world.structureVersion;
+    _seenStructureVersion = world.queryVersion(requiredComponents);
+  }
+
+  /// How long this frame's steps last, together: what a kinematic body
+  /// moved by its transform has to get there in. A fixed-step frame that
+  /// runs none counts as one step; the next frame starts again from where
+  /// the body really is.
+  double get _stepTime {
+    if (!physics.fixedTimestep) return math.max(_frameTime, 1e-6);
+    const fixed = PhysicsEngine.fixedDeltaTime;
+    final pending = math.min(
+      physics.alpha * fixed + _frameTime,
+      fixed * PhysicsEngine.maxSubSteps,
+    );
+    return math.max((pending / fixed + 1e-9).floor(), 1) * fixed;
+  }
+
+  double _frameTime = 0;
+
+  /// Wakes [body] — natively too: the Box2D backend wakes a sleeping body
+  /// only for a velocity that is not zero, so a body asleep stayed asleep
+  /// through a change of its gravity scale, of the world's gravity, or a
+  /// [RigidBody2D.wakeUp].
+  void _wake(PhysicsBody body) {
+    final p = physics;
+    if (!body.isAwake && body.isDynamic && p is Box2DPhysicsEngine) {
+      // An impulse wakes the body it is given to, a zero one included.
+      p.applyLinearImpulse(body, 0, 0);
+    }
+    body
+      ..isAwake = true
+      ..sleepTimer = 0.0;
+  }
+
+  /// Holds [body] still while its entity is culled, as it was. The
+  /// pure-Dart engine leaves an inactive body out of everything; the native
+  /// one does not read the flag, so there the body is also made static and
+  /// touches nothing until it is back — the next sync-in after that puts
+  /// its type and filter back with the rest of its settings.
+  void _freeze(_BodyLink link, PhysicsBody body) {
+    link
+      ..frozenVx = body.velocity.x
+      ..frozenVy = body.velocity.y
+      ..frozenSpin = body.angularVelocity;
+    final p = physics;
+    if (p is! Box2DPhysicsEngine) return;
+    p
+      ..setBodyType(body, BodyType.static)
+      ..setBodyFilter(body, categoryBits: 0, maskBits: 0);
+  }
+
+  /// [body] is back from culling: moving as it was when it froze.
+  void _thaw(_BodyLink link, PhysicsBody body) {
+    body.velocity.setValues(link.frozenVx, link.frozenVy);
+    body.angularVelocity = link.frozenSpin;
+  }
+
+  /// [a] − [b], a whole number of turns taken off it: between −π and π.
+  static double _angleBetween(double a, double b) {
+    final d = a - b;
+    if (d.abs() <= math.pi) return d;
+    return d - (d / (2 * math.pi)).roundToDouble() * 2 * math.pi;
   }
 
   /// Applies what gameplay asked of [rigid] since the last step — a
   /// velocity to set, impulses, forces — to [body], and clears it. Whether
   /// anything was asked (which wakes the body).
-  bool _flushCommands(RigidBody2D? rigid, PhysicsBody body, VelocityComponent? velocityComp) {
+  bool _flushCommands(
+    RigidBody2D? rigid,
+    PhysicsBody body,
+    VelocityComponent? velocityComp,
+  ) {
     if (rigid == null) return false;
     var asked = rigid.pendingWake;
     final velocity = rigid.pendingVelocity;
@@ -551,19 +710,26 @@ class PhysicsSystem extends System {
   /// The entity's scale as the collider is built with it: its sign dropped
   /// for a shape a mirror leaves as it was, so a character turning to face
   /// the other way by a negative scale is not built again.
-  static (double, double) _scaleKey(Collider2D collider, TransformComponent transform, _BodyLink link) {
+  static (double, double) _scaleKey(
+    Collider2D collider,
+    TransformComponent transform,
+    _BodyLink link,
+  ) {
     final sx = transform.scale.x, sy = transform.scale.y;
-    return _isMirrorSymmetric(collider, link.entity) ? (sx.abs(), sy.abs()) : (sx, sy);
+    return _isMirrorSymmetric(collider, link) ? (sx.abs(), sy.abs()) : (sx, sy);
   }
 
   /// Whether mirroring [collider] about its entity's centre leaves it as it
   /// was: an unturned, centred box, circle or capsule — or one matching a
-  /// Rectangle, Circle, Capsule or sprite.
-  static bool _isMirrorSymmetric(Collider2D collider, Entity entity) {
+  /// Rectangle, Circle, Capsule or sprite (as [link] last found its entity's
+  /// look, [_BodyLink.findLook]).
+  static bool _isMirrorSymmetric(Collider2D collider, _BodyLink link) {
     if (collider.offset != Offset.zero || collider.rotation != 0) return false;
     return switch (collider.shape) {
-      ColliderShape2D.box || ColliderShape2D.circle || ColliderShape2D.capsule => true,
-      ColliderShape2D.matchShape => !entity.components.any((c) => c is PolygonComponent || c is LineComponent),
+      ColliderShape2D.box ||
+      ColliderShape2D.circle ||
+      ColliderShape2D.capsule => true,
+      ColliderShape2D.matchShape => !link.lookMirrors,
       _ => false,
     };
   }
@@ -579,11 +745,22 @@ class PhysicsSystem extends System {
         final transform = link.transform;
         // Capture previous pose for sub-frame render interpolation.
         transform.capturePrevious();
-        transform.setPlanarPose(body.position.x, body.position.y, body.angle);
+        transform.setPlanarPose(
+          body.position.x,
+          body.position.y,
+          // Within half a turn of where it was, so a body spinning past ±π
+          // is drawn going on round, not turning back the long way.
+          transform.angle + _angleBetween(body.angle, transform.angle),
+        );
         link.syncOutPending = false;
       } else if (link.syncOutPending) {
-        link.transform
-          ..setPlanarPose(body.position.x, body.position.y, body.angle)
+        final transform = link.transform;
+        transform
+          ..setPlanarPose(
+            body.position.x,
+            body.position.y,
+            transform.angle + _angleBetween(body.angle, transform.angle),
+          )
           ..capturePrevious();
         link.syncOutPending = false;
       } else {
@@ -593,7 +770,9 @@ class PhysicsSystem extends System {
         // keep drawing the body somewhere between there and here.
         final transform = link.transform;
         final prev = transform.prevPosition, now = transform.position;
-        if (prev.x != now.x || prev.y != now.y || transform.prevAngle != transform.angle) {
+        if (prev.x != now.x ||
+            prev.y != now.y ||
+            transform.prevAngle != transform.angle) {
           transform.capturePrevious();
         }
       }
@@ -608,8 +787,12 @@ class PhysicsSystem extends System {
       }
       final rigid = link.rigid;
       if (rigid != null) {
+        final vx = body.velocity.x, vy = body.velocity.y;
+        // A new Offset only when it changed: most bodies are at rest, or
+        // move as they did.
+        final v = rigid.linearVelocity;
+        if (v.dx != vx || v.dy != vy) rigid.linearVelocity = Offset(vx, vy);
         rigid
-          ..linearVelocity = Offset(body.velocity.x, body.velocity.y)
           ..angularVelocity = body.angularVelocity
           ..isAwake = body.isAwake;
       }
@@ -621,8 +804,9 @@ class PhysicsSystem extends System {
   }
 
   /// Takes [link]'s body out of the simulation, if it has one, and lets go
-  /// of every contact it grounded.
-  void _removeBody(_BodyLink link) {
+  /// of every contact it was in — [rebuilt] when a new body takes its place
+  /// at once.
+  void _removeBody(_BodyLink link, {bool rebuilt = false}) {
     final body = link.body;
     if (body == null) return;
     link
@@ -631,8 +815,7 @@ class PhysicsSystem extends System {
       ..wasCulled = false;
     physics.removeBody(body);
     _bodyEntityMap.remove(body);
-    _forgetGroundContactsOf(body, link.entity);
-    _touching.removeWhere((pair, _) => identical(pair.a, body) || identical(pair.b, body));
+    _forgetContactsOf(body, link.entity, rebuilt: rebuilt);
     final rigid = link.rigid;
     if (rigid != null) {
       rigid
@@ -648,21 +831,34 @@ class PhysicsSystem extends System {
   /// A removed body sends no contact-end events that can still be traced to
   /// an entity, so the contacts it was part of are settled here: whatever it
   /// stood on stops counting, and whatever stood on it loses that ground.
-  void _forgetGroundContactsOf(PhysicsBody body, Entity entity) {
-    _groundContactCount.remove(entity);
-    if (_groundedEntityForPair.isEmpty) return;
-    final pairs = [
-      for (final pair in _groundedEntityForPair.keys)
-        if (identical(pair.a, body) || identical(pair.b, body)) pair,
-    ];
-    for (final pair in pairs) {
-      final grounded = _groundedEntityForPair[pair];
-      _removeGroundContact(pair);
-      final rigid = grounded?.getComponent<RigidBody2D>();
-      if (rigid != null && identical(rigid.groundEntity, entity)) {
-        rigid.groundEntity = null;
-      }
-    }
+  /// Its pairs of entities end with no exit, unless it was [rebuilt]: then
+  /// they wait for its new body ([ContactPairs.removeBody]), and what it
+  /// touched is woken, so the next step looks for that body.
+  void _forgetContactsOf(
+    PhysicsBody body,
+    Entity? entity, {
+    required bool rebuilt,
+  }) {
+    if (entity != null) _groundContactCount.remove(entity);
+    _contacts.removeBody(
+      body,
+      rebuilt: rebuilt,
+      entity: entity,
+      onGone: (contact) {
+        final grounded = contact.grounded;
+        if (grounded != null) {
+          _removeGroundContact(contact);
+          final rigid = grounded.getComponent<RigidBody2D>();
+          if (rigid != null && identical(rigid.groundEntity, entity)) {
+            rigid.groundEntity = null;
+          }
+        }
+        if (rebuilt) {
+          final other = contact.other(body);
+          if (!other.isStatic) _wake(other);
+        }
+      },
+    );
   }
 
   void _removeAllBodies() {
@@ -675,53 +871,60 @@ class PhysicsSystem extends System {
     _linkByEntity.clear();
     _bodyEntityMap.clear();
     _groundContactCount.clear();
-    _groundedEntityForPair.clear();
-    _touching.clear();
+    _contacts.clear();
+    _jointed.clear();
     _seenStructureVersion = -1;
     _seenGravityX = double.nan;
     _seenGravityY = double.nan;
   }
 
-  void _dispatchEvents() {
-    final stay = reportContactStay;
-    if (stay) {
+  void _dispatchEvents(bool stepped) {
+    final events = world.events;
+    if (reportContactStay && !_contacts.isEmpty) {
       // What touched before this step and still does.
-      for (final entry in _touching.entries) {
-        if (entry.value.$2) continue;
-        final a = entry.key.a, b = entry.key.b;
-        final entityA = _bodyEntityMap[a], entityB = _bodyEntityMap[b];
-        if (entityA == null || entityB == null) continue;
-        world.events.fire(
+      for (final contact in _contacts.contacts) {
+        if (contact.sensor) continue;
+        if (contact.fresh) {
+          contact.fresh = false;
+          continue;
+        }
+        events.fire(
           CollisionStay2DEvent(
-            entityA: entityA,
-            entityB: entityB,
-            point: contactPoint(a, b),
-            normal: entry.value.$1,
+            entityA: contact.entityA,
+            entityB: contact.entityB,
+            point: contactPoint(contact.a, contact.b),
+            normal: Offset(contact.nx, contact.ny),
           ),
         );
       }
-    }
-    if (_touching.isNotEmpty) {
-      _touching.updateAll((_, v) => (v.$1, false));
     }
 
     physics.pollContactBeginEvents((a, b, nx, ny) {
       final entityA = _bodyEntityMap[a];
       final entityB = _bodyEntityMap[b];
       if (entityA == null || entityB == null) return;
+      if (_jointed.isNotEmpty && _jointed.containsKey(BodyPair(a, b))) return;
+      final contact = _contacts.begin(a, b, entityA, entityB, sensor: false);
+      // Another pair of their shapes: they touch already.
+      if (contact == null) return;
+      contact
+        ..nx = nx
+        ..ny = ny
+        // A body made again picks up its stays where its old one left them.
+        ..fresh = contact.enters;
 
       // Whichever side sits "above" (normal points from A down to B, or
       // from B down to A) is the one resting on the other.
       // The normal points from A to B; the ground's surface normal points
       // from the ground up at whoever stands on it.
       if (ny > 0.5) {
-        _addGroundContact(BodyPair(a, b), entityA, entityB, Offset(-nx, -ny));
+        _addGroundContact(contact, entityA, entityB, Offset(-nx, -ny));
       } else if (ny < -0.5) {
-        _addGroundContact(BodyPair(a, b), entityB, entityA, Offset(nx, ny));
+        _addGroundContact(contact, entityB, entityA, Offset(nx, ny));
       }
-      if (stay) _touching[BodyPair(a, b)] = (Offset(nx, ny), true);
 
-      world.events.fire(
+      if (!contact.enters) return;
+      events.fire(
         CollisionEnter2DEvent(
           entityA: entityA,
           entityB: entityB,
@@ -732,45 +935,81 @@ class PhysicsSystem extends System {
     });
 
     physics.pollContactEndEvents((a, b) {
-      final entityA = _bodyEntityMap[a];
-      final entityB = _bodyEntityMap[b];
-      if (entityA == null || entityB == null) return;
-
-      _removeGroundContact(BodyPair(a, b));
-      _touching.remove(BodyPair(a, b));
-
-      world.events.fire(CollisionExit2DEvent(entityA: entityA, entityB: entityB));
+      final contact = _contacts.end(a, b, sensor: false);
+      if (contact == null) return;
+      _removeGroundContact(contact);
+      if (!contact.exits) return;
+      final pair = contact.entities;
+      events.fire(CollisionExit2DEvent(entityA: pair.a, entityB: pair.b));
     });
 
     physics.pollSensorBeginEvents((sensorBody, visitorBody) {
+      // Two bodies that never move never begin or end touching: the native
+      // backend reports a static sensor over a static collider, the
+      // pure-Dart one and Jolt do not, and neither does this.
+      if (sensorBody.isStatic && visitorBody.isStatic) return;
       final sensor = _bodyEntityMap[sensorBody];
       final other = _bodyEntityMap[visitorBody];
       if (sensor == null || other == null) return;
-      world.events.fire(SensorEnter2DEvent(sensor: sensor, other: other));
+      final contact = _contacts.begin(
+        sensorBody,
+        visitorBody,
+        sensor,
+        other,
+        sensor: true,
+      );
+      if (contact == null || !contact.enters) return;
+      events.fire(SensorEnter2DEvent(sensor: sensor, other: other));
     });
 
     physics.pollSensorEndEvents((sensorBody, visitorBody) {
-      final sensor = _bodyEntityMap[sensorBody];
-      final other = _bodyEntityMap[visitorBody];
-      if (sensor == null || other == null) return;
-      world.events.fire(SensorExit2DEvent(sensor: sensor, other: other));
+      final contact = _contacts.end(sensorBody, visitorBody, sensor: true);
+      if (contact == null || !contact.exits) return;
+      final pair = contact.entities;
+      events.fire(SensorExit2DEvent(sensor: pair.a, other: pair.b));
     });
+
+    // Pairs a body made again left apart, and its new body was not found
+    // touching: they have parted.
+    if (!stepped) return;
+    for (final pair in _contacts.settle()) {
+      final a = pair.a, b = pair.b;
+      if (!a.isAlive || !b.isAlive || !a.isActive || !b.isActive) continue;
+      events.fire(
+        pair.sensor
+            ? SensorExit2DEvent(sensor: a, other: b)
+            : CollisionExit2DEvent(entityA: a, entityB: b),
+      );
+    }
   }
 
   /// Where [a] and [b] touch, as near as their bounds tell: the middle of
   /// where the two boxes round them meet (neither physics backend reports a
   /// contact's point in 2-D).
   static Offset contactPoint(PhysicsBody a, PhysicsBody b) {
-    final ra = a.getCompoundBounds(Offset(a.position.x, a.position.y)).inflate(0.5);
-    final rb = b.getCompoundBounds(Offset(b.position.x, b.position.y)).inflate(0.5);
-    final left = math.max(ra.left, rb.left), right = math.min(ra.right, rb.right);
-    final top = math.max(ra.top, rb.top), bottom = math.min(ra.bottom, rb.bottom);
-    if (left <= right && top <= bottom) return Offset((left + right) / 2, (top + bottom) / 2);
+    final ra = a
+        .getCompoundBounds(Offset(a.position.x, a.position.y))
+        .inflate(0.5);
+    final rb = b
+        .getCompoundBounds(Offset(b.position.x, b.position.y))
+        .inflate(0.5);
+    final left = math.max(ra.left, rb.left),
+        right = math.min(ra.right, rb.right);
+    final top = math.max(ra.top, rb.top),
+        bottom = math.min(ra.bottom, rb.bottom);
+    if (left <= right && top <= bottom) {
+      return Offset((left + right) / 2, (top + bottom) / 2);
+    }
     return (ra.center + rb.center) / 2;
   }
 
-  void _addGroundContact(BodyPair pair, Entity grounded, Entity ground, Offset surfaceNormal) {
-    _groundedEntityForPair[pair] = grounded;
+  void _addGroundContact(
+    BodyContact<PhysicsBody> contact,
+    Entity grounded,
+    Entity ground,
+    Offset surfaceNormal,
+  ) {
+    contact.grounded = grounded;
     final count = (_groundContactCount[grounded] ?? 0) + 1;
     _groundContactCount[grounded] = count;
     final rigid = grounded.getComponent<RigidBody2D>();
@@ -784,9 +1023,10 @@ class PhysicsSystem extends System {
     rigid.groundNormal = surfaceNormal;
   }
 
-  void _removeGroundContact(BodyPair pair) {
-    final grounded = _groundedEntityForPair.remove(pair);
+  void _removeGroundContact(BodyContact<PhysicsBody> contact) {
+    final grounded = contact.grounded;
     if (grounded == null) return;
+    contact.grounded = null;
     final count = (_groundContactCount[grounded] ?? 1) - 1;
     if (count <= 0) {
       _groundContactCount.remove(grounded);
@@ -823,22 +1063,35 @@ class PhysicsSystem extends System {
       final collider = entity.getComponent<Collider2D>()!;
       if (!collider.showDebugOutline) return;
       final body = _linkByEntity[entity]?.body;
-      final shape = body?.shape ?? ColliderGeometry.of(collider, transform, entity, definitions);
+      final shape =
+          body?.shape ??
+          ColliderGeometry.of(collider, transform, entity, definitions);
       if (shape == null) return;
       canvas
         ..save()
         ..translate(transform.position.x, transform.position.y)
         ..rotate(transform.angle);
-      ColliderGeometry.paint(canvas, shape, debugPaintFor(entity.getComponent<RigidBody2D>(), body));
+      ColliderGeometry.paint(
+        canvas,
+        shape,
+        debugPaintFor(entity.getComponent<RigidBody2D>(), body),
+      );
       canvas.restore();
     });
 
     // Characters: their shape where they are, moved yet or not.
-    for (final archetype in world.queryArchetypes(const [TransformComponent, CharacterBody2D])) {
+    for (final archetype in world.queryArchetypes(const [
+      TransformComponent,
+      CharacterBody2D,
+    ])) {
       final transforms = archetype.getColumn(TransformComponent)!;
       final characters = archetype.getColumn(CharacterBody2D)!;
       for (var row = 0; row < transforms.length; row++) {
-        _paintCharacter(canvas, transforms[row] as TransformComponent, characters[row] as CharacterBody2D);
+        _paintCharacter(
+          canvas,
+          transforms[row] as TransformComponent,
+          characters[row] as CharacterBody2D,
+        );
       }
     }
 
@@ -849,10 +1102,17 @@ class PhysicsSystem extends System {
 
   /// Draws [character]'s shape where it is: solid on the ground, faded in
   /// the air.
-  static void _paintCharacter(Canvas canvas, TransformComponent transform, CharacterBody2D character) {
+  static void _paintCharacter(
+    Canvas canvas,
+    TransformComponent transform,
+    CharacterBody2D character,
+  ) {
     final shape = character.moverShape;
     final p = shape.points;
-    final at = Offset(transform.position.x + character.offset.dx, transform.position.y + character.offset.dy);
+    final at = Offset(
+      transform.position.x + character.offset.dx,
+      transform.position.y + character.offset.dy,
+    );
     final outline = p.length == 1
         ? CircleShape(shape.radius)
         : p.length == 2
@@ -861,7 +1121,11 @@ class PhysicsSystem extends System {
     canvas
       ..save()
       ..translate(at.dx, at.dy);
-    ColliderGeometry.paint(canvas, outline, character.isGrounded ? _debugCharacterPaint : _debugCharacterAirPaint);
+    ColliderGeometry.paint(
+      canvas,
+      outline,
+      character.isGrounded ? _debugCharacterPaint : _debugCharacterAirPaint,
+    );
     canvas.restore();
   }
 
@@ -874,7 +1138,10 @@ class PhysicsSystem extends System {
     return switch (rigid.bodyType) {
       BodyType.static => _debugStaticPaint,
       BodyType.kinematic => _debugKinematicPaint,
-      BodyType.dynamic => body != null && !body.isAwake ? _debugSleepingPaint : _debugDynamicPaint,
+      BodyType.dynamic =>
+        body != null && !body.isAwake
+            ? _debugSleepingPaint
+            : _debugDynamicPaint,
     };
   }
 
@@ -887,10 +1154,14 @@ class PhysicsSystem extends System {
   static final Paint _debugStaticPaint = _stroke(Colors.blue);
   static final Paint _debugKinematicPaint = _stroke(Colors.orange);
   static final Paint _debugDynamicPaint = _stroke(Colors.green);
-  static final Paint _debugSleepingPaint = _stroke(Colors.green.withValues(alpha: 0.4));
+  static final Paint _debugSleepingPaint = _stroke(
+    Colors.green.withValues(alpha: 0.4),
+  );
   static final Paint _debugSensorPaint = _stroke(Colors.yellow, 1.5);
   static final Paint _debugCharacterPaint = _stroke(Colors.lightBlueAccent);
-  static final Paint _debugCharacterAirPaint = _stroke(Colors.lightBlueAccent.withValues(alpha: 0.5));
+  static final Paint _debugCharacterAirPaint = _stroke(
+    Colors.lightBlueAccent.withValues(alpha: 0.5),
+  );
 }
 
 /// What [PhysicsSystem] keeps per entity: the components it reads every
@@ -912,7 +1183,7 @@ final class _BodyLink {
   /// How the body moves: its rigid body, or a static body's defaults.
   RigidBody2D get settings => rigid ?? _static;
 
-  /// [World.structureVersion] of the rebuild that last saw [entity].
+  /// [World.queryVersion] of the rebuild that last saw [entity].
   int version = -1;
 
   PhysicsBody? body;
@@ -927,17 +1198,17 @@ final class _BodyLink {
   /// static body that is otherwise never synced out.
   bool syncOutPending = false;
 
-  // What the body was built from: the collider's shape and placement, the
-  // entity's scale ([PhysicsSystem._scaleKey]) and, matching its entity's
-  // shape, that shape's key. Any of them changing builds it again.
+  // What the body was built from: the collider's shape and placement and
+  // the entity's scale ([PhysicsSystem._scaleKey]) — the scale within
+  // [PhysicsSystem.scaleTolerance] of it. Any of them changing builds it
+  // again, as does the look a matching collider follows ([sameLook]).
   ColliderShape2D? _shape;
   double _w = 0, _h = 0, _radius = 0, _height = 0, _corner = 0, _thickness = 0;
   double _ox = 0, _oy = 0, _rotation = 0, _cx = 0, _cy = 0, _sx = 0, _sy = 0;
   bool _loop = false;
   List<Offset> _points = const [];
-  Object? _match;
 
-  void remember(Collider2D c, double sx, double sy, Object? match) {
+  void remember(Collider2D c, double sx, double sy, {required bool matching}) {
     _shape = c.shape;
     _w = c.size.x;
     _h = c.size.y;
@@ -954,10 +1225,10 @@ final class _BodyLink {
     _sx = sx;
     _sy = sy;
     _points = List.of(c.points);
-    _match = match;
+    if (matching) _rememberLook();
   }
 
-  bool builtMatches(Collider2D c, double sx, double sy, Object? match) {
+  bool builtMatches(Collider2D c, double sx, double sy) {
     if (_shape != c.shape ||
         _w != c.size.x ||
         _h != c.size.y ||
@@ -971,9 +1242,8 @@ final class _BodyLink {
         _rotation != c.rotation ||
         _cx != c.scale.x ||
         _cy != c.scale.y ||
-        _sx != sx ||
-        _sy != sy ||
-        _match != match) {
+        !_near(_sx, sx) ||
+        !_near(_sy, sy)) {
       return false;
     }
     final points = c.points;
@@ -983,6 +1253,161 @@ final class _BodyLink {
     }
     return true;
   }
+
+  /// Whether [now] is within [PhysicsSystem.scaleTolerance] of [built].
+  static bool _near(double built, double now) =>
+      built == now ||
+      (now - built).abs() <=
+          PhysicsSystem.scaleTolerance * math.max(built.abs(), now.abs());
+
+  // The look of the entity, for a collider matching it — the components it
+  // draws a shape with, in its order, and those with a size (a sprite) —
+  // found when [version] was [_lookVersion]: again only after the world's
+  // structure changes, not every frame.
+  int _lookVersion = -2;
+  List<Component> _lookShapes = const [];
+  List<(Component, ComponentExtent)> _lookSized = const [];
+
+  /// Whether the entity draws a polygon or a line, which a mirror changes.
+  bool lookMirrors = false;
+
+  /// Finds what the entity draws, unless it was found since the world's
+  /// structure last changed.
+  void findLook(ComponentDefinitionRegistry definitions) {
+    if (_lookVersion == version) return;
+    _lookVersion = version;
+    final shapes = <Component>[];
+    final sized = <(Component, ComponentExtent)>[];
+    for (final c in entity.components) {
+      switch (c) {
+        case CircleComponent() ||
+            CapsuleComponent() ||
+            RectangleComponent() ||
+            PolygonComponent() ||
+            LineComponent():
+          shapes.add(c);
+        case Collider2D() || RigidBody2D():
+          continue;
+      }
+      final extent = definitions.definitionFor(c)?.extent;
+      if (extent != null) sized.add((c, extent));
+    }
+    _lookShapes = shapes.isEmpty ? const [] : shapes;
+    _lookSized = sized.isEmpty ? const [] : sized;
+    lookMirrors = shapes.any(
+      (c) => c is PolygonComponent || c is LineComponent,
+    );
+  }
+
+  // The look the body was built from (see ColliderGeometry.visualShapeOf):
+  // 0 none, 1 circle, 2 capsule, 3 box, 4 polygon, 5 line, 6 a size.
+  int _lookKind = 0;
+  double _l1 = 0, _l2 = 0, _l3 = 0, _l4 = 0, _l5 = 0;
+  List<Offset> _lookPoints = const [];
+
+  /// The first of the entity's shapes that has one, as
+  /// ColliderGeometry.visualShapeOf takes it; null for none.
+  Component? _look() {
+    for (final c in _lookShapes) {
+      if (c is PolygonComponent && c.vertices.length < 3) continue;
+      return c;
+    }
+    return null;
+  }
+
+  /// The largest size among the entity's sized components into [_sizeW]
+  /// and [_sizeH], as ColliderGeometry.visualShapeOf takes it; false for
+  /// none.
+  bool _largestSize() {
+    var found = false;
+    for (final (c, extent) in _lookSized) {
+      final size = extent.sizeOf(c);
+      if (size == null || size.width <= 0 || size.height <= 0) continue;
+      if (!found || size.width * size.height > _sizeW * _sizeH) {
+        _sizeW = size.width;
+        _sizeH = size.height;
+        found = true;
+      }
+    }
+    return found;
+  }
+
+  double _sizeW = 0, _sizeH = 0;
+
+  /// Whether the entity looks as it did when the body was built.
+  bool sameLook() {
+    switch (_look()) {
+      case CircleComponent v:
+        return _lookKind == 1 && _l1 == v.radius;
+      case CapsuleComponent v:
+        return _lookKind == 2 && _l1 == v.width && _l2 == v.height;
+      case RectangleComponent v:
+        return _lookKind == 3 &&
+            _l1 == v.width &&
+            _l2 == v.height &&
+            _l3 == v.cornerRadius;
+      case PolygonComponent v:
+        if (_lookKind != 4) return false;
+        final points = v.vertices;
+        if (points.length != _lookPoints.length) return false;
+        for (var i = 0; i < points.length; i++) {
+          if (points[i] != _lookPoints[i]) return false;
+        }
+        return true;
+      case LineComponent v:
+        return _lookKind == 5 &&
+            _l1 == v.start.dx &&
+            _l2 == v.start.dy &&
+            _l3 == v.end.dx &&
+            _l4 == v.end.dy &&
+            _l5 == v.strokeWidth;
+      default:
+        if (!_largestSize()) return _lookKind == 0;
+        return _lookKind == 6 && _l1 == _sizeW && _l2 == _sizeH;
+    }
+  }
+
+  void _rememberLook() {
+    _lookPoints = const [];
+    switch (_look()) {
+      case CircleComponent v:
+        _lookKind = 1;
+        _l1 = v.radius;
+      case CapsuleComponent v:
+        _lookKind = 2;
+        _l1 = v.width;
+        _l2 = v.height;
+      case RectangleComponent v:
+        _lookKind = 3;
+        _l1 = v.width;
+        _l2 = v.height;
+        _l3 = v.cornerRadius;
+      case PolygonComponent v:
+        _lookKind = 4;
+        _lookPoints = List.of(v.vertices);
+      case LineComponent v:
+        _lookKind = 5;
+        _l1 = v.start.dx;
+        _l2 = v.start.dy;
+        _l3 = v.end.dx;
+        _l4 = v.end.dy;
+        _l5 = v.strokeWidth;
+      default:
+        if (_largestSize()) {
+          _lookKind = 6;
+          _l1 = _sizeW;
+          _l2 = _sizeH;
+        } else {
+          _lookKind = 0;
+        }
+    }
+  }
+
+  /// Moved by its transform last frame, as a kinematic body is carried.
+  bool carried = false;
+
+  /// How it was moving when culling froze it.
+  double frozenVx = 0, frozenVy = 0, frozenSpin = 0;
 
   /// The body's velocity as the last step left it. Anything different at
   /// the next sync-in was written since, and wakes the body.

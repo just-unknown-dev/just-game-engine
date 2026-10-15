@@ -67,8 +67,9 @@ class LevelMapSystem extends System {
   @override
   void update(double deltaTime) {
     if (advanceClock) clockMs += deltaTime * 1000;
-    if (_seenStructure != world.structureVersion) {
-      _seenStructure = world.structureVersion;
+    final version = world.queryVersion(const [LevelMapComponent]);
+    if (_seenStructure != version) {
+      _seenStructure = version;
       _releaseRemoved();
     }
     final clock = clockMs.floor();

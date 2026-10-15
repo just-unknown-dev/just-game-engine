@@ -26,7 +26,8 @@ Vector3 cameraForward(double pitch, double yaw) => Vector3(
 
 /// The target's 3-D position, or the camera's own when it has none.
 Vector3 _anchor(CameraStageContext context, CameraState state) =>
-    context.targetPosition3 ?? Vector3(state.position.dx, state.position.dy, state.z);
+    context.targetPosition3 ??
+    Vector3(state.position.dx, state.position.dy, state.z);
 
 /// Body: circles the target at a distance, turned by the component's yaw
 /// and pitch, the pivot easing after the target.
@@ -61,14 +62,22 @@ class OrbitFollowStage extends CameraStage<OrbitFollowComponent> {
     }
     memory.extra[this] = at;
     final pitch = orbit.pitch.clamp(orbit.minPitch, orbit.maxPitch);
-    final distance = orbit.distance.clamp(orbit.minDistance, math.max(orbit.minDistance, orbit.maxDistance));
+    final distance = orbit.distance.clamp(
+      orbit.minDistance,
+      math.max(orbit.minDistance, orbit.maxDistance),
+    );
     final forward = cameraForward(pitch, orbit.yaw);
     // Right of the view, level: forward turned a quarter about the up axis.
     final rightX = math.cos(orbit.yaw), rightZ = -math.sin(orbit.yaw);
     final x = at.x - forward.x * distance + rightX * orbit.shoulder;
     final y = at.y - forward.y * distance;
     final z = at.z - forward.z * distance + rightZ * orbit.shoulder;
-    return state.copyWith(position: Offset(x, y), z: z, pitch: pitch, yaw: orbit.yaw);
+    return state.copyWith(
+      position: Offset(x, y),
+      z: z,
+      pitch: pitch,
+      yaw: orbit.yaw,
+    );
   }
 }
 
@@ -124,7 +133,10 @@ class LookAtStage extends CameraStage<LookAtComponent> {
     var (pitch, yaw) = cameraAnglesOf(direction);
     final memory = context.memory;
     final last = memory.extra[this] as (double, double)?;
-    if (last != null && !context.snap && memory.initialized && look.damping > 0) {
+    if (last != null &&
+        !context.snap &&
+        memory.initialized &&
+        look.damping > 0) {
       final k = CameraStage.damp(look.damping, dt);
       pitch = last.$1 + (pitch - last.$1) * k;
       // The shorter way round.

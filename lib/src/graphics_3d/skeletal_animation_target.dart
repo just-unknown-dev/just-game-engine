@@ -1,5 +1,6 @@
-import 'package:just_game_engine/just_game_engine.dart';
-
+import '../ecs/components/components.dart';
+import '../ecs/ecs.dart';
+import '../subsystems/animation/animation.dart';
 import 'graphics_components.dart';
 
 /// Plays an animator graph's states on a 3-D model's skeleton: an entity
@@ -21,21 +22,22 @@ final class SkeletalAnimationTarget extends AnimationTarget {
   @override
   void enter(Entity entity, AnimatorState state, {double fade = 0}) {
     final player = entity.getComponent<AnimationPlayerComponent>()!;
-    player
-      ..speed = state.speed
-      ..loop = state.loop ?? true;
     final tree = state.blend;
     if (tree == null || tree.motions.isEmpty) {
       player.play(state.clipName, fade: fade, restart: true);
-      return;
+    } else {
+      // Weights come with the first update; until then the first motion.
+      player.playBlend(
+        [for (final m in tree.motions) m.clip],
+        [for (var i = 0; i < tree.motions.length; i++) i == 0 ? 1.0 : 0.0],
+        speeds: [for (final m in tree.motions) m.speed],
+        fade: fade,
+      );
     }
-    // Weights come with the first update; until then the first motion.
-    player.playBlend(
-      [for (final m in tree.motions) m.clip],
-      [for (var i = 0; i < tree.motions.length; i++) i == 0 ? 1.0 : 0.0],
-      speeds: [for (final m in tree.motions) m.speed],
-      fade: fade,
-    );
+    // Set after playing, so what fades out keeps its own speed and looping.
+    player
+      ..speed = state.speed
+      ..loop = state.loop ?? true;
   }
 
   @override

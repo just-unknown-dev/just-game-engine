@@ -186,19 +186,18 @@ void main() {
       expect(render.debugSpriteBatchCount, 0);
     });
 
-    test('a batch colour is the tint at the opacity, as before', () {
+    test('a batch colour is the tint at the opacity times its own alpha', () {
       sprite(Sprite(image: image, opacity: 0.5));
       sprite(
         Sprite(image: image, tint: const Color(0x80336699), opacity: 0.25),
       );
       frame();
-      expect(
-        batched.map((b) => b.$2.color),
-        [
-          const Color.fromRGBO(255, 255, 255, 0.5),
-          const Color(0x80336699).withValues(alpha: 0.25),
-        ].map((c) => Color(c.toARGB32())),
-      );
+      // The tint's alpha fades the sprite as a shape's does (it used to be
+      // dropped): 0x80 at a quarter is 0x20.
+      expect(batched.map((b) => b.$2.color), [
+        Color(const Color.fromRGBO(255, 255, 255, 0.5).toARGB32()),
+        const Color(0x20336699),
+      ]);
     });
   });
 

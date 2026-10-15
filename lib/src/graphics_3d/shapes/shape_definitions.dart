@@ -3,8 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
 import 'package:flutter/widgets.dart' show IconData;
-import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_dart/just_dart.dart' show Aabb3, Vector2;
 
+import '../../core/core.dart';
+import '../../ecs/ecs.dart';
+import '../../ecs/serialization/serialization.dart';
+import '../../foundation/dimensions.dart';
 import 'primitive_3d.dart';
 import 'shape_components.dart';
 

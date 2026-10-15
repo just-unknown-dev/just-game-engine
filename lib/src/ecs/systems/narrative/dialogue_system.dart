@@ -49,7 +49,7 @@ class DialogueSystem extends System {
   final String playerTag;
 
   @override
-  List<Type> get requiredComponents => [DialogueComponent];
+  List<Type> get requiredComponents => const [DialogueComponent];
 
   @override
   int get priority => SystemPriorities.dialogue;
@@ -180,19 +180,19 @@ class DialogueSystem extends System {
     return 0.0;
   }
 
-  /// Lets go of runners bound to entities that no longer exist, once the
-  /// world's structure has changed — [DialogueManager] cannot tell a
-  /// destroyed entity from a live one by its id alone.
+  /// Lets go of runners bound to entities that no longer exist —
+  /// [DialogueManager] cannot tell a destroyed entity from a live one by
+  /// its id alone. A lookup per bound runner, of which there are few.
   void _forgetDestroyedEntities() {
-    final version = world.structureVersion;
-    if (version == _seenStructureVersion) return;
-    _seenStructureVersion = version;
-    for (final id in manager.boundEntityIds.toList()) {
-      if (world.getEntity(id) == null) manager.releaseRunnerForEntity(id);
+    List<int>? gone;
+    for (final id in manager.boundEntityIds) {
+      if (world.getEntity(id) == null) (gone ??= []).add(id);
+    }
+    if (gone == null) return;
+    for (final id in gone) {
+      manager.releaseRunnerForEntity(id);
     }
   }
-
-  int _seenStructureVersion = -1;
 
   // ---------------------------------------------------------------------------
   // Helper

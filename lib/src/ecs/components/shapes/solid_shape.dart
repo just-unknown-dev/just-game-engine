@@ -27,7 +27,14 @@ sealed class SolidPart {
 final class SolidBox extends SolidPart {
   /// A box of half-sizes [halfX], [halfY], [halfZ] centred on
   /// ([x], [y], [z]).
-  const SolidBox(this.halfX, this.halfY, this.halfZ, {this.x = 0, this.y = 0, this.z = 0});
+  const SolidBox(
+    this.halfX,
+    this.halfY,
+    this.halfZ, {
+    this.x = 0,
+    this.y = 0,
+    this.z = 0,
+  });
 
   /// Half its size along X.
   final double halfX;
@@ -71,7 +78,11 @@ final class SolidSphere extends SolidPart {
 
   @override
   bool operator ==(Object other) =>
-      other is SolidSphere && other.radius == radius && other.x == x && other.y == y && other.z == z;
+      other is SolidSphere &&
+      other.radius == radius &&
+      other.x == x &&
+      other.y == y &&
+      other.z == z;
 
   @override
   int get hashCode => Object.hash(SolidSphere, radius, x, y, z);
@@ -84,7 +95,13 @@ final class SolidSphere extends SolidPart {
 /// half-sphere on each end.
 final class SolidCapsule extends SolidPart {
   /// A capsule centred on ([x], [y], [z]).
-  const SolidCapsule(this.halfHeight, this.radius, {this.x = 0, this.y = 0, this.z = 0});
+  const SolidCapsule(
+    this.halfHeight,
+    this.radius, {
+    this.x = 0,
+    this.y = 0,
+    this.z = 0,
+  });
 
   /// Half the length of its straight part (caps not included).
   final double halfHeight;
@@ -114,7 +131,13 @@ final class SolidCapsule extends SolidPart {
 /// A cylinder standing along Y.
 final class SolidCylinder extends SolidPart {
   /// A cylinder [halfHeight] × 2 tall, centred on ([x], [y], [z]).
-  const SolidCylinder(this.halfHeight, this.radius, {this.x = 0, this.y = 0, this.z = 0});
+  const SolidCylinder(
+    this.halfHeight,
+    this.radius, {
+    this.x = 0,
+    this.y = 0,
+    this.z = 0,
+  });
 
   /// Half its height.
   final double halfHeight;
@@ -156,7 +179,9 @@ final class SolidHull extends SolidPart {
 
   @override
   bool operator ==(Object other) {
-    if (other is! SolidHull || other.points.length != points.length) return false;
+    if (other is! SolidHull || other.points.length != points.length) {
+      return false;
+    }
     for (var i = 0; i < points.length; i++) {
       if (other.points[i] != points[i]) return false;
     }

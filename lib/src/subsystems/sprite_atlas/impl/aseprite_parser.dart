@@ -142,6 +142,7 @@ class AsepriteAtlasParser extends AtlasParser {
     final frameMap = (data['frame'] as Map<String, dynamic>?) ?? {};
     final sssMap = (data['spriteSourceSize'] as Map<String, dynamic>?) ?? {};
     final ssMap = (data['sourceSize'] as Map<String, dynamic>?) ?? {};
+    final frameW = _d(frameMap['w']), frameH = _d(frameMap['h']);
 
     return SpriteRegion(
       name: name, // Aseprite names kept as-is, e.g. "player_run 0"
@@ -149,13 +150,18 @@ class AsepriteAtlasParser extends AtlasParser {
       frame: Rect.fromLTWH(
         _d(frameMap['x']),
         _d(frameMap['y']),
-        _d(frameMap['w']),
-        _d(frameMap['h']),
+        frameW,
+        frameH,
       ),
       rotated: (data['rotated'] as bool?) ?? false,
       trimmed: (data['trimmed'] as bool?) ?? false,
       spriteSourceOffset: Offset(_d(sssMap['x']), _d(sssMap['y'])),
-      sourceSize: Size(_d(ssMap['w']), _d(ssMap['h'])),
+      // A frame without its untrimmed size is as big as it is, as PixiJS
+      // reads it — not zero, which drew nothing.
+      sourceSize: Size(
+        _d(ssMap['w'], fallback: frameW),
+        _d(ssMap['h'], fallback: frameH),
+      ),
     );
   }
 

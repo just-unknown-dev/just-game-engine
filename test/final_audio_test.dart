@@ -91,8 +91,12 @@ void main() {
       world.createEntityWithComponents([
         TransformComponent(position: Vector3(5, 0, 0)),
         AudioSourceComponent(clipPath: 'a.wav', pan: -1, is3d: true),
-        AudioPlayComponent(clipPath: 'b.wav', pan: 1, is3d: true),
       ]);
+      world.getSystem<AudioSystem>()!.playOneShot(
+        'b.wav',
+        pan: 1,
+        position: Vector3(5, 0, 0),
+      );
       // 3-D without a transform plays flat, so its pan counts.
       world.createEntityWithComponents([
         AudioSourceComponent(clipPath: 'c.wav', pan: 0.5, is3d: true),

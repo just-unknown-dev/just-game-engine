@@ -38,7 +38,10 @@ class MapCollisionSystem extends System {
   int get priority => SystemPriorities.mapCollision;
 
   @override
-  List<Type> get requiredComponents => [TransformComponent, LevelMapComponent];
+  List<Type> get requiredComponents => const [
+    TransformComponent,
+    LevelMapComponent,
+  ];
 
   /// Tile bodies by map entity, then by layer.
   final Map<int, Map<int, List<Entity>>> _bodies = {};

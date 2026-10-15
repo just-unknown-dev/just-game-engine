@@ -2,9 +2,11 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart' show AssetBundle, AssetManifest;
-import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_dart/just_dart.dart' show Aabb3, JustMatrix4, Vector3;
 import 'package:just_graphics_engine/assets.dart';
 import 'package:just_graphics_engine/renderer.dart';
+
+import '../subsystems/assets/assets.dart';
 
 /// The models a game's scenes use, each loaded once per asset path: read
 /// from [bundle], parsed, uploaded with [uploader].
@@ -167,6 +169,13 @@ final class GraphicsModelAsset extends ModelAsset {
 
   @override
   List<String> get meshNames => _meshNames;
+
+  /// Reads the model again — after [GraphicsModels.reload] — so its
+  /// bounds, mesh names and triangles are the new file's.
+  Future<void> reload() async {
+    _geometry.clear();
+    await load();
+  }
 
   @override
   Future<void> load() async {

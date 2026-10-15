@@ -33,27 +33,135 @@ abstract class ParticleRenderer {
 // Geometric renderers
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/// Sets a paint to a particle's colour: worked out as a number (the colour
+/// [Particle.currentColor] lerps, without lerping a [Color]), and set only
+/// when it differs from the last.
+final class _ParticleColour {
+  int _argb = -1;
+
+  void apply(Paint paint, Particle p) {
+    final from = p.startColor, to = p.endColor;
+    if (from.colorSpace != ui.ColorSpace.sRGB ||
+        to.colorSpace != ui.ColorSpace.sRGB) {
+      // Wider than 32-bit sRGB holds: as a [Color].
+      paint.color = p.currentColor;
+      _argb = -1;
+      return;
+    }
+    final argb = p.currentColorArgb;
+    if (argb == _argb) return;
+    _argb = argb;
+    paint.color = Color(argb);
+  }
+}
+
 /// Renders each particle as a filled circle.
+///
+/// By default each particle is one [Canvas.drawCircle]. With [batched] they
+/// are all one [Canvas.drawRawAtlas] of a white disc drawn once, tinted by
+/// each particle's colour: much cheaper for many particles, but not the
+/// same pixel for pixel (the disc's edge is an image's, scaled). Call
+/// [dispose] when done with a batched renderer to release the disc.
 class CircleParticleRenderer extends ParticleRenderer {
+  /// Circles drawn one by one, or all in one draw when [batched].
+  CircleParticleRenderer({this.batched = false});
+
+  /// Whether [renderBatch] draws every particle at once from a disc image.
+  final bool batched;
+
   /// Paint reused across all draw calls to avoid per-frame allocation.
   final Paint _paint = Paint()..style = PaintingStyle.fill;
+  final _ParticleColour _colour = _ParticleColour();
 
   @override
   void render(Canvas canvas, Particle particle) {
-    _paint.color = particle.currentColor;
+    _colour.apply(_paint, particle);
     final radius = particle.currentSize / 2.0;
     canvas.drawCircle(Offset(particle.x, particle.y), radius, _paint);
+  }
+
+  // The batched path: a white disc [_discSize] across, and buffers.
+  static const double _discSize = 64;
+  ui.Image? _disc;
+  Float32List _transforms = Float32List(0);
+  Float32List _rects = Float32List(0);
+  Int32List _colors = Int32List(0);
+  final Paint _atlasPaint = Paint()..filterQuality = FilterQuality.medium;
+
+  @override
+  void renderBatch(Canvas canvas, List<Particle> particles) {
+    if (!batched) {
+      super.renderBatch(canvas, particles);
+      return;
+    }
+    if (particles.isEmpty) return;
+    final disc = _discImage();
+    final count = particles.length;
+    if (_colors.length < count) {
+      final slots = math.max(count, _colors.length * 2);
+      _transforms = Float32List(4 * slots);
+      _colors = Int32List(slots);
+      _rects = Float32List(4 * slots);
+      for (var i = 0; i < slots; i++) {
+        _rects
+          ..[4 * i + 2] = _discSize
+          ..[4 * i + 3] = _discSize;
+      }
+    }
+    for (var i = 0; i < count; i++) {
+      final p = particles[i];
+      final scale = p.currentSize / _discSize;
+      final half = p.currentSize / 2.0;
+      _transforms
+        ..[4 * i] = scale
+        ..[4 * i + 1] = 0
+        ..[4 * i + 2] = p.x - half
+        ..[4 * i + 3] = p.y - half;
+      _colors[i] = p.currentColorArgb;
+    }
+    canvas.drawRawAtlas(
+      disc,
+      Float32List.sublistView(_transforms, 0, 4 * count),
+      Float32List.sublistView(_rects, 0, 4 * count),
+      Int32List.sublistView(_colors, 0, count),
+      BlendMode.modulate,
+      null,
+      _atlasPaint,
+    );
+  }
+
+  ui.Image _discImage() {
+    final existing = _disc;
+    if (existing != null) return existing;
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder).drawCircle(
+      const Offset(_discSize / 2, _discSize / 2),
+      _discSize / 2,
+      Paint()..color = const Color(0xFFFFFFFF),
+    );
+    final picture = recorder.endRecording();
+    final image = picture.toImageSync(_discSize.toInt(), _discSize.toInt());
+    picture.dispose();
+    return _disc = image;
+  }
+
+  /// Releases the disc a batched renderer draws from; it is drawn again if
+  /// the renderer is used after.
+  void dispose() {
+    _disc?.dispose();
+    _disc = null;
   }
 }
 
 /// Renders each particle as a filled square (axis-aligned, rotatable).
 class SquareParticleRenderer extends ParticleRenderer {
   final Paint _paint = Paint()..style = PaintingStyle.fill;
+  final _ParticleColour _colour = _ParticleColour();
   final Path _path = Path();
 
   @override
   void render(Canvas canvas, Particle particle) {
-    _paint.color = particle.currentColor;
+    _colour.apply(_paint, particle);
     final s = particle.currentSize;
     final half = s / 2.0;
 
@@ -88,11 +196,12 @@ class SquareParticleRenderer extends ParticleRenderer {
 /// Renders each particle as a filled triangle.
 class TriangleParticleRenderer extends ParticleRenderer {
   final Paint _paint = Paint()..style = PaintingStyle.fill;
+  final _ParticleColour _colour = _ParticleColour();
   final Path _path = Path();
 
   @override
   void render(Canvas canvas, Particle particle) {
-    _paint.color = particle.currentColor;
+    _colour.apply(_paint, particle);
     final s = particle.currentSize;
     final half = s / 2.0;
 
@@ -113,11 +222,12 @@ class TriangleParticleRenderer extends ParticleRenderer {
 /// Renders each particle as a 5-pointed star.
 class StarParticleRenderer extends ParticleRenderer {
   final Paint _paint = Paint()..style = PaintingStyle.fill;
+  final _ParticleColour _colour = _ParticleColour();
   final Path _path = Path();
 
   @override
   void render(Canvas canvas, Particle particle) {
-    _paint.color = particle.currentColor;
+    _colour.apply(_paint, particle);
     final radius = particle.currentSize / 2.0;
 
     canvas.save();
@@ -261,6 +371,7 @@ class AnimatedSpriteParticleRenderer extends ParticleRenderer {
   final List<Rect> frames;
 
   final Paint _paint = Paint()..filterQuality = FilterQuality.medium;
+  final _ParticleColour _colour = _ParticleColour();
 
   /// Draws each particle as one of [frames] (at least one, asserted) of
   /// [sheet], stepping through them evenly over its lifetime, in a square
@@ -276,7 +387,7 @@ class AnimatedSpriteParticleRenderer extends ParticleRenderer {
     );
     final src = frames[frameIndex];
     final size = particle.currentSize;
-    _paint.color = particle.currentColor;
+    _colour.apply(_paint, particle);
 
     canvas.save();
     canvas.translate(particle.x, particle.y);
@@ -302,6 +413,7 @@ class LineParticleRenderer extends ParticleRenderer {
   final double strokeWidth;
 
   final Paint _paint = Paint()..style = PaintingStyle.stroke;
+  final _ParticleColour _colour = _ParticleColour();
 
   /// Streaks [strokeWidth] wide (2 by default) while a particle is at its
   /// start size, thinner or thicker in proportion as its size changes.
@@ -309,9 +421,9 @@ class LineParticleRenderer extends ParticleRenderer {
 
   @override
   void render(Canvas canvas, Particle particle) {
-    _paint
-      ..color = particle.currentColor
-      ..strokeWidth = strokeWidth * particle.currentSize / particle.startSize;
+    _colour.apply(_paint, particle);
+    _paint.strokeWidth =
+        strokeWidth * particle.currentSize / particle.startSize;
     canvas.drawLine(particle.previousPosition, particle.position, _paint);
   }
 }
@@ -326,6 +438,7 @@ class CustomPathParticleRenderer extends ParticleRenderer {
   final Path path;
 
   final Paint _paint = Paint()..style = PaintingStyle.fill;
+  final _ParticleColour _colour = _ParticleColour();
 
   /// Fills [path] in each particle's colour, scaled by its size and turned
   /// by its rotation.
@@ -333,7 +446,7 @@ class CustomPathParticleRenderer extends ParticleRenderer {
 
   @override
   void render(Canvas canvas, Particle particle) {
-    _paint.color = particle.currentColor;
+    _colour.apply(_paint, particle);
     final size = particle.currentSize;
 
     canvas.save();

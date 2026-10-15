@@ -237,10 +237,20 @@ class DialogueManager {
   ///
   /// The manager stops tracking the runner once its dialogue ends; the
   /// runner itself stays usable for whoever holds it.
+  ///
+  /// The returned future fails with an [ArgumentError] — and nothing is
+  /// started — when no graph is registered under [graphId] or it has no
+  /// node [startNode].
   Future<DialogueRunner> startDialogue({
     required String graphId,
     String startNode = 'Start',
   }) async {
+    final graph = _graphs[graphId];
+    if (graph != null && graph.getNode(startNode) == null) {
+      throw ArgumentError(
+        'Dialogue node "$startNode" not found in graph "$graphId".',
+      );
+    }
     final runner = createRunner(graphId);
     _transient.add(runner);
     // Fire-and-forget the long-running session; caller gets runner for

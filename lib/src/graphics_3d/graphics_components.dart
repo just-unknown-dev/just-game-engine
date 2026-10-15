@@ -1,6 +1,8 @@
 import 'dart:ui' show Color;
 
-import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_dart/just_dart.dart' show Aabb3;
+
+import '../ecs/ecs.dart';
 
 // The 3-D components. Plain data with no GPU imports, so scenes that hold
 // them load everywhere, the web included (where they simply draw nothing).
@@ -227,6 +229,17 @@ class AnimationPlayerComponent extends Component {
   /// Its phase (runtime).
   double fadingFromPhase = 0;
 
+  /// Its clips' own speeds (runtime).
+  List<double> fadingFromSpeeds = const [];
+
+  /// The rate what fades out plays at: [speed] as it began to fade, or 0
+  /// when it was paused (runtime).
+  double fadingFromSpeed = 1;
+
+  /// Whether what fades out loops, as [loop] said when it began to fade;
+  /// otherwise it holds at its end (runtime).
+  bool fadingFromLoop = true;
+
   /// How far the fade has gone: 1 when only what plays now shows (runtime).
   double fade = 1;
 
@@ -236,6 +249,10 @@ class AnimationPlayerComponent extends Component {
   /// Plays [name] from its start, fading from what played over [fade]
   /// seconds ([crossfade] when null; 0 cuts). Asking for the clip already
   /// playing does nothing unless [restart].
+  ///
+  /// What fades out goes on as it played — at its [speed], looping or
+  /// holding at its end as [loop] said — so set those for the new clip
+  /// after this call, not before.
   void play(String name, {double? fade, bool restart = false}) {
     if (name == clip && !isBlending && !restart) {
       playing = true;
@@ -290,7 +307,10 @@ class AnimationPlayerComponent extends Component {
       fadingFromTime = time;
       fadingFromBlend = isBlending ? blendClips : const [];
       fadingFromWeights = isBlending ? blendWeights : const [];
+      fadingFromSpeeds = isBlending ? blendSpeeds : const [];
       fadingFromPhase = phase;
+      fadingFromSpeed = playing ? speed : 0;
+      fadingFromLoop = loop;
       fade = 0;
     } else {
       fadingFrom = '';

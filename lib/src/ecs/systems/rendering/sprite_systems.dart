@@ -13,6 +13,10 @@ import '../../base/system_priorities.dart';
 
 /// Shows a [SpriteComponent]: loads its image — or its region of an atlas —
 /// into a [RenderableComponent], and keeps flip, tint and filtering current.
+///
+/// An image of its own (from a loader whose images are the caller's,
+/// [SpriteAssetLoader.callerDisposesImages]) is disposed once nothing shows
+/// it: the sprite replaced, its paths cleared, or its entity gone.
 class SpriteLoadSystem extends System {
   /// A system loading through [loader]; the world's loader when null.
   SpriteLoadSystem({SpriteAssetLoader? loader}) : _loader = loader;
@@ -22,9 +26,9 @@ class SpriteLoadSystem extends System {
   /// The loader given, else the world's (`world.context.sprites`).
   SpriteAssetLoader get loader => _loader ?? world.context.sprites;
 
-  final Map<Entity, _Shown> _shown = {};
-  final Set<Entity> _loading = {};
-  final Map<Entity, Sprite> _sprites = {};
+  // Per entity: the paths last worked out, whether a load is under way, and
+  // the sprite shown — one lookup a frame.
+  final Map<Entity, _SpriteEntry> _entries = {};
 
   // What could not be shown, said once each.
   final Set<String> _reported = {};
@@ -36,11 +40,16 @@ class SpriteLoadSystem extends System {
   int get priority => SystemPriorities.animation - 1;
 
   @override
-  List<Type> get requiredComponents => [TransformComponent, SpriteComponent];
+  List<Type> get requiredComponents => const [
+    TransformComponent,
+    SpriteComponent,
+  ];
 
   /// Loads everything again on the next frame: a file changed on disk.
   void reload() {
-    _shown.clear();
+    for (final entry in _entries.values) {
+      entry.shown = null;
+    }
     _reported.clear();
   }
 
@@ -51,20 +60,20 @@ class SpriteLoadSystem extends System {
   void update(double deltaTime) {
     // Only a structural change can take a sprite away; one switched off
     // keeps what it showed.
-    if (world.structureVersion != _prunedAt) {
-      _prunedAt = world.structureVersion;
+    final version = world.queryVersion(requiredComponents);
+    if (version != _prunedAt) {
+      _prunedAt = version;
       bool gone(Entity e) =>
           !e.isAlive ||
           !e.hasComponent<SpriteComponent>() ||
           !e.hasComponent<TransformComponent>();
-      _shown.removeWhere((e, _) => gone(e));
-      _loading.removeWhere(gone);
-      _sprites.removeWhere((e, _) => gone(e));
+      _entries.removeWhere((e, entry) => gone(e) && _forget(e, entry));
     }
 
-    forEach((entity) {
+    for (final entity in entities) {
       final c = entity.getComponent<SpriteComponent>()!;
-      final sprite = _sprites[entity];
+      final entry = _entries[entity] ??= _SpriteEntry();
+      final sprite = entry.sprite;
       if (sprite != null) {
         sprite
           ..flipX = c.flipX
@@ -74,27 +83,53 @@ class SpriteLoadSystem extends System {
               ? ui.FilterQuality.none
               : ui.FilterQuality.medium;
       }
-      if (_loading.contains(entity)) return;
+      if (entry.loading) continue;
       // The three paths as they were: nothing to build or compare beyond
       // them while they stay put.
-      final shown = _shown[entity];
-      if (shown != null && shown.matches(c)) return;
+      final shown = entry.shown;
+      if (shown != null && shown.matches(c)) continue;
       final key = _keyOf(c);
-      _shown[entity] = _Shown(c, key);
-      if (shown?.key == key) return;
+      entry.shown = _Shown(c, key);
+      if (shown?.key == key) continue;
 
       if (c.spritePath.trim().isEmpty && c.atlasPath.trim().isEmpty) {
-        if (_sprites.remove(entity) != null) {
+        if (entry.sprite != null) {
           entity.removeComponent<RenderableComponent>();
+          entry.show(null, null);
         }
-        return;
+        continue;
       }
-      _loading.add(entity);
-      _load(entity, key);
-    });
+      entry.loading = true;
+      _load(entity, entry, key);
+    }
   }
 
-  Future<void> _load(Entity entity, String key) async {
+  /// Lets go of what [entry] showed on [entity], which no longer shows a
+  /// sprite: its own image is disposed unless the entity, still alive,
+  /// draws it yet. True, so it can be removed.
+  bool _forget(Entity entity, _SpriteEntry entry) {
+    final drawn =
+        entity.isAlive &&
+        entry.sprite != null &&
+        identical(
+          entity.getComponent<RenderableComponent>()?.renderable,
+          entry.sprite,
+        );
+    if (!drawn) entry.show(null, null);
+    return true;
+  }
+
+  @override
+  void dispose() {
+    for (final entry in _entries.values) {
+      entry.show(null, null);
+    }
+    _entries.clear();
+    super.dispose();
+  }
+
+  Future<void> _load(Entity entity, _SpriteEntry entry, String key) async {
+    ui.Image? own;
     try {
       final asked = entity.getComponent<SpriteComponent>();
       if (asked == null) return;
@@ -107,16 +142,18 @@ class SpriteLoadSystem extends System {
             : asked.region.trim();
         sprite = atlas.createSprite(region);
       } else {
-        sprite = Sprite(image: await loader.loadImage(asked.spritePath.trim()));
+        final loading = loader;
+        final image = await loading.loadImage(asked.spritePath.trim());
+        if (loading.callerDisposesImages) own = image;
+        sprite = Sprite(image: image);
       }
 
       // The entity may be gone, or asking for something else by now.
       final c = entity.getComponent<SpriteComponent>();
       if (c == null || _keyOf(c) != key) {
-        _shown.remove(entity);
+        entry.shown = null;
         return;
       }
-      _sprites[entity] = sprite;
       final existing = entity.getComponent<RenderableComponent>();
       if (existing != null) {
         existing.renderable = sprite;
@@ -125,6 +162,9 @@ class SpriteLoadSystem extends System {
           RenderableComponent(renderable: sprite, syncTransform: true),
         );
       }
+      // Shown now, the one before let go.
+      entry.show(sprite, own);
+      own = null;
     } catch (error) {
       // A wrong path stays remembered, so it is not tried again every
       // frame; correcting it changes the key, and that is tried. Said once,
@@ -135,7 +175,9 @@ class SpriteLoadSystem extends System {
         );
       }
     } finally {
-      _loading.remove(entity);
+      // Loaded and not shown: not needed.
+      own?.dispose();
+      entry.loading = false;
     }
   }
 
@@ -146,6 +188,29 @@ class SpriteLoadSystem extends System {
     if (atlas.isEmpty) return '"${parts[0]}"';
     final region = parts.length > 2 ? parts[2] : '';
     return region.isEmpty ? '"$atlas"' : 'region "$region" of "$atlas"';
+  }
+}
+
+/// What [SpriteLoadSystem] knows of one entity.
+class _SpriteEntry {
+  /// The paths its sprite was last worked out from; null to work it out
+  /// again.
+  _Shown? shown;
+
+  /// Whether its sprite is being loaded.
+  bool loading = false;
+
+  /// The sprite it shows, and the image of it the system owns.
+  Sprite? sprite;
+  ui.Image? _own;
+
+  /// Shows [next] (its image the system's own when [own]), disposing the
+  /// image of the one before.
+  void show(Sprite? next, ui.Image? own) {
+    final old = _own;
+    sprite = next;
+    _own = own;
+    if (old != null && !identical(old, own)) old.dispose();
   }
 }
 
@@ -196,6 +261,11 @@ class _Playing {
   // otherwise was switched or restarted since, and starts afresh.
   String? clip;
   double elapsed = double.nan;
+
+  // The frame shown last, of which atlas, and its region.
+  AtlasFrame? frame;
+  SpriteAtlas? frameAtlas;
+  SpriteRegion? region;
 }
 
 /// Plays [SpriteAnimationComponent]s: loads the atlas, advances the clip by
@@ -238,7 +308,7 @@ class SpriteAnimationSystem extends System {
   int get priority => SystemPriorities.animation - 2;
 
   @override
-  List<Type> get requiredComponents => [
+  List<Type> get requiredComponents => const [
     TransformComponent,
     SpriteAnimationComponent,
   ];
@@ -279,8 +349,9 @@ class SpriteAnimationSystem extends System {
   void update(double deltaTime) {
     // Only a structural change can take a player away; one switched off
     // keeps its atlas and carries on when it is switched back on.
-    if (world.structureVersion != _prunedAt) {
-      _prunedAt = world.structureVersion;
+    final version = world.queryVersion(requiredComponents);
+    if (version != _prunedAt) {
+      _prunedAt = version;
       _playing.removeWhere(
         (e, _) =>
             !e.isAlive ||
@@ -289,7 +360,7 @@ class SpriteAnimationSystem extends System {
       );
     }
 
-    forEach((entity) {
+    for (final entity in entities) {
       final c = entity.getComponent<SpriteAnimationComponent>()!;
       final path = c.atlasPath.trim();
       var state = _playing[entity];
@@ -301,10 +372,10 @@ class SpriteAnimationSystem extends System {
         if (path.isNotEmpty) _load(entity, state);
       }
       final atlas = state.atlas;
-      if (atlas == null) return;
+      if (atlas == null) continue;
 
       final clip = clipOf(atlas, c);
-      if (clip.frames.isEmpty) return;
+      if (clip.frames.isEmpty) continue;
       if (!c.initialized) {
         c.initialized = true;
         if (c.playOnStart) c.isPlaying = true;
@@ -313,7 +384,7 @@ class SpriteAnimationSystem extends System {
         _advance(entity, state, atlas, c, clip, deltaTime);
       }
       _show(entity, state, atlas, c, clip);
-    });
+    }
   }
 
   Future<void> _load(Entity entity, _Playing state) async {
@@ -464,7 +535,14 @@ class SpriteAnimationSystem extends System {
     AtlasAnimationClip clip,
   ) {
     final frame = clip.frames[c.frameIndex.clamp(0, clip.frames.length - 1)];
-    final region = atlas.getRegion(frame.regionName);
+    // The frame's region, looked up again only when the frame changes.
+    if (!identical(frame, state.frame) || !identical(atlas, state.frameAtlas)) {
+      state
+        ..frame = frame
+        ..frameAtlas = atlas
+        ..region = atlas.getRegion(frame.regionName);
+    }
+    final region = state.region;
     if (region == null) return;
     var sprite = state.sprite;
     if (sprite == null) {

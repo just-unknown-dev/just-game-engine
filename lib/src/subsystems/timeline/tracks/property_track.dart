@@ -2,6 +2,10 @@
 /// component's definition describes, on any entity.
 library;
 
+import 'dart:ui' show Offset;
+
+import 'package:just_dart/just_dart.dart' show Vector2, Vector3;
+
 import '../../../ecs/ecs.dart';
 import '../../../ecs/serialization/component_definition.dart';
 import '../../../ecs/serialization/component_definition_registry.dart';
@@ -128,6 +132,7 @@ class PropertyAccess {
       field.decodeInto(component, out);
       return;
     }
+    if (out is num && _ownsEncoding && _writeChannel(out.toDouble())) return;
     final saved = field.encodeFrom(component);
     if (saved is! Map) return;
     // One channel of several: the others keep their values. A channel
@@ -141,6 +146,74 @@ class PropertyAccess {
       return;
     }
     field.decodeInto(component, {...saved, channel: out});
+  }
+
+  // A copy of the value, to change one channel of: kept from write to
+  // write, so a number on a vector writes without a map, a copy or a
+  // decode each time.
+  Vector3? _vector3;
+  Vector2? _vector2;
+
+  /// [value] written into [channel] of the field's value as it is (a
+  /// [Vector3], [Vector2] or [Offset]) — the saved form never made. False
+  /// when the value is not one of those, or [channel] not one of its parts,
+  /// for the general way to write it.
+  bool _writeChannel(double value) {
+    final write = field.write;
+    if (write == null) return false;
+    final now = field.read(component);
+    switch (now) {
+      case Vector3():
+        final old = switch (channel) {
+          'x' => now.x,
+          'y' => now.y,
+          'z' => now.z,
+          _ => null,
+        };
+        if (old == null) return false;
+        if (old == value) return true;
+        // Never the value itself: a field may hand out what it holds.
+        var copy = _vector3;
+        if (copy == null || identical(copy, now)) {
+          copy = _vector3 = Vector3.zero();
+        }
+        copy.setValues(
+          channel == 'x' ? value : now.x,
+          channel == 'y' ? value : now.y,
+          channel == 'z' ? value : now.z,
+        );
+        write(component, copy);
+        return true;
+      case Vector2():
+        final old = switch (channel) {
+          'x' => now.x,
+          'y' => now.y,
+          _ => null,
+        };
+        if (old == null) return false;
+        if (old == value) return true;
+        var copy = _vector2;
+        if (copy == null || identical(copy, now)) {
+          copy = _vector2 = Vector2.zero();
+        }
+        copy.setValues(
+          channel == 'x' ? value : now.x,
+          channel == 'y' ? value : now.y,
+        );
+        write(component, copy);
+        return true;
+      case Offset():
+        final next = switch (channel) {
+          'dx' => Offset(value, now.dy),
+          'dy' => Offset(now.dx, value),
+          _ => null,
+        };
+        if (next == null) return false;
+        if (next != now) write(component, next);
+        return true;
+      default:
+        return false;
+    }
   }
 
   /// Whether [field]'s kind is one of the engine's map kinds, whose saved
@@ -292,10 +365,6 @@ class PropertyTrackRunner extends TrackRunner {
   Entity? _entity;
   PropertyAccess? _access;
 
-  // The world's structure when [_access] was last known to be on [_entity]:
-  // until a component is added or removed, it still is.
-  int _checkedAt = -1;
-
   /// What a relative track's keys are added to: the field's value when this
   /// play first reached it. Null before then, and for an absolute track.
   ///
@@ -315,11 +384,13 @@ class PropertyTrackRunner extends TrackRunner {
     if (track.curve.isEmpty) return;
     final entity = context.resolve(track.binding);
     if (entity == null) return;
-    final version = context.world.structureVersion;
+    final known = _access;
     if (!identical(entity, _entity) ||
-        _access == null ||
-        (version != _checkedAt &&
-            !entity.components.contains(_access!.component))) {
+        known == null ||
+        !identical(
+          entity.getComponentByType(known.component.componentType),
+          known.component,
+        )) {
       _entity = entity;
       _access = PropertyAccess.of(
         entity,
@@ -331,13 +402,12 @@ class PropertyTrackRunner extends TrackRunner {
       final found = _access;
       if (found != null) context.willWrite(found.component, found.field);
     }
-    _checkedAt = version;
     final access = _access;
     if (access == null) return;
 
     final value = track.curve.valueAt(
       time,
-      isColor: track.isColor,
+      isColor: track.isColor || access.isColor,
       easings: context.world.context.easings,
     );
     if (value == null) return;

@@ -175,7 +175,9 @@ class TimelinePlayback implements TimelineContext {
   Entity? resolve(TrackBinding binding, {bool includeInactive = false}) {
     if (binding.isSelf) return owner;
     final known = _resolved[binding];
-    if (known != null && known.isAlive && (includeInactive || known.isActive)) {
+    if (known != null &&
+        known.isAlive &&
+        (includeInactive || known.isActiveInHierarchy)) {
       return known;
     }
     final found = binding.resolve(
@@ -219,6 +221,13 @@ class TimelinePlayback implements TimelineContext {
   bool get isInterrupted =>
       _generation != _stepGeneration || (_parent?.isInterrupted ?? false);
 
+  /// True at the end of the play range ([rangeEnd]) unless the wrap is a
+  /// loop's, which goes straight on to the start: a `once` timeline stops
+  /// there and a ping-pong turns round.
+  @override
+  bool endsAt(double time) =>
+      effectiveWrap != TimelineWrap.loop && time >= rangeEnd - 1e-9;
+
   /// Fires what lies between [from] and [to] without moving the clock — for
   /// whoever drives this playback's time from outside, as a nested track
   /// does.
@@ -242,7 +251,10 @@ class TimelinePlayback implements TimelineContext {
     final (lo, hi) = bounds;
     if (from != null) {
       _restart(from);
-    } else if (_begun && _finished && _time == (backwards ? hi : lo)) {
+    } else if (_begun &&
+        _finished &&
+        hi > lo &&
+        _time == (backwards ? hi : lo)) {
       // Turning round on the edge it stopped at: carry on from here.
     } else if (!_begun || _finished) {
       _restart(backwards ? hi : lo);
@@ -276,16 +288,19 @@ class TimelinePlayback implements TimelineContext {
     _finished = false;
     if (_begun) _end();
     _time = rangeStart;
+    _bounce = 1;
   }
 
   /// Jumps to [time] and shows it. Events in between do not fire — nor,
-  /// called from an event handler, do the rest of that step's.
+  /// called from an event handler, do the rest of that step's. A
+  /// ping-pong sets off forwards from there.
   void seek(double time) {
     _generation++;
     _ensureBegun();
     final (lo, hi) = bounds;
     _time = time.clamp(lo, hi);
     _finished = false;
+    _bounce = 1;
     apply();
   }
 
@@ -333,16 +348,32 @@ class TimelinePlayback implements TimelineContext {
     final step = _stepGeneration = _generation;
     final (lo, hi) = bounds;
     final length = hi - lo;
+    // Only a ping-pong comes back; switched to another wrap on its way
+    // back, it plays on as that wrap does.
+    if (effectiveWrap != TimelineWrap.pingPong) _bounce = 1;
+    var direction = (speed < 0 ? -1 : 1) * _bounce;
     if (length <= 0) {
+      // No time to run through, but what sits on its one moment happens.
+      if (_touchStart) {
+        _touchStart = false;
+        _advance(_time - direction * 1e-9, _time);
+        if (_generation != step) return;
+      }
       _playing = false;
       _finished = true;
+      apply();
       return;
     }
-    var direction = (speed < 0 ? -1 : 1) * _bounce;
+    // The range moved under the playhead: it goes on from the edge it is
+    // now past, firing nothing on the way back to it.
+    if (_time < lo || _time > hi) _time = _time.clamp(lo, hi).toDouble();
     var remaining = (deltaTime * speed).abs();
     // A step many timelines long lands where the remainder would; walking
-    // every lap would only fire the same events again and again.
-    if (remaining > length * 4) remaining = length * 2 + remaining % length;
+    // every lap would only fire the same events again and again. A
+    // ping-pong's round trip is two lengths, so the remainder is of that.
+    if (remaining > length * 4) {
+      remaining = length * 2 + remaining % (length * 2);
+    }
 
     // What sits exactly where play begins happens as it begins.
     if (_touchStart) {

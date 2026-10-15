@@ -299,12 +299,11 @@ void main() {
     audio.started = false;
     final source = AudioSourceComponent(clipPath: 'a.wav', loop: true);
     world.createEntityWithComponents([source]);
-    world.createEntityWithComponents([AudioPlayComponent(clipPath: 'b.wav')]);
+    world.getSystem<AudioSystem>()!.playOneShot('b.wav');
     final music = world.createEntityWithComponents([AudioStreamComponent(path: 'c.wav')]);
     frames(3);
     expect(audio.played, isEmpty);
     expect(source.playOnAdd, isTrue, reason: 'it waits');
-    expect(world.query([AudioPlayComponent]), isEmpty, reason: 'a one-shot is let go');
     expect(music.getComponent<AudioStreamComponent>()!.stream, isNull, reason: 'not opened');
 
     world.destroyEntity(music); // (this engine has no backend to stream from)

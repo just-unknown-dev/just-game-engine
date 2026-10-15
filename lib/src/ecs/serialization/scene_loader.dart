@@ -52,6 +52,14 @@ abstract final class SceneLoader {
   /// type no codec is registered for — naming the type and the entity — rather
   /// than creating the entity without it.
   ///
+  /// Throws a [FormatException] naming the entity (and the component and
+  /// field) when the file holds a value of the wrong type. Either way the
+  /// world is left untouched.
+  ///
+  /// A parent link that would make a loop (A under B under A) is left out,
+  /// with a debug message; a second component of a type an entity already
+  /// has replaces the first, also with a message.
+  ///
   /// [codecs] defaults to the world's `context.definitions`, and [hooks] —
   /// the packages' migration rules — to its `context.migrations`. An older
   /// file is migrated first; [onMigrated] hears what that found (it is not
@@ -71,29 +79,25 @@ abstract final class SceneLoader {
     );
     if (migration.migrated) onMigrated?.call(migration);
     final scene = migration.scene;
-    final entries = (scene['entities'] as List? ?? const [])
-        .cast<Map<String, dynamic>>();
+    final list = scene['entities'] ?? const <Object?>[];
+    if (list is! List) {
+      throw FormatException('Scene: "entities" is $list, not a list.');
+    }
+    final entries = <Map<String, dynamic>>[
+      for (var i = 0; i < list.length; i++)
+        if (list[i] case final Map<Object?, Object?> entry)
+          entry.cast<String, dynamic>()
+        else
+          throw FormatException(
+            'Scene: entity #$i is ${list[i]}, not an object.',
+          ),
+    ];
 
     // Decode everything before creating anything, so a bad component leaves
     // the world untouched instead of half-loaded.
     final decoded = [
-      for (final entry in entries)
-        (
-          name: entry['name'] as String?,
-          parentName: entry['parentName'] as String?,
-          // Left out means on, which is what nearly every entity is.
-          enabled: entry['enabled'] != false,
-          components: [
-            for (final raw
-                in (entry['components'] as List? ?? const [])
-                    .cast<Map<String, dynamic>>())
-              registry.decode(raw) ??
-                  (throw UnknownComponentTypeException(
-                    raw['type']?.toString() ?? '<missing type>',
-                    entityName: entry['name'] as String?,
-                  )),
-          ],
-        ),
+      for (var i = 0; i < entries.length; i++)
+        _decodeEntry(entries[i], i, registry),
     ];
 
     // Every entry is an entity — one with no components too (a folder in
@@ -116,6 +120,13 @@ abstract final class SceneLoader {
     for (var i = 0; i < decoded.length; i++) {
       final at = parents[i];
       if (at == null) continue;
+      if (_reaches(parents, at, i)) {
+        debugPrint(
+          'SceneLoader: "${decoded[i].name}" under "${decoded[at].name}" '
+          'would make a loop of parents; left at the top.',
+        );
+        continue;
+      }
       final child = created[i];
       final parent = created[at];
       // Both ends of the link, and both made where a file leaves one out.
@@ -200,6 +211,35 @@ abstract final class SceneLoader {
       }
       path.add(i);
     }
+
+    // Links that loop — each entry naming the next as its parent, round to
+    // the first — would make an entity its own ancestor, which a world
+    // refuses. The link that closes the loop is dropped: that entry loads
+    // as a root.
+    final state = List<int>.filled(parents.length, 0); // 1 walking, 2 done
+    for (var i = 0; i < parents.length; i++) {
+      if (state[i] != 0) continue;
+      final walk = <int>[];
+      int? at = i;
+      while (at != null && state[at] != 2) {
+        if (state[at] == 1) {
+          final cut = walk.last;
+          debugPrint(
+            'SceneLoader: the parents of entity #$cut '
+            '(${names[cut] ?? 'unnamed'}) lead back to it; it is loaded '
+            'without a parent.',
+          );
+          parents[cut] = null;
+          break;
+        }
+        state[at] = 1;
+        walk.add(at);
+        at = parents[at];
+      }
+      for (final w in walk) {
+        state[w] = 2;
+      }
+    }
     return parents;
   }
 
@@ -250,7 +290,75 @@ abstract final class SceneLoader {
       SceneAssets.manifest,
       cache: false,
     );
-    final json = jsonDecode(source) as Map<String, dynamic>;
-    return (json['scenes'] as List? ?? const []).cast<String>();
+    // Text that is not a list of scenes lists none; entries that are not
+    // names are skipped.
+    return SceneManifest.parse(source);
+  }
+
+  /// Entry [index] of a scene's `entities`, decoded, or a
+  /// [FormatException] naming it when a value has the wrong type.
+  static ({
+    String? name,
+    String? parentName,
+    bool enabled,
+    List<Component> components,
+  })
+  _decodeEntry(
+    Map<String, dynamic> entry,
+    int index,
+    ComponentDefinitionRegistry registry,
+  ) {
+    final rawName = entry['name'];
+    final where = rawName is String
+        ? 'Entity #$index "$rawName"'
+        : 'Entity #$index';
+    try {
+      final components = <Component>[];
+      final seen = <Type>{};
+      final list = entry['components'] ?? const <Object?>[];
+      if (list is! List) {
+        throw FormatException('"components" is $list, not a list.');
+      }
+      for (final raw in list) {
+        if (raw is! Map) {
+          throw FormatException('a component is $raw, not an object.');
+        }
+        final json = raw.cast<String, dynamic>();
+        final component =
+            registry.decode(json) ??
+            (throw UnknownComponentTypeException(
+              json['type']?.toString() ?? '<missing type>',
+              entityName: rawName is String ? rawName : null,
+            ));
+        if (!seen.add(component.runtimeType)) {
+          debugPrint(
+            'SceneLoader: $where has two ${json['type']}; the later one is '
+            'kept.',
+          );
+        }
+        components.add(component);
+      }
+      return (
+        name: entry['name'] as String?,
+        parentName: entry['parentName'] as String?,
+        // Left out means on, which is what nearly every entity is.
+        enabled: entry['enabled'] != false,
+        components: components,
+      );
+    } on FormatException catch (e) {
+      throw FormatException('$where: ${e.message}');
+    } on TypeError catch (e) {
+      throw FormatException('$where: a value has the wrong type ($e).');
+    }
+  }
+
+  /// Whether following [parents] up from [from] arrives at [target].
+  static bool _reaches(List<int?> parents, int from, int target) {
+    int? at = from;
+    for (var steps = 0; at != null && steps <= parents.length; steps++) {
+      if (at == target) return true;
+      at = parents[at];
+    }
+    return false;
   }
 }

@@ -1,6 +1,7 @@
 /// Converting between the Tiled editor's files and the engine's level maps.
 library;
 
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui';
 
@@ -214,17 +215,49 @@ abstract final class TiledInterop {
       );
       if (!def.isDefault) tiles[entry.key] = def;
     }
+    // A tileset saved before Tiled 0.15 gives neither its columns nor its
+    // tile count: work them out from the image, as Tiled does. Left at 0,
+    // nothing was drawn, and an export numbered the next tileset's tiles
+    // over this one's.
+    final imageWidth = ts.imageWidth ?? 0;
+    final imageHeight = ts.imageHeight ?? 0;
+    var columns = ts.columns;
+    var tileCount = ts.tileCount;
+    if (columns <= 0) {
+      columns = TilesetData.gridCount(
+        imageWidth,
+        ts.tileWidth,
+        ts.margin,
+        ts.spacing,
+      );
+    }
+    if (tileCount <= 0 && columns > 0) {
+      tileCount =
+          columns *
+          TilesetData.gridCount(
+            imageHeight,
+            ts.tileHeight,
+            ts.margin,
+            ts.spacing,
+          );
+    }
+    if (columns <= 0 || tileCount <= 0) {
+      warn?.call(
+        'Tileset "${ts.name}" gives neither its columns and tile count nor '
+        'its image size, so its tiles cannot be found.',
+      );
+    }
     return TilesetData(
       name: name ?? ts.name,
       image: image,
-      imageWidth: ts.imageWidth ?? 0,
-      imageHeight: ts.imageHeight ?? 0,
+      imageWidth: imageWidth,
+      imageHeight: imageHeight,
       tileWidth: ts.tileWidth,
       tileHeight: ts.tileHeight,
       margin: ts.margin,
       spacing: ts.spacing,
-      columns: ts.columns,
-      tileCount: ts.tileCount,
+      columns: columns,
+      tileCount: tileCount,
       tileOffsetX: ts.tileOffset.dx,
       tileOffsetY: ts.tileOffset.dy,
       className: ts.className,
@@ -278,23 +311,59 @@ abstract final class TiledInterop {
       if (kind == null && kinds.byId(o.type) != null) {
         kind = o.type;
       }
+      // Tiled turns an object clockwise about its (x, y) by its rotation in
+      // degrees; a turned box or ellipse becomes a polygon. (The rotation
+      // used to be dropped, so a slanted collider imported level.)
+      final turned = o.rotation % 360 != 0;
+      final radians = o.rotation * math.pi / 180;
+      final cos = math.cos(radians), sin = math.sin(radians);
+      Offset place(double dx, double dy) => turned
+          ? Offset(o.x + dx * cos - dy * sin, o.y + dx * sin + dy * cos)
+          : Offset(o.x + dx, o.y + dy);
       if (o.polygon != null) {
         shapes.add(
-          TilePolygonShape([
-            for (final p in o.polygon!) Offset(o.x + p.dx, o.y + p.dy),
-          ]),
+          TilePolygonShape([for (final p in o.polygon!) place(p.dx, p.dy)]),
         );
       } else if (o.isEllipse) {
-        shapes.add(
-          TileEllipseShape(Rect.fromLTWH(o.x, o.y, o.width, o.height)),
-        );
+        if (!turned) {
+          shapes.add(
+            TileEllipseShape(Rect.fromLTWH(o.x, o.y, o.width, o.height)),
+          );
+        } else if (o.width == o.height) {
+          // A circle only moves: its centre turns about (x, y).
+          final r = o.width / 2;
+          shapes.add(
+            TileEllipseShape(Rect.fromCircle(center: place(r, r), radius: r)),
+          );
+        } else {
+          final rx = o.width / 2, ry = o.height / 2;
+          const sides = 24;
+          shapes.add(
+            TilePolygonShape([
+              for (var i = 0; i < sides; i++)
+                place(
+                  rx + rx * math.cos(2 * math.pi * i / sides),
+                  ry + ry * math.sin(2 * math.pi * i / sides),
+                ),
+            ]),
+          );
+        }
       } else if (o.polyline != null || o.isPoint) {
         warn?.call(
           'A collision line or point on tile ${tile.id} was left '
           'out: only areas collide.',
         );
       } else if (o.width > 0 && o.height > 0) {
-        shapes.add(TileRectShape(Rect.fromLTWH(o.x, o.y, o.width, o.height)));
+        shapes.add(
+          turned
+              ? TilePolygonShape([
+                  place(0, 0),
+                  place(o.width, 0),
+                  place(o.width, o.height),
+                  place(0, o.height),
+                ])
+              : TileRectShape(Rect.fromLTWH(o.x, o.y, o.width, o.height)),
+        );
       }
     }
     if (shapes.isEmpty) return null;

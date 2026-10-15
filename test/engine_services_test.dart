@@ -34,6 +34,23 @@ class _Other extends _Recorder {
   _Other(super.name, super.log, {super.failStart});
 }
 
+/// A service whose start() waits for [starting].
+class _Slow extends EngineService {
+  _Slow(this.log, this.starting);
+  final List<String> log;
+  final Completer<void> starting;
+
+  @override
+  Future<void> start(ServiceContext context) async {
+    log.add('start');
+    await starting.future;
+    log.add('started');
+  }
+
+  @override
+  Future<void> stop() async => log.add('stop');
+}
+
 class _Hello extends GameEvent {
   _Hello(this.name);
   final String name;
@@ -159,6 +176,44 @@ void main() {
       expect(engine.state, EngineState.disposed);
     },
   );
+
+  group('C8 a service added late and still starting', () {
+    test('is stopped by dispose once it has started', () async {
+      final log = <String>[];
+      final starting = Completer<void>();
+      final engine = Engine();
+      await engine.initialize();
+      final adding = engine.services.add(_Slow(log, starting));
+      var disposed = false;
+      final disposing = engine.dispose().then((_) => disposed = true);
+      await pumpEventQueue();
+      expect(log, ['start']);
+      expect(disposed, isFalse, reason: 'dispose waits for its stop');
+      starting.complete();
+      await adding;
+      await disposing;
+      expect(log, ['start', 'started', 'stop'], reason: 'never stopped');
+    });
+
+    test('is stopped by remove once it has started', () async {
+      final log = <String>[];
+      final starting = Completer<void>();
+      final engine = Engine();
+      addTearDown(engine.dispose);
+      await engine.initialize();
+      final service = _Slow(log, starting);
+      final adding = engine.services.add(service);
+      final removing = engine.services.remove(service);
+      starting.complete();
+      await adding;
+      await removing;
+      expect(log, ['start', 'started', 'stop']);
+      expect(engine.services.all, isEmpty);
+      log.clear();
+      await engine.dispose();
+      expect(log, isEmpty, reason: 'stopped once');
+    });
+  });
 
   test('a disposed engine takes no more services', () async {
     final engine = Engine();

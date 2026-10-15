@@ -151,13 +151,15 @@ void main() {
       expect(childrenOf(parent), [a.id, b.id]);
     });
 
-    test('a link to nobody, or to itself, lists nothing', () {
+    test('a link to nobody lists nothing; one to itself is refused', () {
       final lonely = world.createEntityWithComponents([
         TransformComponent(),
         ParentComponent(parentId: 999),
       ]);
       expect(world.getEntity(999), isNull);
-      lonely.getComponent<ParentComponent>()!.parentId = lonely.id;
+      final link = lonely.getComponent<ParentComponent>()!;
+      expect(() => link.parentId = lonely.id, throwsArgumentError);
+      expect(link.parentId, 999);
       expect(lonely.hasComponent<ChildrenComponent>(), isFalse);
     });
 

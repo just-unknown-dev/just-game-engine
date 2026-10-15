@@ -74,7 +74,8 @@ class EngineConfig {
   /// stage) as it is made and starts it, after [services], as it
   /// initializes. Jolt must be built into the app (its pubspec:
   /// `hooks: user_defines: just_jolt: build: true`); where 3-D cannot run,
-  /// initializing fails with a `Physics3DUnsupportedError`.
+  /// initializing fails with an `EngineInitException` whose `cause` is a
+  /// `Physics3DUnsupportedError` (`Physics3D.isSupported` asks first).
   final Physics3D? physics3D;
 
   /// 3-D graphics (`package:just_game_engine/graphics_3d.dart`): null for a
