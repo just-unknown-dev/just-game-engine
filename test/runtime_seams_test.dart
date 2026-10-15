@@ -176,17 +176,29 @@ void main() {
   });
 
   test('the audio listener faces the world, with +X on its right', () {
-    final listener = AudioListenerComponent();
-    final forward = Vector3(
-      listener.forwardX,
-      listener.forwardY,
-      listener.forwardZ,
-    );
-    final up = Vector3(listener.upX, listener.upY, listener.upZ);
+    final audio = _ListenerAudio();
+    final world = World()..initialize();
+    addTearDown(world.dispose);
+    world
+      ..addSystem(AudioSystem(engine: audio))
+      ..createEntityWithComponents([
+        TransformComponent(),
+        AudioListenerComponent(),
+      ])
+      ..frame(1 / 60, 1);
+    final heard = audio.listener;
+    final forward = Vector3(heard.forward.x, heard.forward.y, heard.forward.z);
+    final up = Vector3(heard.up.x, heard.up.y, heard.up.z);
     final right = forward.cross(up);
     // As before (forward (0,0,-1), up (0,1,0)): panning is unchanged.
     expect([right.x, right.y, right.z], [1, 0, 0]);
     expect([up.x, up.y, up.z], [0, -1, 0]);
+    // A sound to the right of the screen plays on the right.
+    final mix = const AudioSpatial().mix(
+      listener: heard,
+      position: Audio3DPosition(3, 0, 0),
+    );
+    expect(mix.pan, closeTo(1, 1e-12));
   });
 
   test('a flat extent is a box with no depth', () {
@@ -199,4 +211,14 @@ void main() {
     expect([box.min.x, box.max.x, box.min.y, box.max.y], [-20, 20, -10, 10]);
     expect(box.min.z, 0);
   });
+}
+
+/// Keeps the listener the system sends, and plays nothing.
+class _ListenerAudio extends AudioEngine {
+  @override
+  void setListener3D(Audio3DListener listener) => _heard = listener;
+  Audio3DListener _heard = const Audio3DListener();
+
+  @override
+  Audio3DListener get listener => _heard;
 }

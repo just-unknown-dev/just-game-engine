@@ -135,12 +135,14 @@ abstract final class TiledInterop {
   static int? _argb(Color? c) => c?.toARGB32();
   static Color? _color(int? argb) => argb == null ? null : Color(argb);
 
-  /// Tiled's properties as the engine's.
+  /// Tiled's properties as the engine's. A `class` property, which the
+  /// engine has no type for, is left out.
   static TileProperties importProperties(tiled.TiledProperties p) {
     final out = TileProperties();
     for (final name in p.keys) {
-      final type = TilePropertyType.fromName(p.typeOf(name));
       final value = p[name];
+      if (value is tiled.TiledProperties) continue;
+      final type = TilePropertyType.fromName(p.typeOf(name));
       out.set(name, value is Color ? value.toARGB32() : value, type);
     }
     return out;

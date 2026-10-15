@@ -3,17 +3,22 @@
 /// Components for integrating audio with the ECS architecture.
 library;
 
+import 'dart:math' as math;
+
 import '../../../subsystems/audio/audio.dart';
-import '../../../foundation/world_axes.dart';
 import '../../ecs.dart';
 
 /// Component describing an audio source attached to an entity.
 ///
 /// This is data-only. The actual loading and playback is handled by
-/// [AudioSystem].
+/// [AudioSystem]. The sound stops when the component or its entity goes.
 class AudioSourceComponent extends Component {
   /// A source for [clipPath] that plays once, at full volume, centred, at
   /// its original pitch and speed, as soon as `AudioSystem` sees it.
+  ///
+  /// With [is3d] it is placed at the entity instead: full volume within
+  /// [minDistance] of the listener, silent beyond [maxDistance], faded
+  /// between by [rolloff].
   AudioSourceComponent({
     required this.clipPath,
     this.volume = 1.0,
@@ -25,6 +30,11 @@ class AudioSourceComponent extends Component {
     this.pitch = 1.0,
     this.speed = 1.0,
     this.effects = const [],
+    this.minDistance = 1.0,
+    this.maxDistance = 50.0,
+    this.rolloff = AudioRolloff.inverse,
+    this.dopplerLevel = 0.0,
+    this.farCutoff = 0.0,
   });
 
   /// Asset path to the audio clip.
@@ -44,13 +54,13 @@ class AudioSourceComponent extends Component {
   /// If true, playback starts as soon as the system processes this entity.
   bool playOnAdd;
 
-  /// The audio channel the source is meant for. `AudioSystem` cannot honour
-  /// it yet — just_audio_engine plays every sound effect on
-  /// [AudioChannel.sfx], its volume and bus included.
+  /// The channel the sound plays on: its volume scales the sound, and on
+  /// the web it is the bus the sound goes through.
   AudioChannel channel;
 
-  /// If true, the source uses 3D positional audio derived from the entity's
-  /// [TransformComponent]; without a transform it plays flat.
+  /// If true, the source is heard from where the entity is, relative to
+  /// the listener ([AudioListenerComponent]); without a transform it plays
+  /// flat.
   bool is3d;
 
   /// Pitch multiplier: 1.0 = original, 2.0 = one octave up.
@@ -62,10 +72,44 @@ class AudioSourceComponent extends Component {
   /// DSP effects applied to this voice when playback starts.
   List<AudioEffect> effects;
 
+  /// 3-D: within this distance of the listener, in world units, the sound
+  /// plays at full volume.
+  double minDistance;
+
+  /// 3-D: at and beyond this distance the sound is silent (unless the
+  /// [rolloff] is [AudioRolloff.none]), and muffled down to [farCutoff].
+  double maxDistance;
+
+  /// 3-D: how the sound fades between [minDistance] and [maxDistance].
+  AudioRolloff rolloff;
+
+  /// 3-D: how much moving changes the pitch — 0 none, 1 the real-world
+  /// doppler effect (for a world in metres).
+  double dopplerLevel;
+
+  /// 3-D: the low-pass cutoff, in Hz, the sound is muffled to at
+  /// [maxDistance]; 0 leaves it clear at any distance.
+  double farCutoff;
+
+  /// How the sound is heard in 3-D, from the fields above, made safe: a
+  /// zero or negative [minDistance], or a [maxDistance] below it, cannot
+  /// throw.
+  AudioSpatial get spatial {
+    final min = math.max(minDistance, 1e-3);
+    return AudioSpatial(
+      minDistance: min,
+      maxDistance: math.max(maxDistance, min),
+      rolloff: rolloff,
+      dopplerLevel: math.max(dopplerLevel, 0),
+      farCutoff: math.max(farCutoff, 0),
+    );
+  }
+
   /// Internal source handle managed by [AudioSystem].
   Object? loadedSource;
 
-  /// Internal playback handle managed by [AudioSystem].
+  /// Internal playback handle managed by [AudioSystem]: the sound's ID while
+  /// it plays, null once it has stopped or played to its end.
   Object? handle;
 }
 
@@ -84,13 +128,14 @@ class AudioPlayComponent extends Component {
     this.speed = 1.0,
     this.channel = AudioChannel.sfx,
     this.is3d = false,
+    this.spatial = const AudioSpatial(),
     this.effects = const [],
   });
 
   /// Asset path to the audio clip.
   final String clipPath;
 
-  /// Volume, 0.0 (silent) to 1.0 (full), scaled by the sfx channel's own
+  /// Volume, 0.0 (silent) to 1.0 (full), scaled by its [channel]'s own
   /// volume.
   double volume;
 
@@ -105,14 +150,16 @@ class AudioPlayComponent extends Component {
   /// Playback speed multiplier (1.0 = normal).
   double speed;
 
-  /// The audio channel the sound is meant for. `AudioSystem` cannot honour
-  /// it yet — just_audio_engine plays every sound effect on
-  /// [AudioChannel.sfx], its volume and bus included.
+  /// The channel the sound plays on.
   AudioChannel channel;
 
   /// Whether the sound is placed in 3-D at the entity's
-  /// `TransformComponent` position; without a transform it plays flat.
+  /// `TransformComponent` position (where it is when it starts); without a
+  /// transform it plays flat.
   bool is3d;
+
+  /// How the sound is heard in 3-D.
+  AudioSpatial spatial;
 
   /// DSP effects applied to the voice when playback starts.
   List<AudioEffect> effects;
@@ -134,6 +181,7 @@ class AudioStopComponent extends Component {}
 ///
 /// Use for music tracks or long ambient loops. The [AudioSystem] opens an
 /// [AudioStream] backed by the native streaming path and manages its lifecycle.
+/// The stream stops when the component or its entity goes.
 class AudioStreamComponent extends Component {
   /// A stream of [path] on the music channel that loops at full volume and
   /// starts as soon as `AudioSystem` sees it; no fade-in unless
@@ -160,8 +208,8 @@ class AudioStreamComponent extends Component {
   bool playOnAdd;
 
   /// The audio channel the stream is meant for, handed to its
-  /// [AudioStream]. just_audio_engine does not route a stream through its
-  /// channel yet, so the channel's volume does not apply.
+  /// [AudioStream] (on the web, the bus it goes through). A stream bypasses
+  /// the engine's channel volumes, so the channel's volume does not apply.
   AudioChannel channel;
 
   /// How long the stream takes to fade in from silence to [volume] when
@@ -175,36 +223,27 @@ class AudioStreamComponent extends Component {
   bool get isPlaying => stream?.isPlaying ?? false;
 }
 
-/// Marks an entity as the audio listener (typically the camera or player).
+/// Marks the entity that hears: 3-D sounds are panned and faded for where
+/// it is and which way it faces.
 ///
-/// The [AudioSystem] reads the entity's [TransformComponent] and
-/// forwards it to the native listener each frame.
+/// By default it hears from the entity's own transform: its position, and
+/// the way its rotation turns the world's forward (+Z) and up (−Y). Either
+/// can come from the output camera instead — [atCamera], [faceCamera]. A
+/// third-person game puts the listener on the player with [faceCamera]:
+/// the hero's own sounds stay centred and full, the world's turn with the
+/// view.
 ///
-/// The listener faces the way the world does ([WorldAxes]): forward into
-/// the screen, up towards −Y. Its right is then +X, so a sound to the right
-/// of it on screen plays on the right.
+/// Only the first listener counts. With none, the `AudioSystem` hears from
+/// the camera, when it has one.
 class AudioListenerComponent extends Component {
-  /// A listener facing into the screen (+Z) with −Y up, unless the
-  /// direction arguments say otherwise.
-  AudioListenerComponent({
-    this.forwardX = WorldAxes.forwardX,
-    this.forwardY = WorldAxes.forwardY,
-    this.forwardZ = WorldAxes.forwardZ,
-    this.upX = WorldAxes.upX,
-    this.upY = WorldAxes.upY,
-    this.upZ = WorldAxes.upZ,
-    this.fromCamera = false,
-  });
+  /// A listener at the entity, facing the way the entity does.
+  AudioListenerComponent({this.atCamera = false, this.faceCamera = false});
 
-  /// Hear from the output camera: its position and the way it faces,
-  /// whatever the entity's transform and the directions here say — what a
-  /// 3-D game wants, so sound turns with the view. Needs the [AudioSystem]
-  /// to be given the camera (the engine's default systems do).
-  bool fromCamera;
+  /// Hear from where the output camera is, not the entity. Needs the
+  /// [AudioSystem] to be given the camera (the engine's default systems
+  /// do).
+  bool atCamera;
 
-  /// The direction the listener faces, in world axes; +Z by default.
-  double forwardX, forwardY, forwardZ;
-
-  /// The listener's up direction, in world axes; −Y by default.
-  double upX, upY, upZ;
+  /// Face the way the output camera faces, not the entity.
+  bool faceCamera;
 }

@@ -527,7 +527,9 @@ void main() {
       // standalone 'physics' task — PhysicsSystem steps engine.physics
       // inline from within the 'ecs' task instead (see Engine.physics'
       // doc comment for why).
-      const expectedTasks = ['input', 'camera', 'parallax', 'audio', 'ecs'];
+      // Audio is a frame task: it places sounds once the frame has moved
+      // everything.
+      const expectedTasks = ['input', 'camera', 'parallax', 'ecs'];
       expect(taskTimes.keys, containsAll(expectedTasks));
       expect(
         scheduler['updateTaskCount'],

@@ -13,6 +13,9 @@ class _RecordingAudio extends AudioEngine {
   final List<double> pans = [];
 
   @override
+  bool get isInitialized => true;
+
+  @override
   Future<String?> playSfx(
     String path, {
     double volume = 1.0,
@@ -22,6 +25,8 @@ class _RecordingAudio extends AudioEngine {
     double speed = 1.0,
     List<AudioEffect> effects = const [],
     Audio3DPosition? position3d,
+    AudioSpatial spatial = const AudioSpatial(),
+    AudioChannel channel = AudioChannel.sfx,
   }) async {
     pans.add(pan);
     return 'sfx-${pans.length}';
@@ -45,6 +50,8 @@ class _Backend implements AudioBackend {
     double pitch = 1.0,
     double speed = 1.0,
     String busName = 'sfx',
+    bool spatial = false,
+    double lowPass = 0,
   }) async {
     playVolumes.add(volume);
     return 'voice';

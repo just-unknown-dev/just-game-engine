@@ -569,10 +569,15 @@ class Engine {
       'particles',
       (deltaTime) => rendering.updateManagedEmitters(deltaTime),
     );
-    systems.registerUpdateTask('audio', (_) => audio.update());
     systems.registerUpdateTask('ecs', (deltaTime) => world.update(deltaTime));
     // Systems that also move once per rendered frame (see FrameSystem).
     systems.registerFrameTask('ecs', world.frame);
+    // Last in the frame, once the camera and the sources have moved: every
+    // 3-D sound is placed, in one batch.
+    systems.registerFrameTask(
+      'audio',
+      (deltaTime, _) => audio.update(dt: deltaTime),
+    );
   }
 
   // ── Running ─────────────────────────────────────────────────────────────
