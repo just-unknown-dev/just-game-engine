@@ -8,7 +8,7 @@ Scene files saved by earlier versions still load: they are migrated in memory wh
 
 ## Checklist
 
-- [ ] Raise the constraints: `just_game_engine: ^2.0.0`, Flutter 3.44 or newer ([Dependencies](#dependencies)).
+- [ ] Raise the constraints: `just_game_engine: ^2.0.0-dev.1`, Flutter 3.47.1 or newer ([Dependencies](#dependencies)).
 - [ ] Create the engine with `Engine(config: ...)`, `await initialize()` before `runApp`, and dispose it once. Replace `Engine.instance` with a reference you pass around ([Engine setup](#engine-setup-and-lifecycle)).
 - [ ] Add the standard systems through `EngineConfig.defaultSystems`, or give `PhysicsSystem` the engine's physics ([Systems](#systems)).
 - [ ] Physics bodies: `PhysicsBodyComponent` becomes a `RigidBody2D` and a `Collider2D`, with 3-D's names and defaults; `bodyType` instead of `isStatic`, a layer number instead of a layer bit, colliders that follow scale, and the `...2D` events ([Physics bodies](#physics-bodies)).
@@ -25,23 +25,25 @@ Scene files saved by earlier versions still load: they are migrated in memory wh
 - [ ] Fix imports: `package:just_game_engine/widgets.dart` for the widgets, and the source package for names no longer re-exported ([Imports](#imports)).
 - [ ] Check the lists of [removed](#removed-apis), [renamed](#renamed-apis) and [deprecated](#deprecated-apis) APIs.
 - [ ] Re-test what [behaves differently](#behaviour-you-may-notice).
-- [ ] Using joints or audio channels? Read the [known limitations](#known-limitations-in-200).
+- [ ] Using joints or audio streams? Read the [known limitations](#known-limitations-in-200).
 
 ## Dependencies
 
 ```yaml
 environment:
   sdk: ^3.11.0
-  flutter: ">=3.44.0"
+  flutter: ">=3.47.1"
 
 dependencies:
-  just_game_engine: ^2.0.0
+  just_game_engine: ^2.0.0-dev.1
   # Only if you use the game services (achievements, auth, leaderboards,
   # currency, inventory, ads):
   just_game_services: ^0.1.0
 ```
 
-2.0 needs Flutter 3.44 or newer (Dart 3.12): `just_inputs` and `just_audio_engine` build their Android code with Flutter's built-in Kotlin. The engine now depends on `just_inputs`, `just_deflate`, `just_game_engine_formats` and `path_provider`, and on `just_physics_engine` 1.4.0, `just_tiled` 0.4 and `just_dart` 0.2.0. It no longer depends on `web`.
+2.0 is out as a dev release, 2.0.0-dev.1; a `^2.0.0` constraint does not pick it up.
+
+2.0 needs Flutter 3.47.1 or newer: `just_graphics_engine` needs the first stable where Flutter GPU can be switched on in Windows and Linux release builds, and `just_inputs` and `just_audio_engine` build their Android code with Flutter's built-in Kotlin. The engine now depends on `just_inputs`, `just_deflate`, `just_game_engine_formats`, `just_graphics_engine` and `path_provider`, and on `just_physics_engine` 1.4.0, `just_audio_engine` 1.1.0, `just_tiled` 0.4 and `just_dart` 0.2.0. It no longer depends on `web`.
 
 ## Engine setup and lifecycle
 
@@ -1002,7 +1004,7 @@ Future<Sprite> loadHero(Engine engine) =>
 | `just_inputs` | `InputService`, `InputActionAsset`, `InputActions`, `InputActionMap`, `InputAction`, the devices, players, rebinding and control-path names, the look input and the pointer lock (43 in all) | the asset model (`ActionMapDef`, `InputActionDef`, `ControlBindingDef`, …), `validateAsset`, `findBindingConflicts`, the interaction, processor and composite registries |
 | `just_dart` | `Vector2`, `Vector3`, `Matrix4`, `JustMatrix4`, `Quaternion`, `Aabb3`, `Ray3`, `Plane`, `Frustum` | `Quadtree` |
 | `just_memory` | `MemoryScope`, `DisposeCallback`, `MemoryProfiler`, `MemoryProfileSnapshot`, `MemoryStats`, `CacheBudgetStats`, `PoolManager`, `PoolStats`, `ArenaStats`, `MemoryCleanupResult`, `SystemMemorySnapshot` | `ObjectPool`, `PriorityPool`, `RoundRobinPool`, `Recyclable`, `MemoryArena`, `TypedBuffer`, `BudgetedCache`, `RefCountedRegistry`, `LeakTracker`, … |
-| `just_audio_engine` | `AudioEngine`, `MusicManager`, `SoundEffectManager`, `AudioChannel`, `AudioClip`, `AudioBus`, `AudioBusGraph`, `AudioEffect`, `AudioEffectType`, `AudioState`, `AudioStream`, `AudioBackend`, `Audio3DListener`, `Audio3DPosition` | `createAudioBackend` |
+| `just_audio_engine` | `AudioEngine`, `MusicManager`, `SoundEffectManager`, `AudioChannel`, `AudioClip`, `AudioBus`, `AudioBusGraph`, `AudioEffect`, `AudioEffectType`, `AudioState`, `AudioStream`, `AudioBackend`, `Audio3DListener`, `Audio3DPosition`, `AudioSpatial`, `AudioRolloff`, `AudioSpatialMix` | `createAudioBackend` |
 
 ```dart
 import 'package:just_game_engine/just_game_engine.dart';
@@ -1029,7 +1031,7 @@ Add the package to your `pubspec.yaml` as well. A file that imported `package:ju
 - **`CommandBuffer` applies commands in the order they were queued** (it used to run every destroy first).
 - **`World.dispose()`** calls each system's `onRemovedFromWorld()` before its `dispose()`, highest priority first.
 - **`findEntityByName`** is indexed and takes `includeInactive`.
-- **A collider grows and shrinks with its entity's scale**, and a body built without `drag` is not slowed by the air ([physics bodies](#physics-bodies)).
+- **A collider grows and shrinks with its entity's scale**, a body built without `drag` is not slowed by the air, and damping never slows a kinematic body ([physics bodies](#physics-bodies)).
 - **Bounciness, damping and friction changed while the game runs take effect on desktop and mobile too**; before, the native Box2D body kept what it was made with.
 - **The collider outline turns with its body**, and colours it by its type: static blue, kinematic orange, dynamic green, sensor yellow.
 - **`World.entities`** is a snapshot, cached until the next create or destroy.
@@ -1044,7 +1046,8 @@ Add the package to your `pubspec.yaml` as well. A file that imported `package:ju
 - **`GameLoop`** is driven by the ticker's timestamps, and `interpolation` stays between 0 and 1.
 - **Audio on the web** starts at the first key or pointer press (see `EngineConfig.deferAudioUntilInput`).
 - **Dialogue**: a repeating trigger fires once per entry, not every frame. `DialogueComponent.isInDialogue` follows the entity's runner, so `autoAdvance` works, and a `DialogueTriggerComponent`'s `autoAdvance` / `autoAdvanceDelay` are honoured.
-- **Audio**: a source placed in 3-D (`is3d`) is no longer panned as well, and `AudioStreamComponent.fadeInDuration` fades in from silence.
+- **Audio**: a source placed in 3-D (`is3d`) is no longer panned as well, and `AudioStreamComponent.fadeInDuration` fades in from silence. A sound effect plays on its component's `channel` (1.x played every one on sfx). `AudioSystem` stops a source's sound when the component or its entity goes, and plays nothing before the audio engine has started: a one-shot asked for before then is dropped. Where the listener and 3-D sources are is read once per rendered frame: the `audio` task is a frame task, run last, and is no longer in `engine.performanceStats['systemTimesMs']`.
+- **Log lines**: the engine's lifecycle lines (initialized, started, a system registered, disposed, …) print only in debug builds; warnings and errors print in every build.
 - **Malformed** localization and dialogue files are logged instead of being treated as missing.
 
 The [CHANGELOG](CHANGELOG.md) lists every other fix.
@@ -1079,6 +1082,7 @@ The [CHANGELOG](CHANGELOG.md) lists every other fix.
 | `LocalizationManager.instance` | `engine.context.localization`, `LocalizationScope.of(context)` |
 | `EffectSerializer.registerFactory` | `engine.context.effectTypes.register` |
 | `Archetype.addEntity`, `Archetype.removeEntity` (now internal) | add and remove components on the entity |
+| `AudioListenerComponent.forwardX`, `forwardY`, `forwardZ`, `upX`, `upY`, `upZ` | the entity's rotation; `atCamera` and `faceCamera` to hear from the camera, or face like it |
 
 ## Renamed APIs
 
@@ -1115,15 +1119,14 @@ These wait on `just_physics_engine` and `just_audio_engine`. The fields involved
 
 - **Joint anchors.** `anchor` / `connectedAnchor` of `DistanceJoint2D` and `FixedJoint2D` are not passed to the physics engine: a distance joint holds the bodies by their centres, and a fixed joint holds them as they were when joined.
 - **`collideConnected`** is not passed to the physics engine for any joint; changing it only makes the joint again.
-- **Distance springs on native Box2D.** The spring is never switched on, so a `DistanceJoint2D` holds its `length` rigidly whatever `stiffness` says. On the Dart backend (the web) it springs. The two backends also read `stiffness` / `damping` differently: hertz and a damping ratio on Box2D, force per unit on the Dart backend.
-- **Slider joints on native Box2D** do nothing; a debug build says so once. They work on the Dart backend.
-- **Audio channels.** `AudioSourceComponent.channel` and `AudioPlayComponent.channel` are ignored: every sound effect plays on the sfx channel, with its volume and bus. `AudioStreamComponent.channel` is handed to the stream, but the stream is not routed through it, so the channel's volume does not apply.
+- **Distance springs differ between the backends.** A `DistanceJoint2D`'s `stiffness` / `damping` are hertz and a damping ratio on native Box2D, and force per unit on the Dart backend (the web).
+- **Stream channels.** `AudioStreamComponent.channel` is handed to the stream, but the channel's volume does not apply to it.
 
 ## Saved data
 
 - **Scenes** carry a `version`; the current format is 9. `SceneLoader` migrates an older file in memory, one step at a time from format 0 (files with no `version`) to 9, before creating anything. Format 8 is the physics body's: `isStatic` becomes `bodyType`, category and mask bits a layer and its list, and the shape of a scaled entity is divided by its scale so its collider, which now follows the scale, stays the size it was — a note names each one. Format 9 splits each body into a `RigidBody2D` and a `Collider2D`, writing out every setting the old defaults gave it (so it plays the same under the new ones), and renames the joints and their fields. Nothing on disk changes until the file is saved again, or until `just game scene migrate` rewrites it. `SceneFormat.migrateWithReport` runs the same migration and says what it changed (`MigrationResult.notes`) and which sprites need an atlas (`MigrationResult.needsAtlas`).
 - **Timelines** carry `formatVersion` 2 and are migrated the same way (`TimelineFormat.migrate`). A track `binding` saved as a bare string reads the way `EntityTarget.parse` reads one: `"#door"` is a tag, `"Door"` a name and `"self"` the timeline's own entity. Pre-release 2.0 builds bound every bare string to the timeline's own entity. What the engine writes (`"self"`, `{"name": ...}`, `{"tag": ...}`) reads as before.
-- **Animator graphs** (`.animator.json`) carry `version` 1. A graph saved by a newer engine is refused with an `UnsupportedFormatVersionException`; a file without `version` reads as the current format.
+- **Animator graphs** (`.animator.json`) carry `version` 2, written as 1 when a graph uses nothing version 2 added (crossfading transitions, blend trees). A graph saved by a newer engine is refused with an `UnsupportedFormatVersionException`; a file without `version` reads as version 1.
 - **Level maps, tilesets and the tag library** have format numbers too. A file from a newer engine is refused with an `UnsupportedFormatVersionException` rather than loaded with data dropped.
 - **Game services** data stays in the `jge_engine` database, as in 1.x.
 - **The engine's own keys** move to its own storage file on the first launch (see [Storage and the cache](#storage-and-the-cache)).

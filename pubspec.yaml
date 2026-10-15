@@ -1,6 +1,6 @@
 name: just_game_engine
 description: "A game engine for Flutter: 2D, with 3D graphics and physics to opt into; ECS, level maps, sprites and animator graphs, timelines, virtual cameras, particles, audio and input."
-version: 2.0.0
+version: 2.0.0-dev.1
 homepage: https://engine.justunknown.com/
 repository: https://github.com/just-unknown-dev/just-game-engine
 issue_tracker: https://github.com/just-unknown-dev/just-game-engine/issues
@@ -49,7 +49,7 @@ dependencies:
     sdk: flutter
   just_physics_engine: ^1.4.0
   just_inputs: ^0.1.0
-  just_audio_engine: ^1.0.2
+  just_audio_engine: ^1.1.0
   just_storage: ^1.2.1
   # Finds the folder of the engine's own storage file. Imported only by
   # lib/src/memory/engine_storage_io.dart, through a conditional import, so

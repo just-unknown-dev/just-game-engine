@@ -53,7 +53,7 @@ How they were counted, from the package root:
 
 ## Platforms
 
-`pubspec.yaml` declares Android, iOS, Linux, macOS, Windows and web. The minimum SDKs are Dart 3.12 and Flutter 3.44.
+`pubspec.yaml` declares Android, iOS, Linux, macOS, Windows and web. The minimum SDKs are Dart 3.11 (`^3.11.0`) and Flutter 3.47.1.
 
 - `lib/` imports `dart:io` in one file, `lib/src/memory/engine_storage_io.dart`, and only through a conditional import; nothing imports `dart:html`. The engine therefore compiles for the web with both dart2js and dart2wasm. On 2026-10-01 a small web app depending on the engine was built with `flutter build web --wasm` without errors.
 - Physics: Box2D through FFI where its native library loads; otherwise, and always on the web, the pure-Dart backend of `just_physics_engine`.

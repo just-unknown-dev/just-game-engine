@@ -1,10 +1,10 @@
 # Just Game Engine — Architecture
 
-> **Version:** 2.0.0
+> **Version:** 2.0.0-dev.1
 > **Date:** October 1, 2026
 > **Scope:** `packages/just_game_engine` — how the engine is built, for people who work on it
 
-This document describes the code in `lib/` as it is in 2.0.0. It is written for contributors. To use the engine, start with the [README](README.md) and the [QUICKSTART](QUICKSTART.md); how to work on the code is in [CONTRIBUTING.md](https://github.com/just-unknown-dev/just-game-engine/blob/main/CONTRIBUTING.md). Where this document and the code disagree, the code is right: please fix the document.
+This document describes the code in `lib/` as it is in 2.0.0-dev.1. It is written for contributors. To use the engine, start with the [README](README.md) and the [QUICKSTART](QUICKSTART.md); how to work on the code is in [CONTRIBUTING.md](https://github.com/just-unknown-dev/just-game-engine/blob/main/CONTRIBUTING.md). Where this document and the code disagree, the code is right: please fix the document.
 
 ---
 
@@ -49,13 +49,13 @@ What 2.0 changed in the architecture:
 
 | Field | Value |
 |---|---|
-| Package | `just_game_engine` 2.0.0 |
+| Package | `just_game_engine` 2.0.0-dev.1 |
 | Dart SDK | `^3.11.0` |
-| Flutter | `>=3.44.0` |
+| Flutter | `>=3.47.1` |
 | Platforms | Android, iOS, Linux, macOS, Windows, Web (declared in `pubspec.yaml`) |
-| Public libraries | `package:just_game_engine/just_game_engine.dart` (the engine and the hosting widget), `package:just_game_engine/widgets.dart` (optional screen UI), `package:just_game_engine/physics_3d.dart` (3-D physics, opt-in) |
+| Public libraries | `package:just_game_engine/just_game_engine.dart` (the engine and the hosting widget), `package:just_game_engine/widgets.dart` (optional screen UI), `package:just_game_engine/graphics_3d.dart` (3-D graphics, opt-in), `package:just_game_engine/physics_3d.dart` (3-D physics, opt-in) |
 | Source | `lib/`: 332 Dart files, about 56,600 lines; 64 component classes; 31 concrete systems (plus the abstract `ReactiveSystem` and `AutoSyncSystem`) |
-| Tests | `test/`: 119 test files; `flutter test`: 1,490 passed (October 11, 2026) |
+| Tests | `test/`: 119 test files; `flutter test`: 1,581 passed, 4 skipped (October 15, 2026) |
 | Repository | https://github.com/just-unknown-dev/just-game-engine |
 
 ---
@@ -192,7 +192,7 @@ From `pubspec.yaml`:
 | `flutter_web_plugins` | SDK | `just_audio_engine` registers a web plugin without depending on it; depending on it here puts it in every game's package config, so a game with no other web plugin compiles for the web |
 | `just_physics_engine` | `^1.4.0` | `engine.physics`: Box2D through FFI on native platforms, pure Dart on the web; re-exported with a `show` list (`subsystems/physics/physics.dart`) |
 | `just_inputs` | `^0.1.0` | `engine.input` (`InputService`): actions, devices, players, rebinding, pointer lock; re-exported with a `show` list of 43 names, widgets through `widgets.dart` |
-| `just_audio_engine` | `^1.0.2` | `engine.audio`, `music`, `sfx`; re-exported with a `show` list of 14 names (`subsystems/audio/audio.dart`) |
+| `just_audio_engine` | `^1.1.0` | `engine.audio`, `music`, `sfx`; re-exported with a `show` list of 17 names (`subsystems/audio/audio.dart`) |
 | `just_storage` | `^1.2.1` | the key-value store behind `CacheManager` |
 | `path_provider` | `^2.1.5` | finds the folder of the engine's storage file; imported only by `memory/engine_storage_io.dart` |
 | `just_database` | `^1.4.2` | the binary cache database |
@@ -874,8 +874,9 @@ Related: `PhysicsJointBindingSystem` (priority 88) makes and keeps joints from `
 - `engine.audio` (`AudioEngine`), `engine.music` (`MusicManager`) and `engine.sfx` (`SoundEffectManager`) come from `just_audio_engine`. `EngineConfig.createAudio` builds another, for example `AudioEngine.withBackend(...)`.
 - **On the web the audio engine starts at the first key or pointer press** anywhere in the app, not in `initialize()`. A browser keeps an audio context made before any user gesture suspended, and `just_audio_engine` makes its context when it initializes. `EngineConfig.deferAudioUntilInput` chooses (null: on the web only). A sound played before that press starts the audio engine early, and the browser may then keep it silent.
 - An initialization error is logged and the game goes on without sound (headless runs, tests, a platform without the plugin).
-- **ECS.** `AudioSystem` (priority −10, late, so transforms are settled) plays `AudioSourceComponent`s (and moves 3-D sources with their transforms), fires one-shot `AudioPlayComponent`s and removes them, handles `AudioPauseComponent`, `AudioResumeComponent` and `AudioStopComponent`, drives `AudioStreamComponent`s, and sends the `AudioListenerComponent`'s pose only when it changes.
-- A 3-D source (`is3d` on an entity with a transform) is placed, not panned. The components' `channel` fields are not honoured yet: every sound effect plays on the sfx channel (§20.6).
+- **ECS.** `AudioSystem` (priority −10, a `FrameSystem`) starts `AudioSourceComponent`s on the fixed step, fires one-shot `AudioPlayComponent`s and removes them, handles `AudioPauseComponent`, `AudioResumeComponent` and `AudioStopComponent`, and drives `AudioStreamComponent`s — once the audio engine has started. Once per rendered frame, after the camera has moved, it sends the listener's pose (`AudioListenerComponent`, or the camera when there is none) and each moved 3-D source, only when they change. It stops what a removed component or entity played.
+- **3-D sound is worked out in Dart**, by `just_audio_engine`: the `audio` frame task (`AudioEngine.update`, last in the frame) turns each 3-D sound's position, the listener and their velocities into a volume, pan, pitch and low-pass cutoff (`AudioSpatial.mix`) and sends the ones that changed to the platform in one call. Every platform hears the same; none of their own 3-D engines is used.
+- A 3-D source (`is3d` on an entity with a transform) is placed, not panned. A sound plays on its component's `channel`.
 - A timeline's audio track plays through `context.timelineAudio`, by default `TimelineAudio.viaComponent`, which adds an `AudioPlayComponent`.
 - Disposal starts the audio shutdown; `engine.dispose()`'s Future waits for it.
 

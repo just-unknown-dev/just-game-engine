@@ -1,6 +1,6 @@
 # Engine Diagnostics & Stats Reference
 
-This document describes every stats/diagnostics API `just_game_engine` 2.0.0 exposes, key by key, as the code produces it. All of them work at runtime with no external tooling, and all are cheap enough to read every frame.
+This document describes every stats/diagnostics API `just_game_engine` 2.0.0-dev.1 exposes, key by key, as the code produces it. All of them work at runtime with no external tooling, and all are cheap enough to read every frame.
 
 `Engine.performanceStats` is safe in any engine state. The subsystems (`engine.world`, `engine.physics`, `engine.rendering`, `engine.gameLoop`, `engine.time`, `engine.cache`, `engine.systemManager`) exist only between `initialize()` and `dispose()`; outside that window their getters throw `EngineNotReadyError`. Check `engine.isInitialized` first when that can happen.
 
@@ -35,7 +35,7 @@ The top-level snapshot. Covers the most recent fixed update step.
 | `lastUpdateMs` | `double` | Wall-clock milliseconds of the last update cycle: every update task (§2) together. |
 | `budgetRemainingMs` | `double` | `16.67 − lastUpdateMs`. Positive = headroom; negative = over budget. |
 | `isOverBudget` | `bool` | `lastUpdateMs > 16.67`. This is one step measured against a 60 Hz frame; a frame that runs two steps to catch up spends twice that. |
-| `systemTimesMs` | `Map<String, double>` | Milliseconds per update task, as in `schedulerStats['taskTimesMs']`. The engine's tasks, in order: `input`, `camera`, `parallax`, `particles`, `audio`, `ecs` — plus any registered with `registerUpdateTask`. There is no `physics` task: `PhysicsSystem` steps the physics engine inside `ecs` (see `World.stats` for per-system times). |
+| `systemTimesMs` | `Map<String, double>` | Milliseconds per update task, as in `schedulerStats['taskTimesMs']`. The engine's tasks, in order: `input`, `camera`, `parallax`, `particles`, `ecs` — plus any registered with `registerUpdateTask`. (`audio` runs once per rendered frame, a frame task after `ecs`, not here.) There is no `physics` task: `PhysicsSystem` steps the physics engine inside `ecs` (see `World.stats` for per-system times). |
 | `scheduler` | `Map<String, dynamic>` | `SystemManager.schedulerStats` (see §2); an empty map before the first update step and when the engine has no system manager (before `initialize()`, after `dispose()`). |
 
 **Example:**

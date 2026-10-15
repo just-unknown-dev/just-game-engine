@@ -2,7 +2,7 @@
 
 A game engine for Flutter: 2D, with 3D graphics and physics to opt into. A game is entities, components and systems (ECS) in a `World`; its levels are JSON scenes loaded at runtime. The engine brings level maps, sprites and animator graphs, timelines, virtual cameras, physics, particles, audio and action-based input, and draws inside an ordinary Flutter widget. It runs on Android, iOS, Windows, macOS, Linux and the web (JavaScript or WebAssembly).
 
-2.0.0 is a breaking release. Coming from 1.x? Read [MIGRATION.md](MIGRATION.md).
+2.0.0 is a breaking release, out first as the dev release 2.0.0-dev.1. Coming from 1.x? Read [MIGRATION.md](MIGRATION.md).
 
 | Sprite animation | Particles | Physics | Sprites | Level maps |
 |---|---|---|---|---|
@@ -12,10 +12,10 @@ A game engine for Flutter: 2D, with 3D graphics and physics to opt into. A game 
 
 ```yaml
 dependencies:
-  just_game_engine: ^2.0.0
+  just_game_engine: ^2.0.0-dev.1
 ```
 
-Needs Flutter 3.47.1 or newer (Dart 3.12).
+Needs Flutter 3.47.1 or newer.
 
 ## Quick start
 
@@ -207,7 +207,7 @@ engine.start();
 
 ### Audio
 
-- `engine.audio`, `engine.music` and `engine.sfx`, from `just_audio_engine`: channels, buses, effects, streams and 3-D sound. `AudioSourceComponent` and `AudioSystem` play sound from entities.
+- `engine.audio`, `engine.music` and `engine.sfx`, from `just_audio_engine`: channels, buses, effects, streams and 3-D sound. `AudioSourceComponent` and `AudioSystem` play sound from entities; with `is3d` a source is heard from where it is — fading between `minDistance` and `maxDistance`, panned by side, with doppler and muffling — relative to the `AudioListenerComponent` (or the camera), the same on every platform.
 - On the web, audio starts at the first key or pointer press, because browsers keep audio made before a user gesture silent (`EngineConfig.deferAudioUntilInput`).
 
 ### Input

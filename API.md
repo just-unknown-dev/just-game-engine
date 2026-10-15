@@ -1,8 +1,8 @@
-# just_game_engine 2.0.0 — API map
+# just_game_engine 2.0.0-dev.1 — API map
 
 Per area: the types a game uses most, what each is for, and the members people call. The full reference is the dartdoc on pub.dev: <https://pub.dev/documentation/just_game_engine/latest/>.
 
-Generated from `lib/` with an analyzer dump of the public libraries, so every name and signature is what 2.0.0 exports. Typedefs are written out; long parameter lists keep positional and `required` parameters and cut the rest to `…`.
+Generated from `lib/` with an analyzer dump of the public libraries, so every name and signature is what 2.0.0-dev.1 exports. Typedefs are written out; long parameter lists keep positional and `required` parameters and cut the rest to `…`.
 
 | Library | Exports |
 |---|---|
@@ -296,9 +296,13 @@ Also: `InputSystem`, `PlayerInputManager`, `PlayerInput`, `CacheInputOverrideSto
   - `AudioSourceComponent({required String clipPath, …})`
 - **`AudioPlayComponent`** — a one-shot sound request.
   - `AudioPlayComponent({required String clipPath, …})`
+- **`AudioListenerComponent`** — where 3-D sounds are heard from.
+  - `AudioListenerComponent({bool atCamera = false, bool faceCamera = false})`
+- **`AudioSpatial`** — how a 3-D sound is heard: `minDistance`, `maxDistance`, `rolloff`, `dopplerLevel`, `farCutoff`; `mix(...)` works it out.
 - `enum AudioChannel { master, music, sfx, voice, ambient }` — mixer channels.
+- `enum AudioRolloff { inverse, linear, none }` — how a 3-D sound fades with distance.
 
-Also: `AudioSystem`, `MusicManager`, `SoundEffectManager`, `AudioListenerComponent`, `AudioStopComponent`.
+Also: `AudioSystem`, `MusicManager`, `SoundEffectManager`, `AudioStreamComponent`, `AudioStopComponent`, `AudioSpatialMix`.
 
 ## Particles and effects
 
@@ -436,7 +440,7 @@ Also: `L10nContext`, `DialogueChoicesWidget`, `SubtitleOverlay`, `LocaleSelector
 
 The engine library re-exports these names; anything else from these packages needs its own import:
 
-- `just_audio_engine` (14): Audio3DListener, Audio3DPosition, AudioBackend, AudioBus, AudioBusGraph, AudioChannel, AudioClip, AudioEffect, AudioEffectType, AudioEngine, AudioState, AudioStream, MusicManager, SoundEffectManager
+- `just_audio_engine` (17): Audio3DListener, Audio3DPosition, AudioBackend, AudioBus, AudioBusGraph, AudioChannel, AudioClip, AudioEffect, AudioEffectType, AudioEngine, AudioRolloff, AudioSpatial, AudioSpatialMix, AudioState, AudioStream, MusicManager, SoundEffectManager
 - `just_dart` (9): Aabb3, Frustum, JustMatrix4, Matrix4, Plane, Quaternion, Ray3, Vector2, Vector3
 - `just_game_engine_formats` (37): AnimatorBlendMotion, AnimatorBlendTree, AnimatorBlendType, AnimatorCondition, AnimatorGraph, AnimatorOp, AnimatorParameter, AnimatorParameterType, AnimatorState, AnimatorTransition, ComponentMigration, EntityMigration, FieldMigration, MigrationHooks, MigrationNote, MigrationResult, MigrationRun, SceneFormat, SceneManifest, SceneMigration, SceneMigrations, SceneNames, SceneStarters, TimelineFormat, TimelineMigration, TimelineV1ToV2, TrackMigration, UnsupportedFormatVersionException, V0ToV1, V1ToV2, V2ToV3, V3ToV4, V4ToV5, V5ToV6, V6ToV7, V7ToV8, V8ToV9
 - `just_inputs` (43): ActionValueType, BindingDisplay, BindingOverrides, DeviceChange, DeviceListener, GamepadControls, GamepadDevice, GamepadSource, InputAction, InputActionAsset, InputActionCallback, InputActionMap, InputActionPhase, InputActions, InputControl, InputDevice, InputEvent, InputOverrideStore, InputService, InputSubscription, JoinBehavior, JustGamepadsSource, KeyboardDevice, KeyboardKeys, LookActions, LookInput, LookSettings, MemoryInputOverrideStore, MouseControls, MouseDevice, OnScreenDevice, PlayerInput, PlayerInputManager, PointerLock, RawInputListener, RebindCanceled, RebindCompleted, RebindResult, RebindState, RebindingOperation, TouchscreenControls, TouchscreenDevice, rebindPlayer

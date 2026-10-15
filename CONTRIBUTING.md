@@ -43,8 +43,8 @@ For a feature, open an issue labelled **`enhancement`** that describes the probl
 
 | Tool | Minimum version |
 |------|-----------------|
-| Flutter | 3.44 |
-| Dart | 3.12 (comes with Flutter 3.44) |
+| Flutter | 3.47.1 |
+| Dart | 3.13 (comes with Flutter 3.47) |
 
 This repository **is** the `just_game_engine` package. There is no app to run here: you work on the package, its tests and `example/example.dart`. To try a change in a real game, add the engine to a Flutter app as a path dependency (`path: ../just-game-engine`).
 

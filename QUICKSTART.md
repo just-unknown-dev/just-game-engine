@@ -2,7 +2,7 @@
 
 This guide takes a Flutter developer from an empty app to a small game: shapes on screen, a player you steer, physics, sprites, levels loaded from JSON, cameras, timelines, particles, sound and UI. Most steps have one complete Dart file: paste it into your project and call its functions from the `main` of step 2, after `await engine.initialize()`.
 
-It is written for **just_game_engine 2.0.0** (Dart 3.12 and Flutter 3.44 or newer). Coming from 1.x? Read [MIGRATION.md](MIGRATION.md) first.
+It is written for **just_game_engine 2.0.0-dev.1** (Flutter 3.47.1 or newer). Coming from 1.x? Read [MIGRATION.md](MIGRATION.md) first.
 
 1. [Install](#1-install)
 2. [Your first game](#2-your-first-game)
@@ -32,7 +32,7 @@ Add the engine to `pubspec.yaml`, and list the folders your game loads assets fr
 dependencies:
   flutter:
     sdk: flutter
-  just_game_engine: ^2.0.0
+  just_game_engine: ^2.0.0-dev.1
 
 flutter:
   assets:
@@ -924,18 +924,27 @@ void playCoin(Entity coin) =>
     coin.addComponent(AudioPlayComponent(clipPath: 'assets/audio/coin.wav'));
 
 /// A looping sound placed in the world. It is heard from the entity that
-/// has an AudioListenerComponent (the player, or the camera).
+/// has an AudioListenerComponent (with none, from the camera): full volume
+/// within 50 units, fading to silence at 800, muffled towards the far end.
 Entity addWaterfall(World world) => world.createEntityWithComponents([
   TransformComponent(position: Vector3(600, 100, 0)),
   AudioSourceComponent(
     clipPath: 'assets/audio/waterfall.ogg',
     loop: true,
     is3d: true,
+    minDistance: 50,
+    maxDistance: 800,
+    farCutoff: 1500,
   ),
 ], name: 'Waterfall');
+
+/// A third-person game hears from the player, facing like the camera.
+void hearFrom(Entity player) =>
+    player.addComponent(AudioListenerComponent(faceCamera: true));
 ```
 
-- Channel volumes: `engine.music.setChannelVolume(0.5)`, `engine.sfx.setChannelVolume(0.8)`. Every sound from an `AudioSourceComponent` or `AudioPlayComponent` plays on the sfx channel for now, whatever its `channel` field says.
+- Distances are in the world's units: pixels in a 2-D game, metres in 3-D. `dopplerLevel` (0 by default) bends the pitch of a moving sound; 1 is the real-world effect for a world in metres.
+- Channel volumes: `engine.music.setChannelVolume(0.5)`, `engine.sfx.setChannelVolume(0.8)`, `engine.audio.setChannelVolume(AudioChannel.ambient, 0.4)`. A source plays on its `channel` (sfx by default).
 - On the web, browsers keep audio silent until the player interacts, so the engine starts audio at the first key or pointer press (`EngineConfig.deferAudioUntilInput` changes this).
 
 ---
