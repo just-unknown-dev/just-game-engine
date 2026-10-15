@@ -10,20 +10,18 @@ topics:
   - ecs
   - game
   - physics
-  - 2d
-  - 3d
 
 screenshots:
-  - description: "Sprite animation"
-    path: assets/screenshots/jge_animation_system.png
-  - description: "Particle effects"
-    path: assets/screenshots/jge_particle_system.png
-  - description: "Physics"
-    path: assets/screenshots/jge_physics_engine.png
-  - description: "Sprites"
-    path: assets/screenshots/jge_sprite_system.png
-  - description: "A tile-based level map"
-    path: assets/screenshots/jge_tile_map.png
+  - description: "2D: a platformer level with a tile map, gradient shapes, physics bodies and an animated sprite player."
+    path: assets/screenshots/jge_2d_platformer_day.png
+  - description: "3D: a third-person hero in a level built from shapes, with PBR materials, sun shadows, point lights, sky and fog."
+    path: assets/screenshots/jge_3d_third_person.png
+  - description: "2D at night: the same level tinted, with particles for the campfire, embers, smoke, fireflies and a glowing crystal."
+    path: assets/screenshots/jge_2d_platformer_night.png
+  - description: "3D: the temple level from above, with low-poly trees, physics props, coins and lit braziers."
+    path: assets/screenshots/jge_3d_temple.png
+  - description: "3D shapes with PBR materials: gold, chrome, glass, emissive, copper, jade, ruby and a faceted gem."
+    path: assets/screenshots/jge_3d_materials.png
 
 # Declared, so pub.dev does not infer platforms from dependencies. The engine
 # runs everywhere Flutter does; 3-D draws where Flutter GPU does (not the

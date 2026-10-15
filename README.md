@@ -4,9 +4,14 @@ A game engine for Flutter: 2D, with 3D graphics and physics to opt into. A game 
 
 2.0.0 is a breaking release, out first as the dev release 2.0.0-dev.1. Coming from 1.x? Read [MIGRATION.md](MIGRATION.md).
 
-| Sprite animation | Particles | Physics | Sprites | Level maps |
-|---|---|---|---|---|
-| ![Sprite animation](assets/screenshots/jge_animation_system.png) | ![Particles](assets/screenshots/jge_particle_system.png) | ![Physics](assets/screenshots/jge_physics_engine.png) | ![Sprites](assets/screenshots/jge_sprite_system.png) | ![A level map](assets/screenshots/jge_tile_map.png) |
+| 2D | 3D |
+|---|---|
+| ![A 2D platformer level: tile map, gradient shapes, physics bodies and a sprite player](assets/screenshots/jge_2d_platformer_day.png) | ![A 3D third-person level: PBR materials, shadows, point lights, sky and fog](assets/screenshots/jge_3d_third_person.png) |
+| ![The 2D level at night, with particle effects](assets/screenshots/jge_2d_platformer_night.png) | ![The 3D temple level from above](assets/screenshots/jge_3d_temple.png) |
+
+![3D shapes with PBR materials: gold, chrome, glass, emissive, copper, jade, ruby and a faceted gem](assets/screenshots/jge_3d_materials.png)
+
+The levels in these pictures are scenes the editor saves, loaded and run by the engine. They are in the templates: `showcase_2d`, `showcase_2d_night` (platformer) and `showcase_3d` (third person). The night level's particles are added in code, since particle emitters are not saved in scenes.
 
 ## Install
 
