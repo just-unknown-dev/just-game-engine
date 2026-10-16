@@ -17,8 +17,9 @@
 /// - [NarrativeSignals], [DialogueEvent], [DialogueEventType] — reactive state
 /// - [DialogueComponent], [DialogueTriggerComponent] — ECS components
 /// - [DialogueSystem] — ECS system
-/// - [DialogueBoxWidget] — default dialogue UI widget
-/// - [DialogueChoicesWidget] — default choice-list UI widget
+///
+/// The dialogue widgets (`DialogueBoxWidget`, `DialogueChoicesWidget`) are in
+/// `package:just_game_engine/widgets.dart`.
 library;
 
 // Core data model
@@ -47,10 +48,7 @@ export 'signals/narrative_signals.dart';
 // Manager (facade)
 export 'dialogue_manager.dart';
 
-// ECS integration
-export 'ecs/dialogue_component.dart';
-export 'ecs/dialogue_system.dart';
+// ECS integration: DialogueComponent and DialogueSystem are exported with
+// the other components and systems (ecs/components, ecs/systems).
 
-// UI widgets
-export 'ui/dialogue_box_widget.dart';
-export 'ui/dialogue_choices_widget.dart';
+// UI widgets: package:just_game_engine/widgets.dart.

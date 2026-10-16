@@ -9,10 +9,10 @@ part of '../sprite_atlas_subsystem.dart';
 /// |---|---|
 /// | `"forward"`  | `from → to` |
 /// | `"reverse"`  | `to → from` |
-/// | `"pingpong"` | `from → to → (to-1) → from` |
+/// | `"pingpong"` | `from → to → (to-1) → (from+1)` |
 ///
 /// Per-frame durations (in MS in Aseprite, converted to seconds) produce
-/// [AtlasAnimationClip]s that drive [AtlasSpriteAnimation] with exact
+/// [AtlasAnimationClip]s that play with exact
 /// designer-specified timing.
 ///
 /// ## Aseprite Hash-frames example
@@ -83,10 +83,14 @@ class AsepriteAtlasParser extends AtlasParser {
     final frameTags = (meta['frameTags'] as List<dynamic>?) ?? [];
 
     for (final tagRaw in frameTags) {
-      final tag = tagRaw as Map<String, dynamic>;
+      if (tagRaw is! Map) continue;
+      final tag = tagRaw.cast<String, dynamic>();
       final clipName = (tag['name'] as String?) ?? '';
-      final from = (tag['from'] as int?) ?? 0;
-      final to = (tag['to'] as int?) ?? 0;
+      // Some writers put whole numbers down as 3.0.
+      var from = _index(tag['from']);
+      var to = _index(tag['to']);
+      // A range written backwards is still the frames between its ends.
+      if (to < from) (from, to) = (to, from);
       final direction = (tag['direction'] as String?) ?? 'forward';
 
       final indices = _resolveIndices(from, to, direction);
@@ -106,8 +110,10 @@ class AsepriteAtlasParser extends AtlasParser {
         clips[clipName] = AtlasAnimationClip(
           name: clipName,
           frames: frames,
-          // Aseprite does not encode a per-tag loop flag; default to true.
-          loop: true,
+          // Aseprite's export has no per-tag loop flag, so a clip loops
+          // unless the tool that wrote the file says otherwise, in
+          // `meta.just.clips.<name>.loop`.
+          loop: _clipLoops(meta, clipName),
         );
       }
     }
@@ -118,7 +124,16 @@ class AsepriteAtlasParser extends AtlasParser {
       pages: [page],
       regions: regions,
       clips: clips,
+      userData: (meta['just'] as Map?)?.cast<String, dynamic>(),
     );
+  }
+
+  static bool _clipLoops(Map<String, dynamic> meta, String clip) {
+    final just = meta['just'];
+    final clips = just is Map ? just['clips'] : null;
+    final entry = clips is Map ? clips[clip] : null;
+    final loop = entry is Map ? entry['loop'] : null;
+    return loop is bool ? loop : true;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -127,6 +142,7 @@ class AsepriteAtlasParser extends AtlasParser {
     final frameMap = (data['frame'] as Map<String, dynamic>?) ?? {};
     final sssMap = (data['spriteSourceSize'] as Map<String, dynamic>?) ?? {};
     final ssMap = (data['sourceSize'] as Map<String, dynamic>?) ?? {};
+    final frameW = _d(frameMap['w']), frameH = _d(frameMap['h']);
 
     return SpriteRegion(
       name: name, // Aseprite names kept as-is, e.g. "player_run 0"
@@ -134,13 +150,18 @@ class AsepriteAtlasParser extends AtlasParser {
       frame: Rect.fromLTWH(
         _d(frameMap['x']),
         _d(frameMap['y']),
-        _d(frameMap['w']),
-        _d(frameMap['h']),
+        frameW,
+        frameH,
       ),
       rotated: (data['rotated'] as bool?) ?? false,
       trimmed: (data['trimmed'] as bool?) ?? false,
       spriteSourceOffset: Offset(_d(sssMap['x']), _d(sssMap['y'])),
-      sourceSize: Size(_d(ssMap['w']), _d(ssMap['h'])),
+      // A frame without its untrimmed size is as big as it is, as PixiJS
+      // reads it — not zero, which drew nothing.
+      sourceSize: Size(
+        _d(ssMap['w'], fallback: frameW),
+        _d(ssMap['h'], fallback: frameH),
+      ),
     );
   }
 
@@ -151,8 +172,14 @@ class AsepriteAtlasParser extends AtlasParser {
       case 'reverse':
         return forward.reversed.toList();
       case 'pingpong':
-        // forward + backward excluding the shared endpoints to avoid duplicates.
-        return [...forward, ...forward.reversed.skip(1)];
+        // There and back, leaving out both ends of the way back: the last
+        // frame is not shown twice, and neither is the first when the clip
+        // loops round to it.
+        return [
+          ...forward,
+          if (forward.length > 2)
+            ...forward.reversed.skip(1).take(forward.length - 2),
+        ];
       default:
         return forward;
     }
@@ -178,6 +205,9 @@ class AsepriteAtlasParser extends AtlasParser {
 
   static double _d(dynamic v, {double fallback = 0.0}) =>
       v != null ? (v as num).toDouble() : fallback;
+
+  /// A frame index as written: an int, or a whole double; 0 otherwise.
+  static int _index(Object? v) => v is num && v.isFinite ? v.toInt() : 0;
 
   static String _stripExtension(String name) {
     final dot = name.lastIndexOf('.');

@@ -24,11 +24,17 @@ import 'entity_signal.dart';
 /// final players = worldSignal.query([TransformComponent, TagComponent]);
 /// ```
 class WorldSignal {
+  /// Signals over the given world, starting from its current entity and
+  /// system counts; labelled [debugLabel] (`WorldSignal` by default).
   WorldSignal(this._world, {String? debugLabel})
     : _debugLabel = debugLabel ?? 'WorldSignal' {
     _entityCount = Signal(
-      _world.entities.length,
+      _world.entityCount,
       debugLabel: '$_debugLabel.entityCount',
+    );
+    _entitiesSignal = _EntityListSignal(
+      _world,
+      debugLabel: '$_debugLabel.entities',
     );
     _systemCount = Signal(
       _world.systems.length,
@@ -43,10 +49,7 @@ class WorldSignal {
   late final Signal<int> _systemCount;
 
   final Map<EntityId, EntitySignal> _entitySignals = {};
-  final Signal<List<Entity>> _entitiesSignal = Signal(
-    [],
-    debugLabel: 'WorldSignal.entities',
-  );
+  late final _EntityListSignal _entitiesSignal;
 
   /// The underlying world.
   World get world => _world;
@@ -58,6 +61,10 @@ class WorldSignal {
   Signal<int> get systemCount => _systemCount;
 
   /// Signal for the list of all entities.
+  ///
+  /// The list is [World.entities] — taken when the signal is read, not when
+  /// it is notified, so a burst of notifications with nobody reading in
+  /// between costs no copies.
   Signal<List<Entity>> get entities => _entitiesSignal;
 
   /// Gets or creates an EntitySignal for an entity.
@@ -107,16 +114,13 @@ class WorldSignal {
   ///
   /// Call this after the world is modified externally (e.g., after update cycle).
   void sync() {
-    final currentEntities = _world.entities.toList();
-
-    _entityCount.value = currentEntities.length;
+    _entityCount.value = _world.entityCount;
     _systemCount.value = _world.systems.length;
-    _entitiesSignal.value = currentEntities;
+    _entitiesSignal.refresh();
 
     // Clean up signals for destroyed entities
-    final currentIds = currentEntities.map((e) => e.id).toSet();
     final staleIds = _entitySignals.keys
-        .where((id) => !currentIds.contains(id))
+        .where((id) => _world.getEntity(id) == null)
         .toList();
 
     for (final id in staleIds) {
@@ -132,16 +136,16 @@ class WorldSignal {
 
   /// Notifies that an entity was created.
   void notifyEntityCreated(Entity entity) {
-    _entityCount.value = _world.entities.length;
-    _entitiesSignal.forceSet(_world.entities.toList());
+    _entityCount.value = _world.entityCount;
+    _entitiesSignal.changed();
   }
 
   /// Notifies that an entity was destroyed.
   void notifyEntityDestroyed(EntityId id) {
     _entitySignals[id]?.dispose();
     _entitySignals.remove(id);
-    _entityCount.value = _world.entities.length;
-    _entitiesSignal.forceSet(_world.entities.toList());
+    _entityCount.value = _world.entityCount;
+    _entitiesSignal.changed();
   }
 
   /// Notifies that a system was added.
@@ -154,6 +158,8 @@ class WorldSignal {
     _systemCount.value = _world.systems.length;
   }
 
+  /// Disposes every signal made here, each [EntitySignal] included. The
+  /// world is left as it is.
   void dispose() {
     for (final entitySignal in _entitySignals.values) {
       entitySignal.dispose();
@@ -166,6 +172,49 @@ class WorldSignal {
 
   @override
   String toString() => _debugLabel;
+}
+
+/// [World.entities] as a signal: notified at once, read when asked for.
+class _EntityListSignal extends Signal<List<Entity>> {
+  _EntityListSignal(this._world, {super.debugLabel}) : super(const []);
+
+  final World _world;
+
+  /// Whether [value] must be taken from the world again before it is read.
+  bool _stale = true;
+
+  @override
+  List<Entity> get value {
+    if (_stale) {
+      _stale = false;
+      setSilent(_world.entities);
+    }
+    return super.value;
+  }
+
+  @override
+  set value(List<Entity> newValue) {
+    _stale = false;
+    super.value = newValue;
+  }
+
+  @override
+  void forceSet(List<Entity> newValue) {
+    _stale = false;
+    super.forceSet(newValue);
+  }
+
+  /// The world changed: listeners hear of it now, and the list is taken
+  /// when one of them reads it.
+  void changed() {
+    _stale = true;
+    super.forceSet(const []);
+  }
+
+  /// Notify only if the world's list is not the one last published.
+  void refresh() {
+    if (_stale || !identical(super.value, _world.entities)) changed();
+  }
 }
 
 /// Extension on World to create reactive wrappers.

@@ -11,25 +11,48 @@ part of '../effect_system.dart';
 /// each iteration resets the child and subsequent `applyTick` calls begin
 /// with `prevElapsed == 0`.
 ///
+/// A child that moves *to* a world position gets there on its first
+/// iteration, and every later one starts where it already is — so repeat
+/// moves *by* an amount, up and back, as below. A [MoveEffect] given a
+/// `from` moves by `to − from` from wherever the entity is.
+///
 /// ```dart
-/// // Bounce 3 times:
+/// // Bounce 3 times: up 30 units and back down, three times over.
 /// RepeatEffect(
-///   child: MoveEffect(to: Offset(0, -30), durationTicks: 15),
+///   child: SequenceEffect(
+///     children: [
+///       MoveEffect(from: Vector3.zero(), to: Vector3(0, -30, 0),
+///           durationTicks: 15),
+///       MoveEffect(from: Vector3.zero(), to: Vector3(0, 30, 0),
+///           durationTicks: 15),
+///     ],
+///   ),
 ///   times: 3,
 /// )
 ///
 /// // Infinite idle float:
 /// RepeatEffect(
-///   child: MoveEffect(to: Offset(0, -10), durationTicks: 30),
+///   child: SequenceEffect(
+///     children: [
+///       MoveEffect(from: Vector3.zero(), to: Vector3(0, -10, 0),
+///           durationTicks: 30),
+///       MoveEffect(from: Vector3.zero(), to: Vector3(0, 10, 0),
+///           durationTicks: 30),
+///     ],
+///   ),
 ///   times: 0, // infinite
 /// )
 /// ```
 class RepeatEffect extends DeterministicEffect {
+  /// The effect played on each repetition; it is reset between them, so it
+  /// captures its baseline afresh every time.
   final DeterministicEffect child;
 
   /// Number of repetitions. `0` = infinite (effect loops via [EffectPlayer]).
   final int times;
 
+  /// Plays [child] [times] times back to back (once by default); 0 plays
+  /// it forever, as a looping effect one [child] long.
   RepeatEffect({
     required this.child,
     this.times = 1,
@@ -98,8 +121,10 @@ class RepeatEffect extends DeterministicEffect {
     };
   }
 
-  factory RepeatEffect._fromJson(Map<String, dynamic> json) {
-    final s = EffectSerializer();
+  factory RepeatEffect._fromJson(
+    Map<String, dynamic> json,
+    EffectSerializer s,
+  ) {
     return RepeatEffect(
       child: s.decodeEffect(json['child'] as Map<String, dynamic>),
       times: json['times'] as int,

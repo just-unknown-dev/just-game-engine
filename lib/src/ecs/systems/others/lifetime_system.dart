@@ -2,7 +2,7 @@ library;
 
 import '../../ecs.dart';
 import '../../components/components.dart';
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 
 /// Lifetime system - Destroys expired entities
 class LifetimeSystem extends System {
@@ -13,7 +13,7 @@ class LifetimeSystem extends System {
   final List<Entity> _toDestroy = [];
 
   @override
-  List<Type> get requiredComponents => [LifetimeComponent];
+  List<Type> get requiredComponents => const [LifetimeComponent];
 
   @override
   void update(double deltaTime) {

@@ -8,16 +8,16 @@ library;
 /// ```dart
 /// final handle = effectSystem.scheduleEffect(
 ///   entity: myEntity,
-///   effect: MoveEffect(to: Offset(300, 0), durationTicks: 60),
+///   effect: MoveEffect(to: Vector3(300, 0, 0), durationTicks: 60),
 /// );
 ///
 /// // Later — stop the move prematurely:
 /// handle.cancel();
 /// ```
 class EffectHandle {
-  static int _nextId = 0;
-
-  /// Monotonically increasing session-scoped identifier.
+  /// Its number within the [EffectPlayer] that made it: counts up from 1
+  /// for each player, so the same schedule numbers its handles the same way
+  /// every run.
   final int id;
 
   /// String discriminator matching [DeterministicEffect.effectType].
@@ -31,8 +31,13 @@ class EffectHandle {
   /// Whether [cancel] has been called on this handle.
   bool get isCancelled => _cancelled;
 
-  EffectHandle.create({required this.effectType, required this.startTick})
-    : id = ++_nextId;
+  /// A live (not cancelled) handle. `EffectPlayer` makes these as it adds
+  /// or restores effects; games get them from it rather than making them.
+  EffectHandle.create({
+    required this.id,
+    required this.effectType,
+    required this.startTick,
+  });
 
   /// Mark this effect for removal.
   ///

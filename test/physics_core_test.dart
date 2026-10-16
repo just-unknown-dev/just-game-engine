@@ -191,6 +191,12 @@ void main() {
       engine.initialize();
     });
 
+    // Without this every test in the group leaks a native Box2D world and its
+    // worker thread pool. Around two dozen of those accumulate over the group
+    // and the native side falls over partway through, which surfaces as a
+    // shifting "did not complete" cascade rather than a real assertion.
+    tearDown(() => engine.dispose());
+
     test('addBody registers body', () {
       final body = _circle(x: 0, y: 0, useGravity: false);
       engine.addBody(body);

@@ -3,7 +3,7 @@ library;
 import 'dart:typed_data';
 
 import '../../ecs.dart';
-import '../../systems/system_priorities.dart';
+import '../../base/system_priorities.dart';
 import '../../../subsystems/effects/effects.dart';
 
 /// ECS system that drives all [EffectComponent]s each fixed-timestep tick.
@@ -19,7 +19,7 @@ import '../../../subsystems/effects/effects.dart';
 /// // Schedule an effect (start on next tick):
 /// effectSystem.scheduleEffect(
 ///   entity: enemy,
-///   effect: SequenceEffect([
+///   effect: SequenceEffect(children: [
 ///     ShakeEffect(amplitude: 6, durationTicks: 15),
 ///     FadeEffect(to: 0.0, durationTicks: 30),
 ///   ]),
@@ -28,7 +28,7 @@ import '../../../subsystems/effects/effects.dart';
 /// // Multiplayer: schedule at a specific server tick
 /// effectSystem.scheduleEffect(
 ///   entity: player,
-///   effect: MoveEffect(to: Offset(400, 0), durationTicks: 60),
+///   effect: MoveEffect(to: Vector3(400, 0, 0), durationTicks: 60),
 ///   startTick: serverTick,
 /// );
 /// ```
@@ -38,7 +38,7 @@ class EffectSystemECS extends System implements EffectRuntime {
   // ── System overrides ────────────────────────────────────────────────────
 
   @override
-  List<Type> get requiredComponents => [EffectComponent];
+  List<Type> get requiredComponents => const [EffectComponent];
 
   @override
   int get priority => SystemPriorities.effects;
@@ -110,7 +110,7 @@ class EffectSystemECS extends System implements EffectRuntime {
   @override
   void restoreSnapshot(EffectSnapshot snapshot, World world) {
     _currentTick = snapshot.tick;
-    final serializer = EffectSerializer();
+    final serializer = EffectSerializer(world.context.effectTypes);
     for (final entry in snapshot.entityEffects.entries) {
       final entity = world.getEntity(entry.key);
       if (entity == null || !entity.isAlive) continue;

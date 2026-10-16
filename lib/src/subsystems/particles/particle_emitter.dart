@@ -81,8 +81,8 @@ class ParticleEmitter extends Renderable {
   /// ± variation in angular velocity (radians/sec).
   final double angularVelocityVariation;
 
-  /// Renderer that draws individual particles.  Constructed from [shape] if
-  /// not supplied explicitly.
+  /// Renderer that draws individual particles: a [CircleParticleRenderer]
+  /// if none is supplied.
   late final ParticleRenderer _renderer;
 
   /// Forces applied to each particle every frame.
@@ -99,36 +99,19 @@ class ParticleEmitter extends Renderable {
   /// [shaderBoundsInflation] to tune the clip rect.
   final ui.FragmentShader? shader;
 
-  /// Inflation (pixels) added to the emitter bounds used as the [saveLayer]
+  /// Inflation (pixels) added to the emitter bounds used as the `saveLayer`
   /// clip rect when [shader] is non-null.
   final double shaderBoundsInflation;
 
   /// Whether to use batched rendering when the renderer supports it.
   ///
-  /// Only [SpriteParticleRenderer] currently overrides [renderBatch]; all
-  /// other renderers fall through to the per-particle render loop regardless
-  /// of this flag.
+  /// [SpriteParticleRenderer], [TextParticleRenderer] and a batched
+  /// [CircleParticleRenderer] override `renderBatch`; the other renderers
+  /// fall through to the per-particle render loop regardless of this flag.
   final bool useBatching;
 
   /// Auto-stop emitting after [duration] seconds (null = infinite).
   final double? duration;
-
-  // ── Deprecated compat ─────────────────────────────────────────────────────
-
-  /// Shape enum — kept for backward compatibility.
-  ///
-  /// Prefer [renderer] instead and use one of the [ParticleRenderer]
-  /// subclasses directly.
-  @Deprecated('Use renderer instead')
-  final ParticleShape shape;
-
-  /// Legacy gravity vector — kept for backward compatibility.
-  ///
-  /// When non-null a [GravityForce] wrapping this value is prepended to
-  /// [forces] automatically.  Prefer passing `GravityForce(offset)` in
-  /// [forces] directly.
-  @Deprecated('Pass GravityForce(offset) in forces instead')
-  final Offset? gravity;
 
   // ── Runtime state ─────────────────────────────────────────────────────────
 
@@ -136,7 +119,7 @@ class ParticleEmitter extends Renderable {
   bool isEmitting = true;
 
   final List<Particle> _particles = [];
-  final List<Particle> _pool = [];
+  late final ObjectPool<Particle> _particlePool;
   double _emissionAccumulator = 0.0;
   double _totalTime = 0.0;
   final math.Random _random = math.Random();
@@ -148,9 +131,15 @@ class ParticleEmitter extends Renderable {
   /// [maxInstances] cap can be enforced without calling the factory again.
   final Map<ParticleEmitter, SubEmitterConfig> _subEmitterOrigins = {};
 
-  /// Tracks which particles have already fired milestone sub-emitters.
-  /// Key = particle identity, value = set of already-fired fraction indices.
-  final Map<int, bool> _milestonesFired = {};
+  /// The lifetime-fraction sub-emitters, in fraction order. Each particle
+  /// counts how many of them it has set off, so each fires once per
+  /// particle. (They were once keyed by the particle's index in the live
+  /// list, which shifts as dead particles are removed, and the keys were
+  /// never cleared — later particles at a used index never fired.)
+  late final List<SubEmitterConfig> _milestones = [
+    for (final c in subEmitters)
+      if (c.trigger == SubEmitterTrigger.onLifetimeFraction) c,
+  ]..sort((a, b) => a.lifetimeFraction.compareTo(b.lifetimeFraction));
 
   // Reusable Paint for shader saveLayer
   final Paint _shaderPaint = Paint();
@@ -173,8 +162,6 @@ class ParticleEmitter extends Renderable {
     this.angularVelocity = 0.0,
     this.angularVelocityVariation = 0.0,
     ParticleRenderer? renderer,
-    // ignore: deprecated_member_use_from_same_package
-    @Deprecated('Pass GravityForce(offset) in forces instead') this.gravity,
     List<ParticleForce>? forces,
     this.effect,
     this.subEmitters = const [],
@@ -182,31 +169,44 @@ class ParticleEmitter extends Renderable {
     this.shaderBoundsInflation = 20.0,
     this.useBatching = true,
     this.duration,
-    // ignore: deprecated_member_use_from_same_package
-    @Deprecated('Use renderer instead') this.shape = ParticleShape.circle,
     super.position,
     super.layer,
     super.zOrder,
   }) : assert(maxParticles > 0),
        assert(emissionRate >= 0),
        assert(particleLifetime > 0),
-       _forces = _buildForces(gravity, forces) {
-    // ignore: deprecated_member_use_from_same_package
-    _renderer = renderer ?? shape.toRenderer();
-  }
-
-  /// Combines the legacy [gravity] param with the explicit [forces] list.
-  static List<ParticleForce> _buildForces(
-    Offset? gravity,
-    List<ParticleForce>? forces,
-  ) {
-    final result = <ParticleForce>[];
-    if (gravity != null) result.add(GravityForce(gravity));
-    if (forces != null) result.addAll(forces);
-    return result;
+       _forces = [...?forces] {
+    _renderer = renderer ?? CircleParticleRenderer();
+    _particlePool = ObjectPool<Particle>(
+      create: _createPooledParticle,
+      reset: _resetPooledParticle,
+      maxSize: maxParticles,
+      initialSize: math.min(maxParticles, 64),
+    );
   }
 
   // ── Public accessors ──────────────────────────────────────────────────────
+
+  Particle _createPooledParticle() => Particle(
+    position: position.toOffset(),
+    velocity: Offset.zero,
+    lifetime: particleLifetime,
+    startSize: startSize,
+    endSize: endSize,
+    startColor: startColor,
+    endColor: endColor,
+  );
+
+  void _resetPooledParticle(Particle particle) {
+    particle
+      ..customData = null
+      ..age = particle.lifetime
+      ..vx = 0.0
+      ..vy = 0.0
+      ..angularVelocity = 0.0
+      ..previousX = particle.x
+      ..previousY = particle.y;
+  }
 
   /// The renderer used by this emitter.
   ParticleRenderer get renderer => _renderer;
@@ -217,8 +217,13 @@ class ParticleEmitter extends Renderable {
   /// Number of currently live particles.
   int get particleCount => _particles.length;
 
-  /// Whether this emitter has finished emitting AND has no live particles.
-  bool get isComplete => !isEmitting && _particles.isEmpty;
+  /// Number of recycled particles currently available for reuse.
+  int get pooledParticleCount => _particlePool.availableCount;
+
+  /// Whether this emitter has finished emitting AND has no live particles
+  /// — its own, or its sub-emitters' (a firework's sparks).
+  bool get isComplete =>
+      !isEmitting && _particles.isEmpty && _activeSubEmitters.isEmpty;
 
   // ── Update ────────────────────────────────────────────────────────────────
 
@@ -227,24 +232,42 @@ class ParticleEmitter extends Renderable {
   /// Must be called once per frame.  Both [RenderingEngine.updateManagedEmitters]
   /// and [ParticleSystemECS] call this automatically.
   void update(double deltaTime) {
+    final startedAt = _totalTime;
     _totalTime += deltaTime;
+    final limit = duration;
 
-    // Stop emitting after duration
-    if (duration != null && _totalTime >= duration!) {
-      isEmitting = false;
-    }
-
-    // Emit new particles
+    // Emit new particles — for the part of the frame inside [duration], so
+    // a burst shorter than the first frame still bursts.
     if (isEmitting) {
-      _emissionAccumulator += deltaTime * emissionRate;
+      final emitting = limit == null
+          ? deltaTime
+          : math.max(0.0, math.min(deltaTime, limit - startedAt));
+      _emissionAccumulator += emitting * emissionRate;
       while (_emissionAccumulator >= 1.0 && _particles.length < maxParticles) {
         _emitParticle();
         _emissionAccumulator -= 1.0;
       }
+      // Held back by maxParticles: what could not be emitted is dropped,
+      // not saved up to pour out once there is room (or after the rate
+      // drops to 0).
+      if (_emissionAccumulator >= 1.0) {
+        _emissionAccumulator -= _emissionAccumulator.floorToDouble();
+      }
     }
 
-    // Update + cull particles
-    final toRemove = <int>[];
+    // Stop emitting after duration
+    if (limit != null && _totalTime >= limit) {
+      isEmitting = false;
+    }
+
+    // Forces' own clocks move on once a frame, not once per particle.
+    for (var i = 0; i < _forces.length; i++) {
+      _forces[i].advance(deltaTime);
+    }
+
+    // Update + cull particles using in-place compaction to avoid per-frame
+    // allocations from temporary removal lists.
+    int writeIndex = 0;
     for (int i = 0; i < _particles.length; i++) {
       final p = _particles[i];
 
@@ -256,7 +279,7 @@ class ParticleEmitter extends Renderable {
       }
 
       // Check milestone sub-emitters
-      _checkMilestones(p, i);
+      if (_milestones.isNotEmpty) _checkMilestones(p);
 
       if (p.isDead) {
         // On-death callback
@@ -266,16 +289,12 @@ class ParticleEmitter extends Renderable {
         _spawnSubEmitters(p, SubEmitterTrigger.onDeath);
 
         // Recycle
-        _milestonesFired.remove(i);
-        _pool.add(p);
-        toRemove.add(i);
+        _particlePool.release(p);
+      } else {
+        _particles[writeIndex++] = p;
       }
     }
-
-    // Remove dead particles in O(n) without extra allocations
-    for (int i = toRemove.length - 1; i >= 0; i--) {
-      _particles.removeAt(toRemove[i]);
-    }
+    _particles.length = writeIndex;
 
     // Update sub-emitters; remove completed ones
     _activeSubEmitters.removeWhere((se) {
@@ -288,46 +307,37 @@ class ParticleEmitter extends Renderable {
     });
   }
 
-  void _checkMilestones(Particle p, int index) {
-    for (final config in subEmitters) {
-      if (config.trigger != SubEmitterTrigger.onLifetimeFraction) continue;
-      if (p.normalizedLife >= config.lifetimeFraction) {
-        final key = index * 1000 + (config.lifetimeFraction * 100).round();
-        if (_milestonesFired[key] == true) continue;
-        _milestonesFired[key] = true;
-        _spawnSubEmitters(
-          p,
-          SubEmitterTrigger.onLifetimeFraction,
-          fraction: config.lifetimeFraction,
-        );
-      }
+  /// Sets off each lifetime-fraction sub-emitter [p] has reached and not
+  /// yet set off — all of them, should one frame pass several.
+  void _checkMilestones(Particle p) {
+    final life = p.normalizedLife;
+    while (p._milestones < _milestones.length &&
+        life >= _milestones[p._milestones].lifetimeFraction) {
+      _spawn(p, _milestones[p._milestones]);
+      p._milestones++;
     }
   }
 
-  void _spawnSubEmitters(
-    Particle p,
-    SubEmitterTrigger trigger, {
-    double? fraction,
-  }) {
+  void _spawnSubEmitters(Particle p, SubEmitterTrigger trigger) {
     for (final config in subEmitters) {
-      if (config.trigger != trigger) continue;
-      if (trigger == SubEmitterTrigger.onLifetimeFraction &&
-          fraction != null &&
-          (config.lifetimeFraction - fraction).abs() > 0.001) {
-        continue;
-      }
-
-      // Count existing active sub-emitters from this config (by identity)
-      int active = _activeSubEmitters
-          .where((se) => _subEmitterOrigins[se] == config)
-          .length;
-      if (active >= config.maxInstances) continue;
-
-      final child = config.factory(p.position);
-      child.layer = layer;
-      _subEmitterOrigins[child] = config;
-      _activeSubEmitters.add(child);
+      if (config.trigger == trigger) _spawn(p, config);
     }
+  }
+
+  /// Spawns [config]'s emitter at [p], unless [config.maxInstances] of them
+  /// are still running.
+  void _spawn(Particle p, SubEmitterConfig config) {
+    // Count existing active sub-emitters from this config (by identity)
+    var active = 0;
+    for (final se in _activeSubEmitters) {
+      if (identical(_subEmitterOrigins[se], config)) active++;
+    }
+    if (active >= config.maxInstances) return;
+
+    final child = config.factory(p.position);
+    child.layer = layer;
+    _subEmitterOrigins[child] = config;
+    _activeSubEmitters.add(child);
   }
 
   /// Emit a single particle from the pool or newly allocated.
@@ -342,36 +352,21 @@ class ParticleEmitter extends Renderable {
         angularVelocity +
         (_random.nextDouble() - 0.5) * angularVelocityVariation * 2;
 
-    final velocity = Offset(
+    final p = _particlePool.acquire();
+    p._respawn(
+      position.x,
+      position.y,
       math.cos(angle) * particleSpeed,
       math.sin(angle) * particleSpeed,
+      lifetime.clamp(0.001, double.infinity),
+      size.clamp(0.0, double.infinity),
+      endSize,
+      startColor,
+      endColor,
+      0.0,
+      av,
+      1.0,
     );
-
-    late Particle p;
-    if (_pool.isNotEmpty) {
-      p = _pool.removeLast();
-      p.reset(
-        position: position,
-        velocity: velocity,
-        lifetime: lifetime.clamp(0.001, double.infinity),
-        startSize: size.clamp(0.0, double.infinity),
-        endSize: endSize,
-        startColor: startColor,
-        endColor: endColor,
-        angularVelocity: av,
-      );
-    } else {
-      p = Particle(
-        position: position,
-        velocity: velocity,
-        lifetime: lifetime.clamp(0.001, double.infinity),
-        startSize: size.clamp(0.0, double.infinity),
-        endSize: endSize,
-        startColor: startColor,
-        endColor: endColor,
-        angularVelocity: av,
-      );
-    }
 
     effect?.onSpawn(p, this);
     _particles.add(p);
@@ -383,12 +378,23 @@ class ParticleEmitter extends Renderable {
   void render(Canvas canvas, Size size) {
     if (_particles.isEmpty && _activeSubEmitters.isEmpty) return;
 
-    // Optional per-emitter shader
-    final bounds = getBounds();
-    if (shader != null && bounds != null) {
-      final inflated = bounds.inflate(shaderBoundsInflation);
-      _shaderPaint.imageFilter = ui.ImageFilter.blur(sigmaX: 0, sigmaY: 0);
-      canvas.saveLayer(inflated, _shaderPaint);
+    // Optional per-emitter shader, filtering a layer over the particles.
+    // Bounds are only worked out for it. Where shaders cannot filter layers
+    // (the web, Skia) the particles draw without it; see
+    // ShaderFilterSupport. (The shader used to be passed over entirely: the
+    // layer was given a zero blur instead.)
+    final layerShader = shader;
+    var layered = false;
+    if (layerShader != null &&
+        ShaderFilterSupport.check('A ParticleEmitter shader')) {
+      final bounds = getBounds();
+      if (bounds != null) {
+        // Made every frame on purpose: a shader filter copies the uniforms
+        // when it is made, so a kept one would freeze an animated effect.
+        _shaderPaint.imageFilter = ui.ImageFilter.shader(layerShader);
+        canvas.saveLayer(bounds.inflate(shaderBoundsInflation), _shaderPaint);
+        layered = true;
+      }
     }
 
     // Batch render if the renderer supports it and batching is enabled
@@ -405,10 +411,12 @@ class ParticleEmitter extends Renderable {
       se.render(canvas, size);
     }
 
-    if (shader != null && bounds != null) {
-      canvas.restore();
-    }
+    if (layered) canvas.restore();
   }
+
+  // Particles live in world space.
+  @override
+  bool get boundsAreWorldSpace => true;
 
   @override
   Rect? getBounds() {
@@ -421,10 +429,10 @@ class ParticleEmitter extends Renderable {
 
     for (final p in _particles) {
       final r = p.currentSize / 2.0;
-      if (p.position.dx - r < minX) minX = p.position.dx - r;
-      if (p.position.dy - r < minY) minY = p.position.dy - r;
-      if (p.position.dx + r > maxX) maxX = p.position.dx + r;
-      if (p.position.dy + r > maxY) maxY = p.position.dy + r;
+      if (p.x - r < minX) minX = p.x - r;
+      if (p.y - r < minY) minY = p.y - r;
+      if (p.x + r > maxX) maxX = p.x + r;
+      if (p.y + r > maxY) maxY = p.y + r;
     }
 
     return Rect.fromLTRB(minX, minY, maxX, maxY);
@@ -441,11 +449,13 @@ class ParticleEmitter extends Renderable {
 
   /// Reset the emitter to its initial state, clearing all particles.
   void reset() {
+    for (final particle in _particles) {
+      _particlePool.release(particle);
+    }
     _particles.clear();
-    _pool.clear();
+    _particlePool.clear();
     _activeSubEmitters.clear();
     _subEmitterOrigins.clear();
-    _milestonesFired.clear();
     _emissionAccumulator = 0.0;
     _totalTime = 0.0;
     isEmitting = true;

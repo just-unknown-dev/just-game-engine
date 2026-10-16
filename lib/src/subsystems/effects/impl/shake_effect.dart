@@ -3,13 +3,16 @@ part of '../effect_system.dart';
 /// Applies a damped oscillating positional shake to [TransformComponent].
 ///
 /// ### Determinism
-/// The shake uses `sin` and `cos` driven by the integer tick count so
-/// every peer with the same `(amplitude, frequency, durationTicks)` tuple
-/// produces bit-identical results.
+/// The shake uses `sin` and `cos` driven by the integer tick count, so
+/// peers on the same platform with the same `(amplitude, frequency,
+/// durationTicks)` produce bit-identical results. Across platforms `sin`
+/// and `cos` come from each one's maths library and may differ in the last
+/// bit.
 ///
-/// The X axis oscillates with `sin`, the Y axis with `cos`, creating a
-/// circular shake pattern. Linear damping shrinks the amplitude to zero
-/// at `durationTicks`.
+/// The X axis oscillates with `sin`, the Y axis with `cos − 1`, creating a
+/// circular shake pattern that starts and ends exactly where the entity
+/// was: nothing is left over when it ends, and a looping shake does not
+/// drift. Linear damping shrinks the amplitude to zero at `durationTicks`.
 ///
 /// ```dart
 /// // Short screen-shake after a hit:
@@ -25,6 +28,9 @@ class ShakeEffect extends DeterministicEffect {
   /// When `true` only the X axis is shaken (horizontal shake).
   final bool xOnly;
 
+  /// A shake of up to [amplitude] world units (not negative, asserted),
+  /// [frequency] cycles (4 by default) over [durationTicks] ticks (30 by
+  /// default), on both axes unless [xOnly].
   ShakeEffect({
     required this.amplitude,
     this.frequency = 4.0,
@@ -34,15 +40,18 @@ class ShakeEffect extends DeterministicEffect {
     super.onComplete,
   }) : assert(amplitude >= 0, 'amplitude must be ≥ 0');
 
-  /// Compute the shake offset **at** a specific elapsed tick count.
-  Offset _offsetAt(int elapsed) {
-    if (durationTicks == 0) return Offset.zero;
+  /// Compute the shake offset **at** a specific elapsed tick count: zero
+  /// at the start and at the end.
+  Vector3 _offsetAt(int elapsed) {
+    if (durationTicks == 0) return Vector3.zero();
     final t = elapsed / durationTicks; // normalised 0..1
     final damping = 1.0 - t; // linear fade-out
     final angle = elapsed * frequency * 2 * math.pi / durationTicks;
     final dx = amplitude * damping * math.sin(angle);
-    final dy = xOnly ? 0.0 : amplitude * damping * math.cos(angle);
-    return Offset(dx, dy);
+    // cos − 1, not cos: the circle's top is where the entity started, so
+    // the offset is 0 at the first tick as well as the last.
+    final dy = xOnly ? 0.0 : amplitude * damping * (math.cos(angle) - 1);
+    return Vector3(dx, dy, 0);
   }
 
   @override

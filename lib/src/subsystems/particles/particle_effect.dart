@@ -34,6 +34,7 @@ part of 'particles.dart';
 /// }
 /// ```
 abstract class ParticleEffect {
+  /// Const constructor so subclasses can be const.
   const ParticleEffect();
 
   /// Called immediately after a particle is spawned and initialized.

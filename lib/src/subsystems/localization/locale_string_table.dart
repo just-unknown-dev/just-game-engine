@@ -13,11 +13,14 @@ import 'package:flutter/services.dart';
 /// An immutable flat mapping from string key → localized string for one
 /// [Locale].
 ///
-/// Multiple tables may be [merged] together (e.g. one file per feature area):
+/// Multiple tables may be merged together ([LocaleStringTable.merge]), e.g.
+/// one file per feature area:
 /// ```dart
 /// final table = LocaleStringTable.merge([uiTable, gameplayTable]);
 /// ```
 class LocaleStringTable {
+  /// The table for [locale] holding [strings], keyed by full (dotted) key.
+  /// The map is kept, not copied: don't change it afterwards.
   const LocaleStringTable({
     required this.locale,
     required Map<String, String> strings,

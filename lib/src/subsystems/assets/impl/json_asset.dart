@@ -1,6 +1,9 @@
 part of '../asset_management.dart';
 
 /// JSON asset
+///
+/// Read straight from the asset bundle and kept in memory by [AssetManager]
+/// until unloaded — never copied into the engine's persistent cache.
 class JsonAsset extends Asset {
   dynamic _data;
 
@@ -15,26 +18,16 @@ class JsonAsset extends Asset {
     if (_isLoaded) return;
 
     try {
-      final cache = Engine.instance.cache;
-      if (cache.isInitialized) {
-        final cachedData = await cache.getJson(path);
-        if (cachedData != null) {
-          _data = cachedData;
-          _isLoaded = true;
-          return;
-        }
-      }
-
-      final content = await rootBundle.loadString(path);
+      // Not cached by the bundle as well: the parsed data held here is the
+      // copy the game uses, and a second one would outlive unload().
+      final content = await _bundle.loadString(path, cache: false);
       _data = jsonDecode(content);
-
-      if (cache.isInitialized && _data != null) {
-        await cache.setJson(path, _data);
-      }
-
       _isLoaded = true;
-    } catch (e) {
-      throw AssetLoadException('Failed to load JSON asset: $path', e);
+    } catch (e, stack) {
+      Error.throwWithStackTrace(
+        AssetLoadException('Failed to load JSON asset: $path', e),
+        stack,
+      );
     }
   }
 

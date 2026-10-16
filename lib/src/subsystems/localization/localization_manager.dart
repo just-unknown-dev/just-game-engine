@@ -3,6 +3,7 @@ library;
 
 import 'dart:ui' show Locale;
 
+import 'package:flutter/foundation.dart' show FlutterError, debugPrint;
 import 'package:flutter/services.dart';
 import 'package:just_signals/just_signals.dart';
 
@@ -35,21 +36,29 @@ import 'string_interpolator.dart';
 /// print(l10n.t('game.enemies.count', {'count': 3})); // 3 ennemis
 /// ```
 ///
-/// **Global instance**
+/// **The engine's manager**
 /// ```dart
 /// // On app / engine init:
-/// LocalizationManager.instance = l10n;
+/// engine.context.localization = l10n;
 ///
-/// // Anywhere in game code:
-/// final text = LocalizationManager.instance.t('ui.back');
+/// // In game code with the engine at hand:
+/// final text = engine.context.localization!.t('ui.back');
+///
+/// // In widgets under a GameWidget (which provides a LocalizationScope for
+/// // the engine's manager):
+/// final text = LocalizationScope.of(context).t('ui.back');
 /// ```
 ///
 /// **Fallback chain**
 /// For any key looked up under locale `fr_CA`:
 /// 1. `fr_CA` table
 /// 2. `fr` table
-/// 3. `en` table (or whichever [fallbackLocale] is set to)
+/// 3. `en` table (or whichever [fallbackLocale] is set to — and its bare
+///    language after it, so a fallback of `en_US` also reads `en`)
 /// 4. The key itself (so missing keys are obvious in the UI)
+///
+/// A locale with a script keeps its own tables: `zh_Hans` and `zh_Hant`
+/// do not share one, and `zh_Hans_CN` falls back to `zh_Hans`, then `zh`.
 ///
 /// ---
 /// **JSON file format** — flat or nested, auto-flattened with `.` notation:
@@ -64,14 +73,11 @@ import 'string_interpolator.dart';
 /// }
 /// ```
 class LocalizationManager {
+  /// A manager with no tables yet and `en` as its current locale; keys
+  /// missing from the current locale are looked up in [fallbackLocale]
+  /// (`en` when null).
   LocalizationManager({Locale? fallbackLocale})
     : fallbackLocale = fallbackLocale ?? const Locale('en');
-
-  // ---- Global instance -----------------------------------------------------
-
-  /// Optional global singleton — set this once on engine/app init for
-  /// convenient access via `LocalizationManager.instance`.
-  static LocalizationManager? instance;
 
   // ---- Locale state --------------------------------------------------------
 
@@ -90,9 +96,6 @@ class LocalizationManager {
   // _tables[localeTag][namespace] = LocaleStringTable
   final Map<String, Map<String, LocaleStringTable>> _tables = {};
 
-  // Merged view per locale-tag (invalidated when tables change)
-  final Map<String, LocaleStringTable> _merged = {};
-
   // ---- Namespace constants -------------------------------------------------
 
   /// Default namespace used when none is specified.
@@ -108,10 +111,11 @@ class LocalizationManager {
   /// Loads a JSON asset file under [locale] and [ns] (namespace).
   ///
   /// If [ns] is omitted, keys are registered under [defaultNamespace].
-  /// Multiple files may be loaded under the same locale; they are merged
-  /// lazily on first access.
+  /// Multiple files may be loaded under the same locale and namespace;
+  /// they are merged, a key in a later file replacing the same key from an
+  /// earlier one.
   ///
-  /// Returns the loaded [LocaleStringTable].
+  /// Returns the loaded [LocaleStringTable] (the file's own strings).
   Future<LocaleStringTable> load(
     Locale locale,
     String assetPath, {
@@ -130,7 +134,7 @@ class LocalizationManager {
   /// Loads all locales for a list of [locales] from a path template.
   ///
   /// [pathTemplate] must contain `{locale}` which is replaced by each locale
-  /// tag (e.g. `'en'`, `'fr_CA'`):
+  /// tag ([tagOf]: e.g. `'en'`, `'fr_CA'`):
   ///
   /// ```dart
   /// await l10n.loadAll(
@@ -146,17 +150,23 @@ class LocalizationManager {
     AssetBundle? bundle,
   }) async {
     for (final locale in locales) {
-      final tag = _tag(locale);
+      final tag = tagOf(locale);
       final path = pathTemplate.replaceAll('{locale}', tag);
       try {
         await load(locale, path, ns: ns, bundle: bundle);
-      } catch (_) {
-        // Missing locale file — silently skip, fallback chain handles it.
+      } catch (e) {
+        // A missing locale file is expected — the fallback chain covers it.
+        // One that is there but unreadable (bad JSON, not an object) is a
+        // mistake to fix, so it is reported rather than taken for missing.
+        if (!_isMissingAsset(e)) {
+          debugPrint('Localization: skipped $path — $e');
+        }
       }
     }
   }
 
-  /// Registers a pre-built [table] under [locale] / [ns].
+  /// Registers a pre-built [table] under [locale] / [ns], merged into what
+  /// is already there: its keys replace the same keys, the rest stay.
   ///
   /// Use this to load dialogue strings programmatically or in tests.
   void register(
@@ -164,9 +174,19 @@ class LocalizationManager {
     LocaleStringTable table, {
     String ns = defaultNamespace,
   }) {
-    final tag = _tag(locale);
-    (_tables[tag] ??= {})[ns] = table;
-    _merged.remove(tag); // invalidate cached merge
+    final byNs = _tables[tagOf(locale)] ??= {};
+    final existing = byNs[ns];
+    byNs[ns] = existing == null
+        ? table
+        : LocaleStringTable.merge([existing, table]);
+  }
+
+  /// Whether strings are registered for exactly [locale] — in namespace
+  /// [ns], or in any when it is null. The fallback chain is not consulted.
+  bool hasTable(Locale locale, {String? ns}) {
+    final byNs = _tables[tagOf(locale)];
+    if (byNs == null) return false;
+    return ns == null ? byNs.isNotEmpty : byNs.containsKey(ns);
   }
 
   /// Registers a plain `Map<String, String>` directly.
@@ -241,9 +261,10 @@ class LocalizationManager {
   // Disposal
   // ---------------------------------------------------------------------------
 
+  /// Forgets every table and disposes [localeChanged]. Not to be used
+  /// afterwards.
   void dispose() {
     _tables.clear();
-    _merged.clear();
     localeChanged.dispose();
   }
 
@@ -279,21 +300,46 @@ class LocalizationManager {
   /// Builds the locale fallback chain: `['fr_CA', 'fr', 'en']`
   List<String> _fallbackChain(Locale locale) {
     final chain = <String>[];
-    final full = _tag(locale);
-    chain.add(full);
-    if (locale.countryCode != null && locale.countryCode!.isNotEmpty) {
-      chain.add(locale.languageCode); // language-only fallback
+    void addWithParents(Locale l) {
+      for (final tag in _parents(l)) {
+        if (!chain.contains(tag)) chain.add(tag);
+      }
     }
-    final fb = _tag(fallbackLocale);
-    if (!chain.contains(fb)) chain.add(fb);
+
+    addWithParents(locale);
+    addWithParents(fallbackLocale);
     return chain;
   }
 
-  /// Converts a [Locale] to a cache key string (`'en'`, `'fr_CA'`).
-  static String _tag(Locale locale) {
+  /// [locale]'s tag, then its less specific ones: `zh_Hans_CN`, `zh_Hans`,
+  /// `zh`; `fr_CA`, `fr`.
+  static List<String> _parents(Locale locale) {
+    final script = locale.scriptCode;
+    return [
+      tagOf(locale),
+      if (script != null &&
+          script.isNotEmpty &&
+          (locale.countryCode?.isNotEmpty ?? false))
+        '${locale.languageCode}_$script',
+      locale.languageCode,
+    ];
+  }
+
+  /// The key [locale]'s tables are kept under, and what `{locale}` in a
+  /// [loadAll] path becomes: language, script and country joined by `_` —
+  /// `'en'`, `'fr_CA'`, `'zh_Hans'`, `'zh_Hant_TW'`.
+  static String tagOf(Locale locale) {
+    final script = locale.scriptCode;
     final country = locale.countryCode;
-    return (country != null && country.isNotEmpty)
-        ? '${locale.languageCode}_$country'
-        : locale.languageCode;
+    return [
+      locale.languageCode,
+      if (script != null && script.isNotEmpty) script,
+      if (country != null && country.isNotEmpty) country,
+    ].join('_');
   }
 }
+
+/// Whether [error] is an asset bundle's "no such asset" — as opposed to an
+/// asset that exists but could not be used.
+bool _isMissingAsset(Object error) =>
+    error is FlutterError && error.message.startsWith('Unable to load asset');

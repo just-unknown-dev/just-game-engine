@@ -3,11 +3,13 @@ library;
 import '../../ecs.dart';
 import '../../../subsystems/parallax/parallax_background.dart';
 
-/// Parallax component — attaches a [ParallaxBackground] to an entity.
+/// Parallax component — a [ParallaxBackground] drawn behind the world.
 ///
-/// Add this to an entity to associate parallax layer data with the ECS world.
-/// The [ParallaxBackground] must also be registered with [ParallaxSystem]
-/// (via `engine.parallax.addBackground()`) for it to be rendered.
+/// `ParallaxRenderSystem` (one of the engine's default systems, in
+/// `DefaultSystem.rendering`) scrolls it against the camera and draws it in
+/// screen space, before the world. Several are ordered by the entity's
+/// `LayerComponent`. Nothing else is needed — the background is not also
+/// added to `engine.parallax`, which is deprecated.
 class ParallaxComponent extends Component {
   /// The parallax background managed by this component.
   ParallaxBackground background;

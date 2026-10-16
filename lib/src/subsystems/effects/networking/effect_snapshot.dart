@@ -14,6 +14,8 @@ class EffectSnapshot {
   /// as produced by [EffectPlayer.toJson].
   final Map<EntityId, List<Map<String, dynamic>>> entityEffects;
 
+  /// The effects in [entityEffects] as they stood at [tick]; the map is
+  /// kept as given, not copied.
   const EffectSnapshot({required this.tick, required this.entityEffects});
 
   /// Serialise to a JSON-compatible map.

@@ -54,6 +54,8 @@ abstract class DeterministicEffect {
   /// `true`. Fire custom logic (sound, spawn) at each repeat.
   VoidCallback? onLoopComplete;
 
+  /// An effect lasting [durationTicks] fixed ticks (at least 1, asserted),
+  /// played once unless [loop] is set.
   DeterministicEffect({
     required this.durationTicks,
     this.loop = false,

@@ -35,7 +35,7 @@ void main() {
     });
 
     test('DragForce reduces velocity magnitude', () {
-      final p = makeParticle(velocity: const Offset(100, 0));
+      final p = makeParticle(velocity: Offset(100, 0));
       const force = DragForce(coefficient: 0.1);
       force.apply(p, 1.0);
       // v *= 1 - 0.1*1.0 = 0.9
@@ -43,7 +43,7 @@ void main() {
     });
 
     test('DragForce clamps at zero (no reversal)', () {
-      final p = makeParticle(velocity: const Offset(10, 0));
+      final p = makeParticle(velocity: Offset(10, 0));
       // Coefficient so large it would invert if unclamped
       const force = DragForce(coefficient: 200.0);
       force.apply(p, 1.0);
@@ -59,10 +59,7 @@ void main() {
         restitution: 0.8,
       );
       // Particle just below floor moving downward
-      final p = makeParticle(
-        position: const Offset(0, 305),
-        velocity: const Offset(0, 50),
-      );
+      final p = makeParticle(position: Offset(0, 305), velocity: Offset(0, 50));
       force.apply(p, 0.016);
       // Should have been pushed back to boundary and velocity reflected
       expect(p.position.dy, closeTo(300.0, 0.001));
@@ -70,7 +67,7 @@ void main() {
     });
 
     test('BoundaryForce.kill sets particle dead', () {
-      final p = makeParticle(position: const Offset(600, 0));
+      final p = makeParticle(position: Offset(600, 0));
       final force = BoundaryForce(
         bounds: const Rect.fromLTRB(-500, -500, 500, 500),
         behavior: ParticleBoundaryBehavior.kill,
@@ -85,7 +82,7 @@ void main() {
         strength: 1000,
         radius: 200,
       );
-      final p = makeParticle(position: const Offset(0, 0));
+      final p = makeParticle(position: Offset(0, 0));
       final vxBefore = p.velocity.dx;
       force.apply(p, 0.1);
       // Should pull rightward (toward center at x=100)
@@ -98,7 +95,7 @@ void main() {
         strength: 1000,
         radius: 50, // particle is far outside
       );
-      final p = makeParticle(position: const Offset(0, 0));
+      final p = makeParticle(position: Offset(0, 0));
       force.apply(p, 0.1);
       expect(p.velocity.dx, closeTo(0.0, 0.001));
     });
@@ -110,7 +107,7 @@ void main() {
         radius: 200,
       );
       // Particle directly to the right of center
-      final p = makeParticle(position: const Offset(50, 0));
+      final p = makeParticle(position: Offset(50, 0));
       force.apply(p, 0.1);
       // Tangent at (50,0) for counterclockwise vortex should be (0,1) direction
       // → velocity.dy should increase
@@ -121,7 +118,7 @@ void main() {
 
     test('NoiseForce produces non-zero, bounded velocity delta', () {
       final force = NoiseForce(strength: 100, scale: 0.01, speed: 1.0);
-      final p = makeParticle(position: const Offset(200, 300));
+      final p = makeParticle(position: Offset(200, 300));
       // Apply several frames
       for (int i = 0; i < 10; i++) {
         force.apply(p, 0.016);
@@ -175,8 +172,8 @@ void main() {
 
     test('previousPosition saved before integration', () {
       final p = Particle(
-        position: const Offset(10, 20),
-        velocity: const Offset(100, 0),
+        position: Offset(10, 20),
+        velocity: Offset(100, 0),
         lifetime: 1.0,
         startSize: 4.0,
         endSize: 1.0,
@@ -190,8 +187,8 @@ void main() {
 
     test('reset re-initializes all fields', () {
       final p = Particle(
-        position: const Offset(0, 0),
-        velocity: const Offset(1, 1),
+        position: Offset(0, 0),
+        velocity: Offset(1, 1),
         lifetime: 1.0,
         startSize: 5.0,
         endSize: 1.0,
@@ -202,8 +199,8 @@ void main() {
       expect(p.age, 0.5);
 
       p.reset(
-        position: const Offset(100, 200),
-        velocity: const Offset(0, 0),
+        position: Offset(100, 200),
+        velocity: Offset.zero,
         lifetime: 2.0,
         startSize: 8.0,
         endSize: 2.0,
@@ -285,23 +282,6 @@ void main() {
       );
       emitter.update(0.5);
       expect(emitter.isComplete, isTrue);
-    });
-
-    test('GravityForce via gravity param (backward compat)', () {
-      // ignore: deprecated_member_use
-      final emitter = ParticleEmitter(
-        maxParticles: 5,
-        emissionRate: 0,
-        particleLifetime: 2.0,
-        startSize: 4.0,
-        endSize: 1.0,
-        startColor: Colors.white,
-        endColor: Colors.transparent,
-        // ignore: deprecated_member_use
-        gravity: const Offset(0, 100),
-      );
-      expect(emitter.forces.length, 1);
-      expect(emitter.forces.first, isA<GravityForce>());
     });
 
     test('forces list is unmodifiable from outside', () {
@@ -553,7 +533,7 @@ void main() {
         endColor: Colors.transparent,
         forces: const [],
       );
-      entity.addComponent(TransformComponent(position: const Offset(200, 400)));
+      entity.addComponent(TransformComponent(position: Vector3(200, 400, 0)));
       entity.addComponent(
         ParticleEmitterComponent(
           emitter: emitter,
@@ -562,7 +542,7 @@ void main() {
       );
 
       world.update(0.016);
-      expect(emitter.position, const Offset(200, 400));
+      expect(emitter.position, Vector3(200, 400, 0));
     });
 
     test('does not sync position when syncPositionFromTransform is false', () {
@@ -576,9 +556,9 @@ void main() {
         startColor: Colors.white,
         endColor: Colors.transparent,
         forces: const [],
-        position: const Offset(50, 50),
+        position: Vector3(50, 50, 0),
       );
-      entity.addComponent(TransformComponent(position: const Offset(999, 999)));
+      entity.addComponent(TransformComponent(position: Vector3(999, 999, 0)));
       entity.addComponent(
         ParticleEmitterComponent(
           emitter: emitter,
@@ -587,7 +567,7 @@ void main() {
       );
 
       world.update(0.016);
-      expect(emitter.position, const Offset(50, 50));
+      expect(emitter.position, Vector3(50, 50, 0));
     });
 
     test('removeEntityWhenComplete destroys entity after emitter finishes', () {
@@ -686,7 +666,7 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════════
 
   group('ParticleEffects presets', () {
-    const pos = Offset(100, 100);
+    final pos = Vector3(100, 100, 0);
 
     for (final entry in <String, ParticleEmitter Function()>{
       'explosion': () => ParticleEffects.explosion(position: pos),
@@ -730,7 +710,7 @@ void main() {
       final force = NoiseForce(strength: 100, scale: 0.01, speed: 0.5);
 
       final p1 = Particle(
-        position: const Offset(100, 100),
+        position: Offset(100, 100),
         velocity: Offset.zero,
         lifetime: 10.0,
         startSize: 1.0,
@@ -739,7 +719,7 @@ void main() {
         endColor: Colors.transparent,
       );
       final p2 = Particle(
-        position: const Offset(101, 100), // 1 unit away
+        position: Offset(101, 100), // 1 unit away
         velocity: Offset.zero,
         lifetime: 10.0,
         startSize: 1.0,

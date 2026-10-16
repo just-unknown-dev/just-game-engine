@@ -26,8 +26,8 @@
 /// // Schedule a move followed by a shake:
 /// effectSystem.scheduleEffect(
 ///   entity: myEntity,
-///   effect: SequenceEffect([
-///     MoveEffect(to: Offset(200, 100), durationTicks: 60),
+///   effect: SequenceEffect(children: [
+///     MoveEffect(to: Vector3(200, 100, 0), durationTicks: 60),
 ///     ShakeEffect(amplitude: 6, durationTicks: 20),
 ///   ]),
 /// );
@@ -40,10 +40,12 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../../foundation/easing.dart';
 import '../../ecs/ecs.dart';
-import '../../ecs/components/core/transform_component.dart';
+import '../../ecs/base/transform/transform_component.dart';
 import '../../ecs/components/rendering/renderable_component.dart';
 import '../../ecs/components/effects/effect_component.dart';
+import 'package:just_dart/just_dart.dart';
 
 import 'base/effect_handle.dart';
 import 'base/effect_context.dart';

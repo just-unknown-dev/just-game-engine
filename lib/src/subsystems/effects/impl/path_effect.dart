@@ -50,8 +50,12 @@ class PathEffect extends DeterministicEffect {
   final EasingType easing;
 
   // Runtime.
-  Offset? _capturedStart;
+  Vector3? _capturedStart;
 
+  /// Follows [waypoints] (at least 2, and exactly 4 when [cubicBezier];
+  /// asserted) over [durationTicks] ticks (60 by default), along [easing]
+  /// (linear by default), offset from the entity's start position unless
+  /// [relativeToStart] is false.
   PathEffect({
     required this.waypoints,
     this.cubicBezier = false,
@@ -66,33 +70,38 @@ class PathEffect extends DeterministicEffect {
          'Cubic Bézier PathEffect requires exactly 4 waypoints',
        );
 
-  /// Evaluate path position at normalised [t] ∈ [0, 1].
-  Offset _evaluate(double t, Offset origin) {
+  /// Evaluate path position at normalised [t] ∈ `[0, 1]`.
+  /// Waypoints stay as [Offset] (2-D control points); origin is projected to
+  /// XY for the Bézier math, and the result is lifted back to [Vector3].
+  Vector3 _evaluate(double t, Vector3 origin) {
+    final o = origin.toOffset();
+    final Offset result;
     if (cubicBezier) {
       // Standard cubic Bézier: B(t) = (1-t)³P0 + 3(1-t)²tP1 + 3(1-t)t²P2 + t³P3
       final mt = 1.0 - t;
-      final p0 = relativeToStart ? origin + waypoints[0] : waypoints[0];
-      final p1 = relativeToStart ? origin + waypoints[1] : waypoints[1];
-      final p2 = relativeToStart ? origin + waypoints[2] : waypoints[2];
-      final p3 = relativeToStart ? origin + waypoints[3] : waypoints[3];
-      return p0 * (mt * mt * mt) +
+      final p0 = relativeToStart ? o + waypoints[0] : waypoints[0];
+      final p1 = relativeToStart ? o + waypoints[1] : waypoints[1];
+      final p2 = relativeToStart ? o + waypoints[2] : waypoints[2];
+      final p3 = relativeToStart ? o + waypoints[3] : waypoints[3];
+      result =
+          p0 * (mt * mt * mt) +
           p1 * (3 * mt * mt * t) +
           p2 * (3 * mt * t * t) +
           p3 * (t * t * t);
     } else {
       // Linear interpolation through waypoints.
       final n = waypoints.length - 1;
-      final segment = (t * n).clamp(0.0, n.toDouble() - 1e-10);
-      final segIdx = segment.floor();
+      // t = 1 lands exactly on the last waypoint.
+      final segment = (t * n).clamp(0.0, n.toDouble());
+      final segIdx = segment.floor().clamp(0, n - 1);
       final segT = segment - segIdx;
-      final a = relativeToStart
-          ? origin + waypoints[segIdx]
-          : waypoints[segIdx];
+      final a = relativeToStart ? o + waypoints[segIdx] : waypoints[segIdx];
       final b = relativeToStart
-          ? origin + waypoints[segIdx + 1]
+          ? o + waypoints[segIdx + 1]
           : waypoints[segIdx + 1];
-      return Offset.lerp(a, b, segT)!;
+      result = Offset.lerp(a, b, segT)!;
     }
+    return Vector3(result.dx, result.dy, origin.z);
   }
 
   @override
@@ -101,13 +110,17 @@ class PathEffect extends DeterministicEffect {
     if (transform == null) return;
 
     if (prevElapsed == 0) {
-      _capturedStart = transform.position;
+      _capturedStart = Vector3.copy(transform.position);
     }
     final origin = _capturedStart!;
 
-    final prevT = EffectEasings.resolve(easing, tAt(prevElapsed));
-    final currT = EffectEasings.resolve(easing, tAt(currElapsed));
-    final prevPos = _evaluate(prevT, origin);
+    final prevT = easing.transform(tAt(prevElapsed));
+    final currT = easing.transform(tAt(currElapsed));
+    // Absolute waypoints start where the entity is: the first step takes
+    // it from there onto the path.
+    final prevPos = !relativeToStart && prevElapsed == 0
+        ? origin
+        : _evaluate(prevT, origin);
     final currPos = _evaluate(currT, origin);
     transform.position += currPos - prevPos;
   }
@@ -132,7 +145,11 @@ class PathEffect extends DeterministicEffect {
       'durationTicks': durationTicks,
       'loop': loop,
       if (_capturedStart != null)
-        'capturedStart': [_capturedStart!.dx, _capturedStart!.dy],
+        'capturedStart': [
+          _capturedStart!.x,
+          _capturedStart!.y,
+          _capturedStart!.z,
+        ],
     };
   }
 
@@ -152,9 +169,10 @@ class PathEffect extends DeterministicEffect {
     );
     final capturedList = json['capturedStart'] as List?;
     if (capturedList != null) {
-      effect._capturedStart = Offset(
+      effect._capturedStart = Vector3(
         (capturedList[0] as num).toDouble(),
         (capturedList[1] as num).toDouble(),
+        capturedList.length > 2 ? (capturedList[2] as num).toDouble() : 0.0,
       );
     }
     return effect;

@@ -11,7 +11,10 @@ part of '../sprite_atlas_subsystem.dart';
 ///
 /// ```dart
 /// // Self-registers the loader and uses AssetManager caching automatically.
-/// final atlas = await SpriteAtlas.fromAsset('assets/data/heroes.json');
+/// final atlas = await SpriteAtlas.fromAsset(
+///   'assets/data/heroes.json',
+///   assets: engine.assets,
+/// );
 /// ```
 ///
 /// ## Advanced AssetManager usage
@@ -30,25 +33,36 @@ class AtlasAsset extends Asset {
   /// The loaded atlas.  `null` until [load] completes successfully.
   SpriteAtlas? get atlas => _atlas;
 
+  /// The atlas described by the JSON file at [path], not loaded yet. It
+  /// loads only through an [AssetManager]; [load] throws otherwise.
   AtlasAsset(String path) : super(path, AssetType.atlas);
 
   @override
   Future<void> load() async {
     if (isLoaded) return;
 
+    final assets =
+        manager ??
+        (throw StateError(
+          'An AtlasAsset loads through an AssetManager: use '
+          'SpriteAtlas.fromAsset(path, assets: engine.assets).',
+        ));
     // Load the JSON via AssetManager (cached, deduped with other json loads).
-    final jsonAsset = await Engine.instance.assets.loadJson(path);
+    final jsonAsset = await assets.loadJson(path);
     final json = jsonAsset.data as Map<String, dynamic>;
 
     // Parse + load page textures (each image also goes through AssetManager).
-    _atlas = await SpriteAtlas._buildFromJson(json, path);
+    _atlas = await SpriteAtlas._buildFromJson(json, path, assets);
     markAsLoaded();
   }
 
   @override
   void unload() {
-    // Page images are owned by ImageAsset entries in AssetManager — do not
-    // dispose them here; let AssetManager manage their lifecycle.
+    // Each page holds its own handle (a clone of the ImageAsset's image),
+    // released here; the ImageAssets themselves are the AssetManager's.
+    for (final page in _atlas?.pages ?? const <SpriteAtlasPage>[]) {
+      page.dispose();
+    }
     _atlas = null;
     markAsUnloaded();
   }

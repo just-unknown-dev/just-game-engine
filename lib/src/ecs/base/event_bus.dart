@@ -34,6 +34,11 @@ typedef EventCallback<T extends GameEvent> = void Function(T event);
 /// Events are dispatched immediately on [fire] (synchronous). Systems
 /// subscribe via [on] and unsubscribe via the returned [EventSubscription].
 ///
+/// Subscribing and cancelling during a dispatch is safe: a listener added
+/// then hears the next event, and one cancelled before its turn is not
+/// called. Each type's listener list is replaced, never changed, when a
+/// subscription comes or goes, so firing an event copies nothing.
+///
 /// The bus is owned by [World] and disposed with it.
 class EventBus {
   final Map<Type, List<_Listener>> _listeners = {};
@@ -43,19 +48,30 @@ class EventBus {
   /// Returns an [EventSubscription] that can be used to unsubscribe later.
   EventSubscription on<T extends GameEvent>(EventCallback<T> callback) {
     final listener = _Listener<T>(callback);
-    (_listeners[T] ??= []).add(listener);
+    _listeners[T] = List<_Listener>.unmodifiable([...?_listeners[T], listener]);
     return EventSubscription._(() {
-      _listeners[T]?.remove(listener);
+      listener.cancelled = true;
+      final list = _listeners[T];
+      if (list == null || !list.contains(listener)) return;
+      if (list.length == 1) {
+        _listeners.remove(T);
+      } else {
+        _listeners[T] = List<_Listener>.unmodifiable([
+          for (final l in list)
+            if (!identical(l, listener)) l,
+        ]);
+      }
     });
   }
 
   /// Fire an event, notifying all subscribers of its runtime type.
   void fire<T extends GameEvent>(T event) {
     final listeners = _listeners[event.runtimeType];
-    if (listeners == null || listeners.isEmpty) return;
-    // Iterate a copy so handlers can unsubscribe during dispatch.
-    for (final listener in List<_Listener>.of(listeners)) {
-      listener.invoke(event);
+    if (listeners == null) return;
+    // Never changed in place: walking it while handlers subscribe or
+    // cancel is safe.
+    for (final listener in listeners) {
+      if (!listener.cancelled) listener.invoke(event);
     }
   }
 
@@ -83,6 +99,9 @@ class EventSubscription {
 class _Listener<T extends GameEvent> {
   final EventCallback<T> _callback;
   _Listener(this._callback);
+
+  /// Cancelled — perhaps by an earlier listener of the event being fired.
+  bool cancelled = false;
 
   void invoke(GameEvent event) => _callback(event as T);
 }

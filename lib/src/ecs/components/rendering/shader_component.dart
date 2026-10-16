@@ -148,15 +148,16 @@ class ShaderComponent extends Component {
     double width,
     double height,
     double elapsedSeconds,
-  )? setUniforms;
+  )?
+  setUniforms;
 
   // ── Internal state ──────────────────────────────────────────────────────
 
-  /// Resolved [ui.FragmentShader] instance.
+  /// Resolved [ui.FragmentShader] instance, made on first use.
   ///
   /// One instance per component ensures isolated uniform state across
   /// multiple entities using the same program.
-  late final ui.FragmentShader _shader;
+  ui.FragmentShader? _shader;
 
   /// Create a shader component.
   ///
@@ -167,18 +168,27 @@ class ShaderComponent extends Component {
     this.passOrder = 0,
     this.enabled = true,
     this.setUniforms,
-  }) {
-    _shader = program.fragmentShader();
-  }
+  });
 
   /// The resolved [ui.FragmentShader] instance for this component.
   ///
   /// Configure uniforms via [setUniforms] rather than mutating this directly.
-  ui.FragmentShader get shader => _shader;
+  ///
+  /// Removing the component from its entity disposes the shader; a
+  /// component added again gets a fresh one. (The shader used to be made
+  /// once, in the constructor, so a component moved to another entity —
+  /// or taken off and put back — drew with a disposed shader.)
+  ui.FragmentShader get shader => _shader ??= program.fragmentShader();
+
+  @override
+  void onAttach(EntityId entityId) {
+    _shader ??= program.fragmentShader();
+  }
 
   @override
   void onDetach(EntityId entityId) {
-    _shader.dispose();
+    _shader?.dispose();
+    _shader = null;
   }
 
   @override

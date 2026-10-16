@@ -1,0 +1,33 @@
+{
+  "format": 1,
+  "orientation": "orthogonal",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "tilesets": [
+    "assets/tilesets/grassland.tileset.json"
+  ],
+  "nextLayerId": 3,
+  "layers": [
+    {
+      "id": 1,
+      "name": "Decor",
+      "layerId": "background",
+      "layer": -200,
+      "cells": {
+        "0,0": "eJxjYBgFwwHIMAjQxR5+BgE4HgVDHwAADEsAig==",
+        "1,0": "eJxjYBgFIwXIMggwyDAIDLQzRsEgAgC8BABa"
+      }
+    },
+    {
+      "id": 2,
+      "name": "Ground",
+      "layerId": "main",
+      "layer": 0,
+      "collides": true,
+      "cells": {
+        "0,0": "eJxjYBgFpAI+BgE4xgdYGQRQMD0AD4MAAy8JdrEwCJCEKdFLyLxRQH8AAEsuAyw=",
+        "1,0": "eJxjYBgFQx2IMAgwiDIIMIgxCDCIMwiAxdihNBuDABjjAiwMAmRhaukfBQMLALtbAwo="
+      }
+    }
+  ]
+}

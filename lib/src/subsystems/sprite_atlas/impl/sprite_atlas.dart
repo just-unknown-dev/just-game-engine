@@ -14,8 +14,8 @@ part of '../sprite_atlas_subsystem.dart';
 /// ## Creating sprites
 ///
 /// ```dart
-/// // Creates a Sprite already wired to the correct region on the atlas page.
-/// // renderSize is set to sourceSize so trimmed sprites display correctly.
+/// // Creates a Sprite already wired to the correct region on the atlas page;
+/// // trimmed and rotated frames are drawn where and how they belong.
 /// final sprite = atlas.createSprite('hero_idle_0',
 ///     position: Offset(100, 200),
 ///     scale: 2.0);
@@ -24,10 +24,14 @@ part of '../sprite_atlas_subsystem.dart';
 ///
 /// ## Animated sprites
 ///
+/// An entity plays a clip with a `SpriteAnimationComponent`, which the
+/// `SpriteAnimationSystem` advances:
+///
 /// ```dart
-/// final sprite = atlas.createSprite('hero_run_0', position: Offset(200, 300));
-/// final anim   = atlas.createAnimation('run', sprite);
-/// engine.animation.add(anim);
+/// entity.addComponent(SpriteAnimationComponent(
+///   atlasPath: 'assets/data/heroes.json',
+///   clip: 'run',
+/// ));
 /// ```
 ///
 /// ## Runtime clip registration
@@ -60,15 +64,26 @@ class SpriteAtlas {
   // Immutable after construction — built once by the parser.
   final Map<String, SpriteRegion> _regions;
 
+  /// What the authoring tool stored beyond the standard format — the
+  /// `meta.just` block of an Aseprite-style export: per-clip loop flags and
+  /// frame events. Empty for a file that has none.
+  final Map<String, dynamic> userData;
+
   // Mutable — callers can register clips at runtime.
   final Map<String, AtlasAnimationClip> _clips = {};
 
+  /// An atlas named [name] over [pages], with [regions] by name and
+  /// starting with [clips] (none when null; more can be registered).
+  /// [regions], [clips] and [userData] (empty when null) are copied;
+  /// [pages] is kept as given. Parsers make these.
   SpriteAtlas({
     required this.name,
     required this.pages,
     required Map<String, SpriteRegion> regions,
     Map<String, AtlasAnimationClip>? clips,
-  }) : _regions = Map.unmodifiable(regions) {
+    Map<String, dynamic>? userData,
+  }) : _regions = Map.unmodifiable(regions),
+       userData = Map.unmodifiable(userData ?? const <String, dynamic>{}) {
     if (clips != null) _clips.addAll(clips);
   }
 
@@ -136,20 +151,22 @@ class SpriteAtlas {
     }
   }
 
-  // ── Sprite / animation factory helpers ───────────────────────────────────
+  // ── Sprite factory ────────────────────────────────────────────────────────
 
-  /// Create a [Sprite] backed by the named region on this atlas.
+  /// Create a [Sprite] backed by the named region on this atlas — an
+  /// [AtlasRegionSprite].
   ///
   /// - [Sprite.image] is set to the page's GPU texture.
-  /// - [Sprite.sourceRect] is set to [SpriteRegion.frame] (the packed rect).
-  /// - [Sprite.renderSize] is set to [SpriteRegion.sourceSize] so trimmed
-  ///   sprites always display at their intended dimensions.
+  /// - [Sprite.sourceRect] is set to where the region's pixels are in it.
+  /// - [Sprite.renderSize] is set to [SpriteRegion.sourceSize], the
+  ///   untrimmed size; a trimmed frame is drawn at its own size at its place
+  ///   inside that box, and a rotated one turned back upright.
   ///
   /// Throws [StateError] if the atlas page has not been loaded yet — this
   /// cannot happen when the atlas was obtained via [SpriteAtlas.fromAsset].
   Sprite createSprite(
     String regionName, {
-    Offset position = Offset.zero,
+    Vector3? position,
     double rotation = 0.0,
     double scale = 1.0,
     int layer = 0,
@@ -166,47 +183,17 @@ class SpriteAtlas {
         'before calling createSprite().',
       );
     }
-    return Sprite(
+    // Trimmed and rotated frames are put back where and how they belong.
+    return AtlasRegionSprite(
+      region: region,
       image: page.image,
-      sourceRect: region.frame,
-      renderSize: region.sourceSize,
       position: position,
       rotation: rotation,
-      scale: scale,
+      scale: Vector3(scale, scale, 1.0),
       layer: layer,
       zOrder: zOrder,
       flipX: flipX,
       flipY: flipY,
-    );
-  }
-
-  /// Create an [AtlasSpriteAnimation] that drives [sprite] through the named
-  /// animation clip.
-  ///
-  /// [sprite] is typically created via [createSprite] before this call; the
-  /// animation will continuously update its [Sprite.sourceRect] (and
-  /// [Sprite.image] for multi-page atlases) as frames advance.
-  ///
-  /// ```dart
-  /// final sprite = atlas.createSprite('hero_run_0', position: pos);
-  /// final anim   = atlas.createAnimation('run', sprite, speed: 1.5);
-  /// engine.animation.add(anim);
-  /// ```
-  AtlasSpriteAnimation createAnimation(
-    String clipName,
-    Sprite sprite, {
-    bool? loop,
-    double speed = 1.0,
-    VoidCallback? onComplete,
-  }) {
-    final clip = requireClip(clipName);
-    return AtlasSpriteAnimation(
-      atlas: this,
-      sprite: sprite,
-      clip: clip,
-      loop: loop ?? clip.loop,
-      speed: speed,
-      onComplete: onComplete,
     );
   }
 
@@ -218,14 +205,17 @@ class SpriteAtlas {
   /// The format (TexturePacker JSON-Array/Hash/multi-page or Aseprite) is
   /// detected automatically from the JSON structure — no format hint is needed.
   ///
-  /// Results are **cached** by the engine [AssetManager]: repeated calls for
-  /// the same [jsonPath] return the same [SpriteAtlas] instance without
-  /// re-parsing or re-uploading GPU textures.
+  /// Results are **cached** by [assets] — usually `engine.assets`: repeated
+  /// calls for the same [jsonPath] return the same [SpriteAtlas] instance
+  /// without re-parsing or re-uploading GPU textures.
   ///
   /// The [_AtlasAssetLoader] is self-registered on first call, so there is no
   /// setup required beyond calling this method.
-  static Future<SpriteAtlas> fromAsset(String jsonPath) async {
-    final assetMgr = Engine.instance.assets;
+  static Future<SpriteAtlas> fromAsset(
+    String jsonPath, {
+    required AssetManager assets,
+  }) async {
+    final assetMgr = assets;
     if (!assetMgr.hasLoader(AssetType.atlas)) {
       assetMgr.registerLoader(AssetType.atlas, _AtlasAssetLoader());
     }
@@ -235,17 +225,39 @@ class SpriteAtlas {
     return asset.atlas!;
   }
 
+  /// Builds an atlas from already-decoded [json], fetching each page's image
+  /// through [loadImage] instead of the asset bundle — for a tool that reads
+  /// files the bundle does not hold yet, or a test that has no bundle.
+  /// [basePath] is the JSON file's directory, with its trailing slash;
+  /// [jsonPath] lets a legacy grid sheet find the image beside it.
+  static Future<SpriteAtlas> fromJson(
+    Map<String, dynamic> json, {
+    String basePath = '',
+    String? jsonPath,
+    required Future<ui.Image> Function(String imagePath) loadImage,
+  }) async {
+    final atlas = await AtlasParser.detect(
+      json,
+      jsonPath: jsonPath,
+    ).parse(json, basePath);
+    for (final page in atlas.pages) {
+      page.image ??= await loadImage(page.imagePath);
+    }
+    return atlas;
+  }
+
   /// Internal factory called by [AtlasAsset.load] to build the [SpriteAtlas]
   /// from an already-decoded JSON map without re-entering [AssetManager].
   static Future<SpriteAtlas> _buildFromJson(
     Map<String, dynamic> json,
     String jsonPath,
+    AssetManager assets,
   ) async {
     final basePath = _directoryOf(jsonPath);
-    final parser = AtlasParser.detect(json);
+    final parser = AtlasParser.detect(json, jsonPath: jsonPath);
     final atlas = await parser.parse(json, basePath);
     for (final page in atlas.pages) {
-      await page.loadImage();
+      await page.loadImage(assets);
     }
     return atlas;
   }

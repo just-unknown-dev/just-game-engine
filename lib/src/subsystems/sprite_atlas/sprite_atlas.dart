@@ -4,3 +4,4 @@
 library;
 
 export 'sprite_atlas_subsystem.dart';
+export 'sprite_asset_loader.dart';

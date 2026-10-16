@@ -1,103 +1,71 @@
 /// Input ECS System
 ///
-/// Bridges the subsystem [InputManager] into ECS [InputComponent] and
-/// [JoystickInputComponent] entities each frame.
+/// Copies each player's actions onto the entities they control.
 library;
 
-import 'package:flutter/services.dart';
+import 'package:just_inputs/just_inputs.dart';
 
 import '../../ecs.dart';
 import '../../components/components.dart';
-import '../../../subsystems/input/input_management.dart';
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 
-/// Maps for translating [InputComponent.buttons] string keys to keyboard keys.
+/// Reads each [InputComponent]'s player from the [InputService] and writes
+/// every action of [maps] into it by its short name — `jump`, `move` — so
+/// gameplay code reads names, not devices.
 ///
-/// Games register their own mappings. The defaults cover common WASD / arrows
-/// plus common action keys.
-typedef ButtonMapping = Map<String, LogicalKeyboardKey>;
-
-/// System that reads [InputManager] state and writes it into ECS components.
-///
-/// Processes two component types:
-/// - [InputComponent]: Copies keyboard axes and mapped button states.
-/// - [JoystickInputComponent]: Optionally updates virtual-joystick direction
-///   from touch / pointer state reported by [InputManager.touch].
-///
-/// Requires an external [InputManager] reference passed at construction:
-/// ```dart
-/// world.addSystem(InputSystem(engine.input));
-/// ```
+/// A component whose player is not playing is cleared: nothing held.
 class InputSystem extends System {
-  /// Reference to the subsystem input manager.
-  final InputManager inputManager;
+  /// A system reading [input], copying the actions of the `player` map
+  /// unless [maps] names others.
+  InputSystem(this.input, {this.maps = const ['player']});
 
-  /// Optional button name → keyboard key mapping.
-  ///
-  /// Entries are checked each frame and written into
-  /// [InputComponent.buttons]. Example:
-  /// ```dart
-  /// inputSystem.buttonMappings = {
-  ///   'jump': LogicalKeyboardKey.space,
-  ///   'fire': LogicalKeyboardKey.keyF,
-  /// };
-  /// ```
-  ButtonMapping buttonMappings = {};
+  /// Where each player's actions are read from.
+  final InputService input;
 
-  /// Create the input system with a subsystem [InputManager].
-  InputSystem(this.inputManager);
+  /// The maps whose actions are copied. Names must not repeat across them.
+  final List<String> maps;
 
   @override
   int get priority => SystemPriorities.input;
 
   @override
-  List<Type> get requiredComponents => [InputComponent];
+  List<Type> get requiredComponents => const [InputComponent];
 
   @override
   void update(double deltaTime) {
-    _updateInputComponents();
-    _updateJoystickComponents();
-  }
-
-  // ── InputComponent ────────────────────────────────────────────────────
-
-  void _updateInputComponents() {
-    final kb = inputManager.keyboard;
-    final h = kb.horizontal;
-    final v = kb.vertical;
-    final dir = Offset(h, v);
-
     for (final entity in entities) {
-      final input = entity.getComponent<InputComponent>()!;
-      input.moveDirection = dir;
-
-      // Write mapped button states.
-      for (final entry in buttonMappings.entries) {
-        input.buttons[entry.key] = kb.isKeyDown(entry.value);
+      final component = entity.getComponent<InputComponent>()!;
+      final actions = component.playerIndex < 0
+          ? input.actions
+          : input.actionsFor(component.playerIndex);
+      if (actions == null) {
+        component.clear();
+        continue;
       }
+      _copy(actions, component);
     }
   }
 
-  // ── JoystickInputComponent ────────────────────────────────────────────
-
-  void _updateJoystickComponents() {
-    final joystickEntities = world.query([JoystickInputComponent]);
-    if (joystickEntities.isEmpty) return;
-
-    final touches = inputManager.touch;
-    for (final entity in joystickEntities) {
-      final joy = entity.getComponent<JoystickInputComponent>()!;
-
-      // If the joystick is actively tracking a pointer, update from touch.
-      if (joy.isActive && joy.pointerId != null) {
-        final touchPoint = touches.getTouch(joy.pointerId!);
-        if (touchPoint != null) {
-          joy.thumbPosition = touchPoint.position;
-          joy.setDirectionFromDelta(touchPoint.position - joy.basePosition);
-        } else {
-          // Pointer lifted — reset.
-          joy.reset();
+  void _copy(InputActions actions, InputComponent into) {
+    into
+      ..pressed.clear()
+      ..released.clear()
+      ..performed.clear();
+    for (final name in maps) {
+      final map = actions.map(name);
+      if (map == null) continue;
+      for (final action in map.actions) {
+        final key = action.name;
+        switch (action.type) {
+          case ActionValueType.vector2:
+            into.vectors[key] = action.readVector2();
+          case ActionValueType.axis || ActionValueType.button:
+            into.axes[key] = action.readAxis();
         }
+        into.down[key] = action.isPressed();
+        if (action.wasPressedThisFrame()) into.pressed.add(key);
+        if (action.wasReleasedThisFrame()) into.released.add(key);
+        if (action.wasPerformedThisFrame()) into.performed.add(key);
       }
     }
   }

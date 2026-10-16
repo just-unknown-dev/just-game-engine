@@ -39,6 +39,25 @@ abstract class CameraEffect {
 
   /// When `true` the [CameraEffectManager] removes this effect automatically.
   bool get isComplete;
+
+  // The manager this effect was added to — kept after the manager drops it
+  // for being complete, so [resume] can put it back.
+  CameraEffectManager? _manager;
+  bool _registered = false;
+
+  /// Puts this effect back in the manager it was added to, if that manager
+  /// dropped it for being complete.
+  ///
+  /// A reusable effect calls this when it starts again — [ScreenFadeEffect]
+  /// and [LetterboxEffect] do — so a fade that already finished once can be
+  /// played a second time without adding it again. Does nothing for an
+  /// effect that was never added, or was taken out with
+  /// [CameraEffectManager.removeEffect] or [CameraEffectManager.clearEffects].
+  @protected
+  void resume() {
+    final manager = _manager;
+    if (manager != null && !_registered) manager._register(this);
+  }
 }
 
 // ─── CameraEffectManager ─────────────────────────────────────────────────────
@@ -47,24 +66,60 @@ abstract class CameraEffect {
 class CameraEffectManager {
   final List<CameraEffect> _effects = [];
 
-  /// Add [effect] to the manager.
-  void addEffect(CameraEffect effect) => _effects.add(effect);
+  /// Add [effect] to the manager. Adding an effect that is already in it
+  /// does nothing: it is drawn once.
+  void addEffect(CameraEffect effect) {
+    if (effect._registered && identical(effect._manager, this)) return;
+    // An effect lives in one manager at a time.
+    effect._manager?._unregister(effect);
+    effect._manager = this;
+    _register(effect);
+  }
 
-  /// Remove [effect] from the manager.
-  void removeEffect(CameraEffect effect) => _effects.remove(effect);
+  /// Remove [effect] from the manager. It stays out, even if it starts again.
+  void removeEffect(CameraEffect effect) {
+    if (!identical(effect._manager, this)) return;
+    _unregister(effect);
+    effect._manager = null;
+  }
 
-  /// Remove all effects.
-  void clearEffects() => _effects.clear();
+  /// Remove all effects. They stay out, even if they start again.
+  void clearEffects() {
+    for (final effect in _effects) {
+      effect
+        .._registered = false
+        .._manager = null;
+    }
+    _effects.clear();
+  }
 
   /// Whether there are any active effects.
   bool get hasEffects => _effects.isNotEmpty;
 
   /// Update all effects; auto-removes completed ones.
+  ///
+  /// A removed effect still remembers this manager: a reusable one that
+  /// starts again (see [CameraEffect.resume]) comes straight back.
   void update(double dt) {
     for (int i = _effects.length - 1; i >= 0; i--) {
-      _effects[i].update(dt);
-      if (_effects[i].isComplete) _effects.removeAt(i);
+      if (i >= _effects.length) continue;
+      final effect = _effects[i];
+      effect.update(dt);
+      if (effect.isComplete) {
+        _effects.remove(effect);
+        effect._registered = false;
+      }
     }
+  }
+
+  void _register(CameraEffect effect) {
+    _effects.add(effect);
+    effect._registered = true;
+  }
+
+  void _unregister(CameraEffect effect) {
+    _effects.remove(effect);
+    effect._registered = false;
   }
 
   /// Forward: call [CameraEffect.preRender] on each effect in list order.
@@ -103,6 +158,9 @@ class CameraEffectManager {
 /// camera.effectManager.addEffect(fade);
 /// fade.flash(Colors.white, holdDuration: 0.1, fadeDuration: 0.4);
 /// ```
+///
+/// Add it once and keep it: the manager drops it while it shows nothing,
+/// and it comes back by itself the next time it fades or flashes.
 class ScreenFadeEffect extends CameraEffect {
   /// The overlay colour (alpha channel is driven by the animation).
   Color color;
@@ -145,6 +203,7 @@ class ScreenFadeEffect extends CameraEffect {
     _inHold = true;
     _holdRemaining = holdDuration;
     _postHoldFadeDuration = fadeDuration;
+    resume();
   }
 
   void _startAnim(double from, double to, double duration) {
@@ -154,6 +213,7 @@ class ScreenFadeEffect extends CameraEffect {
     _elapsed = 0.0;
     _animating = true;
     _inHold = false;
+    resume();
   }
 
   @override
@@ -197,6 +257,9 @@ class ScreenFadeEffect extends CameraEffect {
 /// lb.show(0.5);   // slide bars in over 0.5 s
 /// lb.hide(0.5);   // slide bars out over 0.5 s
 /// ```
+///
+/// Add it once and keep it: the manager drops it while the bars are away,
+/// and it comes back by itself the next time it is shown.
 class LetterboxEffect extends CameraEffect {
   /// Target bar height as a fraction of screen height (e.g. `0.1` = 10%).
   double barHeightFraction;
@@ -237,6 +300,7 @@ class LetterboxEffect extends CameraEffect {
     _duration = duration;
     _elapsed = 0.0;
     _animating = true;
+    resume();
   }
 
   @override
