@@ -9,7 +9,7 @@ CircleRenderable createTestCircle({
   int layer = 0,
   bool visible = true,
   double opacity = 1.0,
-  Offset position = Offset.zero,
+  Vector3? position,
 }) {
   return CircleRenderable(
     radius: radius,
@@ -26,7 +26,7 @@ ParticleEmitter createTestEmitter({
   int maxParticles = 100,
   double emissionRate = 10,
   double particleLifetime = 1.0,
-  Offset position = Offset.zero,
+  Vector3? position,
 }) {
   return ParticleEmitter(
     maxParticles: maxParticles,

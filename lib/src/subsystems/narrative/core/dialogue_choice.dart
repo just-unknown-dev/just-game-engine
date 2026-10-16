@@ -15,6 +15,8 @@ library;
 /// });
 /// ```
 class DialogueChoice {
+  /// Choice [index] showing [text]; available, with no audio and no tags,
+  /// unless told otherwise.
   const DialogueChoice({
     required this.index,
     required this.text,

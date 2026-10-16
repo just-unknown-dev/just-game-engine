@@ -26,7 +26,15 @@ abstract class AtlasParser {
   /// | `"frames"` is a JSON array | [TexturePackerAtlasParser] (JSON-Array) |
   /// | `"frames"` is a JSON object | [TexturePackerAtlasParser] (JSON-Hash) |
   /// | Fallback | [TexturePackerAtlasParser] |
-  static AtlasParser detect(Map<String, dynamic> json) {
+  static AtlasParser detect(Map<String, dynamic> json, {String? jsonPath}) {
+    if (GridSheetAtlasParser.matches(json)) {
+      // That format never named its image; assume it sits beside the JSON.
+      final file = (jsonPath ?? '').split('/').last;
+      final dot = file.lastIndexOf('.');
+      return GridSheetAtlasParser(
+        imageFallback: dot > 0 ? '${file.substring(0, dot)}.png' : 'sheet.png',
+      );
+    }
     final meta = json['meta'] as Map<String, dynamic>?;
     final app = ((meta?['app'] as String?) ?? '').toLowerCase();
     if (app.contains('aseprite')) return AsepriteAtlasParser();

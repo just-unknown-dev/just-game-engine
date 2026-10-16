@@ -4,13 +4,15 @@ part of '../effect_system.dart';
 /// component. Use it as a spacer inside [SequenceEffect].
 ///
 /// ```dart
-/// SequenceEffect([
-///   MoveEffect(to: Offset(200, 0), durationTicks: 30),
+/// SequenceEffect(children: [
+///   MoveEffect(to: Vector3(200, 0, 0), durationTicks: 30),
 ///   DelayEffect(durationTicks: 15),   // pause for 15 ticks
 ///   FadeEffect(to: 0.0, durationTicks: 30),
 /// ])
 /// ```
 class DelayEffect extends DeterministicEffect {
+  /// A pause of [durationTicks] ticks (30 by default); [onComplete] runs
+  /// when it is over. It cannot loop.
   DelayEffect({super.durationTicks = 30, super.onComplete});
 
   @override

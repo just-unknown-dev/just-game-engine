@@ -3,6 +3,7 @@ library;
 
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show FlutterError, debugPrint;
 import 'package:flutter/services.dart';
 import 'package:just_signals/just_signals.dart';
 
@@ -23,7 +24,7 @@ import '../../../subsystems/localization/localization_manager.dart';
 /// ```dart
 /// // 1. Set up the central manager once (typically in your game init):
 /// final l10n = LocalizationManager();
-/// LocalizationManager.instance = l10n;
+/// engine.context.localization = l10n;
 /// await l10n.load(const Locale('en'), 'assets/data/dialogue_en.json',
 ///     ns: LocalizationManager.dialogueNamespace);
 /// await l10n.load(const Locale('fr'), 'assets/data/dialogue_fr.json',
@@ -39,9 +40,13 @@ import '../../../subsystems/localization/localization_manager.dart';
 ///
 /// **Legacy / standalone use** — if no [manager] is supplied the localizer
 /// creates its own internal [LocalizationManager].  Asset path template
-/// `{basePath}_{languageCode}[_{countryCode}].json` is preserved for
-/// backwards-compatible [loadLocale] calls.
+/// `{basePath}_{languageCode}[_{scriptCode}][_{countryCode}].json` is
+/// preserved for backwards-compatible [loadLocale] calls.
 class DialogueLocalizer {
+  /// A localizer reading [manager]'s dialogue namespace — a private
+  /// [LocalizationManager] of its own when null. [loadLocale] reads
+  /// `<basePath>_<locale>.json`, [basePath] being `assets/data/dialogue`
+  /// when null.
   DialogueLocalizer({LocalizationManager? manager, String? basePath})
     : _manager = manager ?? LocalizationManager(),
       _basePath = basePath ?? 'assets/data/dialogue';
@@ -62,15 +67,16 @@ class DialogueLocalizer {
   // Loading
   // ---------------------------------------------------------------------------
 
-  /// Loads (and caches) the dialogue string table for [locale].
+  /// Loads (and caches) the dialogue string table for [locale], and switches
+  /// to it.
   ///
   /// Falls back to the bare language code and then to English if the exact
   /// locale file is missing.  Uses the [LocalizationManager.dialogueNamespace].
   Future<void> loadLocale(Locale locale, {AssetBundle? bundle}) async {
+    final bare = Locale(locale.languageCode);
     final candidates = [
       _assetPath(locale),
-      if (locale.countryCode != null && locale.countryCode!.isNotEmpty)
-        _assetPath(Locale(locale.languageCode)),
+      if (locale != bare) _assetPath(bare),
       if (locale.languageCode != 'en') _assetPath(const Locale('en')),
     ];
 
@@ -82,8 +88,15 @@ class DialogueLocalizer {
           ns: LocalizationManager.dialogueNamespace,
           bundle: bundle,
         );
+        _manager.setLocale(locale);
         return;
-      } catch (_) {
+      } catch (e) {
+        // A missing file sends it on to the next candidate, quietly. One
+        // that is there but unreadable does too — the player still gets
+        // text — but it is reported, not taken for missing.
+        if (!_isMissingAsset(e)) {
+          debugPrint('DialogueLocalizer: skipped $path — $e');
+        }
         continue;
       }
     }
@@ -108,9 +121,13 @@ class DialogueLocalizer {
 
   /// Switches to [locale].
   ///
-  /// If the locale has not been loaded yet, calls [loadLocale] automatically.
+  /// If the locale has no dialogue strings yet, calls [loadLocale]
+  /// automatically.
   Future<void> setLocale(Locale locale, {AssetBundle? bundle}) async {
-    if (_manager.currentLocale == locale) return;
+    if (_manager.hasTable(locale, ns: LocalizationManager.dialogueNamespace)) {
+      _manager.setLocale(locale);
+      return;
+    }
     // Attempt load; if files are missing the fallback chain handles it.
     await loadLocale(locale, bundle: bundle);
   }
@@ -135,11 +152,11 @@ class DialogueLocalizer {
   // Helpers
   // ---------------------------------------------------------------------------
 
-  String _assetPath(Locale locale) {
-    final country = locale.countryCode;
-    final tag = (country != null && country.isNotEmpty)
-        ? '${locale.languageCode}_$country'
-        : locale.languageCode;
-    return '${_basePath}_$tag.json';
-  }
+  String _assetPath(Locale locale) =>
+      '${_basePath}_${LocalizationManager.tagOf(locale)}.json';
 }
+
+/// Whether [error] is an asset bundle's "no such asset" — as opposed to an
+/// asset that exists but could not be used.
+bool _isMissingAsset(Object error) =>
+    error is FlutterError && error.message.startsWith('Unable to load asset');

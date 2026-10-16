@@ -1,0 +1,52 @@
+{
+  "format": 1,
+  "orientation": "orthogonal",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "tilesets": [
+    "assets/tilesets/grassland.tileset.json",
+    "builtin:basic_shapes.tileset.json"
+  ],
+  "nextLayerId": 4,
+  "layers": [
+    {
+      "id": 1,
+      "name": "Background",
+      "offset": [
+        0.0,
+        16.0
+      ],
+      "layerId": "background",
+      "layer": -200,
+      "cells": {}
+    },
+    {
+      "id": 2,
+      "name": "Ground",
+      "layerId": "main",
+      "layer": 0,
+      "collides": true,
+      "cells": {
+        "-1,-1": "eJxjYBgFmEABDY/qH9U/PPUDAByHBgE=",
+        "0,-1": "eJxjYBgFhIECGh7VP6p/eOgHALx4BgE=",
+        "-1,0": "eJxjYMAGFEjAw1H/KBgFIwMAAA4dBYE=",
+        "0,0": "eJxjYFBgYCAZI4Ohrn8UjIKRCwDsSgaB"
+      }
+    },
+    {
+      "id": 3,
+      "name": "Foreground",
+      "offset": [
+        0.0,
+        16.0
+      ],
+      "layerId": "foreground",
+      "layer": 100,
+      "collides": true,
+      "cells": {
+        "-1,-1": "eJxjYBgFo2AoAQU0PBTA4HUvAOBAAOE=",
+        "0,-1": "eJxjYBgF1AQCDAoU6FZAwpToRceEARcZenC5g3sA3D8KyAMAGO4DJg=="
+      }
+    }
+  ]
+}

@@ -144,34 +144,34 @@ void main() {
   });
 
   group('SystemPriorities', () {
-    test('parallax sits between tileMap and input', () {
+    test('parallax sits between levelMap and input', () {
       expect(SystemPriorities.parallax, greaterThan(SystemPriorities.input));
-      expect(SystemPriorities.parallax, lessThan(SystemPriorities.tileMap));
+      expect(SystemPriorities.parallax, lessThan(SystemPriorities.levelMap));
     });
   });
 
-  // Engine integration tests require native audio plugin (just_audio)
-  // which is unavailable in the unit-test environment. These tests pass when
-  // run on a device/emulator or when the audio subsystem is mocked.
-  group('Engine integration', skip: 'Requires just_audio native plugin', () {
-    setUp(() => Engine.resetInstance());
-
+  // A real Engine: without the audio plugin (as in a unit test) it starts
+  // with audio skipped.
+  group('Engine integration', () {
     test('Engine exposes parallax subsystem after init', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
       expect(engine.parallax, isNotNull);
       expect(engine.parallax.isInitialized, true);
     });
 
-    test('ParallaxSystem can be retrieved via getSystem', () async {
+    test('ParallaxSystem can be retrieved via subsystem', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
-      final system = engine.getSystem<ParallaxSystem>();
+      final system = engine.subsystem<ParallaxSystem>();
       expect(system, same(engine.parallax));
     });
 
     test('addBackground through engine parallax subsystem', () async {
       final engine = Engine();
+      addTearDown(engine.dispose);
       await engine.initialize();
 
       final bg = ParallaxBackground();

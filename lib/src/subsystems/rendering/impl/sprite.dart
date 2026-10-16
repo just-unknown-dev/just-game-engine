@@ -6,8 +6,9 @@ library;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'renderable.dart';
-import '../../../core/engine.dart';
+import '../../assets/asset_management.dart';
 import '../../../interfaces/rendering_interfaces.dart';
+import 'package:just_dart/just_dart.dart';
 
 /// A sprite that can be rendered
 ///
@@ -29,14 +30,37 @@ class Sprite extends Renderable implements BatchableSprite {
   /// Flip vertically
   bool flipY;
 
+  /// How the texture is sampled when scaled. [FilterQuality.none] keeps
+  /// pixel art crisp; the default smooths, which suits painted art.
+  FilterQuality get filterQuality => _paint.filterQuality;
+  set filterQuality(FilterQuality value) => _paint.filterQuality = value;
+
   /// Cached paint object — reused every frame, mutated in-place.
   final Paint _paint = Paint()..filterQuality = FilterQuality.medium;
 
+  // The tint and opacity _paint's colour filter was made for; the filter is
+  // replaced only when they change, not every frame.
+  Color? _filterTint;
+  double _filterOpacity = -1;
+
+  // The batched draw path (Canvas.drawAtlas via RenderSystem) only carries a
+  // uniform rotation/scale/translation per sprite — it has no way to express
+  // flipX/flipY. Reporting no batchImage while flipped routes this sprite
+  // through the individual render() path instead, which does support the
+  // flip via canvas.scale(-1, 1). Unflipped sprites keep the batching
+  // optimisation. The render systems batch by image *and* [filterQuality],
+  // so pixel art (FilterQuality.none) batches too, sampled as it asked.
   @override
-  ui.Image? get batchImage => image;
+  ui.Image? get batchImage => (flipX || flipY) ? null : image;
 
   @override
   Rect? get batchSourceRect => sourceRect;
+
+  // getBounds() below centers on this sprite's own `position` (kept in sync
+  // with world space every render pass), unlike CustomRenderable-based
+  // shapes' local, origin-centered bounds — see [Renderable.boundsAreWorldSpace].
+  @override
+  bool get boundsAreWorldSpace => true;
 
   /// Create a sprite
   Sprite({
@@ -50,6 +74,7 @@ class Sprite extends Renderable implements BatchableSprite {
     super.scale,
     super.layer,
     super.zOrder,
+    super.ySort,
     super.visible,
     super.opacity,
     super.tint,
@@ -83,21 +108,21 @@ class Sprite extends Renderable implements BatchableSprite {
     }
 
     // Set up paint (reuse cached instance)
-    _paint.color =
-        tint?.withValues(alpha: opacity) ??
-        Colors.white.withValues(alpha: opacity);
-
-    // Apply tint if specified
-    if (tint != null) {
-      _paint.colorFilter = ColorFilter.mode(
-        tint!.withValues(alpha: opacity),
-        BlendMode.modulate,
-      );
-    } else {
-      _paint.colorFilter = null;
-      if (opacity < 1.0) {
-        _paint.color = Colors.white.withValues(alpha: opacity);
-      }
+    final t = tint;
+    if (t != _filterTint || opacity != _filterOpacity) {
+      _filterTint = t;
+      _filterOpacity = opacity;
+      // The paint fades the sprite, once, by opacity times the tint's own
+      // alpha; the filter carries only the tint's colour — as a batched
+      // sprite and a shape are drawn. (The filter used to carry the opacity
+      // too, so a tinted sprite faded twice: half opacity drew at a quarter,
+      // and changed when the sprite left a batch.)
+      _paint.color = Colors.white.withValues(alpha: tintedAlpha(t, opacity));
+      // A filter handed to a paint is converted for the engine each time,
+      // so it is only replaced when the tint changes.
+      _paint.colorFilter = t == null
+          ? null
+          : ColorFilter.mode(t.withValues(alpha: 1.0), BlendMode.modulate);
     }
 
     // Draw the image
@@ -109,6 +134,12 @@ class Sprite extends Renderable implements BatchableSprite {
 
     restoreTransform(canvas);
   }
+
+  /// How opaque a sprite tinted [tint] at [opacity] is drawn: [opacity]
+  /// times the tint's own alpha, as shapes fold a tint in. The tint's
+  /// colour multiplies the image's; its alpha fades it like opacity does.
+  static double tintedAlpha(Color? tint, double opacity) =>
+      tint == null ? opacity : tint.a * opacity;
 
   @override
   Rect? getBounds() {
@@ -122,42 +153,66 @@ class Sprite extends Renderable implements BatchableSprite {
         );
 
     return Rect.fromCenter(
-      center: position,
-      width: size.width * scale,
-      height: size.height * scale,
+      center: position.toOffset(),
+      width: size.width * scale.x,
+      height: size.height * scale.y,
     );
+  }
+
+  /// The image this sprite was given by [fromAsset], which it disposes.
+  ui.Image? _ownedImage;
+
+  /// Releases the image handle [fromAsset] gave this sprite. An image passed
+  /// to the constructor belongs to whoever passed it and is left alone.
+  void dispose() {
+    final owned = _ownedImage;
+    if (owned == null) return;
+    _ownedImage = null;
+    if (identical(image, owned)) image = null;
+    owned.dispose();
   }
 
   /// Create a sprite from an asset
   ///
-  /// Routes through [AssetManager] so the image is cached and deduplicated.
+  /// Routes through [assets] — usually `engine.assets` — so the image is
+  /// cached and deduplicated. The sprite holds its own handle to the image;
+  /// [dispose] releases it.
   static Future<Sprite> fromAsset(
     String assetPath, {
-    Offset position = Offset.zero,
+    required AssetManager assets,
+    Vector3? position,
     double rotation = 0.0,
     double scale = 1.0,
     int layer = 0,
     int zOrder = 0,
   }) async {
-    final image = await loadImageFromAsset(assetPath);
+    final image = await loadImageFromAsset(assetPath, assets: assets);
     return Sprite(
       image: image,
       position: position,
       rotation: rotation,
-      scale: scale,
+      scale: Vector3(scale, scale, 1.0),
       layer: layer,
       zOrder: zOrder,
-    );
+    ).._ownedImage = image;
   }
 
-  /// Load an image from assets via the [AssetManager] (cached / deduplicated).
-  static Future<ui.Image> loadImageFromAsset(String assetPath) async {
-    final imageAsset = await Engine.instance.assets.loadImage(assetPath);
+  /// Load an image from assets via [assets] (cached / deduplicated).
+  ///
+  /// Returns a new handle — a [ui.Image.clone] — of the cached image: the
+  /// asset manager disposes its own handle when the asset is unloaded, and a
+  /// sprite still showing it would then draw a disposed image. The caller
+  /// owns the handle and should [ui.Image.dispose] it when done with it.
+  static Future<ui.Image> loadImageFromAsset(
+    String assetPath, {
+    required AssetManager assets,
+  }) async {
+    final imageAsset = await assets.loadImage(assetPath);
     final image = imageAsset.image;
     if (image == null) {
       throw Exception('Failed to load image asset: $assetPath');
     }
-    return image;
+    return image.clone();
   }
 }
 
@@ -221,7 +276,7 @@ class SpriteSheet {
   /// Get a sprite at a specific index
   Sprite getSprite(
     int index, {
-    Offset position = Offset.zero,
+    Vector3? position,
     double rotation = 0.0,
     double scale = 1.0,
     int layer = 0,
@@ -235,7 +290,7 @@ class SpriteSheet {
       sourceRect: _spriteRects[index],
       position: position,
       rotation: rotation,
-      scale: scale,
+      scale: Vector3(scale, scale, 1.0),
       layer: layer,
     );
   }
@@ -243,27 +298,47 @@ class SpriteSheet {
   /// Get number of sprites
   int get spriteCount => _spriteRects.length;
 
+  /// Whether [image] came from [fromAsset], and so is this sheet's to
+  /// dispose.
+  bool _ownsImage = false;
+
+  /// Releases the image handle [fromAsset] gave this sheet. Sprites taken
+  /// from the sheet share that image: dispose the sheet once they are gone.
+  /// A sheet built on an image passed in leaves it alone.
+  void dispose() {
+    if (!_ownsImage) return;
+    _ownsImage = false;
+    image.dispose();
+  }
+
   /// Load a sprite sheet from assets
+  ///
+  /// The sheet holds its own handle to the image; [dispose] releases it.
   static Future<SpriteSheet> fromAsset(
     String assetPath, {
+    required AssetManager assets,
     required int spriteWidth,
     required int spriteHeight,
     int spacing = 0,
     int margin = 0,
   }) async {
-    final image = await Sprite.loadImageFromAsset(assetPath);
+    final image = await Sprite.loadImageFromAsset(assetPath, assets: assets);
     return SpriteSheet(
       image: image,
       spriteWidth: spriteWidth,
       spriteHeight: spriteHeight,
       spacing: spacing,
       margin: margin,
-    );
+    ).._ownsImage = true;
   }
 }
 
 /// Nine-slice sprite for UI elements
 class NineSliceSprite extends Renderable {
+  // getBounds() is already placed at [position].
+  @override
+  bool get boundsAreWorldSpace => true;
+
   /// The image to render
   final ui.Image image;
 
@@ -392,9 +467,9 @@ class NineSliceSprite extends Renderable {
   @override
   Rect? getBounds() {
     return Rect.fromCenter(
-      center: position,
-      width: size.width * scale,
-      height: size.height * scale,
+      center: position.toOffset(),
+      width: size.width * scale.x,
+      height: size.height * scale.y,
     );
   }
 }

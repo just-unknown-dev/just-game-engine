@@ -4,5 +4,7 @@
 /// ensuring the dependency arrow points towards abstractions.
 library;
 
+export 'camera_lens.dart';
 export 'game_camera.dart';
 export 'rendering_interfaces.dart';
+export 'view_volume.dart';

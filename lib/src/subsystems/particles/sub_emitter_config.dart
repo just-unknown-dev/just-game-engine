@@ -2,7 +2,7 @@ part of 'particles.dart';
 
 /// When a sub-emitter should be spawned.
 enum SubEmitterTrigger {
-  /// Spawn when the triggering particle's age reaches [lifetime].
+  /// Spawn when the triggering particle's age reaches `lifetime`.
   onDeath,
 
   /// Spawn when the triggering particle reaches a specific normalized life
@@ -35,7 +35,7 @@ class SubEmitterConfig {
   final SubEmitterTrigger trigger;
 
   /// Normalized lifetime fraction at which to trigger (only used when
-  /// [trigger] == [SubEmitterTrigger.onLifetimeFraction]).  Must be in [0, 1].
+  /// [trigger] == [SubEmitterTrigger.onLifetimeFraction]).  Must be in `[0, 1]`.
   final double lifetimeFraction;
 
   /// Factory that creates a [ParticleEmitter] at [position].
@@ -51,6 +51,9 @@ class SubEmitterConfig {
   /// in high-frequency scenarios.
   final int maxInstances;
 
+  /// A sub-emitter made by [factory] at each [trigger] — at death, or at
+  /// [lifetimeFraction] of the particle's life (halfway by default; 0..1,
+  /// asserted) — with at most [maxInstances] (20 by default) alive at once.
   const SubEmitterConfig({
     required this.trigger,
     required this.factory,

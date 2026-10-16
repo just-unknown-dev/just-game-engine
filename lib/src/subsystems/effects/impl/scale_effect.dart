@@ -8,7 +8,7 @@ part of '../effect_system.dart';
 ///
 /// ```dart
 /// // Grow from current scale to 2×:
-/// ScaleEffect(to: 2.0, durationTicks: 45, easing: EasingType.easeOutBack)
+/// ScaleEffect(to: 2.0, durationTicks: 45, easing: EasingType.easeOutCubic)
 /// ```
 class ScaleEffect extends DeterministicEffect {
   /// Explicit start scale. When `null` the entity's current scale is
@@ -23,6 +23,10 @@ class ScaleEffect extends DeterministicEffect {
 
   double? _capturedFrom;
 
+  /// Scales uniformly to [to] over [durationTicks] ticks (30 by default),
+  /// along [easing] (linear by default), starting from [from] or, when that
+  /// is null, from the mean of the entity's X and Y scale on the first
+  /// tick. The same change goes onto X, Y and Z.
   ScaleEffect({
     required this.to,
     this.from,
@@ -37,17 +41,25 @@ class ScaleEffect extends DeterministicEffect {
     final transform = ctx.getComponent<TransformComponent>();
     if (transform == null) return;
 
+    final scale = transform.scale;
     if (prevElapsed == 0) {
-      _capturedFrom = from ?? transform.scale;
+      // The size, whatever the mirroring: a flipped sprite (x < 0) scales
+      // as big as an unflipped one and stays flipped.
+      _capturedFrom = from ?? (scale.x.abs() + scale.y.abs()) / 2;
     }
     final effectiveFrom = _capturedFrom;
     if (effectiveFrom == null) return;
 
     final totalDelta = to - effectiveFrom;
-    final prevEased = EffectEasings.resolve(easing, tAt(prevElapsed));
-    final currEased = EffectEasings.resolve(easing, tAt(currElapsed));
-    transform.scale += totalDelta * (currEased - prevEased);
+    final prevEased = easing.transform(tAt(prevElapsed));
+    final currEased = easing.transform(tAt(currElapsed));
+    final delta = totalDelta * (currEased - prevEased);
+    scale.x += _sign(scale.x) * delta;
+    scale.y += _sign(scale.y) * delta;
+    scale.z += _sign(scale.z) * delta;
   }
+
+  static double _sign(double v) => v < 0 ? -1.0 : 1.0;
 
   @override
   void reset() {

@@ -1,0 +1,116 @@
+{
+ "format": 1,
+ "orientation": "orthogonal",
+ "tileWidth": 32,
+ "tileHeight": 32,
+ "tilesets": [
+  "maps/level_map_1.tmx#0"
+ ],
+ "nextLayerId": 5,
+ "layers": [
+  {
+   "id": 1,
+   "name": "Background",
+   "offset": [
+    0.0,
+    16.0
+   ],
+   "layerId": "main",
+   "layer": 0,
+   "zOrder": -1000,
+   "cells": {
+    "4,0": "eJxjGAWjYBRgBbIMAgPtBJoDACv0AC4=",
+    "6,0": "eJxjGAWDBsgyCMDZMkjsUTAKaAUA3AQAWg==",
+    "-1,1": "eJxjGGZAhkEAhS+LxEdmo6sbBaNgJAIALGIAsw==",
+    "0,1": "eJxjGAZAhkGAQZZBAM7HxZZBYqPLjYJRMBIBAE0VAQ0=",
+    "1,1": "eJxjGCZAlkEAzpZBYyPL4WKPglEwEgEARsUBDQ==",
+    "2,1": "eJxjGCZAhkEAhS+LxEdmy+Bgj4JRMBIBALaCAN8=",
+    "3,1": "eJxjGOJAlkGAIFsGiY0uNwpGwUgGAMXWAOE=",
+    "4,1": "eJxjGOJAlkEAzpZBYyPL4WKPglEwkgEATyUBDQ==",
+    "5,1": "eJxjGOJAhkEAhS+LxEdmy6CxZdH0jYJRMBIBAEXJAQw=",
+    "6,1": "eJxjGAZAlkEAK1sGiY1P3SgYBSMVAADBlgDh",
+    "7,1": "eJxjGAZAhkEAhS2LxMfFRtYzCkbBSAUAST0BDA==",
+    "8,1": "eJxjGCZAlkEAK1sGjY1L3SgYBSMRAABFdQEN"
+   }
+  },
+  {
+   "id": 2,
+   "name": "Ground",
+   "layerId": "main",
+   "layer": 0,
+   "zOrder": -999,
+   "collides": true,
+   "properties": [
+    {
+     "name": "collides",
+     "type": "bool",
+     "value": true
+    }
+   ],
+   "cells": {
+    "4,0": "eJxjGAWjYBRQBXAwCDBIoGEQJBZwMQgwSKNhQRL0MzEIMDCjYUYC+gECjwIv",
+    "6,0": "eJxjGAVDGnAwCDBI4MAgSAhwMQgwSOPAgkToZ2IQYGDGgRmJ0D8KBhYAAO+bAvs=",
+    "-1,1": "eJxjGAVgwMEgwCBBBoYBLgYBBmky8Kj+Uf0DqR8AUlQbRA==",
+    "0,1": "eJxjGOFAgkGAIiw9ikfxEMYABPAgEQ==",
+    "1,1": "eJxjGOFAgkGAIiw9ikfxEMYABPAgEQ==",
+    "2,1": "eJxjGOFAgkGAIiw9ikfxEMYABPAgEQ==",
+    "3,1": "eJxjGOFAgkGAIiw9ikfxEMYABPAgEQ==",
+    "4,1": "eJxjGOFAgkGAIiw9ikfxEMYABPAgEQ==",
+    "5,1": "eJxjGOFAgkGAIiw9ikfxEMYABPAgEQ==",
+    "6,1": "eJxjGOFAgkGAIiw9ikfxEMYABPAgEQ==",
+    "7,1": "eJxjGOFAgkGAIiw9ikfxEMYABPAgEQ==",
+    "8,1": "eJxjGOFAgkGAIiw9ikfxEMYABPAgEQ==",
+    "9,1": "eJxjGOFAgkEADMkF0gwCDIKj+kf1D1H9ALkfA40=",
+    "-1,2": "eJxjgAIuBgEGaTLwqP7hoZ+JQYCBmQw8CoY2AACL3BNS",
+    "0,2": "eJyTZhBgGMUjFzNTiEfB0AYA3T4WsQ==",
+    "1,2": "eJyTZhBgGMUjFzNTiEfB0AYA3T4WsQ==",
+    "2,2": "eJyTZhBgGMUjFzNTiEfB0AYA3T4WsQ==",
+    "3,2": "eJyTZhBgGMUjFzNTiEfB0AYA3T4WsQ==",
+    "4,2": "eJyTZhBgGMUjFzNTiEfB0AYA3T4WsQ==",
+    "5,2": "eJyTZhBgGMUjFzNTiEfB0AYA3T4WsQ==",
+    "6,2": "eJyTZhBgGMUjFzNTiEfB0AYA3T4WsQ==",
+    "7,2": "eJyTZhBgGMUjFzNTiEfB0AYA3T4WsQ==",
+    "8,2": "eJyTZhBgGMUjFzNTiEfB0AYA3T4WsQ==",
+    "9,2": "eJyTZhBgEGQQYCAXjOof2vqZGQQYGCnQPwqGNgAAscUChQ=="
+   }
+  },
+  {
+   "id": 4,
+   "name": "Ground",
+   "layerId": "main",
+   "layer": 0,
+   "zOrder": -998,
+   "cells": {}
+  },
+  {
+   "id": 3,
+   "name": "Foreground",
+   "offset": [
+    0.0,
+    16.0
+   ],
+   "layerId": "main",
+   "layer": 0,
+   "zOrder": -997,
+   "collides": true,
+   "properties": [
+    {
+     "name": "collides",
+     "type": "bool",
+     "value": true
+    }
+   ],
+   "cells": {
+    "4,0": "eJxjGAWjYBTAAQ+DAAMvg8BAO4MswMoggBXjAwBMqAC4",
+    "6,0": "eJxjGAWDCsgyCAy0E0gCrAwCePEoGNwAAI1vANY=",
+    "-1,1": "eJxjGGFAlkFgoJ0wCkbBoAEAjbAALg==",
+    "1,1": "eJxjGEZAlkFgoJ0wCkbBkAIAlAQALg==",
+    "2,1": "eJxjGCFAlkFgoJ0wCkbBoAMAjxgALg==",
+    "4,1": "eJxjGAZAlkFgoJ0wCkbBkAQAlWwALg==",
+    "5,1": "eJxjGHZAAIUni8bHBvgZBOAYXf8oGAXDGQAABhYAqw==",
+    "6,1": "eJxjGMFAlkFgoJ0wCkbBgAIAi5QALg==",
+    "8,1": "eJxjGKZAlkFgoJ0wCkbBoAcAkegALg=="
+   }
+  }
+ ]
+}

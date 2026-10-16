@@ -17,7 +17,8 @@ import 'renderable.dart';
 ///
 /// The visual is composed of two layers:
 /// - A sharp core line at full [color] and [width].
-/// - A wider, blurred glow halo at 30 % opacity for the neon/laser look.
+/// - A wider, blurred glow halo at 35 % of the core's opacity for the
+///   neon/laser look.
 class RayRenderable extends Renderable {
   /// World-space start point of the beam.
   Offset start;
@@ -34,10 +35,11 @@ class RayRenderable extends Renderable {
   /// Width multiplier for the outer glow relative to [width].
   double glowWidthMultiplier;
 
-  /// Blur sigma applied to the glow (0 = no blur).
+  /// Blur sigma applied to the glow (0 or less: no glow is drawn at all).
   double glowBlurSigma;
 
-  /// Total fade duration in seconds. Set to `0` for a permanent beam.
+  /// Total fade duration in seconds. `0` (or less) makes a permanent beam:
+  /// it never fades and never [isExpired].
   final double lifetime;
 
   double _timeLeft;
@@ -52,6 +54,10 @@ class RayRenderable extends Renderable {
     ..strokeCap = StrokeCap.round
     ..style = PaintingStyle.stroke;
 
+  /// A beam from [start] to [end], pale yellow by default, [width] 2.5 with
+  /// a glow 4 times as wide blurred at sigma 5, fading out over [lifetime]
+  /// (0.25 s by default); drawn on layer 5 at z-order 10 unless told
+  /// otherwise.
   RayRenderable({
     required this.start,
     required this.end,
@@ -63,12 +69,13 @@ class RayRenderable extends Renderable {
     super.layer = 5,
     super.zOrder = 10,
   }) : _timeLeft = lifetime,
-       super(position: Offset.zero);
+       super(position: null);
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
-  /// `true` once the fade timer has elapsed.
-  bool get isExpired => _timeLeft <= 0;
+  /// `true` once the fade timer has elapsed; never for a permanent beam
+  /// ([lifetime] of 0 or less).
+  bool get isExpired => lifetime > 0 && _timeLeft <= 0;
 
   /// Advance the fade timer by [dt] seconds.
   ///
@@ -94,7 +101,8 @@ class RayRenderable extends Renderable {
     if (glowBlurSigma > 0) {
       _glowPaint
         ..color = color.withAlpha((coreAlpha * 0.35).round())
-        ..strokeWidth = (width * scale * glowWidthMultiplier)
+        ..strokeWidth =
+            (width * ((scale.x + scale.y) / 2) * glowWidthMultiplier)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, glowBlurSigma);
       canvas.drawLine(start, end, _glowPaint);
     }
@@ -102,9 +110,13 @@ class RayRenderable extends Renderable {
     // Core beam
     _corePaint
       ..color = color.withAlpha(coreAlpha)
-      ..strokeWidth = width * scale;
+      ..strokeWidth = width * (scale.x + scale.y) / 2;
     canvas.drawLine(start, end, _corePaint);
   }
+
+  // [start] and [end] are world-space points.
+  @override
+  bool get boundsAreWorldSpace => true;
 
   @override
   Rect? getBounds() {

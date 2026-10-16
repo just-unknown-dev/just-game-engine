@@ -20,23 +20,29 @@ import 'string_interpolator.dart';
 ///   child: GameWidget(game: myGame),
 /// )
 /// ```
+///
+/// A `GameWidget` provides one itself, for its engine's manager
+/// (`engine.context.localization`), to everything drawn over the game.
 class LocalizationScope extends InheritedWidget {
+  /// Makes [manager] what [of] and [maybeOf] find anywhere below, in
+  /// [child].
   const LocalizationScope({
     super.key,
     required this.manager,
     required super.child,
   });
 
+  /// The manager provided to the subtree. Dependents rebuild when it is
+  /// replaced by another, not when its locale changes — that is what
+  /// [LocalizationBuilder] is for.
   final LocalizationManager manager;
 
-  /// Returns the nearest [LocalizationManager] from the tree, or
-  /// `LocalizationManager.instance` as a fallback, or `null` if neither is
-  /// available.
+  /// Returns the nearest [LocalizationManager] from the tree, or `null` if
+  /// there is none.
   static LocalizationManager? maybeOf(BuildContext context) {
     return context
-            .dependOnInheritedWidgetOfExactType<LocalizationScope>()
-            ?.manager ??
-        LocalizationManager.instance;
+        .dependOnInheritedWidgetOfExactType<LocalizationScope>()
+        ?.manager;
   }
 
   /// Like [maybeOf] but asserts that a manager is available.
@@ -44,10 +50,9 @@ class LocalizationScope extends InheritedWidget {
     final m = maybeOf(context);
     assert(
       m != null,
-      'No LocalizationScope found in the widget tree and '
-      'LocalizationManager.instance is null. '
-      'Wrap your widget tree with LocalizationScope or set '
-      'LocalizationManager.instance before calling LocalizationScope.of().',
+      'No LocalizationScope found in the widget tree. Wrap your widget tree '
+      'with LocalizationScope, or set engine.context.localization before '
+      'building the GameWidget (which then provides one).',
     );
     return m!;
   }
@@ -71,8 +76,13 @@ class LocalizationScope extends InheritedWidget {
 ///
 /// When [manager] is omitted, looks up [LocalizationScope.of(context)].
 class LocalizationBuilder extends StatefulWidget {
+  /// Builds with [builder] from [manager] (the nearest [LocalizationScope]'s
+  /// when null), again on every locale change; builds nothing while there is
+  /// no manager.
   const LocalizationBuilder({super.key, required this.builder, this.manager});
 
+  /// Builds the subtree from the manager; called again whenever the
+  /// manager's locale changes.
   final Widget Function(BuildContext context, LocalizationManager l10n) builder;
 
   /// Explicit manager — if `null`, resolves from [LocalizationScope].
@@ -142,6 +152,9 @@ class _LocalizationBuilderState extends State<LocalizationBuilder> {
 /// LocalizedText('ui.title', style: Theme.of(context).textTheme.headlineMedium)
 /// ```
 class LocalizedText extends StatelessWidget {
+  /// The string for [key_] in the nearest [LocalizationScope]'s current
+  /// locale, with [args] filled in and the lookup kept to [ns] when given.
+  /// Shows nothing without a scope. The rest are [Text]'s own parameters.
   const LocalizedText(
     this.key_, {
     super.key,
@@ -163,10 +176,21 @@ class LocalizedText extends StatelessWidget {
   /// Restrict lookup to one namespace.
   final String? ns;
 
+  /// Passed to [Text.style]; merged over the ambient [DefaultTextStyle].
   final TextStyle? style;
+
+  /// Passed to [Text.textAlign]; the ambient default when null.
   final TextAlign? textAlign;
+
+  /// Passed to [Text.maxLines]; the ambient default (usually no limit) when
+  /// null.
   final int? maxLines;
+
+  /// Passed to [Text.overflow]; the ambient default when null.
   final TextOverflow? overflow;
+
+  /// Passed to [Text.softWrap]: whether lines may break at word boundaries.
+  /// True by default.
   final bool softWrap;
 
   @override
@@ -197,6 +221,9 @@ class LocalizedText extends StatelessWidget {
 /// )
 /// ```
 class LocaleSelector extends StatelessWidget {
+  /// A wrapping row of tappable labels, one per entry of [locales], that
+  /// switch [manager] (the nearest [LocalizationScope]'s when null); builds
+  /// nothing when there is no manager.
   const LocaleSelector({
     super.key,
     required this.locales,
@@ -205,11 +232,17 @@ class LocaleSelector extends StatelessWidget {
     this.onLocaleChanged,
   });
 
+  /// The locales offered, in order. One shows as active (bold, underlined,
+  /// not tappable) when its language code is the current locale's, so two
+  /// locales of the same language show as active together.
   final List<Locale> locales;
 
-  /// Map of language-code → display name.  Falls back to the language code.
+  /// Map of language-code → display name.  Falls back to the language code
+  /// in capitals.
   final Map<String, String> labels;
 
+  /// The manager whose locale is switched; the nearest
+  /// [LocalizationScope]'s when null.
   final LocalizationManager? manager;
 
   /// Optional callback when a locale is selected.
@@ -269,7 +302,8 @@ class LocaleSelector extends StatelessWidget {
 /// Text(context.tr('game.hp', {'current': 80, 'max': 100}))
 /// ```
 extension L10nContext on BuildContext {
-  /// Looks up [key] in the nearest [LocalizationScope] (or global instance).
+  /// Looks up [key] in the nearest [LocalizationScope]; without one, gives
+  /// [key] itself (with [args] filled in).
   String t(String key, [Map<String, Object?> args = const {}]) =>
       LocalizationScope.maybeOf(this)?.t(key, args: args) ??
       (args.isEmpty ? key : StringInterpolator.process(key, args));

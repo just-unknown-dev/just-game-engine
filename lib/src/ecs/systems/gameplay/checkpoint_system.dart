@@ -1,0 +1,165 @@
+library;
+
+import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/painting.dart';
+
+import '../../../interfaces/interfaces.dart';
+
+import '../../ecs.dart';
+import '../../components/components.dart';
+import '../../serialization/tag_library.dart' show EngineTags;
+import '../../base/system_priorities.dart';
+import 'package:just_dart/just_dart.dart';
+import 'checkpoint_event.dart';
+
+/// Checkpoint / respawn system.
+///
+/// Scans entities that have a [CheckpointComponent] and, every frame, checks
+/// whether any player entity (identified by [playerTag]) is within the
+/// checkpoint's [CheckpointComponent.radius].  When a player enters an
+/// unactivated checkpoint for the first time, the checkpoint is marked as
+/// activated and a [CheckpointActivatedEvent] is fired.
+///
+/// The system also exposes [respawn] and [setRespawnPoint] helpers that game
+/// code can call directly.
+///
+/// **Setup**:
+/// ```dart
+/// world.addSystem(CheckpointSystem(playerTag: 'player'));
+/// ```
+///
+/// **Respawn on death**:
+/// ```dart
+/// world.events.on<PlayerRespawnEvent>((e) {
+///   final transform = e.playerEntity.getComponent<TransformComponent>()!;
+///   final velocity  = e.playerEntity.getComponent<VelocityComponent>()!;
+///   transform.position.setFrom(e.respawnPosition);
+///   velocity.setVelocityXY(0, 0);
+/// });
+/// ```
+class CheckpointSystem extends System {
+  /// Tag string used to identify player entities.
+  final String playerTag;
+
+  @override
+  int get priority => SystemPriorities.checkpoint;
+
+  @override
+  List<Type> get requiredComponents => const [
+    TransformComponent,
+    CheckpointComponent,
+  ];
+
+  /// Last activated respawn position (world-space).  Defaults to zero
+  /// until the player touches a checkpoint.
+  Vector3 _currentRespawnPoint = Vector3.zero();
+
+  /// Where [respawn] sends the player, in world space: the last activated
+  /// checkpoint's respawn position, or the one given to [setRespawnPoint];
+  /// zero until either. The stored vector itself, not a copy.
+  Vector3 get currentRespawnPoint => _currentRespawnPoint;
+
+  /// Creates a [CheckpointSystem] that looks for player entities tagged with
+  /// [playerTag].
+  CheckpointSystem({this.playerTag = EngineTags.player, this.camera});
+
+  /// Camera for drawing checkpoint radii in debug builds — the same one the
+  /// `RenderSystem` uses. Without it they are drawn at their world
+  /// coordinates read as screen pixels, away from their checkpoints.
+  GameCamera? camera;
+
+  @override
+  void update(double deltaTime) {
+    // Collect player entities once per frame.
+    final players = world.allTagged(playerTag);
+
+    if (players.isEmpty) return;
+
+    forEach((checkpointEntity) {
+      final cp = checkpointEntity.getComponent<CheckpointComponent>()!;
+      if (cp.isActivated) return;
+
+      final cpTransform = checkpointEntity.getComponent<TransformComponent>()!;
+      final cpPos = cpTransform.position;
+
+      for (final player in players) {
+        // A player-tagged entity with no position — a controller or a HUD
+        // record carrying the tag — can reach no checkpoint. Asserting one
+        // threw here every frame, aborting the rest of World.update.
+        final playerTransform = player.getComponent<TransformComponent>();
+        if (playerTransform == null) continue;
+        final dx = playerTransform.position.x - cpPos.x;
+        final dy = playerTransform.position.y - cpPos.y;
+        final distSq = dx * dx + dy * dy;
+
+        if (distSq <= cp.radius * cp.radius) {
+          cp.isActivated = true;
+          _currentRespawnPoint = Vector3.copy(cp.respawnPosition);
+
+          world.events.fire(
+            CheckpointActivatedEvent(
+              checkpointEntity: checkpointEntity,
+              playerEntity: player,
+              respawnPosition: cp.respawnPosition,
+            ),
+          );
+          break; // one activation per checkpoint per frame is enough
+        }
+      }
+    });
+  }
+
+  /// Fires a [PlayerRespawnEvent] asking for [playerEntity] to be moved to
+  /// [currentRespawnPoint]; a listener does the moving (see the class
+  /// example). Call this when the player dies.
+  void respawn(Entity playerEntity) {
+    world.events.fire(
+      PlayerRespawnEvent(
+        playerEntity: playerEntity,
+        respawnPosition: _currentRespawnPoint,
+      ),
+    );
+  }
+
+  /// Manually set the active respawn point without requiring the player to
+  /// touch a checkpoint entity.  Useful for level-start defaults.
+  void setRespawnPoint(Vector3 position) {
+    _currentRespawnPoint = Vector3.copy(position);
+  }
+
+  // ── Debug rendering ──────────────────────────────────────────────────────
+
+  @override
+  void render(Canvas canvas, Size size) {
+    // A debugging aid: it has no place in a shipped game.
+    if (!kDebugMode) return;
+
+    final cam = camera;
+    if (cam != null) {
+      cam.viewportSize = size;
+      canvas.save();
+      cam.applyTransform(canvas, size);
+    }
+    forEach((entity) {
+      final transform = entity.getComponent<TransformComponent>()!;
+      final cp = entity.getComponent<CheckpointComponent>()!;
+
+      canvas.drawCircle(
+        transform.position.toOffset(),
+        cp.radius,
+        cp.isActivated ? _activatedPaint : _inactivePaint,
+      );
+    });
+    if (cam != null) canvas.restore();
+  }
+
+  static final Paint _inactivePaint = Paint()
+    ..color = const Color(0x4400FFAA)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2.0;
+
+  static final Paint _activatedPaint = Paint()
+    ..color = const Color(0x8800FFAA)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2.0;
+}

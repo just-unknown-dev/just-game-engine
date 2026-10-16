@@ -1,0 +1,11 @@
+tags:
+  # 3-D physics (test/physics_3d/, test/perf/physics_3d_perf_test.dart).
+  # `flutter test -x physics3d` runs the rest — the 2-D engine — alone.
+  physics3d:
+  # 3-D graphics (test/graphics_3d/): the components, model loading and the
+  # scene renderer, on the null device unless tagged gpu as well.
+  graphics3d:
+  # Draws with Flutter GPU. These tests skip themselves when it is not
+  # enabled; run them with:
+  #   flutter test --enable-impeller --enable-flutter-gpu --tags gpu
+  gpu:

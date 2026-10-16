@@ -1,7 +1,8 @@
-/// Animation System
+/// Animation
 ///
-/// Manages character and object animations including sprite animations and tweening.
-/// This module provides animation playback and blending capabilities.
+/// The animator graph: the state machine that picks which clip an entity's
+/// sprite animation plays. Clips play through the ECS
+/// (`SpriteAnimationComponent`), and any field animates with a timeline.
 library;
 
-export 'animation_system.dart';
+export 'animator/animator_graph.dart';

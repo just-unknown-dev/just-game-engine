@@ -29,6 +29,9 @@ class ColorTintEffect extends DeterministicEffect {
 
   Color? _capturedFrom;
 
+  /// Tints toward [to] over [durationTicks] ticks (30 by default), along
+  /// [easing] (linear by default), starting from [from] or, when that is
+  /// null, from the entity's tint on the first tick.
   ColorTintEffect({
     required this.to,
     this.from,
@@ -51,7 +54,7 @@ class ColorTintEffect extends DeterministicEffect {
 
     // Absolute lerp — set tint directly (not additive delta).
     final currT = tAt(currElapsed);
-    final currEased = EffectEasings.resolve(easing, currT);
+    final currEased = easing.transform(currT);
     renderable.renderable.tint = Color.lerp(effectiveFrom, to, currEased);
   }
 

@@ -27,6 +27,14 @@ API.md
 # Build outputs
 build/
 
+# Tool logs (flutter crash reports and the like)
+*.log
+
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local-only files a .gitignore would hide, which .pubignore replaces
+pubspec_overrides.yaml
+coverage/
+doc/api/

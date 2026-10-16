@@ -46,7 +46,7 @@ void main() {
           CircleRenderable(
             radius: 4,
             fillColor: Colors.white,
-            position: Offset(i * 10.0, 0),
+            position: Vector3(i * 10.0, 0, 0),
           ),
         );
       }
@@ -69,7 +69,11 @@ void main() {
     });
 
     test('physics broadphase reports zero dirty bodies when nothing moved', () {
-      final physics = PhysicsEngine();
+      // Explicitly the pure-Dart backend: broadphaseDirtyBodies reports on the
+      // Dart SpatialGrid, which the Box2D backend does not use at all — it has
+      // its own broad phase — so on native this statistic is always zero and
+      // the assertions below would be testing nothing.
+      final physics = PhysicsEngine.pureDart();
       physics.initialize();
 
       physics.addBody(

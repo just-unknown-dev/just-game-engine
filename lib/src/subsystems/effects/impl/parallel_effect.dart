@@ -7,8 +7,8 @@ part of '../effect_system.dart';
 /// the longest child finishes.
 ///
 /// ```dart
-/// ParallelEffect([
-///   MoveEffect(to: Offset(300, 0), durationTicks: 60),
+/// ParallelEffect(children: [
+///   MoveEffect(to: Vector3(300, 0, 0), durationTicks: 60),
 ///   ScaleEffect(to: 1.5, durationTicks: 40),
 ///   FadeEffect(to: 0.0, durationTicks: 60),
 /// ])
@@ -17,6 +17,8 @@ class ParallelEffect extends DeterministicEffect {
   /// Child effects to run simultaneously.
   final List<DeterministicEffect> children;
 
+  /// Plays all of [children] (at least one, asserted) from the same tick;
+  /// lasts as long as the longest of them.
   ParallelEffect({
     required this.children,
     super.loop,
@@ -65,8 +67,10 @@ class ParallelEffect extends DeterministicEffect {
     };
   }
 
-  factory ParallelEffect._fromJson(Map<String, dynamic> json) {
-    final s = EffectSerializer();
+  factory ParallelEffect._fromJson(
+    Map<String, dynamic> json,
+    EffectSerializer s,
+  ) {
     final childrenJson = json['children'] as List;
     return ParallelEffect(
       children: childrenJson

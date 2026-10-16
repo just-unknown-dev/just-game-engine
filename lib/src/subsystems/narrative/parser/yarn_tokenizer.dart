@@ -47,6 +47,9 @@ enum TokenType {
   /// `<<set $var = expr>>` — variable assignment.
   commandSet,
 
+  /// `<<declare $var = expr>>` — a variable's first value.
+  commandDeclare,
+
   /// Any other `<<name args>>` command.
   command,
 
@@ -63,6 +66,8 @@ enum TokenType {
 
 /// A single logical line from a Yarn Spinner source file.
 class YarnToken {
+  /// The token for source line [lineNumber], of kind [type], with [value]
+  /// its content and [indentLevel] its indentation.
   const YarnToken({
     required this.type,
     required this.value,
@@ -70,6 +75,7 @@ class YarnToken {
     required this.lineNumber,
   });
 
+  /// What kind of line this is, which says what [value] holds.
   final TokenType type;
 
   /// Meaningful content of the line, trimmed of its syntactic delimiters.
@@ -79,7 +85,8 @@ class YarnToken {
   /// * For [TokenType.choice]: text after `->` stripped.
   /// * For [TokenType.commandIf] / [TokenType.commandElseIf]: condition string.
   /// * For [TokenType.commandJump]: target node title.
-  /// * For [TokenType.commandSet]: the `$var = expr` string.
+  /// * For [TokenType.commandSet] and [TokenType.commandDeclare]: the
+  ///   `$var = expr` string.
   /// * For [TokenType.command]: the full inner text (`name args`).
   final String value;
 
@@ -320,6 +327,14 @@ class YarnTokenizer {
       return YarnToken(
         type: TokenType.commandSet,
         value: inner.substring(4).trim(),
+        indentLevel: indent,
+        lineNumber: lineNum,
+      );
+    }
+    if (lower.startsWith('declare ')) {
+      return YarnToken(
+        type: TokenType.commandDeclare,
+        value: inner.substring(8).trim(),
         indentLevel: indent,
         lineNumber: lineNum,
       );

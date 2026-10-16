@@ -2,7 +2,7 @@ library;
 
 import '../../ecs.dart';
 import '../../components/components.dart';
-import '../system_priorities.dart';
+import '../../base/system_priorities.dart';
 
 /// Health system - Handles death and health regeneration
 class HealthSystem extends System {
@@ -18,7 +18,7 @@ class HealthSystem extends System {
   final List<Entity> _toDie = [];
 
   @override
-  List<Type> get requiredComponents => [HealthComponent];
+  List<Type> get requiredComponents => const [HealthComponent];
 
   @override
   void update(double deltaTime) {

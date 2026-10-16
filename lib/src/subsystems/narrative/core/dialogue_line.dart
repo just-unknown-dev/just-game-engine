@@ -15,6 +15,7 @@ library;
 /// });
 /// ```
 class DialogueLine {
+  /// A line showing [text], said by [character] (narration when null).
   const DialogueLine({
     this.character,
     required this.text,

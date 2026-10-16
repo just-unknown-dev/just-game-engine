@@ -7,16 +7,38 @@ library;
 /// Time management system for the game engine
 ///
 /// This class tracks various time metrics useful for game development:
-/// - Delta time: Time since last frame
-/// - Total time: Time since engine started
+/// - Delta time: the last rendered frame's length, in game time
+/// - Total time: game time since the engine started — it stands still
+///   while the engine is paused
+/// - Unscaled delta and total time: the same in real time, which goes on
+///   while paused
 /// - Time scale: Slow motion / fast forward effects
 /// - Frame count: Total frames rendered
 ///
-/// Example usage:
+/// A system moves things by the `deltaTime` its `update` is given — the
+/// fixed step, scaled — not by [deltaTime] here, which is the rendered
+/// frame's length:
+///
 /// ```dart
-/// final time = engine.time;
-/// final deltaTime = time.deltaTime;
-/// position += velocity * deltaTime;
+/// class FallSystem extends System {
+///   @override
+///   List<Type> get requiredComponents => const [TransformComponent];
+///
+///   @override
+///   void update(double deltaTime) {
+///     forEach((entity) {
+///       entity.getComponent<TransformComponent>()!.position.y +=
+///           100 * deltaTime;
+///     });
+///   }
+/// }
+/// ```
+///
+/// Read the time here for what happens outside the systems, and time a
+/// cooldown by [totalTime], which a pause menu stops:
+///
+/// ```dart
+/// final ready = engine.time.totalTime >= nextShotAt;
 /// ```
 class TimeManager {
   /// Time since last frame in seconds
@@ -30,6 +52,9 @@ class TimeManager {
 
   /// Unscaled delta time (not affected by time scale)
   double _unscaledDeltaTime = 0.0;
+
+  /// Real time since the engine started, in seconds.
+  double _unscaledTotalTime = 0.0;
 
   /// Total frames rendered
   int _frameCount = 0;
@@ -49,8 +74,14 @@ class TimeManager {
   /// Get unscaled delta time
   double get unscaledDeltaTime => _unscaledDeltaTime;
 
-  /// Get total elapsed time
+  /// Game time since the engine started, in seconds: scaled by
+  /// [timeScale], and standing still while the engine is paused.
   double get totalTime => _totalTime;
+
+  /// Real time since the engine started, in seconds, as the frames measured
+  /// it (each at most [maxDeltaTime]): not scaled, and going on while the
+  /// engine is paused.
+  double get unscaledTotalTime => _unscaledTotalTime;
 
   /// Get time scale
   double get timeScale => _timeScale;
@@ -77,8 +108,8 @@ class TimeManager {
     _maxDeltaTime = value;
   }
 
-  /// Get frames per second (based on delta time)
-  double get fps => _deltaTime > 0 ? 1.0 / _deltaTime : 0.0;
+  /// Frames per second, from the last frame's real length.
+  double get fps => _unscaledDeltaTime > 0 ? 1.0 / _unscaledDeltaTime : 0.0;
 
   /// Get elapsed time since engine start
   double get elapsedTime {
@@ -86,10 +117,19 @@ class TimeManager {
     return now.difference(_startTime).inMicroseconds / 1000000.0;
   }
 
-  /// Update the time manager (called by game loop)
-  void update(double frameTime) {
+  /// Advances by one rendered frame, [frameTime] seconds long (called by
+  /// the game loop). While [paused] only real time goes on: [deltaTime] is
+  /// zero and [totalTime] stands still.
+  void update(double frameTime, {bool paused = false}) {
     // Clamp frame time to max delta time
     _unscaledDeltaTime = frameTime.clamp(0.0, _maxDeltaTime);
+    _unscaledTotalTime += _unscaledDeltaTime;
+    _frameCount++;
+
+    if (paused) {
+      _deltaTime = 0.0;
+      return;
+    }
 
     // Apply time scale
     _deltaTime = _unscaledDeltaTime * _timeScale;
@@ -101,9 +141,6 @@ class TimeManager {
     _smoothDeltaTime = _smoothDeltaTime == 0.0
         ? _deltaTime
         : _smoothDeltaTime * 0.9 + _deltaTime * 0.1;
-
-    // Increment frame count
-    _frameCount++;
   }
 
   /// Pause time (sets time scale to 0)
@@ -132,6 +169,7 @@ class TimeManager {
     _totalTime = 0.0;
     _timeScale = 1.0;
     _unscaledDeltaTime = 0.0;
+    _unscaledTotalTime = 0.0;
     _smoothDeltaTime = 0.0;
     _frameCount = 0;
   }

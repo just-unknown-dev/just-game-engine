@@ -15,7 +15,7 @@ part of '../effect_system.dart';
 /// final effectSystem = world.getSystem<EffectSystemECS>()!;
 /// effectSystem.scheduleEffect(
 ///   entity: e,
-///   effect: MoveEffect(to: Offset(300, 0), durationTicks: 60),
+///   effect: MoveEffect(to: Vector3(300, 0, 0), durationTicks: 60),
 ///   startTick: serverTick, // same on all peers → same result
 /// );
 /// ```
@@ -52,49 +52,6 @@ abstract interface class EffectRuntime {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared base
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Shared scheduling logic for [EffectRuntime] implementations.
-///
-/// [EffectSystemECS] implements [EffectRuntime] directly; this abstract base
-/// is used only by [PredictionEffectRuntime].
-abstract class _EffectRuntimeBase implements EffectRuntime {
-  @override
-  EffectHandle scheduleEffect({
-    required Entity entity,
-    required DeterministicEffect effect,
-    int? startTick,
-  }) {
-    var comp = entity.getComponent<EffectComponent>();
-    if (comp == null) {
-      comp = EffectComponent();
-      entity.addComponent(comp);
-    }
-    return comp.player.add(effect, startTick ?? currentTick);
-  }
-
-  @override
-  void cancelEffect(Entity entity, EffectHandle handle) {
-    entity.getComponent<EffectComponent>()?.player.cancel(handle);
-  }
-
-  @override
-  EffectSnapshot snapshotState() {
-    throw UnimplementedError(
-      'Override snapshotState() in a subclass that has World access.',
-    );
-  }
-
-  @override
-  void restoreSnapshot(EffectSnapshot snapshot, World world) {
-    throw UnimplementedError(
-      'Override restoreSnapshot() in a subclass that has World access.',
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Prediction + rollback runtime (documented stub)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -111,7 +68,7 @@ abstract class _EffectRuntimeBase implements EffectRuntime {
 /// 2. Wire [rollbackTo] from your server-correction message handler.
 /// 3. Call [advanceTick] each physics frame to keep [currentTick] in sync
 ///    (instead of relying on [EffectSystemECS] to drive the counter).
-class PredictionEffectRuntime extends _EffectRuntimeBase {
+class PredictionEffectRuntime implements EffectRuntime {
   /// Maximum number of past ticks retained in the rollback log.
   final int rollbackWindowTicks;
 
@@ -120,6 +77,9 @@ class PredictionEffectRuntime extends _EffectRuntimeBase {
   /// Per-tick log: key = startTick, value = effects scheduled at that tick.
   final Map<int, List<_RollbackEntry>> _log = {};
 
+  /// A runtime at tick 0 that remembers effects scheduled in the last
+  /// [rollbackWindowTicks] ticks (120 by default: 2 s at 60 ticks a
+  /// second).
   PredictionEffectRuntime({this.rollbackWindowTicks = 120});
 
   @override
@@ -140,11 +100,7 @@ class PredictionEffectRuntime extends _EffectRuntimeBase {
     required DeterministicEffect effect,
     int? startTick,
   }) {
-    final handle = super.scheduleEffect(
-      entity: entity,
-      effect: effect,
-      startTick: startTick,
-    );
+    final handle = _addToPlayer(entity, effect, startTick);
     final tick = startTick ?? _currentTick;
     _log
         .putIfAbsent(tick, () => [])
@@ -173,15 +129,46 @@ class PredictionEffectRuntime extends _EffectRuntimeBase {
           final entity = world.getEntity(rb.entityId);
           if (entity == null || !entity.isAlive) continue;
           rb.effect.reset();
-          super.scheduleEffect(
-            entity: entity,
-            effect: rb.effect,
-            startTick: rb.handle.startTick,
-          );
+          // The new handle is the one a later rollback must cancel.
+          rb.handle = _addToPlayer(entity, rb.effect, rb.handle.startTick);
         }
       }
     }
     _currentTick = targetTick;
+  }
+
+  @override
+  void cancelEffect(Entity entity, EffectHandle handle) {
+    entity.getComponent<EffectComponent>()?.player.cancel(handle);
+  }
+
+  @override
+  EffectSnapshot snapshotState() {
+    throw UnimplementedError(
+      'Override snapshotState() in a subclass that has World access.',
+    );
+  }
+
+  @override
+  void restoreSnapshot(EffectSnapshot snapshot, World world) {
+    throw UnimplementedError(
+      'Override restoreSnapshot() in a subclass that has World access.',
+    );
+  }
+
+  /// Queues [effect] on [entity]'s effect player, adding the player first
+  /// where the entity has none.
+  EffectHandle _addToPlayer(
+    Entity entity,
+    DeterministicEffect effect,
+    int? startTick,
+  ) {
+    var comp = entity.getComponent<EffectComponent>();
+    if (comp == null) {
+      comp = EffectComponent();
+      entity.addComponent(comp);
+    }
+    return comp.player.add(effect, startTick ?? currentTick);
   }
 
   void _pruneLog() {
@@ -193,9 +180,9 @@ class PredictionEffectRuntime extends _EffectRuntimeBase {
 /// Internal rollback log entry.
 class _RollbackEntry {
   final EntityId entityId;
-  final EffectHandle handle;
+  EffectHandle handle;
   final DeterministicEffect effect;
-  const _RollbackEntry({
+  _RollbackEntry({
     required this.entityId,
     required this.handle,
     required this.effect,

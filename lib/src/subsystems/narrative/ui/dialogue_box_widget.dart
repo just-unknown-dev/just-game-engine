@@ -39,6 +39,9 @@ import '../runtime/dialogue_runner.dart';
 /// * Second tap (or first tap when typewriter is done) → calls [onTap]
 ///   (typically `runner.advance`).
 class DialogueBoxWidget extends StatefulWidget {
+  /// A box showing [runner]'s current line, 160 px high with 16 px of
+  /// padding, typing it out at 40 characters a second, over a translucent
+  /// black rounded box unless [boxDecoration] is given.
   const DialogueBoxWidget({
     super.key,
     required this.runner,
@@ -54,6 +57,10 @@ class DialogueBoxWidget extends StatefulWidget {
     this.continueIndicator,
   });
 
+  /// The runner whose lines are shown. The box starts listening when it is
+  /// first built, so it shows the lines presented after that. A different
+  /// runner passed in on a rebuild takes over at once: the box stops
+  /// listening to the old one and shows the new one's current line.
   final DialogueRunner runner;
 
   /// Callback invoked when the player taps to advance (after typewriter
@@ -78,6 +85,8 @@ class DialogueBoxWidget extends StatefulWidget {
   /// Optional portrait widget factory.  Receives the current speaker name.
   final Widget Function(String character)? portraitBuilder;
 
+  /// Space between the box's edge and its contents; 16 px all round by
+  /// default.
   final EdgeInsets padding;
 
   /// Fixed height of the dialogue box.
@@ -105,6 +114,15 @@ class _DialogueBoxWidgetState extends State<DialogueBoxWidget> {
     super.initState();
     _lineSub = () => _onLineChanged(widget.runner.signals.currentLine.value);
     widget.runner.signals.currentLine.addListener(_lineSub);
+  }
+
+  @override
+  void didUpdateWidget(DialogueBoxWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.runner, widget.runner)) return;
+    oldWidget.runner.signals.currentLine.removeListener(_lineSub);
+    widget.runner.signals.currentLine.addListener(_lineSub);
+    _onLineChanged(widget.runner.signals.currentLine.value);
   }
 
   @override
@@ -137,6 +155,14 @@ class _DialogueBoxWidgetState extends State<DialogueBoxWidget> {
   }
 
   void _startTypewriter(String text) {
+    // Where each character the reader sees ends — an emoji or an accented
+    // letter can be several UTF-16 units, never to be cut in two.
+    final ends = <int>[];
+    var offset = 0;
+    for (final character in text.characters) {
+      offset += character.length;
+      ends.add(offset);
+    }
     final intervalMs = (1000.0 / widget.typewriterSpeed).round();
     _timer = Timer.periodic(Duration(milliseconds: intervalMs), (t) {
       if (!mounted) {
@@ -144,14 +170,14 @@ class _DialogueBoxWidgetState extends State<DialogueBoxWidget> {
         return;
       }
       _charIndex++;
-      if (_charIndex >= text.length) {
+      if (_charIndex >= ends.length) {
         t.cancel();
         setState(() {
           _displayText = text;
           _typewriterDone = true;
         });
       } else {
-        setState(() => _displayText = text.substring(0, _charIndex));
+        setState(() => _displayText = text.substring(0, ends[_charIndex - 1]));
       }
     });
   }

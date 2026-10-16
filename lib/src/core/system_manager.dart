@@ -13,6 +13,11 @@ import 'lifecycle.dart';
 /// Callback used by the frame scheduler for update tasks.
 typedef UpdateTask = void Function(double deltaTime);
 
+/// Callback used by the frame scheduler for per-frame tasks: [deltaTime] is
+/// the frame's length, [alpha] how far it lies between the last two fixed
+/// updates.
+typedef FrameTask = void Function(double deltaTime, double alpha);
+
 /// System manager for coordinating engine subsystems
 ///
 /// This class acts as a registry for all engine subsystems, allowing
@@ -37,6 +42,10 @@ class SystemManager implements ILifecycle {
   /// Ordered update tasks owned by the scheduler.
   final Map<String, UpdateTask> _updateTasks = {};
   final List<String> _updateOrder = <String>[];
+
+  /// Ordered per-frame tasks, run after a frame's fixed updates.
+  final Map<String, FrameTask> _frameTasks = {};
+  final List<String> _frameOrder = <String>[];
   final Map<String, double> _lastTaskTimesMs = <String, double>{};
   double _lastFrameMs = 0.0;
 
@@ -48,8 +57,13 @@ class SystemManager implements ILifecycle {
   late final UnmodifiableMapView<String, double> _unmodifiableTaskTimesView =
       UnmodifiableMapView(_lastTaskTimesMs);
 
-  // Cached stats map — rebuilt once per frame at end of runUpdateCycle.
-  Map<String, dynamic> _cachedSchedulerStats = const {};
+  /// Whether [runUpdateCycle] times each task ([lastTaskTimesMs],
+  /// [lastFrameMs]).
+  ///
+  /// On by default in debug and profile builds and off in release, where
+  /// the stopwatch reads cost time for numbers nothing reads. Switched
+  /// off, the timings stay empty and 0.
+  bool profiling = !kReleaseMode;
 
   /// Check if initialized
   bool get isInitialized => _isInitialized;
@@ -57,11 +71,15 @@ class SystemManager implements ILifecycle {
   /// Get the number of registered systems
   int get systemCount => _systems.length;
 
-  /// Latest scheduler timing snapshot.
-  ///
-  /// Rebuilt once per [runUpdateCycle]; subsequent reads in the same frame
-  /// return the same cached map without any allocation.
-  Map<String, dynamic> get schedulerStats => _cachedSchedulerStats;
+  /// Latest scheduler timing snapshot, made when read: `systemCount`,
+  /// `updateTaskCount`, `lastFrameMs` and `taskTimesMs` (a live view of
+  /// [lastTaskTimesMs]). The timings are measured only while [profiling].
+  Map<String, dynamic> get schedulerStats => {
+    'systemCount': _systems.length,
+    'updateTaskCount': _updateOrder.length,
+    'lastFrameMs': _lastFrameMs,
+    'taskTimesMs': _unmodifiableTaskTimesView,
+  };
 
   /// Latest task timings in milliseconds.
   ///
@@ -83,10 +101,19 @@ class SystemManager implements ILifecycle {
     return true;
   }
 
+  /// The declared type each name was registered under.
+  final Map<String, Type> _typeByName = {};
+
   /// Register a system with the manager
   ///
   /// [name] - Unique name for the system
   /// [system] - System instance to register
+  ///
+  /// The system is keyed by its **declared** type [T] — the type argument,
+  /// inferred from the static type of [system] when not given — not by its
+  /// runtime type: `registerSystem<RenderingEngine>('rendering', custom)`
+  /// is found by `getSystem<RenderingEngine>()` even when `custom` is a
+  /// subclass.
   void registerSystem<T>(String name, T system) {
     if (_systems.containsKey(name)) {
       throw StateError('System with name "$name" is already registered');
@@ -94,23 +121,28 @@ class SystemManager implements ILifecycle {
 
     _systems[name] = system;
     _systemsByType[T] = system;
+    _typeByName[name] = T;
 
-    debugPrint('System registered: $name (${T.toString()})');
+    if (kDebugMode) debugPrint('System registered: $name (${T.toString()})');
   }
 
   /// Unregister a system by name
   ///
-  /// Returns true if the system was found and removed.
+  /// Returns true if the system was found and removed. Its typed entry goes
+  /// with it — the one [registerSystem] made under the declared type — as
+  /// long as that entry is still this system.
   bool unregisterSystem(String name) {
     if (!_systems.containsKey(name)) {
       return false;
     }
 
-    final system = _systems[name];
-    _systems.remove(name);
-    _systemsByType.remove(system.runtimeType);
+    final system = _systems.remove(name);
+    final type = _typeByName.remove(name);
+    if (type != null && identical(_systemsByType[type], system)) {
+      _systemsByType.remove(type);
+    }
 
-    debugPrint('System unregistered: $name');
+    if (kDebugMode) debugPrint('System unregistered: $name');
     return true;
   }
 
@@ -155,12 +187,44 @@ class SystemManager implements ILifecycle {
     return removed != null;
   }
 
+  /// Register an ordered per-frame task (see [runFrameCycle]).
+  void registerFrameTask(String name, FrameTask task) {
+    if (_frameTasks.containsKey(name)) {
+      throw StateError('Frame task with name "$name" is already registered');
+    }
+    _frameTasks[name] = task;
+    _frameOrder.add(name);
+  }
+
+  /// Remove a per-frame task from the scheduler.
+  bool unregisterFrameTask(String name) {
+    final removed = _frameTasks.remove(name);
+    _frameOrder.remove(name);
+    return removed != null;
+  }
+
+  /// Runs every per-frame task once, in registration order: once per
+  /// rendered frame, after its fixed updates.
+  void runFrameCycle(double deltaTime, double alpha) {
+    for (final name in _frameOrder) {
+      _frameTasks[name]?.call(deltaTime, alpha);
+    }
+  }
+
   /// Execute one scheduled update cycle in registration order.
   void runUpdateCycle(double deltaTime) {
+    if (_lastTaskTimesMs.isNotEmpty) _lastTaskTimesMs.clear();
+    if (!profiling) {
+      for (final name in _updateOrder) {
+        _updateTasks[name]?.call(deltaTime);
+      }
+      _lastFrameMs = 0.0;
+      return;
+    }
+
     _frameStopwatch
       ..reset()
       ..start();
-    _lastTaskTimesMs.clear();
 
     for (final name in _updateOrder) {
       final task = _updateTasks[name];
@@ -179,14 +243,6 @@ class SystemManager implements ILifecycle {
 
     _frameStopwatch.stop();
     _lastFrameMs = _frameStopwatch.elapsedMicroseconds / 1000.0;
-
-    // Rebuild cached stats map once per frame so the getter is allocation-free.
-    _cachedSchedulerStats = {
-      'systemCount': _systems.length,
-      'updateTaskCount': _updateOrder.length,
-      'lastFrameMs': _lastFrameMs,
-      'taskTimesMs': _unmodifiableTaskTimesView,
-    };
   }
 
   /// Get all registered system names
@@ -203,8 +259,11 @@ class SystemManager implements ILifecycle {
   void clear() {
     _systems.clear();
     _systemsByType.clear();
+    _typeByName.clear();
     _updateTasks.clear();
     _updateOrder.clear();
+    _frameTasks.clear();
+    _frameOrder.clear();
     _lastTaskTimesMs.clear();
     _lastFrameMs = 0.0;
   }
@@ -217,7 +276,7 @@ class SystemManager implements ILifecycle {
   void dispose() {
     clear();
     _isInitialized = false;
-    debugPrint('System manager disposed');
+    if (kDebugMode) debugPrint('System manager disposed');
   }
 
   /// Print information about all registered systems

@@ -1,31 +1,83 @@
 name: just_game_engine
-description: "A feature-rich 2D game engine for Flutter with ECS, physics, audio, tilemaps, particles, animation, and input systems for building cross-platform games."
-version: 1.5.3
+description: "A game engine for Flutter: 2D, with 3D graphics and physics to opt into; ECS, level maps, sprites and animator graphs, timelines, virtual cameras, particles, audio and input."
+version: 2.0.0-dev.1
 homepage: https://engine.justunknown.com/
 repository: https://github.com/just-unknown-dev/just-game-engine
 issue_tracker: https://github.com/just-unknown-dev/just-game-engine/issues
+topics:
+  - game-engine
+  - gamedev
+  - ecs
+  - game
+  - physics
+
+screenshots:
+  - description: "2D: a platformer level with a tile map, gradient shapes, physics bodies and an animated sprite player."
+    path: assets/screenshots/jge_2d_platformer_day.png
+  - description: "3D: a third-person hero in a level built from shapes, with PBR materials, sun shadows, point lights, sky and fog."
+    path: assets/screenshots/jge_3d_third_person.png
+  - description: "2D at night: the same level tinted, with particles for the campfire, embers, smoke, fireflies and a glowing crystal."
+    path: assets/screenshots/jge_2d_platformer_night.png
+  - description: "3D: the temple level from above, with low-poly trees, physics props, coins and lit braziers."
+    path: assets/screenshots/jge_3d_temple.png
+  - description: "3D shapes with PBR materials: gold, chrome, glass, emissive, copper, jade, ruby and a faceted gem."
+    path: assets/screenshots/jge_3d_materials.png
+
+# Declared, so pub.dev does not infer platforms from dependencies. The engine
+# runs everywhere Flutter does; 3-D draws where Flutter GPU does (not the
+# web) and 3-D physics runs where Jolt is built (not the web).
+platforms:
+  android:
+  ios:
+  linux:
+  macos:
+  windows:
+  web:
 
 environment:
   sdk: ^3.11.0
-  flutter: ">=1.17.0"
+  # just_graphics_engine (3-D) needs 3.47.1, the first stable where Flutter
+  # GPU can be switched on in Windows and Linux release builds.
+  flutter: ">=3.47.1"
 
 dependencies:
   flutter:
     sdk: flutter
-  just_audio_engine: ^1.0.0
-  just_storage: ^1.1.2
-  just_database: ^1.3.0
-  just_signals: ^1.0.1
+  just_physics_engine: ^1.4.0
+  just_inputs: ^0.1.1
+  just_audio_engine: ^1.1.0
+  just_storage: ^1.2.1
+  # Finds the folder of the engine's own storage file. Imported only by
+  # lib/src/memory/engine_storage_io.dart, through a conditional import, so
+  # web builds never import it (it imports dart:io).
+  path_provider: ^2.1.5
+  just_database: ^1.4.2
+  just_signals: ^1.0.2
   just_memory: ^0.1.0
-  just_debugger: ^0.0.1
-  just_tiled: ^0.2.0
+  just_tiled: ^0.4.1
+  # zlib for tile map chunks: pure Dart, the same bytes on every platform.
+  just_deflate: ^0.1.0
+  # The saved file formats and their migrations, in pure Dart: shared with
+  # the editor and the just tool, and re-exported from the engine.
+  just_game_engine_formats: ^0.1.0
+  just_dart: ^0.2.0
+  # 3-D drawing on Flutter GPU, for lib/graphics_3d.dart (Graphics3D). Its
+  # web branch carries no flutter_gpu, so the engine stays web-safe; a 2-D
+  # game never makes a GPU device or loads the shaders.
+  just_graphics_engine: ^0.1.0-dev.1
   meta: ^1.9.0
-  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
 
-flutter:
+# This package's own tests run 3-D physics on Jolt (test/physics_3d/jolt_*).
+# A game's pubspec says the same when it uses Physics3D; a 2-D game leaves
+# it out and neither builds nor ships Jolt.
+hooks:
+  user_defines:
+    just_jolt:
+      build: true
 
+flutter:

@@ -8,8 +8,8 @@ part of '../effect_system.dart';
 /// child's `prevElapsed` resets to `0` at the start of its slice.
 ///
 /// ```dart
-/// SequenceEffect([
-///   MoveEffect(to: Offset(200, 0), durationTicks: 30),
+/// SequenceEffect(children: [
+///   MoveEffect(to: Vector3(200, 0, 0), durationTicks: 30),
 ///   ShakeEffect(amplitude: 8, durationTicks: 20),
 ///   FadeEffect(to: 0.0, durationTicks: 30),
 /// ])
@@ -22,6 +22,8 @@ class SequenceEffect extends DeterministicEffect {
   /// `children[i]` starts, relative to the beginning of the sequence.
   late final List<int> _offsets;
 
+  /// Plays [children] (at least one, asserted) one after another in list
+  /// order; lasts as long as all their durations added up.
   SequenceEffect({
     required this.children,
     super.loop,
@@ -82,8 +84,10 @@ class SequenceEffect extends DeterministicEffect {
     };
   }
 
-  factory SequenceEffect._fromJson(Map<String, dynamic> json) {
-    final s = EffectSerializer();
+  factory SequenceEffect._fromJson(
+    Map<String, dynamic> json,
+    EffectSerializer s,
+  ) {
     final childrenJson = json['children'] as List;
     return SequenceEffect(
       children: childrenJson

@@ -58,42 +58,70 @@ abstract class ReactiveSystem extends System {
   bool isDirty(Entity entity) => _dirtyEntities.contains(entity.id);
 
   /// Sets the world signal for automatic tracking.
+  ///
+  /// From then on the system watches every entity matching
+  /// [requiredComponents] — those there already and those that come to
+  /// match later, which are marked dirty as they arrive so each is
+  /// processed once — and lets go of the ones that are destroyed or stop
+  /// matching. A new signal replaces the old one's watches.
   void setWorldSignal(WorldSignal worldSignal) {
+    if (identical(_worldSignal, worldSignal)) return;
+    unwatchAll();
     _worldSignal = worldSignal;
+    _watchedAt = -1;
   }
 
   /// Watches an entity's components for changes.
   ///
   /// When any watched component changes, the entity is marked dirty.
+  /// Watching an entity again replaces its watch — hooking up components
+  /// that were replaced since — rather than adding a second.
   void watchEntity(Entity entity) {
-    if (_worldSignal == null) return;
+    final worldSignal = _worldSignal;
+    if (worldSignal == null) return;
+    unwatchEntity(entity.id);
 
-    final entitySignal = _worldSignal!.entitySignal(entity);
+    final watch = _Watch();
+    _watches[entity.id] = watch;
+    final entitySignal = worldSignal.entitySignal(entity);
     for (final type in requiredComponents) {
-      // Create a signal for each required component type
-      _watchComponentType(entitySignal, type, entity);
+      _watchComponentType(entitySignal, type, entity, watch);
     }
   }
 
-  /// Disposers for entity watches, keyed by entity ID.
-  final Map<EntityId, List<VoidCallback>> _watchDisposers = {};
+  /// Stops watching the entity [id]: the listeners [watchEntity] added are
+  /// removed.
+  void unwatchEntity(EntityId id) => _watches.remove(id)?.dispose();
+
+  /// Stops watching every entity.
+  void unwatchAll() {
+    for (final watch in _watches.values) {
+      watch.dispose();
+    }
+    _watches.clear();
+  }
+
+  /// What each watched entity's watch added, by entity ID.
+  final Map<EntityId, _Watch> _watches = {};
+
+  /// [World.queryVersion] of [requiredComponents] when the watches were
+  /// last brought up to date; -1 before the first time.
+  int _watchedAt = -1;
 
   void _watchComponentType(
     EntitySignal entitySignal,
     Type type,
     Entity entity,
+    _Watch watch,
   ) {
     // 1. If the component uses the ReactiveComponent mixin, listen for
     //    property changes and mark the entity dirty.
-    for (final component in entity.components) {
-      if (component.runtimeType == type && component is ReactiveComponent) {
-        void onChange() => markDirty(entity);
-        component.addChangeListener(onChange);
-        _watchDisposers
-            .putIfAbsent(entity.id, () => [])
-            .add(() => component.removeChangeListener(onChange));
-        break;
-      }
+    final component = entity.getComponentByType(type);
+    if (component is ReactiveComponent) {
+      void onChange() => markDirty(entity);
+      component.addChangeListener(onChange);
+      watch.components.add(component);
+      watch.disposers.add(() => component.removeChangeListener(onChange));
     }
 
     // 2. Watch the EntitySignal's component signal so that adding/removing
@@ -102,26 +130,65 @@ abstract class ReactiveSystem extends System {
     if (signal != null) {
       void onSignalChange() => markDirty(entity);
       signal.addListener(onSignalChange);
-      _watchDisposers
-          .putIfAbsent(entity.id, () => [])
-          .add(() => signal.removeListener(onSignalChange));
+      watch.disposers.add(() => signal.removeListener(onSignalChange));
+    }
+  }
+
+  /// With a world signal, brings the watches up to date when the entities
+  /// matching [requiredComponents] changed: newcomers are watched, entities
+  /// whose watched component was replaced are watched again — both marked
+  /// dirty, unless the first run is still to process everything — and
+  /// entities that left are let go.
+  void _syncWatches() {
+    if (_worldSignal == null) return;
+    final version = world.queryVersion(requiredComponents);
+    if (version == _watchedAt) return;
+    final first = _watchedAt == -1;
+    _watchedAt = version;
+
+    final matching = <EntityId>{};
+    for (final entity in entities) {
+      matching.add(entity.id);
+      final watch = _watches[entity.id];
+      if (watch != null && watch.stillOn(entity)) continue;
+      watchEntity(entity);
+      if (!first && !processAllOnFirstRun) markDirty(entity);
+    }
+    final gone = [
+      for (final id in _watches.keys)
+        if (!matching.contains(id)) id,
+    ];
+    for (final id in gone) {
+      unwatchEntity(id);
+      _dirtyEntities.remove(id);
     }
   }
 
   @override
   void onAddedToWorld() {
     super.onAddedToWorld();
+    _watchedAt = -1;
+    _syncWatches();
+  }
 
-    // If we have a world signal, set up watching
-    if (_worldSignal != null) {
-      for (final entity in entities) {
-        watchEntity(entity);
-      }
-    }
+  @override
+  void onRemovedFromWorld() {
+    super.onRemovedFromWorld();
+    unwatchAll();
+    _watchedAt = -1;
+    _dirtyEntities.clear();
+  }
+
+  @override
+  void dispose() {
+    unwatchAll();
+    _watchedAt = -1;
+    super.dispose();
   }
 
   @override
   void update(double deltaTime) {
+    _syncWatches();
     if (processAllOnFirstRun && _dirtyEntities.isEmpty) {
       // First run - process all entities
       for (final entity in entities) {
@@ -136,7 +203,7 @@ abstract class ReactiveSystem extends System {
       for (final entityId in toProcess) {
         final entity = world.getEntity(entityId);
         if (entity != null &&
-            entity.isActive &&
+            entity.isActiveInHierarchy &&
             entity.hasComponents(requiredComponents)) {
           processEntity(entity, deltaTime);
         }
@@ -146,6 +213,36 @@ abstract class ReactiveSystem extends System {
 
   /// Processes a single entity. Override this instead of update().
   void processEntity(Entity entity, double deltaTime);
+}
+
+/// What [ReactiveSystem.watchEntity] added for one entity.
+class _Watch {
+  /// The reactive components it listens to.
+  final List<Component> components = [];
+
+  /// Removes each listener it added.
+  final List<VoidCallback> disposers = [];
+
+  /// Whether every component it listens to is still [entity]'s.
+  bool stillOn(Entity entity) {
+    for (final component in components) {
+      if (!identical(
+        entity.getComponentByType(component.componentType),
+        component,
+      )) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void dispose() {
+    for (final remove in disposers) {
+      remove();
+    }
+    disposers.clear();
+    components.clear();
+  }
 }
 
 /// A system that syncs component changes to signals after processing.

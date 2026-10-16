@@ -12,6 +12,7 @@ class AtlasFrame {
   /// converts them to seconds automatically.
   final double duration;
 
+  /// A frame showing the region named [regionName] for [duration] seconds.
   const AtlasFrame({required this.regionName, required this.duration});
 
   @override
@@ -47,6 +48,8 @@ class AtlasAnimationClip {
   /// [SpriteAtlas.registerClip].
   final bool loop;
 
+  /// The clip [name], playing [frames] in order and looping unless [loop]
+  /// is false. [frames] is kept, not copied: don't change it afterwards.
   const AtlasAnimationClip({
     required this.name,
     required this.frames,
@@ -54,11 +57,61 @@ class AtlasAnimationClip {
   });
 
   /// Total wall-clock duration of one full pass through all frames (seconds).
-  double get totalDuration =>
-      frames.fold(0.0, (acc, frame) => acc + frame.duration);
+  ///
+  /// Worked out once per clip, like [frameEnds]: a clip's [frames] are not
+  /// changed once it is made (register a new clip instead).
+  double get totalDuration => _timing.total;
+
+  /// When each frame stops showing, in seconds from the start of a pass:
+  /// frame `i` shows from `frameEnds[i - 1]` (0 for the first) until
+  /// `frameEnds[i]`.
+  List<double> get frameEnds => _timing.ends;
+
+  /// The frame showing [time] seconds into a pass — found by halving, not
+  /// by walking the frames. Before the start it is the first; at or past
+  /// the end, the last. -1 for a clip with no frames.
+  int frameIndexAt(double time) {
+    final ends = _timing.ends;
+    if (ends.isEmpty) return -1;
+    var lo = 0, hi = ends.length - 1;
+    // The first frame that ends after [time].
+    while (lo < hi) {
+      final mid = (lo + hi) >> 1;
+      if (time < ends[mid]) {
+        hi = mid;
+      } else {
+        lo = mid + 1;
+      }
+    }
+    return lo;
+  }
+
+  static final Expando<_ClipTiming> _timings = Expando('clip timing');
+
+  _ClipTiming get _timing {
+    final known = _timings[this];
+    if (known != null && known.ends.length == frames.length) return known;
+    return _timings[this] = _ClipTiming(frames);
+  }
 
   @override
   String toString() =>
       'AtlasAnimationClip("$name", ${frames.length} frames, '
       '${totalDuration.toStringAsFixed(3)}s, loop: $loop)';
+}
+
+/// A clip's running totals: when each frame ends, and the whole length.
+class _ClipTiming {
+  _ClipTiming(List<AtlasFrame> frames) : ends = _endsOf(frames);
+
+  final List<double> ends;
+
+  double get total => ends.isEmpty ? 0.0 : ends.last;
+
+  static List<double> _endsOf(List<AtlasFrame> frames) {
+    var t = 0.0;
+    return List<double>.unmodifiable([
+      for (final frame in frames) t += frame.duration,
+    ]);
+  }
 }

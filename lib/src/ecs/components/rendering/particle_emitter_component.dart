@@ -23,7 +23,7 @@ class ParticleEmitterComponent extends Component {
   final ParticleEmitter emitter;
 
   /// When `true`, [ParticleSystemECS] copies the entity's [TransformComponent]
-  /// world position to [emitter.position] each frame before calling
+  /// world position to `emitter.position` each frame before calling
   /// [ParticleEmitter.update].
   ///
   /// Set to `false` if you want to position the emitter manually or if the
