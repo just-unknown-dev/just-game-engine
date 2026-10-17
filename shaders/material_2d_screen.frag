@@ -2,13 +2,16 @@
 #include <flutter/runtime_effect.glsl>
 
 // A screen material (a 2-D material of the `screen` kind): the frame drawn
-// into an image, painted back over the whole view through this. Effects
+// into an image, painted back over the whole view through this — or, where
+// layers can be filtered, filtering a layer the frame is drawn into (the
+// first uniform and sampler are then set by the engine; see uMode). Effects
 // are switches, applied in the order Material2DEffects lists them: the
 // picture moved (pixelate, CRT bulge and fringes), its colour changed
 // (grade, gradient map, greyscale), then lines and a vignette over it. The
 // layout is ScreenMaterialPass in lib/src/subsystems/materials_2d/.
 
-uniform vec4 uSize;            // view width, height (logical px), seconds, unused
+uniform vec2 uSize;            // the frame's width, height (px)
+uniform vec4 uMode;            // seconds, filtering a layer (1), pixel ratio, unused
 uniform vec4 uOn0;             // pixelate, crt, grade, gradient map
 uniform vec4 uOn1;             // greyscale, scanlines, vignette, unused
 uniform vec4 uPixel;           // pixel size, curvature, fringe (px), unused
@@ -32,17 +35,26 @@ vec3 hueShift(vec3 c, float a) {
 
 void main() {
   vec2 fc = FlutterFragCoord().xy;
-  vec2 size = max(uSize.xy, vec2(1.0));
+  vec2 size = max(uSize, vec2(1.0));
+  // A filtered layer is the right way up on every backend, OpenGL ES too
+  // (Flutter 3.47, Windows: the y flip the ImageFilter.shader docs ask for
+  // turned it upside down).
+  // Filtering, the frame is in physical pixels: back to logical ones, which
+  // the pixel sizes (pixelate, fringes, scanlines) are in.
+  float ratio = uMode.z > 0.0 ? uMode.z : 1.0;
+  fc /= ratio;
+  size /= ratio;
   vec2 uv = fc / size;
 
+  // Past the CRT's curved edge: black. Said at the end, not returned here:
+  // an early return together with the gradient loop below crashed
+  // Impeller's OpenGL ES shader compile (Windows) as the shader loaded.
+  bool outside = false;
   if (uOn0.y > 0.5) {
     vec2 c = uv * 2.0 - 1.0;
     c *= 1.0 + uPixel.y * 0.25 * dot(c, c);
     uv = c * 0.5 + 0.5;
-    if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) {
-      fragColor = vec4(0.0, 0.0, 0.0, 1.0);
-      return;
-    }
+    outside = uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0;
   }
   vec2 p = uv * size;
   if (uOn0.x > 0.5) {
@@ -97,5 +109,5 @@ void main() {
     rgb = mix(rgb, uVignetteColour.rgb, edge * uVignette.x * uVignetteColour.a);
   }
   rgb = clamp(rgb, 0.0, 1.0);
-  fragColor = vec4(rgb * c.a, c.a);
+  fragColor = outside ? vec4(0.0, 0.0, 0.0, 1.0) : vec4(rgb * c.a, c.a);
 }

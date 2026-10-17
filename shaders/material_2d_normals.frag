@@ -2,11 +2,13 @@
 #include <flutter/runtime_effect.glsl>
 
 // The normals of sprites drawn with one 2-D material, for 2-D lighting: the
-// same slot grid as material_2d.frag, each sprite's normal map (or, without
-// one, its sheet's shape, flat) turned from the sprite's own space into the
-// world's — by its turn and mirroring, slot columns 9-12 — and written as
-// red, green = the normal's x, y (0-1 for -1 to 1), blue = how emissive it
-// is, alpha = where it is. Normal maps are OpenGL-style: green is up.
+// same slot grid as material_2d.frag, each sprite's shape from its sheet
+// and its normals from the material's normal map (flat without one) —
+// repeated across the sheet where the map is smaller, a texture that tiles —
+// turned from the sprite's own space into the world's (by its turn and
+// mirroring, slot columns 9-12) and written as red, green = the normal's
+// x, y (0-1 for -1 to 1), blue = how emissive it is, alpha = where it is.
+// Normal maps are OpenGL-style: green is up.
 
 uniform vec4 uGrid;   // slot width, slot height, slots per row, pad
 uniform vec4 uSheet;  // sheet width, height; params width, height
@@ -14,9 +16,11 @@ uniform vec4 uMode;   // has a normal map (1), strength, emissive amount, second
 uniform vec4 uOn;     // wave, scroll, unused, unused
 uniform vec4 uWave;   // amplitude, wavelength, speed, vertical (1)
 uniform vec4 uScroll; // speed x, y, unused, unused
+uniform vec4 uMap;    // normal map width, height, unused, unused
 
 uniform sampler2D uSheetImage;
 uniform sampler2D uParams;
+uniform sampler2D uNormalMap;
 
 out vec4 fragColor;
 
@@ -81,7 +85,12 @@ void main() {
 
   vec3 n = vec3(0.0, 0.0, 1.0);
   if (uMode.x > 0.5) {
-    vec3 e = c.rgb / c.a;
+    // Where the sheet's pixel is in the map: the same place, or — a smaller
+    // map — the place it repeats to.
+    vec2 q = clamp(p, vec2(0.5), frame.zw - 0.5);
+    vec2 size = max(uMap.xy, vec2(1.0));
+    vec4 m = texture(uNormalMap, mod(frame.xy + q, size) / size);
+    vec3 e = m.a > 0.0 ? m.rgb / m.a : vec3(0.5, 0.5, 1.0);
     vec3 own = vec3(e.x * 2.0 - 1.0, -(e.y * 2.0 - 1.0), e.z * 2.0 - 1.0);
     own.xy *= uMode.y;
     // The sprite's space to the world's: [a c; b d]. Normals go by its

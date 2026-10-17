@@ -605,22 +605,13 @@ class MapLayerPainter {
     final rgb = color & 0xFFFFFF, alpha = (color >>> 24) & 0xFF;
     final normals = draw.mode == _Mode.normals;
     for (final run in batch.runs) {
-      var image = run.mirrored
+      final image = run.mirrored
           ? runtime.mirroredAt(run.slot)
           : runtime.imageAt(run.slot);
       if (image == null || run.length == 0) continue;
-      // Normals from the layer's normal map where it fits the tileset's
-      // image; a mirrored run's, and another tileset's, are flat.
-      var normalMap = false;
-      final map = draw.normalImage;
-      if (normals &&
-          map != null &&
-          !run.mirrored &&
-          map.width == image.width &&
-          map.height == image.height) {
-        image = map;
-        normalMap = true;
-      }
+      // Normals from the layer's normal map, over the tileset's image (and
+      // repeated where it is smaller); a mirrored run's are flat.
+      final normalMap = normals && !run.mirrored ? draw.normalImage : null;
       if (!m.isEmpty && !m.accepts(draw.material, image, FilterQuality.none)) {
         m.flush(draw.canvas, draw.time);
       }

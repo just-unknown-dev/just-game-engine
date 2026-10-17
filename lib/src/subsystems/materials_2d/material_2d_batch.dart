@@ -29,8 +29,8 @@ final class Material2DBatch {
 
   String _path = '';
   Material2DFile? _file;
-  bool _normals = false, _normalMap = false;
-  ui.Image? _image;
+  bool _normals = false;
+  ui.Image? _image, _normalMap;
   FilterQuality _quality = FilterQuality.none;
 
   final List<_Slot> _slots = [];
@@ -87,15 +87,16 @@ final class Material2DBatch {
   /// [image] at [quality]. Only when [isEmpty].
   ///
   /// With [normals], what is drawn is their normals, for 2-D lighting
-  /// (`material_2d_normals.frag`): [image] is then the sprites' normal map
-  /// when [normalMap], else their sheet, whose shape is drawn flat.
+  /// (`material_2d_normals.frag`): their shape from [image], their normals
+  /// from [normalMap] (repeated where it is smaller than [image]), flat
+  /// without one.
   void begin(
     String path,
     Material2DFile file,
     ui.Image image,
     FilterQuality quality, {
     bool normals = false,
-    bool normalMap = false,
+    ui.Image? normalMap,
   }) {
     assert(isEmpty, 'Flush the batch before starting another');
     _path = path;
@@ -355,7 +356,9 @@ final class Material2DBatch {
         paramsWidth: width,
         paramsHeight: _used,
         time: time,
-        normalMap: _normalMap,
+        normalMap: _normalMap != null,
+        mapWidth: (_normalMap ?? image).width,
+        mapHeight: (_normalMap ?? image).height,
       );
     } else {
       Material2DShader.write(
@@ -376,6 +379,9 @@ final class Material2DBatch {
     shader
       ..setImageSampler(0, image, filterQuality: _quality)
       ..setImageSampler(1, params);
+    if (_normals) {
+      shader.setImageSampler(2, _normalMap ?? image, filterQuality: _quality);
+    }
     final vertices = ui.Vertices.raw(
       ui.VertexMode.triangles,
       positions,
@@ -392,26 +398,10 @@ final class Material2DBatch {
   /// The params image: a row per sprite, [width] columns, each pixel opaque
   /// so nothing is premultiplied away.
   ui.Image _params(Material2DFile file, Map<String, int> columns, int width) {
-    final white = _white ??= _whitePixel();
-    final count = width * _used;
-    final transforms = Float32List(count * 4);
-    final rects = Float32List(count * 4);
-    final colors = Int32List(count);
-    var n = 0;
-    void put(int column, int row, int argb) {
-      final t = n * 4;
-      transforms
-        ..[t] = 1
-        ..[t + 1] = 0
-        ..[t + 2] = column.toDouble()
-        ..[t + 3] = row.toDouble();
-      rects
-        ..[t] = 0
-        ..[t + 1] = 0
-        ..[t + 2] = 1
-        ..[t + 3] = 1;
-      colors[n++] = argb;
-    }
+    // ARGB by column and row; 0 where nothing is put (all put are opaque).
+    final cells = Int32List(width * _used);
+    void put(int column, int row, int argb) =>
+        cells[row * width + column] = argb;
 
     int u16(double v) {
       final i = v.round().clamp(0, 65535);
@@ -459,6 +449,72 @@ final class Material2DBatch {
         }
       }
     }
+    return _imageOf(cells, width, _used);
+  }
+
+  /// Whether images can be made from their pixels here (Impeller can; Skia
+  /// and the web cannot): null until a batch has tried.
+  bool? _uploads;
+
+  /// [cells] (ARGB, row by row, [width] × [height]) as an image.
+  ///
+  /// Uploaded from its pixels where the renderer can. Drawn with
+  /// `toImageSync` instead — a fresh image each flush, sampled inside other
+  /// offscreen work (the shader's own texture of a `drawVertices`, the lit
+  /// frame) — Impeller on Windows held on to GPU memory until the card was
+  /// full: a lit cave of 180 sprites took 7 GB and ran at 4 fps.
+  ui.Image _imageOf(Int32List cells, int width, int height) {
+    if (_uploads ?? true) {
+      final pixels = Uint8List(cells.length * 4);
+      for (var i = 0; i < cells.length; i++) {
+        final c = cells[i];
+        if (c == 0) continue;
+        final o = i * 4;
+        pixels
+          ..[o] = (c >> 16) & 0xFF
+          ..[o + 1] = (c >> 8) & 0xFF
+          ..[o + 2] = c & 0xFF
+          ..[o + 3] = (c >> 24) & 0xFF;
+      }
+      try {
+        final image = ui.decodeImageFromPixelsSync(
+          pixels,
+          width,
+          height,
+          ui.PixelFormat.rgba8888,
+        );
+        _uploads = true;
+        return image;
+      } on Object {
+        // Not here (Skia, the web): drawn from now on.
+        _uploads = false;
+      }
+    }
+    final white = _white ??= _whitePixel();
+    var count = 0;
+    for (final c in cells) {
+      if (c != 0) count++;
+    }
+    final transforms = Float32List(count * 4);
+    final rects = Float32List(count * 4);
+    final colors = Int32List(count);
+    var n = 0;
+    for (var i = 0; i < cells.length; i++) {
+      final c = cells[i];
+      if (c == 0) continue;
+      final t = n * 4;
+      transforms
+        ..[t] = 1
+        ..[t + 1] = 0
+        ..[t + 2] = (i % width).toDouble()
+        ..[t + 3] = (i ~/ width).toDouble();
+      rects
+        ..[t] = 0
+        ..[t + 1] = 0
+        ..[t + 2] = 1
+        ..[t + 3] = 1;
+      colors[n++] = c;
+    }
     final recorder = ui.PictureRecorder();
     Canvas(recorder).drawRawAtlas(
       white,
@@ -470,7 +526,7 @@ final class Material2DBatch {
       Paint(),
     );
     final picture = recorder.endRecording();
-    final image = picture.toImageSync(width, _used);
+    final image = picture.toImageSync(width, height);
     picture.dispose();
     return image;
   }

@@ -12,6 +12,7 @@ import 'package:just_game_engine/just_game_engine.dart';
 
 const _grey = 'assets/fx/grey.material2d.json';
 const _vignette = 'assets/fx/vignette.material2d.json';
+const _crt = 'assets/fx/crt.material2d.json';
 
 final _files = {
   _grey: jsonEncode({
@@ -21,6 +22,10 @@ final _files = {
   _vignette: jsonEncode({
     'kind': 'screen',
     'vignette': {'amount': 1, 'softness': 1},
+  }),
+  _crt: jsonEncode({
+    'kind': 'screen',
+    'crt': {'curvature': 1, 'aberration': 0},
   }),
 };
 
@@ -128,6 +133,20 @@ void main() {
       const Color(0xFFFF0000),
       reason: 'its own amount, none',
     );
+  });
+
+  // The shader says "past the edge" at its end rather than returning early:
+  // an early return with its gradient loop crashed Impeller's OpenGL ES
+  // compile on Windows.
+  test("past a CRT's curved edge, black; inside, the frame", () async {
+    engine.world.createEntityWithComponents([ScreenMaterial(material: _crt)]);
+    final d = await frame();
+    expect(
+      at(d, 0, 0),
+      const Color(0xFF000000),
+      reason: 'a corner, curved off',
+    );
+    expect(at(d, 20, 15), const Color(0xFFFF0000), reason: 'the middle');
   });
 
   test('a ScreenMaterial is saved with its entity', () {

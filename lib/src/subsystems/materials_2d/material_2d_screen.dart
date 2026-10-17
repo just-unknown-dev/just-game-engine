@@ -20,7 +20,9 @@ import 'material_2d_shader.dart';
 ///
 /// The material's values are the file's (resolved, variants laid over their
 /// parents) with the component's overrides on top, handed to the shader as
-/// uniforms: one draw, nothing made per frame but the frame's image.
+/// uniforms: one draw, nothing made per frame but the frame's image — and
+/// not even that where layers can be filtered: there it filters a layer the
+/// frame is drawn into ([filter]).
 final class ScreenMaterialPass implements ScreenPass {
   /// A pass over the world [world] gives (null for none), moving effects
   /// timed by [clock].
@@ -33,6 +35,7 @@ final class ScreenMaterialPass implements ScreenPass {
   final double Function()? clock;
 
   ui.FragmentShader? _shader;
+  ui.FragmentShader? _filterShader;
   ui.FragmentProgram? _shaderOf;
   Material2DFile? _file;
   Map<String, Object> _overrides = const {};
@@ -63,6 +66,8 @@ final class ScreenMaterialPass implements ScreenPass {
     }
     if (!identical(program, _shaderOf)) {
       _shader?.dispose();
+      _filterShader?.dispose();
+      _filterShader = null;
       _shader = program.fragmentShader();
       _shaderOf = program;
     }
@@ -87,15 +92,38 @@ final class ScreenMaterialPass implements ScreenPass {
     canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
   }
 
+  /// The material as a filter over a layer the frame is drawn into: the
+  /// engine hands the shader the layer, and its size in physical pixels.
+  @override
+  ui.ImageFilter? filter(ui.Size size, double pixelRatio) {
+    final file = _file;
+    final program = _shaderOf;
+    if (file == null || program == null) return null;
+    final shader = _filterShader ??= program.fragmentShader();
+    write(
+      shader,
+      file,
+      _overrides,
+      size: size,
+      time: clock?.call() ?? 0,
+      filtering: true,
+      pixelRatio: pixelRatio,
+    );
+    return ui.ImageFilter.shader(shader);
+  }
+
   /// Writes [file]'s values, with [overrides] on top, into [shader] for a
   /// view of [size] at [time] seconds: the layout `material_2d_screen.frag`
-  /// reads.
+  /// reads. [filtering] when the shader filters a layer drawn at
+  /// [pixelRatio].
   static void write(
     ui.FragmentShader shader,
     Material2DFile file,
     Map<String, Object> overrides, {
     required ui.Size size,
     double time = 0,
+    bool filtering = false,
+    double pixelRatio = 1,
   }) {
     final f = Float32List(uniformFloats);
     void vec4(int at, double x, double y, double z, double w) {
@@ -136,36 +164,40 @@ final class ScreenMaterialPass implements ScreenPass {
               .take(Material2DShader.maxStops)
               .toList()
         : <(double, int)>[];
-    vec4(0, size.width, size.height, time, 0);
-    vec4(4, on('pixelate'), on('crt'), on('grade'), on('gradientMap'));
-    vec4(8, on('greyscale'), on('scanlines'), on('vignette'), 0);
-    vec4(12, n('pixelate.size'), n('crt.curvature'), n('crt.aberration'), 0);
+    // uSize, a vec2 (a layer filter's first uniform must be), then uMode.
+    f
+      ..[0] = size.width
+      ..[1] = size.height;
+    vec4(2, time, filtering ? 1 : 0, filtering ? pixelRatio : 1, 0);
+    vec4(6, on('pixelate'), on('crt'), on('grade'), on('gradientMap'));
+    vec4(10, on('greyscale'), on('scanlines'), on('vignette'), 0);
+    vec4(14, n('pixelate.size'), n('crt.curvature'), n('crt.aberration'), 0);
     vec4(
-      16,
+      18,
       n('grade.brightness'),
       n('grade.contrast'),
       n('grade.saturation'),
       n('grade.hue'),
     );
-    rgba(20, c('grade.tint'));
+    rgba(22, c('grade.tint'));
     vec4(
-      24,
+      26,
       n('gradientMap.amount'),
       n('greyscale.amount'),
       n('scanlines.amount'),
       n('scanlines.size'),
     );
     vec4(
-      28,
+      30,
       n('vignette.amount'),
       n('vignette.softness'),
       stops.length.toDouble(),
       0,
     );
-    rgba(32, c('vignette.colour'));
+    rgba(34, c('vignette.colour'));
     for (var i = 0; i < stops.length; i++) {
-      rgba(36 + i * 4, stops[i].$2);
-      f[68 + i * 4] = stops[i].$1;
+      rgba(38 + i * 4, stops[i].$2);
+      f[70 + i * 4] = stops[i].$1;
     }
     for (var i = 0; i < uniformFloats; i++) {
       shader.setFloat(i, f[i]);
@@ -173,12 +205,14 @@ final class ScreenMaterialPass implements ScreenPass {
   }
 
   /// How many floats the screen shader's uniforms hold.
-  static const int uniformFloats = 100;
+  static const int uniformFloats = 102;
 
   /// Lets go of the shader.
   void dispose() {
     _shader?.dispose();
     _shader = null;
+    _filterShader?.dispose();
+    _filterShader = null;
     _shaderOf = null;
   }
 }

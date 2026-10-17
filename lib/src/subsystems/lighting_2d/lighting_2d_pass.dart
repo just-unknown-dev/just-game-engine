@@ -111,6 +111,11 @@ final class Lighting2DPass implements ScreenPass {
     return true;
   }
 
+  /// Never a layer filter: it draws from more than the frame — its normals
+  /// and shadows, drawn from what the frame holds.
+  @override
+  ui.ImageFilter? filter(ui.Size size, double pixelRatio) => null;
+
   ui.Image _image(
     void Function(ui.Canvas canvas) draw,
     int width,

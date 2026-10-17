@@ -14,6 +14,8 @@ import 'package:just_game_engine/just_game_engine.dart';
 
 const _bumpy = 'bumpy.material2d.json';
 const _glow = 'glow.material2d.json';
+const _grey = 'grey.material2d.json';
+const _halves = 'halves.material2d.json';
 
 final _files = {
   _bumpy: jsonEncode({
@@ -22,7 +24,41 @@ final _files = {
   _glow: jsonEncode({
     'emissive': {'amount': 1},
   }),
+  _grey: jsonEncode({
+    'kind': 'screen',
+    'greyscale': {'amount': 1},
+  }),
+  _halves: jsonEncode({
+    'normalMap': {'map': 'halves.png'},
+  }),
 };
+
+// An 8 × 8 normal map: its left half faces right (+x), its right half left.
+Future<ui.Image> _halvesMap() {
+  final r = ui.PictureRecorder();
+  Canvas(r)
+    ..drawRect(
+      const Rect.fromLTWH(0, 0, 4, 8),
+      Paint()..color = const Color(0xFFFF8080),
+    )
+    ..drawRect(
+      const Rect.fromLTWH(4, 0, 4, 8),
+      Paint()..color = const Color(0xFF008080),
+    );
+  final p = r.endRecording();
+  return p.toImage(8, 8).whenComplete(p.dispose);
+}
+
+// 16 × 16, white over its top [opaqueRows] rows, clear below.
+Future<ui.Image> _big({int opaqueRows = 16}) {
+  final r = ui.PictureRecorder();
+  Canvas(r).drawRect(
+    Rect.fromLTWH(0, 0, 16, opaqueRows.toDouble()),
+    Paint()..color = const Color(0xFFFFFFFF),
+  );
+  final p = r.endRecording();
+  return p.toImage(16, 16).whenComplete(p.dispose);
+}
 
 Future<ui.Image> _solid(int w, int h, Color c) {
   final r = ui.PictureRecorder();
@@ -52,11 +88,13 @@ void main() {
   late Engine engine;
   late ui.Image white;
   late ui.Image facingRight;
+  late ui.Image halves;
 
   setUpAll(() async {
     white = await _solid(8, 8, const Color(0xFFFFFFFF));
     // A normal map whose every normal faces right: (1, 0, 0).
     facingRight = await _solid(8, 8, const Color(0xFFFF8080));
+    halves = await _halvesMap();
   });
 
   setUp(() async {
@@ -66,7 +104,10 @@ void main() {
     await engine.initialize();
     engine.context.material2DText = (path) async =>
         _files[path] ?? (throw StateError('no $path'));
-    engine.context.sprites = _Images({'right.png': facingRight});
+    engine.context.sprites = _Images({
+      'right.png': facingRight,
+      'halves.png': halves,
+    });
     engine.rendering
       ..backgroundColor = const Color(0xFFFFFFFF)
       ..pixelRatio = 1
@@ -79,12 +120,16 @@ void main() {
         library.fileOf(p);
       }
       library.imageOf('right.png');
+      library.imageOf('halves.png');
       library.shadowsProgram;
+      library.screenProgram;
       if (library.lightingProgram != null &&
           library.shadowsProgram != null &&
+          library.screenProgram != null &&
           library.normalsProgram != null &&
           library.program != null &&
           library.imageOf('right.png') != null &&
+          library.imageOf('halves.png') != null &&
           _files.keys.every((p) => library.fileOf(p) != null)) {
         break;
       }
@@ -201,6 +246,60 @@ void main() {
     );
   });
 
+  group('a normal map smaller than its sprite', () {
+    // A 16-px sprite at (20, 15): view x 12-28, its own x = view x - 12.
+    Entity bigSprite(ui.Image image) =>
+        engine.world.createEntityWithComponents([
+          TransformComponent(position: Vector3(20, 15, 0)),
+          RenderableComponent(renderable: Sprite(image: image)),
+          Material2D(material: _halves),
+        ]);
+
+    test('repeats across it', () async {
+      lighting();
+      bigSprite(await _big());
+      light(
+        const Offset(38, 15),
+        colour: const Color(0xFFFFFFFF),
+        radius: 60,
+        height: 2,
+      );
+      final d = await frame();
+      expect(at(d, 13, 15).$1, greaterThan(80), reason: 'faces the light');
+      expect(at(d, 17, 15).$1, lessThan(20), reason: 'faces away');
+      expect(
+        at(d, 21, 15).$1,
+        greaterThan(80),
+        reason:
+            'the map again, past its edge: it used to streak its last '
+            'column, facing away',
+      );
+      expect(at(d, 25, 15).$1, lessThan(20));
+    });
+
+    test("shades only the sprite's own shape", () async {
+      lighting();
+      bigSprite(await _big(opaqueRows: 8));
+      light(
+        const Offset(20, 15),
+        colour: const Color(0xFFFFFFFF),
+        radius: 60,
+        height: 8,
+      );
+      final d = await frame();
+      expect(
+        at(d, 17, 11).$1,
+        lessThan(30),
+        reason: 'on the sprite, facing away from the light above its middle',
+      );
+      expect(
+        at(d, 17, 20).$1,
+        greaterThan(100),
+        reason: 'below it, where it is clear: flat, lit from above',
+      );
+    });
+  });
+
   test('emissive glows in the dark; plain stays dark', () async {
     lighting();
     sprite(const Offset(10, 15), material: _glow);
@@ -221,6 +320,23 @@ void main() {
       greaterThan(40),
       reason:
           'flat, so lit from the side a little; facing away it would be black',
+    );
+  });
+
+  // Where layers can be filtered (Impeller) the screen material is a layer
+  // the lighting draws into; elsewhere it draws from an image of it.
+  test('under a screen material, the lit frame is what it draws', () async {
+    lighting();
+    light(const Offset(20, 15));
+    engine.world.createEntityWithComponents([ScreenMaterial(material: _grey)]);
+    final d = await frame();
+    final (r, g, b) = at(d, 20, 15);
+    expect(r, closeTo(76, 4), reason: 'the red light, as grey');
+    expect([g, b], [closeTo(r, 2), closeTo(r, 2)]);
+    expect(
+      at(d, 0, 0).$1,
+      lessThan(30),
+      reason: 'dark where it does not reach',
     );
   });
 

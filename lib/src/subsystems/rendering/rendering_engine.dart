@@ -722,12 +722,17 @@ class RenderingEngine implements RenderStatsSink {
     }
 
     // ── Screen pass: the frame drawn into an image, then painted back ─────
-    // through it, before what an editor draws over the world.
+    // through it, before what an editor draws over the world — or, where
+    // layers can be filtered, drawn into layers the passes filter.
     final passes = [
       for (final p in screenPasses)
         if (p.active) p,
     ];
-    final recorder = passes.isEmpty ? null : ui.PictureRecorder();
+    final plan = passes.isEmpty
+        ? null
+        : ScreenPassPlan.of(passes, size, _pixelRatio);
+    plan?.begin(output, size);
+    final recorder = (plan?.needsImage ?? false) ? ui.PictureRecorder() : null;
     final ratio = recorder == null ? 1.0 : _pixelRatio;
     final canvas = recorder == null ? output : (Canvas(recorder)..scale(ratio));
 
@@ -870,7 +875,7 @@ class RenderingEngine implements RenderStatsSink {
 
     // Invoke overlay callback (ECS world systems) — inside the motion-blur
     // layer so ECS entities are blurred along with subsystem renderables.
-    if (recorder == null) {
+    if (plan == null) {
       overlayHooks(canvas, size);
     } else {
       overlayHooks.callRange(canvas, size, below: screenPassOrder);
@@ -885,23 +890,14 @@ class RenderingEngine implements RenderStatsSink {
       final width = (size.width * ratio).ceil().clamp(1, 16384);
       final height = (size.height * ratio).ceil().clamp(1, 16384);
       final picture = recorder.endRecording();
-      var frame = picture.toImageSync(width, height);
+      final frame = picture.toImageSync(width, height);
       picture.dispose();
       _screenFrames.add(frame);
-      for (var i = 0; i < passes.length; i++) {
-        drawCalls++;
-        if (i == passes.length - 1) {
-          passes[i].paint(output, frame, size, ratio);
-          break;
-        }
-        // Into an image for the next pass to draw from.
-        final next = ui.PictureRecorder();
-        passes[i].paint(Canvas(next)..scale(ratio), frame, size, ratio);
-        final drawn = next.endRecording();
-        frame = drawn.toImageSync(width, height);
-        drawn.dispose();
-        _screenFrames.add(frame);
-      }
+      plan!.paintImages(output, frame, size, ratio, keep: _screenFrames.add);
+    }
+    if (plan != null) {
+      drawCalls += passes.length;
+      plan.end(output);
       overlayHooks.callRange(output, size, from: screenPassOrder);
     }
 

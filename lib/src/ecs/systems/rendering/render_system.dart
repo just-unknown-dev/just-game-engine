@@ -1101,8 +1101,9 @@ class RenderSystem extends System implements FrameSystem {
     return drew;
   }
 
-  /// Queues [renderable]'s normals into [batch]: from its material's normal
-  /// map once read, else its sheet's (or shape's) shape, flat.
+  /// Queues [renderable]'s normals into [batch]: its sheet's (or shape's)
+  /// shape, with its material's normal map once read (a sprite's), else
+  /// flat.
   bool _addNormals(
     Material2DBatch batch,
     _DrawEntry entry,
@@ -1137,8 +1138,7 @@ class RenderSystem extends System implements FrameSystem {
     final map = file.isOn('normalMap') && shape == null
         ? library.imageOf(file.text('normalMap.map'))
         : null;
-    final image = map ?? sheet;
-    if (!batch.isEmpty && !batch.accepts(material.material, image, quality)) {
+    if (!batch.isEmpty && !batch.accepts(material.material, sheet, quality)) {
       batch.flush(canvas, time);
     }
     bool add() {
@@ -1146,10 +1146,10 @@ class RenderSystem extends System implements FrameSystem {
         batch.begin(
           material.material,
           file,
-          image,
+          sheet!,
           quality,
           normals: true,
-          normalMap: map != null,
+          normalMap: map,
         );
       }
       if (shape == null) {

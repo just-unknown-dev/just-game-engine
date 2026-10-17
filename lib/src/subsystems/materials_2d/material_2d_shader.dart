@@ -331,6 +331,8 @@ abstract final class Material2DShader {
     required int paramsHeight,
     required double time,
     required bool normalMap,
+    required int mapWidth,
+    required int mapHeight,
   }) {
     double n(String key) => number(file, const {}, key);
     final values = <double>[
@@ -356,6 +358,10 @@ abstract final class Material2DShader {
       file.text('wave.direction') == 'vertical' ? 1 : 0,
       n('scroll.speed#0'),
       n('scroll.speed#1'),
+      0,
+      0,
+      mapWidth.toDouble(),
+      mapHeight.toDouble(),
       0,
       0,
     ];
