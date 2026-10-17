@@ -23,6 +23,352 @@ import 'field_type.dart';
 /// matching schema field — an inspector field that did not persist would
 /// look editable and quietly lose its value on save.
 abstract final class CoreComponentSchemas {
+  /// [Material2D].
+  static ComponentSchema<Material2D> get material2D =>
+      ComponentSchema<Material2D>(
+        type: 'Material2D',
+        id: 'material_2d_4c8e1b27',
+        create: Material2D.new,
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Material',
+          group: 'Rendering',
+          description:
+              'Draws the sprite through a 2-D material file: an outline, a '
+              'flash, a dissolve, a wave.',
+          icon: Icons.auto_awesome,
+          accentColor: Color(0xFFAB47BC),
+          fields: {
+            'material': FieldHint(
+              label: 'Material',
+              fileExtensions: ['material2d.json'],
+            ),
+            'overrides': FieldHint(
+              label: 'Overrides',
+              description:
+                  "This entity's own values for what the game changes as it "
+                  'runs, by key (flash.amount).',
+            ),
+          },
+        ),
+        fields: [
+          SchemaField(
+            name: 'material',
+            kind: FieldTypes.assetRef,
+            read: (c) => (c as Material2D).material,
+            write: (c, v) => (c as Material2D).material = v as String? ?? '',
+          ),
+          SchemaField(
+            name: 'overrides',
+            kind: MaterialOverridesFieldType.material2D,
+            read: (c) => Map<Object?, Object?>.of((c as Material2D).overrides),
+            write: (c, v) => (c as Material2D).overrides = {
+              if (v is Map)
+                for (final e in v.entries)
+                  if (e.value != null) '${e.key}': e.value as Object,
+            },
+          ),
+        ],
+      );
+
+  /// [ScreenMaterial].
+  static ComponentSchema<ScreenMaterial> get screenMaterial =>
+      ComponentSchema<ScreenMaterial>(
+        type: 'ScreenMaterial',
+        id: 'screen_material_2d_71d3a0e5',
+        create: ScreenMaterial.new,
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Screen Material',
+          group: 'Rendering',
+          description:
+              'Draws the whole view through a screen material: a vignette, '
+              'a colour grade, scanlines, big pixels.',
+          icon: Icons.filter_vintage,
+          accentColor: Color(0xFFAB47BC),
+          fields: {
+            'material': FieldHint(
+              label: 'Material',
+              fileExtensions: ['material2d.json'],
+            ),
+            'enabled': FieldHint(label: 'Enabled'),
+            'order': FieldHint(
+              label: 'Order',
+              description: 'Of several on, the highest is drawn.',
+              scrub: ScrubHint(integer: true),
+            ),
+            'overrides': FieldHint(
+              label: 'Overrides',
+              description:
+                  "This entity's own values for what changes as the game "
+                  'runs, by key (vignette.amount).',
+            ),
+          },
+        ),
+        fields: [
+          SchemaField(
+            name: 'material',
+            kind: FieldTypes.assetRef,
+            read: (c) => (c as ScreenMaterial).material,
+            write: (c, v) =>
+                (c as ScreenMaterial).material = v as String? ?? '',
+          ),
+          SchemaField(
+            name: 'enabled',
+            kind: FieldTypes.boolean,
+            read: (c) => (c as ScreenMaterial).enabled,
+            write: (c, v) => (c as ScreenMaterial).enabled = v as bool? ?? true,
+          ),
+          SchemaField(
+            name: 'order',
+            kind: FieldTypes.integer,
+            read: (c) => (c as ScreenMaterial).order,
+            write: (c, v) =>
+                (c as ScreenMaterial).order = (v as num?)?.toInt() ?? 0,
+          ),
+          SchemaField(
+            name: 'overrides',
+            kind: MaterialOverridesFieldType.material2D,
+            read: (c) =>
+                Map<Object?, Object?>.of((c as ScreenMaterial).overrides),
+            write: (c, v) => (c as ScreenMaterial).overrides = {
+              if (v is Map)
+                for (final e in v.entries)
+                  if (e.value != null) '${e.key}': e.value as Object,
+            },
+          ),
+        ],
+      );
+
+  /// [Light2D].
+  static ComponentSchema<Light2D> get light2D => ComponentSchema<Light2D>(
+    type: 'Light2D',
+    id: 'light_2d_8b5e2f94',
+    create: Light2D.new,
+    hints: ComponentHints(
+      dimensions: Dimensions.twoD,
+      name: 'Light 2D',
+      group: 'Lighting',
+      description:
+          'A point or spot light for a scene with Lighting 2D on: it '
+          'shades sprites by their normal maps and casts shadows.',
+      icon: Icons.lightbulb_outline,
+      accentColor: const Color(0xFFFFCA28),
+      fields: {
+        'kind': const FieldHint(label: 'Kind'),
+        'colour': const FieldHint(label: 'Colour'),
+        'intensity': const FieldHint(
+          label: 'Intensity',
+          scrub: ScrubHint(step: 0.1, fractionDigits: 2),
+        ),
+        'radius': const FieldHint(
+          label: 'Radius',
+          scrub: ScrubHint(step: 4, fractionDigits: 0, suffix: 'px'),
+        ),
+        'height': const FieldHint(
+          label: 'Height',
+          description:
+              'How far above the scene it hangs: the lower, '
+              'the more bumps catch it from the side.',
+          scrub: ScrubHint(step: 1, fractionDigits: 0, suffix: 'px'),
+        ),
+        'falloff': const FieldHint(
+          label: 'Falloff',
+          scrub: ScrubHint(step: 0.1, fractionDigits: 1),
+        ),
+        'coneAngle': FieldHint(
+          label: 'Cone',
+          scrub: const ScrubHint(step: 1, fractionDigits: 0, suffix: '°'),
+          visibleWhen: (c) => (c as Light2D).kind == Light2DKind.spot,
+        ),
+        'coneSoftness': FieldHint(
+          label: 'Cone edge',
+          scrub: const ScrubHint(step: 0.05, fractionDigits: 2),
+          visibleWhen: (c) => (c as Light2D).kind == Light2DKind.spot,
+        ),
+        'castsShadows': const FieldHint(label: 'Casts shadows'),
+        'enabled': const FieldHint(label: 'Enabled'),
+      },
+    ),
+    fields: [
+      SchemaField(
+        name: 'kind',
+        kind: const EnumFieldType(
+          Light2DKind.values,
+          fallback: Light2DKind.point,
+          id: 'rendering.light2DKind',
+        ),
+        read: (c) => (c as Light2D).kind,
+        write: (c, v) => (c as Light2D).kind = v as Light2DKind,
+      ),
+      SchemaField(
+        name: 'colour',
+        kind: FieldTypes.color,
+        read: (c) => (c as Light2D).colour,
+        write: (c, v) => (c as Light2D).colour = v as Color,
+      ),
+      SchemaField(
+        name: 'intensity',
+        kind: FieldTypes.decimal,
+        read: (c) => (c as Light2D).intensity,
+        write: (c, v) => (c as Light2D).intensity = (v as num).toDouble(),
+        min: 0,
+      ),
+      SchemaField(
+        name: 'radius',
+        kind: FieldTypes.decimal,
+        read: (c) => (c as Light2D).radius,
+        write: (c, v) => (c as Light2D).radius = (v as num).toDouble(),
+        min: 0,
+      ),
+      SchemaField(
+        name: 'height',
+        kind: FieldTypes.decimal,
+        read: (c) => (c as Light2D).height,
+        write: (c, v) => (c as Light2D).height = (v as num).toDouble(),
+        min: 0,
+      ),
+      SchemaField(
+        name: 'falloff',
+        kind: FieldTypes.decimal,
+        read: (c) => (c as Light2D).falloff,
+        write: (c, v) => (c as Light2D).falloff = (v as num).toDouble(),
+        min: 0.1,
+      ),
+      SchemaField(
+        name: 'coneAngle',
+        kind: FieldTypes.decimal,
+        read: (c) => (c as Light2D).coneAngle,
+        write: (c, v) => (c as Light2D).coneAngle = (v as num).toDouble(),
+        min: 0,
+      ),
+      SchemaField(
+        name: 'coneSoftness',
+        kind: FieldTypes.decimal,
+        read: (c) => (c as Light2D).coneSoftness,
+        write: (c, v) => (c as Light2D).coneSoftness = (v as num).toDouble(),
+        min: 0,
+      ),
+      SchemaField(
+        name: 'castsShadows',
+        kind: FieldTypes.boolean,
+        read: (c) => (c as Light2D).castsShadows,
+        write: (c, v) => (c as Light2D).castsShadows = v as bool,
+      ),
+      SchemaField(
+        name: 'enabled',
+        kind: FieldTypes.boolean,
+        read: (c) => (c as Light2D).enabled,
+        write: (c, v) => (c as Light2D).enabled = v as bool,
+      ),
+    ],
+  );
+
+  /// [ShadowCaster2D].
+  static ComponentSchema<ShadowCaster2D> get shadowCaster2D =>
+      ComponentSchema<ShadowCaster2D>(
+        type: 'ShadowCaster2D',
+        id: 'shadow_caster_2d_d29a4c17',
+        create: ShadowCaster2D.new,
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Shadow Caster 2D',
+          group: 'Lighting',
+          description:
+              'Its sprite or shape blocks 2-D lights: what is behind it from '
+              'a light is in shadow.',
+          icon: Icons.contrast,
+          accentColor: Color(0xFF78909C),
+          fields: {
+            'enabled': FieldHint(label: 'Enabled'),
+            'depth': FieldHint(
+              label: 'Lit depth',
+              description:
+                  'How far into its shape the light reaches before its own '
+                  'shadow: a wall face catching the light.',
+              scrub: ScrubHint(step: 1, fractionDigits: 0, suffix: 'px'),
+            ),
+          },
+        ),
+        fields: [
+          SchemaField(
+            name: 'enabled',
+            kind: FieldTypes.boolean,
+            read: (c) => (c as ShadowCaster2D).enabled,
+            write: (c, v) => (c as ShadowCaster2D).enabled = v as bool,
+          ),
+          SchemaField(
+            name: 'depth',
+            kind: FieldTypes.decimal,
+            read: (c) => (c as ShadowCaster2D).depth,
+            write: (c, v) =>
+                (c as ShadowCaster2D).depth = (v as num).toDouble(),
+            min: 0,
+            max: 64,
+          ),
+        ],
+      );
+
+  /// [Lighting2D].
+  static ComponentSchema<Lighting2D> get lighting2D =>
+      ComponentSchema<Lighting2D>(
+        type: 'Lighting2D',
+        id: 'lighting_2d_3f61c8a2',
+        create: Lighting2D.new,
+        hints: const ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Lighting 2D',
+          group: 'Lighting',
+          description:
+              'Turns 2-D lighting on for the scene: lit by every Light 2D '
+              'over the ambient light.',
+          icon: Icons.wb_twilight,
+          accentColor: Color(0xFFFFCA28),
+          fields: {
+            'enabled': FieldHint(label: 'Enabled'),
+            'ambient': FieldHint(label: 'Ambient'),
+            'ambientIntensity': FieldHint(
+              label: 'Ambient strength',
+              scrub: ScrubHint(step: 0.05, fractionDigits: 2),
+            ),
+            'shadowSoftness': FieldHint(
+              label: 'Shadow softness',
+              scrub: ScrubHint(step: 0.05, fractionDigits: 2),
+            ),
+          },
+        ),
+        fields: [
+          SchemaField(
+            name: 'enabled',
+            kind: FieldTypes.boolean,
+            read: (c) => (c as Lighting2D).enabled,
+            write: (c, v) => (c as Lighting2D).enabled = v as bool,
+          ),
+          SchemaField(
+            name: 'ambient',
+            kind: FieldTypes.color,
+            read: (c) => (c as Lighting2D).ambient,
+            write: (c, v) => (c as Lighting2D).ambient = v as Color,
+          ),
+          SchemaField(
+            name: 'ambientIntensity',
+            kind: FieldTypes.decimal,
+            read: (c) => (c as Lighting2D).ambientIntensity,
+            write: (c, v) =>
+                (c as Lighting2D).ambientIntensity = (v as num).toDouble(),
+            min: 0,
+          ),
+          SchemaField(
+            name: 'shadowSoftness',
+            kind: FieldTypes.decimal,
+            read: (c) => (c as Lighting2D).shadowSoftness,
+            write: (c, v) =>
+                (c as Lighting2D).shadowSoftness = (v as num).toDouble(),
+            min: 0,
+          ),
+        ],
+      );
+
   /// [LayerComponent], from `layer_editor_component.dart`.
   static ComponentSchema<LayerComponent>
   get layer => ComponentSchema<LayerComponent>(
@@ -880,6 +1226,11 @@ abstract final class CoreComponentSchemas {
   /// Every schema above.
   static List<ComponentCodec> get all => [
     layer,
+    material2D,
+    screenMaterial,
+    light2D,
+    lighting2D,
+    shadowCaster2D,
     checkpoint,
     line,
     polygon,

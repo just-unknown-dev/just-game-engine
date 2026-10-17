@@ -28,6 +28,8 @@ import '../subsystems/parallax/parallax_background.dart';
 import 'game_layers.dart';
 import '../subsystems/rendering/impl/game_terminal.dart';
 import '../subsystems/rendering/rendering_engine.dart';
+import '../subsystems/materials_2d/material_2d_screen.dart';
+import '../subsystems/lighting_2d/lighting_2d_pass.dart';
 import 'engine_config.dart';
 import '../ecs/base/engine_context.dart';
 import 'engine_plugin.dart';
@@ -436,6 +438,24 @@ class Engine {
       if (_config.defaultSystems.isNotEmpty) {
         registerDefaultSystems(world, this, include: _config.defaultSystems);
       }
+      // 2-D lighting, then a screen material, over the whole view.
+      final lighting = Lighting2DPass(
+        () => _world,
+        clock: () => time.totalTime,
+      );
+      final screen = ScreenMaterialPass(
+        () => _world,
+        clock: () => time.totalTime,
+      );
+      rendering.screenPasses.addAll([lighting, screen]);
+      _teardown.add(() {
+        _rendering?.screenPasses
+          ?..remove(lighting)
+          ..remove(screen);
+        lighting.dispose();
+        screen.dispose();
+        return null;
+      });
 
       // 8. subsystems and the frame's update tasks
       stage = 'subsystems';

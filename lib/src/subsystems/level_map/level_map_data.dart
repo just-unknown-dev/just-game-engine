@@ -111,6 +111,9 @@ class MapLayerData {
     this.zOrder = 0,
     this.collides = false,
     this.className = '',
+    this.material = '',
+    this.castsShadows = false,
+    this.shadowDepth = 12,
     TileProperties? properties,
     TileChunkStore? cells,
   }) : properties = properties ?? TileProperties(),
@@ -166,6 +169,18 @@ class MapLayerData {
   /// A free-form class, as in Tiled.
   String className;
 
+  /// A 2-D material file (`*.material2d.json`) its tiles are drawn
+  /// through — water that scrolls and waves, lava that glows; empty for
+  /// none.
+  String material;
+
+  /// Whether its tiles block 2-D lights (`Light2D`), casting shadows.
+  bool castsShadows;
+
+  /// How far into its tiles a light reaches before their own shadow, in
+  /// pixels: the face of a wall catching the light.
+  double shadowDepth;
+
   /// Custom properties a game reads — a layer's `ambient` sound, say.
   TileProperties properties;
 
@@ -192,6 +207,9 @@ class MapLayerData {
     if (zOrder != 0) 'zOrder': zOrder,
     if (collides) 'collides': true,
     if (className.isNotEmpty) 'class': className,
+    if (material.isNotEmpty) 'material': material,
+    if (castsShadows) 'castsShadows': true,
+    if (shadowDepth != 12) 'shadowDepth': shadowDepth,
     if (properties.isNotEmpty) 'properties': properties.toJson(),
     'cells': cells.toJson(),
   };
@@ -222,6 +240,9 @@ class MapLayerData {
       zOrder: (json['zOrder'] as num?)?.toInt() ?? 0,
       collides: json['collides'] == true,
       className: json['class'] as String? ?? '',
+      material: json['material'] as String? ?? '',
+      castsShadows: json['castsShadows'] == true,
+      shadowDepth: (json['shadowDepth'] as num?)?.toDouble() ?? 12,
       properties: TileProperties.fromJson(json['properties']),
       cells: TileChunkStore.fromJson(json['cells']),
     );
@@ -244,6 +265,9 @@ class MapLayerData {
     zOrder: zOrder,
     collides: collides,
     className: className,
+    material: material,
+    castsShadows: castsShadows,
+    shadowDepth: shadowDepth,
     properties: properties.copy(),
     cells: cells ?? this.cells.copy(),
   );

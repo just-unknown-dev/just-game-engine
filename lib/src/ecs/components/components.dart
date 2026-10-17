@@ -18,6 +18,10 @@ export 'rendering/sprite_component.dart';
 export 'rendering/sprite_animation_component.dart';
 export 'rendering/parallax_component.dart';
 export 'rendering/shader_component.dart';
+export 'rendering/material_2d_component.dart';
+export 'rendering/screen_material_component.dart';
+export 'rendering/light_2d_component.dart';
+export 'rendering/shadow_caster_2d_component.dart';
 
 // Physics components
 export 'physics/physics_components_2d.dart';

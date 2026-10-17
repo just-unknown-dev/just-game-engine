@@ -126,6 +126,7 @@ final class EngineContext {
     animatorGraphs = _bundleGraph;
     timelines = _bundleTimeline;
     prefabs = _bundlePrefab;
+    material2DText = _bundleText;
     tiles = TileAssets(readText: _bundleText, collisionKinds: collisionKinds);
     if (withBuiltIns) registerCoreCodecs(definitions);
     installAll(extensions);
@@ -245,6 +246,10 @@ final class EngineContext {
   /// `PrefabLibrary`. The bundle by default.
   late PrefabLoader prefabs;
 
+  /// Reads 2-D material files (`*.material2d.json`) for `Material2DLibrary`.
+  /// The bundle by default.
+  late TextReader material2DText;
+
   /// Tilesets and map files, and what was loaded of them; its
   /// [TileAssets.readText] is the fourth seam.
   late final TileAssets tiles;
@@ -275,6 +280,7 @@ final class EngineContext {
     TimelineLoader? timelines,
     TextReader? tileText,
     PrefabLoader? prefabs,
+    TextReader? material2DText,
   }) {
     final override = LoaderOverride._(
       this,
@@ -283,7 +289,9 @@ final class EngineContext {
       timelines: (this.timelines, timelines),
       tileText: (tiles.readText, tileText),
       prefabs: (this.prefabs, prefabs),
+      material2DText: (this.material2DText, material2DText),
     );
+    if (material2DText != null) this.material2DText = material2DText;
     if (sprites != null) this.sprites = sprites;
     if (animatorGraphs != null) this.animatorGraphs = animatorGraphs;
     if (timelines != null) this.timelines = timelines;
@@ -298,6 +306,7 @@ final class EngineContext {
     animatorGraphs = _bundleGraph;
     timelines = _bundleTimeline;
     prefabs = _bundlePrefab;
+    material2DText = _bundleText;
     tiles
       ..readText = _bundleText
       ..clear();
@@ -389,11 +398,13 @@ final class LoaderOverride {
     required (TimelineLoader, TimelineLoader?) timelines,
     required (TextReader, TextReader?) tileText,
     required (PrefabLoader, PrefabLoader?) prefabs,
+    required (TextReader, TextReader?) material2DText,
   }) : _sprites = sprites,
        _animatorGraphs = animatorGraphs,
        _timelines = timelines,
        _tileText = tileText,
-       _prefabs = prefabs;
+       _prefabs = prefabs,
+       _material2DText = material2DText;
 
   final EngineContext _context;
   final (SpriteAssetLoader, SpriteAssetLoader?) _sprites;
@@ -401,6 +412,7 @@ final class LoaderOverride {
   final (TimelineLoader, TimelineLoader?) _timelines;
   final (TextReader, TextReader?) _tileText;
   final (PrefabLoader, PrefabLoader?) _prefabs;
+  final (TextReader, TextReader?) _material2DText;
   bool _restored = false;
 
   /// Puts back each seam this override set, if it still holds what it set.
@@ -424,6 +436,10 @@ final class LoaderOverride {
     }
     if (_prefabs.$2 case final set? when identical(c.prefabs, set)) {
       c.prefabs = _prefabs.$1;
+    }
+    if (_material2DText.$2 case final set?
+        when identical(c.material2DText, set)) {
+      c.material2DText = _material2DText.$1;
     }
   }
 }

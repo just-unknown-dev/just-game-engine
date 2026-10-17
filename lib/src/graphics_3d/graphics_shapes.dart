@@ -98,12 +98,16 @@ final class GraphicsShapes {
   }
 
   /// [shape]'s material: its material file's once that is read (its own
-  /// look meanwhile), else its own look, with its texture once that has
-  /// loaded.
-  GpuMaterial materialFor(Primitive3D shape) {
+  /// look meanwhile), with [overrides] (its entity's own values,
+  /// [MaterialOverrides3D]) on top; else its own look, with its texture once
+  /// that has loaded.
+  GpuMaterial materialFor(
+    Primitive3D shape, {
+    Map<String, Object?> overrides = const {},
+  }) {
     final file = shape.material;
     if (file.isNotEmpty) {
-      final shared = library?.gpuOf(file);
+      final shared = library?.gpuOf(file, overrides: overrides);
       if (shared != null) return shared;
     }
     final key = shape.materialKey;

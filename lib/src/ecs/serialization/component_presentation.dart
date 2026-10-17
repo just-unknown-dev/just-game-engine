@@ -60,6 +60,7 @@ class RenderContext {
     this.camera,
     this.interpolation = 1.0,
     this.view,
+    this.time = 0,
   });
 
   /// The world being drawn.
@@ -77,6 +78,10 @@ class RenderContext {
   /// The frame's camera as matrices, when the renderer was given them —
   /// for a painter that draws something in 3-D.
   final FrameView? view;
+
+  /// Seconds into the game, for what moves as it is drawn (a 2-D material's
+  /// wave); 0 when the renderer has no clock.
+  final double time;
 }
 
 /// Draws a component that is not a [RenderableComponent] — text, a button, a

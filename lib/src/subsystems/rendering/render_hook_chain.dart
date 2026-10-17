@@ -48,5 +48,15 @@ class RenderHookChain {
   }
 
   /// Drops every hook.
+  /// Runs the hooks whose order is at least [from] and below [below], in
+  /// order — part of the chain: what a screen pass wraps, say.
+  void callRange(Canvas canvas, Size size, {int? from, int? below}) {
+    for (final h in List.of(_hooks)) {
+      if (from != null && h.order < from) continue;
+      if (below != null && h.order >= below) continue;
+      h.hook(canvas, size);
+    }
+  }
+
   void clear() => _hooks.clear();
 }

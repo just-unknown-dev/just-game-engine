@@ -649,6 +649,15 @@ final class GraphicsSceneRenderer extends SceneRenderer {
       final look = proxy.look..begin();
       shape.writeMaterialValues(look);
       var restyled = look.end();
+      final overrides = proxy.entity?.getComponent<MaterialOverrides3D>();
+      final overridesKey = overrides == null
+          ? 0
+          : Object.hash(identityHashCode(overrides), overrides.revision);
+      if (overridesKey != proxy.overridesKey) {
+        proxy.overridesKey = overridesKey;
+        restyled = true;
+      }
+      final values = overrides?.values ?? const <String, Object>{};
       final metres = shapes.tilesInMetres(shape);
       var instance = proxy.instance;
       if (reshaped ||
@@ -668,7 +677,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
           if (instance == null) {
             instance = proxy.instance = MeshInstance(
               mesh,
-              shapes.materialFor(shape),
+              shapes.materialFor(shape, overrides: values),
               Matrix4.zero(),
             );
             restyled = false;
@@ -679,7 +688,9 @@ final class GraphicsSceneRenderer extends SceneRenderer {
         }
       }
       if (instance == null) continue;
-      if (refresh || restyled) instance.material = shapes.materialFor(shape);
+      if (refresh || restyled) {
+        instance.material = shapes.materialFor(shape, overrides: values);
+      }
       instance
         ..visible = shape.visible && proxy.mesh != null
         ..castShadows = shape.castShadows;
@@ -732,12 +743,15 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   }
 
   /// [proxy]'s material files, where its component names them: swapped
-  /// in for its own once read, and its own back where they go.
+  /// in for its own once read — with its entity's [MaterialOverrides3D] on
+  /// top — and its own back where they go.
   void _applyMaterials(_Proxy proxy) {
     final model = proxy.model;
     if (model == null) return;
     final wanted = proxy.component.materials;
     if (wanted.isEmpty && proxy.materialsKey == null) return;
+    final overrides = proxy.entity?.getComponent<MaterialOverrides3D>();
+    final values = overrides?.values ?? const <String, Object>{};
     final key = wanted.isEmpty
         ? null
         : (
@@ -745,6 +759,9 @@ final class GraphicsSceneRenderer extends SceneRenderer {
             Object.hashAllUnordered([
               for (final e in wanted.entries) Object.hash(e.key, e.value),
             ]),
+            overrides == null
+                ? 0
+                : Object.hash(identityHashCode(overrides), overrides.revision),
           );
     if (key == proxy.materialsKey) return;
     proxy.materialsKey = key;
@@ -757,7 +774,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
                 wanted['#$index'] ??
                 wanted['*'];
       instance.material =
-          (path == null ? null : materials.gpuOf(path)) ??
+          (path == null ? null : materials.gpuOf(path, overrides: values)) ??
           model.materialOf(instance.primitive);
     }
   }
@@ -1145,6 +1162,9 @@ final class _ShapeProxy extends _Follower {
 
   /// Its mesh, null for none (an outline of fewer than three points).
   GpuPrimitive? mesh;
+
+  /// Its entity's [MaterialOverrides3D] as last drawn; 0 for none.
+  int overridesKey = 0;
 
   // What its mesh and material were made from.
   final ShapeValues sizes = ShapeValues();

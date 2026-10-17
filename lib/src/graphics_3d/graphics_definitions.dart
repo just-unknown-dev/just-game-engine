@@ -70,6 +70,37 @@ abstract final class GraphicsSchemas {
         ],
       );
 
+  /// [MaterialOverrides3D].
+  static ComponentSchema<MaterialOverrides3D> get materialOverrides =>
+      ComponentSchema<MaterialOverrides3D>(
+        type: 'MaterialOverrides3D',
+        id: 'material_overrides_3d_9a4f2c61',
+        create: MaterialOverrides3D.new,
+        hints: const ComponentHints(
+          dimensions: Dimensions.threeD,
+          name: 'Material Overrides',
+          group: '3D',
+          description:
+              "This entity's own values for the material files it is drawn "
+              'with: a colour, a glow, how its maps repeat.',
+          icon: Icons.tune,
+          accentColor: Color(0xFFAB47BC),
+          fields: {'values': FieldHint(label: 'Values')},
+        ),
+        fields: [
+          SchemaField(
+            name: 'values',
+            kind: MaterialOverridesFieldType.material3D,
+            read: (c) => Map<Object?, Object?>.of((c as MaterialOverrides3D).values),
+            write: (c, v) => (c as MaterialOverrides3D).values = {
+              if (v is Map)
+                for (final e in v.entries)
+                  if (e.value != null) '${e.key}': e.value as Object,
+            },
+          ),
+        ],
+      );
+
   /// [LightComponent].
   static ComponentSchema<LightComponent> get light =>
       ComponentSchema<LightComponent>(
@@ -389,6 +420,7 @@ abstract final class GraphicsSchemas {
   /// Every 3-D component.
   static List<ComponentSchema> get all => [
     model,
+    materialOverrides,
     light,
     environment,
     animationPlayer,

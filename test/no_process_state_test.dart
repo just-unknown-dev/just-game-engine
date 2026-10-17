@@ -34,6 +34,10 @@ const Map<String, String> _allowed = {
   'subsystems/timeline/timeline_track.dart:_engine':
       "the engine's own track readers; private, never written",
   'subsystems/level_map/built_in_tilesets.dart:_shapes': 'a constant table',
+  'ecs/serialization/material_overrides_field_type.dart:material2D':
+      'a field type: final fields, its channels unmodifiable',
+  'ecs/serialization/material_overrides_field_type.dart:material3D':
+      'a field type: final fields, its channels unmodifiable',
   'subsystems/level_map/wang/wang_templates.dart:_blobMasks':
       'a constant table',
   'ecs/systems/rendering/shape_batch.dart:_circle16': 'a constant table',

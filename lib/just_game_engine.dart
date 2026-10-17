@@ -169,6 +169,8 @@ export 'package:just_memory/just_memory.dart'
 // Sprite Atlas - Sprite-sheet parsing, named regions, and atlas animations
 // Supports TexturePacker (JSON Array / Hash / multi-page) and Aseprite formats
 export 'src/subsystems/sprite_atlas/sprite_atlas.dart';
+export 'src/subsystems/materials_2d/materials_2d.dart';
+export 'src/subsystems/lighting_2d/lighting_2d.dart';
 
 // Timeline - Reusable timelines that animate any component field
 export 'src/subsystems/timeline/timeline.dart';

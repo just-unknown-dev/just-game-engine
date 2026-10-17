@@ -1,9 +1,12 @@
 library;
 
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:just_game_engine_formats/just_game_engine_formats.dart'
+    show Material2DFile, Material2DKind;
 
 import '../../ecs.dart';
 import '../../components/components.dart';
@@ -14,6 +17,12 @@ import '../../../subsystems/rendering/impl/sprite_batching.dart';
 import '../../../subsystems/rendering/frame_view.dart';
 import '../../../subsystems/rendering/render_stats.dart';
 import '../../../subsystems/rendering/shader_filter_support.dart';
+import '../../../subsystems/materials_2d/material_2d_batch.dart';
+import '../../../subsystems/materials_2d/material_2d_library.dart';
+import '../../../subsystems/materials_2d/material_2d_shapes.dart';
+import '../../../subsystems/level_map/render/map_layer_painter.dart'
+    show MapLayerPainter, MapLayerRenderItem;
+import '../../../subsystems/rendering/impl/sprite.dart';
 import '../../serialization/component_presentation.dart';
 import '../../base/system_priorities.dart';
 import 'render_pass.dart';
@@ -112,6 +121,32 @@ class RenderSystem extends System implements FrameSystem {
 
   final ShapeBatch _shapeBatch = ShapeBatch();
 
+  /// Sprites drawn through a 2-D material ([Material2D]), queued; made with
+  /// the world's library the first time one is drawn.
+  Material2DBatch? _materialBatch;
+
+  /// Shapes drawn through a 2-D material, each drawn into an image.
+  final ShapeSheets _shapeSheets = ShapeSheets();
+
+  /// How big a world unit is on screen this frame (the camera's zoom): what
+  /// a shape drawn into an image is drawn at.
+  double? _canvasScale;
+
+  /// [_canvasScale], read from [canvas] once a frame, when a shape needs it
+  /// (a canvas that cannot say is taken as unscaled).
+  double _scaleOf(Canvas canvas) {
+    final known = _canvasScale;
+    if (known != null) return known;
+    double scale;
+    try {
+      final m = canvas.getTransform();
+      scale = math.sqrt(m[0] * m[0] + m[1] * m[1]);
+    } on Object {
+      scale = 1;
+    }
+    return _canvasScale = scale > 0 ? scale : 1;
+  }
+
   /// Cached [Paint] for per-entity [ShaderComponent] saveLayer calls.
   /// Reused each frame to avoid allocation.
   final Paint _entityShaderPaint = Paint();
@@ -135,6 +170,7 @@ class RenderSystem extends System implements FrameSystem {
     this.batchShapes = false,
     this.cullOffscreen = false,
     this.statsSink,
+    this.clock,
   }) : _spriteBatches = SpriteBatchCache(spriteBatchFactory),
        // Sorted as a copy: the list passed in may be const, or the
        // caller's own.
@@ -145,6 +181,10 @@ class RenderSystem extends System implements FrameSystem {
 
   /// The extra passes this system runs; see the constructor.
   final List<RenderPass> passes;
+
+  /// Seconds into the game, for what moves in a 2-D material (a wave, a
+  /// shine) — `() => engine.time.totalTime`, say. Null stands still.
+  final double Function()? clock;
 
   /// Where painters and items get the frame's camera as matrices
   /// ([RenderContext.view]) — `() => engine.rendering.view`, say. Null
@@ -222,6 +262,11 @@ class RenderSystem extends System implements FrameSystem {
     _spriteBatches.clear();
     _pendingSprites.clear();
     _shapeBatch.clear();
+    _materialBatch?.dispose();
+    _materialBatch = null;
+    _normalBatch?.dispose();
+    _normalBatch = null;
+    _shapeSheets.clear();
     _entryPool.clear();
     _entries.clear();
     _watches.clear();
@@ -362,6 +407,7 @@ class RenderSystem extends System implements FrameSystem {
       final renderables = archetype.getColumn(RenderableComponent)!;
       final layers = archetype.getColumn(LayerComponent);
       final shaders = archetype.getColumn(ShaderComponent);
+      final materials = archetype.getColumn(Material2D);
       final hasPhysics = archetype.types.contains(PhysicsBodyRefComponent);
       final bodies = archetype.getColumn(PhysicsBodyRefComponent);
       for (var row = 0; row < ids.length; row++) {
@@ -373,6 +419,7 @@ class RenderSystem extends System implements FrameSystem {
           ..renderComp = renderables[row] as RenderableComponent
           ..layer = layers?[row] as LayerComponent?
           ..shader = shaders?[row] as ShaderComponent?
+          ..material = materials?[row] as Material2D?
           ..hasPhysics = hasPhysics
           ..physicsRef = physicsRef
           ..seq = seq++;
@@ -530,10 +577,126 @@ class RenderSystem extends System implements FrameSystem {
   /// Draws every batched sprite and shape.
   void _flushBatches(Canvas canvas) {
     _flushSprites(canvas);
+    _flushMaterial(canvas);
     if (!_shapeBatch.isEmpty) {
       _shapeBatch.flush(canvas);
       _drawCalls++;
     }
+  }
+
+  /// Draws the sprites queued through a 2-D material.
+  void _flushMaterial(Canvas canvas) {
+    final batch = _materialBatch;
+    if (batch == null || batch.isEmpty) return;
+    batch.flush(canvas, clock?.call() ?? 0);
+    _drawCalls++;
+  }
+
+  /// Queues [renderable] — of an entity with a [Material2D] — to be drawn
+  /// through its material with the others sharing it; false when it must be
+  /// drawn as it is: its material not read yet (or broken, or for the
+  /// screen), the shader not loaded, nothing to draw it from.
+  ///
+  /// A sprite is drawn from its sheet; anything else that draws itself
+  /// around its origin — a shape — is drawn once into an image first
+  /// ([ShapeSheets]), kept while it looks the same.
+  bool _addMaterial(
+    Canvas canvas,
+    _DrawEntry entry,
+    Renderable renderable,
+    Material2D material,
+  ) {
+    final library = Material2DLibrary.of(world.context);
+    final file = library.fileOf(material.material);
+    if (library.program == null ||
+        file == null ||
+        file.kind != Material2DKind.sprite) {
+      return false;
+    }
+    final ui.Image image;
+    final FilterQuality quality;
+    ShapeSheet? sheet;
+    if (renderable is Sprite) {
+      final own = renderable.image;
+      if (own == null) return false;
+      image = own;
+      quality = renderable.filterQuality;
+    } else {
+      final scale = math.max(
+        renderable.scale.x.abs(),
+        renderable.scale.y.abs(),
+      );
+      sheet = _shapeSheets.sheetOf(
+        entry.entity,
+        renderable,
+        _lookOf(entry.renderComp!),
+        _scaleOf(canvas) * scale,
+      );
+      if (sheet == null) return false;
+      image = sheet.image;
+      quality = FilterQuality.medium;
+    }
+    final batch = _materialBatch ??= Material2DBatch(library);
+    // Plain sprites and shapes queued before it draw first, and so do
+    // material sprites under another key or of another material or sheet.
+    if (_pendingSprites.isNotEmpty || !_shapeBatch.isEmpty) {
+      _flushSprites(canvas);
+      if (!_shapeBatch.isEmpty) {
+        _shapeBatch.flush(canvas);
+        _drawCalls++;
+      }
+    }
+    if (!batch.isEmpty &&
+        (!_sameBatchKey(entry) ||
+            !batch.accepts(material.material, image, quality))) {
+      _flushMaterial(canvas);
+    }
+    final seed = entry.entity.id;
+    bool add() {
+      if (batch.isEmpty) batch.begin(material.material, file, image, quality);
+      if (sheet == null) {
+        return batch.addSprite(
+          renderable as Sprite,
+          seed: seed,
+          overrides: material.overrides,
+        );
+      }
+      return batch.addBox(
+        sheet.frame,
+        sheet.bounds,
+        x: renderable.position.x,
+        y: renderable.position.y,
+        rotation: renderable.rotation,
+        scaleX: renderable.scale.x,
+        scaleY: renderable.scale.y,
+        tint: renderable.tint,
+        opacity: renderable.opacity,
+        seed: seed,
+        overrides: material.overrides,
+      );
+    }
+
+    if (!add()) {
+      if (batch.isEmpty) return false;
+      _flushMaterial(canvas);
+      if (!add()) return false;
+    }
+    _setBatchKey(entry);
+    _rendered++;
+    return true;
+  }
+
+  /// What [component] looks like, as saved: a shape drawn into an image is
+  /// drawn again when it changes. One with no definition is drawn again
+  /// every frame.
+  Object _lookOf(RenderableComponent component) {
+    try {
+      final saved = world.context.definitions.encode(component);
+      if (saved != null) return jsonEncode(saved);
+    } on Object {
+      // Falls through: drawn again.
+    }
+    return Object();
   }
 
   /// Queues [renderable] into a sprite batch; false when it must be drawn
@@ -541,7 +704,11 @@ class RenderSystem extends System implements FrameSystem {
   bool _addSprite(Canvas canvas, _DrawEntry entry, Renderable renderable) {
     final plan = _plan;
     if (!plan.plan(renderable)) return false;
-    if (!_shapeBatch.isEmpty || !_sameBatchKey(entry)) _flushBatches(canvas);
+    if (!_shapeBatch.isEmpty ||
+        !(_materialBatch?.isEmpty ?? true) ||
+        !_sameBatchKey(entry)) {
+      _flushBatches(canvas);
+    }
     _setBatchKey(entry);
     final batch = _spriteBatches.batchFor(plan.image!, plan.quality);
     // Only the newest batch takes more: joining an older one would draw
@@ -568,6 +735,7 @@ class RenderSystem extends System implements FrameSystem {
     // Sprites queued before this shape, or shapes under another key, draw
     // first: a batch never moves anything ahead of what came before it.
     if (_pendingSprites.isNotEmpty ||
+        !(_materialBatch?.isEmpty ?? true) ||
         (!_shapeBatch.isEmpty && !_sameBatchKey(entry))) {
       _flushBatches(canvas);
     }
@@ -590,6 +758,9 @@ class RenderSystem extends System implements FrameSystem {
     }
 
     _spriteBatches.beginFrame();
+    _materialBatch?.beginFrame();
+    _shapeSheets.beginFrame();
+    _canvasScale = null;
     _drawCalls = _rendered = _culled = _batchedSprites = 0;
     _prepare();
     final filter = shouldRender;
@@ -615,6 +786,7 @@ class RenderSystem extends System implements FrameSystem {
             camera: camera,
             interpolation: interpolation,
             view: viewOf?.call(),
+            time: clock?.call() ?? 0,
           ),
           entity,
         );
@@ -678,6 +850,12 @@ class RenderSystem extends System implements FrameSystem {
       final hasEntityShader =
           shaderComp != null && !shaderComp.isPostProcess && shaderComp.enabled;
       if (!hasEntityShader) {
+        final material = entry.material;
+        if (material != null &&
+            material.material.isNotEmpty &&
+            _addMaterial(canvas, entry, renderable, material)) {
+          continue;
+        }
         if (renderable is BatchableSprite &&
             _addSprite(canvas, entry, renderable)) {
           continue;
@@ -710,6 +888,7 @@ class RenderSystem extends System implements FrameSystem {
         camera: camera,
         interpolation: interpolation,
         view: viewOf?.call(),
+        time: clock?.call() ?? 0,
       );
       // What a hidden map layer holds is hidden in every pass — text too.
       bool passFilter(Entity e) =>
@@ -731,6 +910,274 @@ class RenderSystem extends System implements FrameSystem {
       culledObjects: _culled,
       batchedSprites: _batchedSprites,
     );
+  }
+
+  // ── Normals, for 2-D lighting ─────────────────────────────────────────────
+
+  /// The normals batch: sprites whose 2-D material has a normal map.
+  Material2DBatch? _normalBatch;
+
+  /// Draws a renderable's shape as a flat normal (see [renderNormals]).
+  final Paint _flatPaint = Paint()
+    ..colorFilter = const ColorFilter.mode(
+      Color(MapLayerPainter.flatNormal),
+      BlendMode.srcIn,
+    );
+
+  /// Draws, onto [canvas], the normals of what [render] last drew — in the
+  /// same order and place — for 2-D lighting ([Lighting2D]): red and green
+  /// the normal's x and y in the world, blue how emissive, alpha where.
+  ///
+  /// A sprite, shape or tile layer whose 2-D material has a normal map (or
+  /// is emissive) is drawn through it, its normals turned as it is turned.
+  /// What is drawn over one of those is drawn flat, so it still hides it;
+  /// anything else is left out, flat being what nothing drawn means. Call
+  /// after [render], in the same frame: it draws with the poses that set.
+  ///
+  /// True when anything was drawn through a normal map or glows: when
+  /// nothing was, the frame is flat and the normals need no image.
+  bool renderNormals(Canvas canvas, Size size) {
+    final cam = camera;
+    final applyCamera = cam != null && !cameraAppliedExternally;
+    if (applyCamera) {
+      canvas.save();
+      cam.applyTransform(canvas, size);
+    }
+    final library = Material2DLibrary.of(world.context);
+    final batch = _normalBatch ??= Material2DBatch(library);
+    batch.beginFrame();
+    final time = clock?.call() ?? 0;
+    final filter = shouldRender;
+    var shaded = false;
+    // What is drawn flat goes into one layer a run of it — between shaded
+    // things — not a layer each: every layer is a render target of its own,
+    // and a GPU runs out of them (Impeller on OpenGL ES aborts).
+    var flatOpen = false;
+    void closeFlat() {
+      if (!flatOpen) return;
+      canvas.restore();
+      flatOpen = false;
+    }
+
+    RenderContext? itemContext;
+    for (final entry in _entries) {
+      final entity = entry.entity;
+      if (!entity.isActiveInHierarchy) continue;
+      if (filter != null && !filter(entity)) continue;
+      if (entry.layer?.hiddenByMap ?? false) continue;
+      final item = entry.item;
+      if (item != null) {
+        if (!item.visible || item is! MapLayerRenderItem) continue;
+        closeFlat();
+        batch.flush(canvas, time);
+        final drew = item.runtime.painter.paintNormals(
+          canvas,
+          itemContext ??= RenderContext(
+            world: world,
+            size: size,
+            camera: camera,
+            interpolation: interpolation,
+            view: viewOf?.call(),
+            time: time,
+          ),
+          entity,
+          item.layerId,
+          flat: shaded,
+        );
+        shaded = shaded || drew;
+        continue;
+      }
+      if (entry.emitter != null) continue;
+      final renderable = entry.renderComp!.renderable;
+      if (!renderable.visible) continue;
+      final material = entry.material;
+      final file = material == null || material.material.isEmpty
+          ? null
+          : library.fileOf(material.material);
+      if (file != null &&
+          file.kind == Material2DKind.sprite &&
+          (file.isOn('normalMap') || file.isOn('emissive'))) {
+        // Shaded things are queued: what is flat so far stays under them.
+        closeFlat();
+        if (_addNormals(
+          batch,
+          entry,
+          renderable,
+          material!,
+          file,
+          library,
+          time,
+          canvas,
+        )) {
+          shaded = true;
+          continue;
+        }
+      }
+      if (!shaded) continue;
+      if (!flatOpen) {
+        batch.flush(canvas, time);
+        canvas.saveLayer(null, _flatPaint);
+        flatOpen = true;
+      }
+      renderable.render(canvas, size);
+    }
+    closeFlat();
+    batch.flush(canvas, time);
+    if (applyCamera) canvas.restore();
+    return shaded;
+  }
+
+  /// Draws a shadow caster's shape (see [renderOccluders]).
+  final Paint _casterPaint = Paint();
+
+  /// Draws, onto [canvas], what casts shadows of what [render] last drew —
+  /// sprites and shapes with a [ShadowCaster2D] on, Level Map layers that
+  /// cast them — as their shapes, coloured by [MapLayerPainter.casterColour]
+  /// of how far light reaches into them: 2-D lighting's mask. True when it
+  /// drew anything. Call after [render], in the same frame.
+  bool renderOccluders(Canvas canvas, Size size) {
+    final cam = camera;
+    final applyCamera = cam != null && !cameraAppliedExternally;
+    if (applyCamera) {
+      canvas.save();
+      cam.applyTransform(canvas, size);
+    }
+    final filter = shouldRender;
+    var drew = false;
+    // Casters of one depth share a layer, coloured as that depth: a layer
+    // each would be a render target each (see [renderNormals]).
+    double? layerDepth;
+    void closeLayer() {
+      if (layerDepth == null) return;
+      canvas.restore();
+      layerDepth = null;
+    }
+
+    RenderContext? itemContext;
+    for (final entry in _entries) {
+      final entity = entry.entity;
+      if (!entity.isActiveInHierarchy) continue;
+      if (filter != null && !filter(entity)) continue;
+      if (entry.layer?.hiddenByMap ?? false) continue;
+      final item = entry.item;
+      if (item != null) {
+        if (!item.visible || item is! MapLayerRenderItem) continue;
+        closeLayer();
+        final cast = item.runtime.painter.paintSilhouette(
+          canvas,
+          itemContext ??= RenderContext(
+            world: world,
+            size: size,
+            camera: camera,
+            interpolation: interpolation,
+            view: viewOf?.call(),
+            time: clock?.call() ?? 0,
+          ),
+          entity,
+          item.layerId,
+        );
+        drew = drew || cast;
+        continue;
+      }
+      if (entry.emitter != null) continue;
+      final caster = entity.getComponent<ShadowCaster2D>();
+      if (caster == null || !caster.enabled) continue;
+      final renderable = entry.renderComp!.renderable;
+      if (!renderable.visible) continue;
+      if (layerDepth != caster.depth) {
+        closeLayer();
+        _casterPaint.colorFilter = ColorFilter.mode(
+          Color(MapLayerPainter.casterColour(caster.depth)),
+          BlendMode.srcIn,
+        );
+        canvas.saveLayer(null, _casterPaint);
+        layerDepth = caster.depth;
+      }
+      renderable.render(canvas, size);
+      drew = true;
+    }
+    closeLayer();
+    if (applyCamera) canvas.restore();
+    return drew;
+  }
+
+  /// Queues [renderable]'s normals into [batch]: from its material's normal
+  /// map once read, else its sheet's (or shape's) shape, flat.
+  bool _addNormals(
+    Material2DBatch batch,
+    _DrawEntry entry,
+    Renderable renderable,
+    Material2D material,
+    Material2DFile file,
+    Material2DLibrary library,
+    double time,
+    Canvas canvas,
+  ) {
+    if (library.normalsProgram == null) return false;
+    ui.Image? sheet;
+    ShapeSheet? shape;
+    var quality = FilterQuality.medium;
+    if (renderable is Sprite) {
+      sheet = renderable.image;
+      quality = renderable.filterQuality;
+    } else {
+      final scale = math.max(
+        renderable.scale.x.abs(),
+        renderable.scale.y.abs(),
+      );
+      shape = _shapeSheets.sheetOf(
+        entry.entity,
+        renderable,
+        _lookOf(entry.renderComp!),
+        _scaleOf(canvas) * scale,
+      );
+      sheet = shape?.image;
+    }
+    if (sheet == null) return false;
+    final map = file.isOn('normalMap') && shape == null
+        ? library.imageOf(file.text('normalMap.map'))
+        : null;
+    final image = map ?? sheet;
+    if (!batch.isEmpty && !batch.accepts(material.material, image, quality)) {
+      batch.flush(canvas, time);
+    }
+    bool add() {
+      if (batch.isEmpty) {
+        batch.begin(
+          material.material,
+          file,
+          image,
+          quality,
+          normals: true,
+          normalMap: map != null,
+        );
+      }
+      if (shape == null) {
+        return batch.addSprite(
+          renderable as Sprite,
+          seed: entry.entity.id,
+          overrides: material.overrides,
+        );
+      }
+      return batch.addBox(
+        shape.frame,
+        shape.bounds,
+        x: renderable.position.x,
+        y: renderable.position.y,
+        rotation: renderable.rotation,
+        scaleX: renderable.scale.x,
+        scaleY: renderable.scale.y,
+        opacity: renderable.opacity,
+        seed: entry.entity.id,
+      );
+    }
+
+    if (!add()) {
+      if (batch.isEmpty) return false;
+      batch.flush(canvas, time);
+      if (!add()) return false;
+    }
+    return true;
   }
 
   /// Whether [entity] is on a map layer that is hidden.
@@ -873,6 +1320,7 @@ class _DrawEntry {
   RenderableComponent? renderComp;
   LayerComponent? layer;
   ShaderComponent? shader;
+  Material2D? material;
   bool hasPhysics = false;
   PhysicsBodyRefComponent? physicsRef;
   int seq = 0;
@@ -949,6 +1397,7 @@ class _DrawEntry {
     renderComp = null;
     layer = null;
     shader = null;
+    material = null;
     hasPhysics = false;
     physicsRef = null;
     captures = 0;

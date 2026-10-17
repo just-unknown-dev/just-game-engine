@@ -2,9 +2,11 @@ library;
 
 import 'field_type_impls.dart';
 import 'field_type_shape_impls.dart';
+import 'material_overrides_field_type.dart';
 
 export 'field_type_impls.dart';
 export 'field_type_shape_impls.dart';
+export 'material_overrides_field_type.dart';
 
 /// Bounds and parsers a field applies while decoding.
 class FieldConstraints {
@@ -208,7 +210,10 @@ class FieldTypeRegistry {
   /// A registry holding every type in [FieldTypes.all], or nothing when
   /// [withBuiltIns] is false.
   FieldTypeRegistry({bool withBuiltIns = true}) {
-    if (withBuiltIns) registerAll(FieldTypes.all);
+    if (withBuiltIns) {
+      registerAll(FieldTypes.all);
+      registerAll(MaterialOverridesFieldType.all);
+    }
   }
 
   final Map<String, FieldType> _byId = {};

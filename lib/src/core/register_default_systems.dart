@@ -116,7 +116,11 @@ void registerDefaultSystems(
   );
   add(
     DefaultSystem.rendering,
-    () => RenderSystem(camera: view, statsSink: engine.rendering),
+    () => RenderSystem(
+      camera: view,
+      statsSink: engine.rendering,
+      clock: () => engine.time.totalTime,
+    ),
   );
   add(
     DefaultSystem.rendering,

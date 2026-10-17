@@ -8,3 +8,4 @@ export 'impl/game_terminal.dart';
 export 'impl/ray_renderable.dart';
 export 'render_hook_chain.dart';
 export 'shader_filter_support.dart';
+export 'screen_pass.dart';

@@ -5,6 +5,10 @@ library;
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui';
+import 'dart:ui' as ui;
+
+import 'package:just_game_engine_formats/just_game_engine_formats.dart'
+    show Material2DFile, Material2DKind;
 
 import '../../../ecs/components/components.dart';
 import '../../../ecs/ecs.dart';
@@ -15,6 +19,8 @@ import '../tile_chunks.dart';
 import '../level_map_data.dart';
 import '../map_geometry.dart';
 import '../level_map_runtime.dart';
+import '../../materials_2d/material_2d_batch.dart';
+import '../../materials_2d/material_2d_library.dart';
 
 /// One map layer's tiles, as one of the level's things to draw: it sorts
 /// among sprites and shapes by the layer's own sort layer and z-order, and
@@ -129,6 +135,13 @@ class _Draw {
     required this.ordered,
     required this.assets,
     required this.color,
+    this.material = '',
+    this.materialFile,
+    this.materialBatch,
+    this.time = 0,
+    this.mode = _Mode.colour,
+    this.normalImage,
+    this.flatColour = MapLayerPainter.flatNormal,
   });
 
   final Canvas canvas;
@@ -140,6 +153,36 @@ class _Draw {
   /// The signature of what every batch is built from besides its chunks.
   final int assets;
   final int? color;
+
+  /// The layer's 2-D material, by path, and as read; its tiles are queued
+  /// into [materialBatch] instead of drawn as they are.
+  final String material;
+  final Material2DFile? materialFile;
+  final Material2DBatch? materialBatch;
+
+  /// Seconds into the game, for the material's moving effects.
+  final double time;
+
+  /// What is drawn: the tiles, their normals, or their shape flat.
+  final _Mode mode;
+
+  /// [_Mode.normals]: the layer's normal map, once read.
+  final ui.Image? normalImage;
+
+  /// [_Mode.flat]: the colour every tile is drawn.
+  final int flatColour;
+}
+
+/// What a [MapLayerPainter] draws a layer as.
+enum _Mode {
+  /// Its tiles.
+  colour,
+
+  /// Its tiles' normals, for 2-D lighting, through its material.
+  normals,
+
+  /// Its tiles' shape as a flat normal.
+  flat,
 }
 
 /// Draws a map's layers.
@@ -164,6 +207,15 @@ class MapLayerPainter {
   /// The map whose layers it draws.
   final LevelMapRuntime runtime;
   final Map<int, Map<int, _Batch>> _batches = {};
+
+  /// Each layer's 2-D material batch, for those drawn through one.
+  final Map<int, Material2DBatch> _materialBatches = {};
+
+  /// Each layer's normals batch, for 2-D lighting.
+  final Map<int, Material2DBatch> _normalBatches = {};
+
+  /// What a flat normal (facing the viewer, not emissive) is drawn as.
+  static const int flatNormal = 0xFF808000;
   final Paint _paint = Paint()
     ..filterQuality = FilterQuality.none
     ..isAntiAlias = false;
@@ -174,7 +226,79 @@ class MapLayerPainter {
   /// (all of them without a camera), each rebuilt first if its cells,
   /// tilesets or images have changed. A layer the map no longer has draws
   /// nothing.
-  void paint(Canvas canvas, RenderContext context, Entity owner, int layerId) {
+  void paint(Canvas canvas, RenderContext context, Entity owner, int layerId) =>
+      _paintLayer(canvas, context, owner, layerId, _Mode.colour);
+
+  /// Draws layer [layerId]'s normals, for 2-D lighting, as [paint] draws its
+  /// tiles: through its 2-D material's normal map when it has one (or is
+  /// emissive), and true; else flat when [flat] — something shaded was drawn
+  /// under it, which it must hide — or not at all, false.
+  bool paintNormals(
+    Canvas canvas,
+    RenderContext context,
+    Entity owner,
+    int layerId, {
+    required bool flat,
+  }) {
+    final layer = runtime.base.layerById(layerId);
+    if (layer == null) return false;
+    var shaded = false;
+    if (layer.material.isNotEmpty) {
+      final library = Material2DLibrary.of(context.world.context);
+      final file = library.fileOf(layer.material);
+      shaded =
+          library.normalsProgram != null &&
+          file != null &&
+          file.kind == Material2DKind.sprite &&
+          (file.isOn('normalMap') || file.isOn('emissive'));
+    }
+    if (!shaded && !flat) return false;
+    _paintLayer(
+      canvas,
+      context,
+      owner,
+      layerId,
+      shaded ? _Mode.normals : _Mode.flat,
+    );
+    return shaded;
+  }
+
+  /// Draws layer [layerId]'s tiles as what casts shadows — for 2-D
+  /// lighting's mask, coloured by [casterColour] of its shadow depth — when
+  /// the layer casts shadows ([MapLayerData.castsShadows]), and true; else
+  /// nothing, and false.
+  bool paintSilhouette(
+    Canvas canvas,
+    RenderContext context,
+    Entity owner,
+    int layerId,
+  ) {
+    final layer = runtime.base.layerById(layerId);
+    if (layer == null || !layer.castsShadows) return false;
+    _paintLayer(
+      canvas,
+      context,
+      owner,
+      layerId,
+      _Mode.flat,
+      colour: casterColour(layer.shadowDepth),
+    );
+    return true;
+  }
+
+  /// What a shadow caster is drawn as in 2-D lighting's mask: opaque, its
+  /// [depth] (how far light reaches into it, 0-64) in red.
+  static int casterColour(double depth) =>
+      0xFF000000 | ((depth * 4).round().clamp(0, 255) << 16);
+
+  void _paintLayer(
+    Canvas canvas,
+    RenderContext context,
+    Entity owner,
+    int layerId,
+    _Mode mode, {
+    int colour = flatNormal,
+  }) {
     final layer = runtime.base.layerById(layerId);
     if (layer == null) return;
     final p = owner.getComponent<TransformComponent>()?.position;
@@ -218,6 +342,29 @@ class MapLayerPainter {
       final base = tint ?? 0xFFFFFFFF;
       final a = (((base >>> 24) & 0xFF) * alpha).round();
       color = (a << 24) | (base & 0xFFFFFF);
+    }
+
+    // A layer drawn through a 2-D material: its tiles are queued into the
+    // material's batch, once the file is read and the shader loaded.
+    Material2DFile? materialFile;
+    Material2DBatch? materialBatch;
+    ui.Image? normalImage;
+    if (layer.material.isNotEmpty && mode != _Mode.flat) {
+      final library = Material2DLibrary.of(context.world.context);
+      final file = library.fileOf(layer.material);
+      final normals = mode == _Mode.normals;
+      final program = normals ? library.normalsProgram : library.program;
+      if (program != null &&
+          file != null &&
+          file.kind == Material2DKind.sprite) {
+        materialFile = file;
+        final batches = normals ? _normalBatches : _materialBatches;
+        materialBatch = batches[layerId] ??= Material2DBatch(library);
+        materialBatch.beginFrame();
+        if (normals && file.isOn('normalMap')) {
+          normalImage = library.imageOf(file.text('normalMap.map'));
+        }
+      }
     }
 
     final cells = runtime.cellsOf(layer);
@@ -268,6 +415,13 @@ class MapLayerPainter {
         rows,
       ),
       color: color,
+      material: layer.material,
+      materialFile: materialFile,
+      materialBatch: materialBatch,
+      time: context.time,
+      mode: mode,
+      normalImage: normalImage,
+      flatColour: colour,
     );
 
     canvas.save();
@@ -306,6 +460,7 @@ class MapLayerPainter {
       }
     }
     group.clear();
+    materialBatch?.flush(canvas, context.time);
     canvas.restore();
   }
 
@@ -399,6 +554,29 @@ class MapLayerPainter {
       draw.batches[key] = batch;
     }
     _animate(batch);
+    if (draw.materialBatch != null) {
+      _queueMaterial(draw, batch);
+      return;
+    }
+    if (draw.mode == _Mode.flat) {
+      // Each tile's shape, as a flat normal: what hides what is under it.
+      for (final run in batch.runs) {
+        final image = run.mirrored
+            ? runtime.mirroredAt(run.slot)
+            : runtime.imageAt(run.slot);
+        if (image == null || run.length == 0) continue;
+        draw.canvas.drawRawAtlas(
+          image,
+          run.transforms,
+          run.rects,
+          run.colors(draw.flatColour),
+          BlendMode.srcIn,
+          null,
+          _paint,
+        );
+      }
+      return;
+    }
     final color = draw.color;
     for (final run in batch.runs) {
       final image = run.mirrored
@@ -414,6 +592,82 @@ class MapLayerPainter {
         null,
         _paint,
       );
+    }
+  }
+
+  /// Queues [batch]'s tiles into the layer's material batch, in the order
+  /// they would have been drawn; a run from another tileset image draws
+  /// what is queued first.
+  void _queueMaterial(_Draw draw, _Batch batch) {
+    final m = draw.materialBatch!;
+    final file = draw.materialFile!;
+    final color = draw.color ?? 0xFFFFFFFF;
+    final rgb = color & 0xFFFFFF, alpha = (color >>> 24) & 0xFF;
+    final normals = draw.mode == _Mode.normals;
+    for (final run in batch.runs) {
+      var image = run.mirrored
+          ? runtime.mirroredAt(run.slot)
+          : runtime.imageAt(run.slot);
+      if (image == null || run.length == 0) continue;
+      // Normals from the layer's normal map where it fits the tileset's
+      // image; a mirrored run's, and another tileset's, are flat.
+      var normalMap = false;
+      final map = draw.normalImage;
+      if (normals &&
+          map != null &&
+          !run.mirrored &&
+          map.width == image.width &&
+          map.height == image.height) {
+        image = map;
+        normalMap = true;
+      }
+      if (!m.isEmpty && !m.accepts(draw.material, image, FilterQuality.none)) {
+        m.flush(draw.canvas, draw.time);
+      }
+      if (m.isEmpty) {
+        m.begin(
+          draw.material,
+          file,
+          image,
+          FilterQuality.none,
+          normals: normals,
+          normalMap: normalMap,
+        );
+      }
+      final t = run.transforms, r = run.rects;
+      for (var i = 0; i < run.length; i++) {
+        final k = i * 4;
+        final frame = Rect.fromLTRB(r[k], r[k + 1], r[k + 2], r[k + 3]);
+        final scos = t[k], ssin = t[k + 1], tx = t[k + 2], ty = t[k + 3];
+        // An atlas transform: the frame's pixel (u, v) is drawn at
+        // (scos·u − ssin·v + tx, ssin·u + scos·v + ty).
+        bool add() => m.addFrame(
+          frame,
+          a: scos,
+          b: ssin,
+          c: -ssin,
+          d: scos,
+          e: tx,
+          f: ty,
+          rgb: rgb,
+          alpha: alpha,
+          x: tx,
+          y: ty,
+          seed: (tx.round() * 73856093) ^ (ty.round() * 19349663),
+        );
+        if (!add()) {
+          m.flush(draw.canvas, draw.time);
+          m.begin(
+            draw.material,
+            file,
+            image,
+            FilterQuality.none,
+            normals: normals,
+            normalMap: normalMap,
+          );
+          add();
+        }
+      }
     }
   }
 

@@ -16,6 +16,7 @@ import 'impl/renderable.dart';
 import 'impl/sprite_batch.dart';
 import 'impl/sprite_batching.dart';
 import 'shader_filter_support.dart';
+import 'screen_pass.dart';
 import '../post_processing/post_process_pass.dart';
 import '../particles/particles.dart';
 import '../camera/camera_system.dart';
@@ -251,6 +252,28 @@ class RenderingEngine implements RenderStatsSink {
 
   /// Cached fullscreen rect reused every render to avoid per-frame allocation.
   Rect _fullscreenRect = Rect.zero;
+
+  /// Drawn over the whole frame from an image of it — 2-D lighting, a
+  /// screen material — those [ScreenPass.active], in order, each from what
+  /// the one before drew; see [render].
+  final List<ScreenPass> screenPasses = [];
+
+  /// Overlay hooks below this order are drawn under a [screenPass], and
+  /// those at it or above (an editor's) over it.
+  static const int screenPassOrder = 100;
+
+  /// How many device pixels a logical pixel is, for the image a
+  /// [screenPass] is drawn from; the view's own when null.
+  double? pixelRatio;
+
+  double get _pixelRatio =>
+      pixelRatio ??
+      ui.PlatformDispatcher.instance.implicitView?.devicePixelRatio ??
+      1.0;
+
+  // The frame images a screen pass drew from, let go a frame later.
+  final List<ui.Image> _screenFrames = [];
+  final List<ui.Image> _oldScreenFrames = [];
 
   /// Cached [Paint] for post-process `saveLayer` calls.
   final Paint _postProcessPaint = Paint();
@@ -637,9 +660,16 @@ class RenderingEngine implements RenderStatsSink {
   ///    editor, at order 100);
   /// 7. the camera's post-effects, the post-process layers closing, and the
   ///    screen-space camera effects (fade, letterbox).
-  void render(Canvas canvas, Size size) {
+  void render(Canvas output, Size size) {
     if (!_initialized) return;
     _viewStale = true;
+    for (final f in _oldScreenFrames) {
+      f.dispose();
+    }
+    _oldScreenFrames
+      ..clear()
+      ..addAll(_screenFrames);
+    _screenFrames.clear();
 
     _renderStopwatch
       ..reset()
@@ -686,10 +716,20 @@ class RenderingEngine implements RenderStatsSink {
           elapsedSeconds,
         );
         _postProcessPaint.imageFilter = ui.ImageFilter.shader(pass.shader);
-        canvas.saveLayer(_fullscreenRect, _postProcessPaint);
+        output.saveLayer(_fullscreenRect, _postProcessPaint);
         activePasses++;
       }
     }
+
+    // ── Screen pass: the frame drawn into an image, then painted back ─────
+    // through it, before what an editor draws over the world.
+    final passes = [
+      for (final p in screenPasses)
+        if (p.active) p,
+    ];
+    final recorder = passes.isEmpty ? null : ui.PictureRecorder();
+    final ratio = recorder == null ? 1.0 : _pixelRatio;
+    final canvas = recorder == null ? output : (Canvas(recorder)..scale(ratio));
 
     // ── Camera effect pre-render (inside post-process context) ───────────
     // Called AFTER post-process layers are pushed so the motion-blur
@@ -830,24 +870,52 @@ class RenderingEngine implements RenderStatsSink {
 
     // Invoke overlay callback (ECS world systems) — inside the motion-blur
     // layer so ECS entities are blurred along with subsystem renderables.
-    overlayHooks(canvas, size);
+    if (recorder == null) {
+      overlayHooks(canvas, size);
+    } else {
+      overlayHooks.callRange(canvas, size, below: screenPassOrder);
+    }
 
     // ── Camera effect post-render (pops motion-blur saveLayer) ───────────
     // Called BEFORE the post-process pop so the blurred world is what the
     // post-process shaders receive as input.
     camera.effectManager.postRender(canvas, size);
 
+    if (recorder != null) {
+      final width = (size.width * ratio).ceil().clamp(1, 16384);
+      final height = (size.height * ratio).ceil().clamp(1, 16384);
+      final picture = recorder.endRecording();
+      var frame = picture.toImageSync(width, height);
+      picture.dispose();
+      _screenFrames.add(frame);
+      for (var i = 0; i < passes.length; i++) {
+        drawCalls++;
+        if (i == passes.length - 1) {
+          passes[i].paint(output, frame, size, ratio);
+          break;
+        }
+        // Into an image for the next pass to draw from.
+        final next = ui.PictureRecorder();
+        passes[i].paint(Canvas(next)..scale(ratio), frame, size, ratio);
+        final drawn = next.endRecording();
+        frame = drawn.toImageSync(width, height);
+        drawn.dispose();
+        _screenFrames.add(frame);
+      }
+      overlayHooks.callRange(output, size, from: screenPassOrder);
+    }
+
     // ── Post-process: pop offscreen layers (innermost first via LIFO) ─────
     for (int i = 0; i < activePasses; i++) {
-      canvas.restore();
+      output.restore();
     }
 
     // ── Camera effect screen-space overlays (fade, letterbox) ────────────
-    camera.effectManager.render(canvas, size);
+    camera.effectManager.render(output, size);
 
     // Render debug info
     if (debugMode) {
-      _renderDebugInfo(canvas, size);
+      _renderDebugInfo(output, size);
     }
 
     _renderStopwatch.stop();
