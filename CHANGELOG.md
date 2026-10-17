@@ -2,6 +2,17 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [2.0.0-dev.2] - 2026-10-17
+
+The 3-D Level Designer's runtime seams, and prefab files for every scene.
+
+- **Prefab files** (`*.prefab.json`): a scene entry can place a prefab — its changes kept as overrides, entities removed or added, components added or removed, prefabs nested. `PrefabLibrary.of(context)` loads them (`load`, `loadAll`, `loadScene`) and makes one at run time (`instantiate`); `Spawner.prefab` spawns one; `EngineContext.prefabs` is the seam an editor points at its project (`overrideLoaders(prefabs:)`). `SceneLoader.placeFromHome` places an instance's inner entities, kept in the prefab's space. What an entity came from is marked at run time (`PrefabInstanceComponent`, `PrefabLink`; never saved). Scene format 10.
+- **Material files** (`*.material.json`): `MaterialLibrary` loads them for the 3-D renderer, maps in sRGB or linear by slot; `Primitive3D.material` draws a shape with one; `ModelComponent.materials` replaces a model's own materials by name, index or `*` (`MaterialSlots`). Texture coordinates natural, in metres or from the world; a layered material blends four layers by vertex colour.
+- **Render providers**: `RenderProvider`, `RenderProviders.of(context)` and `RenderProviderOutput` let a package draw its own components as meshes and instance batches, built again only when its revision changes.
+- **Editor aids in the renderer**: `SceneEditorAids` (what is hidden, the selection's outline, view modes, a slice plane, views to skip), `Camera.inSpace`, `Graphics3D(keepEdges:)`; up to 8 render surfaces.
+- **Collision**: `SolidMesh` (triangles) and `SolidHeightField` (with holes) are parts a `SolidShapeSource` can give a `Collider3D` set to match its shape.
+- Requires just_game_engine_formats ^0.2.0, just_physics_engine ^1.5.0 and just_graphics_engine ^0.1.0-dev.2.
+
 ## [2.0.0-dev.1] - 2026-10-15
 
 A dev release of 2.0.0, a breaking release. The engine is now an object a game creates, initializes and disposes, with its own registries, loaders and world. Levels are JSON scenes described by component definitions that the game and an editor share. Cameras, input, sprites, tile maps, animation and the transform hierarchy were rebuilt, and the game services moved to a package of their own. 3-D graphics (drawn by just_graphics_engine) and 3-D physics (on Jolt) are there to opt into, on transforms, cameras and render and culling seams built for both. A 2-D game draws, moves and saves as before, and carries none of the 3-D.

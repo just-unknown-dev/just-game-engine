@@ -194,3 +194,80 @@ final class SolidHull extends SolidPart {
   @override
   String toString() => 'SolidHull($length points)';
 }
+
+/// A surface of triangles — a road swept along a path, a bridge — for what
+/// stands still or is moved by hand (static and kinematic bodies): one
+/// thrown about by forces needs convex parts.
+final class SolidMesh extends SolidPart {
+  /// Triangles [indices] (three per triangle) of [positions] (x, y, z per
+  /// point).
+  const SolidMesh(this.positions, this.indices);
+
+  /// Three floats per point.
+  final Float32List positions;
+
+  /// Three per triangle.
+  final Uint32List indices;
+
+  /// How many triangles there are.
+  int get triangleCount => indices.length ~/ 3;
+
+  // Large: the same mesh only by identity; the source's key says when it
+  // changed.
+  @override
+  bool operator ==(Object other) =>
+      other is SolidMesh && identical(other.positions, positions) && identical(other.indices, indices);
+
+  @override
+  int get hashCode => Object.hash(identityHashCode(positions), identityHashCode(indices));
+
+  @override
+  String toString() => 'SolidMesh($triangleCount triangles)';
+}
+
+/// Ground as a grid of heights — a terrain: [sampleCount] by [sampleCount]
+/// samples [cellSize] apart, row by row along Z, each along X, its first
+/// at ([x], [y], [z]). Each height is how far *up* the ground is there
+/// (+Y is down: it is subtracted). [holeHeight] or more marks a hole:
+/// nothing there.
+final class SolidHeightField extends SolidPart {
+  const SolidHeightField(
+    this.heights,
+    this.sampleCount,
+    this.cellSize, {
+    this.x = 0,
+    this.y = 0,
+    this.z = 0,
+  });
+
+  /// A height that marks a hole.
+  static const double holeHeight = 3.0e38;
+
+  /// Row-major heights, [sampleCount] squared of them.
+  final Float32List heights;
+
+  /// Samples along each side.
+  final int sampleCount;
+
+  /// Metres between samples.
+  final double cellSize;
+
+  /// Where its first sample is, in its entity's space.
+  final double x, y, z;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SolidHeightField &&
+      identical(other.heights, heights) &&
+      other.sampleCount == sampleCount &&
+      other.cellSize == cellSize &&
+      other.x == x &&
+      other.y == y &&
+      other.z == z;
+
+  @override
+  int get hashCode => Object.hash(identityHashCode(heights), sampleCount, cellSize, x, y, z);
+
+  @override
+  String toString() => 'SolidHeightField($sampleCount × $sampleCount)';
+}

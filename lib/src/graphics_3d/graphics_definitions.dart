@@ -27,6 +27,12 @@ abstract final class GraphicsSchemas {
           accentColor: Color(0xFF42A5F5),
           fields: {
             'model': FieldHint(label: 'Model', fileExtensions: ['glb', 'gltf']),
+            'materials': FieldHint(
+              label: 'Materials',
+              description:
+                  'Material files drawn instead of its own: by material name, '
+                  '#index, or * for every one.',
+            ),
             'castShadows': FieldHint(label: 'Casts shadows'),
             'visible': FieldHint(label: 'Visible'),
           },
@@ -37,6 +43,17 @@ abstract final class GraphicsSchemas {
             kind: FieldTypes.assetRef,
             read: (c) => (c as ModelComponent).model,
             write: (c, v) => (c as ModelComponent).model = v as String? ?? '',
+          ),
+          SchemaField(
+            name: 'materials',
+            kind: FieldTypes.map,
+            read: (c) => Map<Object?, Object?>.of((c as ModelComponent).materials),
+            write: (c, v) => (c as ModelComponent).materials = {
+              if (v is Map)
+                for (final e in v.entries)
+                  if (e.value is String && (e.value as String).isNotEmpty)
+                    '${e.key}': e.value as String,
+            },
           ),
           SchemaField(
             name: 'castShadows',

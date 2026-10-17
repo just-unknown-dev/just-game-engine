@@ -28,6 +28,7 @@ abstract class Primitive3D extends Component implements SolidShapeSource {
   /// A shape with the given look; the defaults are a light grey, slightly
   /// rough, untextured surface.
   Primitive3D({
+    this.material = '',
     this.color = defaultColor,
     this.metallic = 0.0,
     this.roughness = 0.75,
@@ -48,6 +49,11 @@ abstract class Primitive3D extends Component implements SolidShapeSource {
   /// Every shape shares one column: an entity has one shape.
   @override
   Type get componentType => Primitive3D;
+
+  /// A material file (`*.material.json`) it is drawn with, by path —
+  /// shared with everything else drawn with it; empty for its own look,
+  /// the fields below. While set, those fields are kept but not used.
+  String material;
 
   /// Its colour (sRGB, as picked); multiplies the [texture].
   Color color;
@@ -104,6 +110,7 @@ abstract class Primitive3D extends Component implements SolidShapeSource {
   /// renderer can tell each frame whether the look changed without making a
   /// key.
   void writeMaterialValues(ShapeValues values) => values
+    ..addObject(material)
     ..addInt(color.toARGB32())
     ..add(metallic)
     ..add(roughness)
@@ -130,6 +137,7 @@ abstract class Primitive3D extends Component implements SolidShapeSource {
 
   /// Equal for as long as its look stays the same.
   Object get materialKey => (
+    material,
     color.toARGB32(),
     metallic,
     roughness,

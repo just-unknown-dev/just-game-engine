@@ -5,7 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart'
     show compute, debugPrint, visibleForTesting;
 import 'package:flutter/painting.dart';
-import 'package:just_dart/just_dart.dart' show JustMatrix4, Matrix4;
+import 'package:just_dart/just_dart.dart' show Aabb3, JustMatrix4, Matrix4;
 import 'package:just_graphics_engine/assets.dart';
 import 'package:just_graphics_engine/gpu.dart';
 import 'package:just_graphics_engine/renderer.dart';
@@ -18,7 +18,39 @@ import 'animation_system.dart';
 import 'graphics_components.dart';
 import 'graphics_models.dart';
 import 'graphics_shapes.dart';
+import 'material_library.dart';
+import 'render_providers.dart';
 import 'shapes/primitive_3d.dart';
+
+/// What an editor shows in its views of the scene beyond what the game
+/// draws: what it hides, the selection's outline, a view mode and a slice.
+/// Set by the editor (`GraphicsSceneRenderer.aids`), never by a game, and
+/// left out of the [plainViews] — the game's own camera seen in the editor.
+final class SceneEditorAids {
+  /// Whether [entity] is drawn; null draws everything. Hidden and isolated
+  /// things answer false.
+  bool Function(Entity entity)? drawFilter;
+
+  /// What is outlined: the selection.
+  Iterable<Entity> Function()? highlighted;
+
+  /// The outline's colour (straight RGBA).
+  (double, double, double, double) highlightColor = (1.0, 0.62, 0.15, 1.0);
+
+  /// Lit, unlit or wireframe.
+  RenderViewMode viewMode = RenderViewMode.lit;
+
+  /// A slice: nothing higher than this (engine Y, so 3 m up is -3) is
+  /// drawn. Null for none.
+  double? sliceY;
+
+  /// Views drawn exactly as the game draws them, aids or not.
+  final Set<FrameView> plainViews = Set.identity();
+
+  /// Views not drawn at all: the game's own while the editor draws its
+  /// viewport split into panes of its own.
+  final Set<FrameView> skippedViews = Set.identity();
+}
 
 /// Draws a world's 3-D components (Model, the shapes, Light, Environment)
 /// from the engine's camera — the [SceneRenderer] a `Graphics3D` adds.
@@ -66,11 +98,35 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   /// The scene as last extracted from the world.
   final RenderScene scene = RenderScene();
 
+  /// What an editor adds to its views; null in a game.
+  SceneEditorAids? aids;
+
+  // Whether the aids apply to the view being drawn.
+  bool _aided = false;
+
+  /// What kits draw (terrain, scatter, tiles): read from the engine's
+  /// [RenderProviders].
+  RenderProviders get providers => RenderProviders.of(engine.world.context);
+
+  late final RenderProviderContext _providerContext = RenderProviderContext(
+    uploader: renderer.uploader,
+    models: models,
+    shapes: shapes,
+  );
+
   /// The shapes' meshes and materials.
   late final GraphicsShapes shapes = GraphicsShapes(
     renderer.uploader,
     models.read,
     inUse: _shapesInUse,
+    library: materials,
+  );
+
+  /// The material files shapes and models are drawn with
+  /// ([Primitive3D.material], [ModelComponent.materials]).
+  late final MaterialLibrary materials = MaterialLibrary(
+    renderer.uploader,
+    models.read,
   );
 
   /// The meshes and materials the shapes are drawn with now.
@@ -120,7 +176,9 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   GpuSurface _surfaceFor(FrameView view) {
     final known = _surfaces[view];
     if (known != null) return known;
-    if (_surfaces.length >= 4) _surfaces.remove(_surfaces.keys.first);
+    // The game's view, an editor's (as many as it splits into) and its
+    // preview of the game's camera.
+    if (_surfaces.length >= 8) _surfaces.remove(_surfaces.keys.first);
     return _surfaces[view] = renderer.device.createSurface(1, 1);
   }
 
@@ -131,6 +189,8 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   final List<_Proxy> _proxies = [];
   final List<_ShapeProxy> _shapeProxies = [];
   int _shapeRevision = -1;
+  final List<_ProviderProxy> _providerProxies = [];
+  int _providerVersion = -1;
   final List<PunctualLight> _lightPool = [];
   // Each light's colour made linear, worked out again only when it changes.
   final List<_LinearColor> _lightColors = [];
@@ -157,6 +217,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   void render(Canvas canvas, FrameView view) {
     final size = view.viewportSize;
     if (size.isEmpty) return;
+    if (aids?.skippedViews.contains(view) ?? false) return;
     update(view);
     if (!_gpu && !renderWithoutGpu) {
       _drawNote(canvas, size, _failure?.toString() ?? unsupportedReason!);
@@ -170,6 +231,12 @@ final class GraphicsSceneRenderer extends SceneRenderer {
     } on Object catch (error) {
       _fail(error);
       return;
+    } finally {
+      // The renderer is shared (a model's thumbnail, say): an editor's view
+      // settings stay with its views.
+      renderer
+        ..viewMode = RenderViewMode.lit
+        ..clipPlane = null;
     }
     final image = surface.image;
     if (image == null) return;
@@ -194,14 +261,20 @@ final class GraphicsSceneRenderer extends SceneRenderer {
     final world = engine.world;
     if (!identical(world, _world) ||
         _queriesVersion(world) != _structureVersion ||
+        // Registering a provider changes what is drawn, no entity changed.
+        providers.version != _providerVersion ||
         _dirty ||
         _pathsChanged()) {
       _rebuild(world);
     }
     _alpha = view.interpolation.clamp(0.0, 1.0);
+    final aids = this.aids;
+    _aided = aids != null && !aids.plainViews.contains(view);
     _checkCaptures(world);
     _follow();
     _followShapes();
+    _followProviders();
+    _applyAids();
     _extractLights(world);
     _extractEnvironment(world);
 
@@ -234,11 +307,22 @@ final class GraphicsSceneRenderer extends SceneRenderer {
     _view.cameraPosition.setFrom(view.cameraPosition);
   }
 
-  /// The largest version of the queries [_rebuild] reads.
-  static int _queriesVersion(World world) => math.max(
-    world.queryVersion(const [TransformComponent, ModelComponent]),
-    world.queryVersion(const [TransformComponent, Primitive3D]),
-  );
+  /// The largest version of the queries [_rebuild] reads, the providers'
+  /// among them, and of the providers themselves.
+  int _queriesVersion(World world) {
+    var version = math.max(
+      world.queryVersion(const [TransformComponent, ModelComponent]),
+      world.queryVersion(const [TransformComponent, Primitive3D]),
+    );
+    final providers = this.providers;
+    for (final provider in providers.all) {
+      version = math.max(
+        version,
+        world.queryVersion([TransformComponent, provider.componentType]),
+      );
+    }
+    return version;
+  }
 
   bool _pathsChanged() {
     for (final proxy in _proxies) {
@@ -254,12 +338,16 @@ final class GraphicsSceneRenderer extends SceneRenderer {
     // step.
     final knownModels = Map<TransformComponent, _Proxy>.identity();
     final knownShapes = Map<TransformComponent, _ShapeProxy>.identity();
+    final knownProvided = <(TransformComponent, Type), _ProviderProxy>{};
     if (identical(world, _world)) {
       for (final f in _proxies) {
         knownModels[f.transform] = f;
       }
       for (final f in _shapeProxies) {
         knownShapes[f.transform] = f;
+      }
+      for (final f in _providerProxies) {
+        knownProvided[(f.transform, f.provider.componentType)] = f;
       }
     } else {
       _seenUpdates = world.updateCount;
@@ -269,6 +357,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
     _dirty = false;
     _proxies.clear();
     scene.instances.clear();
+    scene.batches.clear();
     for (final archetype in world.queryArchetypes(const [
       TransformComponent,
       ModelComponent,
@@ -287,6 +376,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
             : entity.getComponent<AnimationPlayerComponent>();
         final known = knownModels[transform];
         if (known != null && known.fits(component, path, model, player)) {
+          known.entity = entity;
           _proxies.add(known);
           scene.instances.addAll(known.instances);
           if (model != null) {
@@ -295,6 +385,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
           continue;
         }
         final proxy = _Proxy(transform, component, path, model)
+          ..entity = entity
           ..carryFrom(known ?? knownShapes[transform]);
         _proxies.add(proxy);
         if (model == null) {
@@ -328,11 +419,13 @@ final class GraphicsSceneRenderer extends SceneRenderer {
       final transforms = archetype.getColumn(TransformComponent)!;
       final column = archetype.getColumn(Primitive3D)!;
       for (var row = 0; row < archetype.length; row++) {
-        if (!archetype.entityAt(row).isActiveInHierarchy) continue;
+        final entity = archetype.entityAt(row);
+        if (!entity.isActiveInHierarchy) continue;
         final transform = transforms[row] as TransformComponent;
         final shape = column[row] as Primitive3D;
         final known = knownShapes[transform];
         if (known != null && identical(known.shape, shape)) {
+          known.entity = entity;
           _shapeProxies.add(known);
           final instance = known.instance;
           if (instance != null) scene.instances.add(instance);
@@ -341,9 +434,202 @@ final class GraphicsSceneRenderer extends SceneRenderer {
         // Made at the next follow, with its mesh.
         _shapeProxies.add(
           _ShapeProxy(transform, shape)
+            ..entity = entity
             ..carryFrom(known ?? knownModels[transform]),
         );
       }
+    }
+    // What the kits draw.
+    _providerProxies.clear();
+    final providers = this.providers;
+    _providerVersion = providers.version;
+    for (final provider in providers.all) {
+      final type = provider.componentType;
+      for (final archetype in world.queryArchetypes([TransformComponent, type])) {
+        final transforms = archetype.getColumn(TransformComponent)!;
+        final column = archetype.getColumn(type)!;
+        for (var row = 0; row < archetype.length; row++) {
+          final entity = archetype.entityAt(row);
+          if (!entity.isActiveInHierarchy) continue;
+          final transform = transforms[row] as TransformComponent;
+          final component = column[row];
+          final known = knownProvided[(transform, type)];
+          final proxy =
+              known != null &&
+                  identical(known.component, component) &&
+                  known.revision == provider.revisionOfAny(component)
+              ? known
+              : _build(entity, transform, component, provider, known);
+          proxy.entity = entity;
+          _providerProxies.add(proxy);
+          scene.instances.addAll(proxy.instances);
+          scene.batches.addAll(proxy.batches);
+        }
+      }
+    }
+  }
+
+  /// What [provider] draws for [component] on [entity], placed when next
+  /// followed.
+  _ProviderProxy _build(
+    Entity entity,
+    TransformComponent transform,
+    Component component,
+    RenderProvider<Component> provider,
+    _Follower? known,
+  ) {
+    final proxy = _ProviderProxy(
+      transform,
+      component,
+      provider,
+      provider.revisionOfAny(component),
+    )..carryFrom(known);
+    final out = RenderProviderOutput();
+    try {
+      provider.buildAny(_providerContext, entity, component, out);
+    } on Object catch (error) {
+      debugPrint(
+        'just_game_engine: ${provider.runtimeType} could not draw '
+        '${entity.name ?? entity.id}: $error',
+      );
+    }
+    for (final (primitive, material, local, shadows) in out.meshes) {
+      proxy.instances.add(
+        MeshInstance(primitive, material, Matrix4.zero())..castShadows = shadows,
+      );
+      proxy.locals.add(local);
+    }
+    for (final (primitive, material, locals, reach, shadows) in out.batches) {
+      proxy.batches.add(
+        InstanceBatch(primitive, material)
+          ..maxDistance = reach
+          ..castShadows = shadows,
+      );
+      proxy.batchLocals.add(locals);
+    }
+    return proxy;
+  }
+
+  /// Brings what the kits draw up to date: built again when a provider
+  /// says it changed, and placed where its entity is.
+  void _followProviders() {
+    for (var i = 0; i < _providerProxies.length; i++) {
+      var proxy = _providerProxies[i];
+      final revision = proxy.provider.revisionOfAny(proxy.component);
+      if (revision != proxy.revision) {
+        for (final instance in proxy.instances) {
+          scene.instances.remove(instance);
+        }
+        for (final batch in proxy.batches) {
+          scene.batches.remove(batch);
+        }
+        final entity = proxy.entity!;
+        proxy = _providerProxies[i] = _build(
+          entity,
+          proxy.transform,
+          proxy.component,
+          proxy.provider,
+          proxy,
+        )..entity = entity;
+        scene.instances.addAll(proxy.instances);
+        scene.batches.addAll(proxy.batches);
+      }
+      _poseOf(proxy, _scratch);
+      final moved = !_same(_scratch, proxy.world);
+      if (moved) proxy.world.setFrom(_scratch);
+      for (var k = 0; k < proxy.instances.length; k++) {
+        final instance = proxy.instances[k]..visible = true;
+        if (moved) {
+          instance.world.setProduct(proxy.world, proxy.locals[k]);
+          instance.markMoved();
+        }
+      }
+      for (var k = 0; k < proxy.batches.length; k++) {
+        final batch = proxy.batches[k]..visible = true;
+        if (moved) {
+          batch.setInstances([
+            for (final local in proxy.batchLocals[k])
+              Matrix4.zero()..setProduct(proxy.world, local),
+          ]);
+        }
+      }
+    }
+  }
+
+  /// The editor's aids, for the view being drawn: what it hides, a slice,
+  /// the view mode, and the selection's outline. Nothing for a game, or a
+  /// plain view.
+  void _applyAids() {
+    scene.overlays.clear();
+    final aids = this.aids;
+    if (!_aided || aids == null) {
+      renderer
+        ..viewMode = RenderViewMode.lit
+        ..clipPlane = null;
+      return;
+    }
+    final slice = aids.sliceY;
+    renderer
+      ..viewMode = aids.viewMode
+      // Up is -Y: nothing where -y is past -slice.
+      ..clipPlane = slice == null ? null : (0, -1, 0, -slice);
+    final filter = aids.drawFilter;
+    // Wholly above the slice: its lowest point (largest Y) above it.
+    bool sliced(Aabb3 b) => slice != null && b.max.y < slice;
+    void hide(Entity? entity, Iterable<MeshInstance> instances) {
+      final shown = entity == null || filter == null || filter(entity);
+      for (final instance in instances) {
+        if (!shown || sliced(instance.bounds)) instance.visible = false;
+      }
+    }
+
+    for (final p in _proxies) {
+      hide(p.entity, p.instances);
+    }
+    for (final p in _shapeProxies) {
+      final instance = p.instance;
+      if (instance != null) hide(p.entity, [instance]);
+    }
+    for (final p in _providerProxies) {
+      hide(p.entity, p.instances);
+      final entity = p.entity;
+      final shown = entity == null || filter == null || filter(entity);
+      for (final batch in p.batches) {
+        if (!shown || sliced(batch.bounds)) batch.visible = false;
+      }
+    }
+
+    final picked = aids.highlighted?.call();
+    if (picked == null) return;
+    final selected = Set<Entity>.identity()..addAll(picked);
+    if (selected.isEmpty) return;
+    final c = aids.highlightColor;
+    void outline(Iterable<MeshInstance> instances) {
+      for (final instance in instances) {
+        if (!instance.visible) continue;
+        scene.overlays
+          ..add(OverlayDraw(instance.primitive, instance.world, color: c))
+          // Faint through what stands in front of it.
+          ..add(
+            OverlayDraw(
+              instance.primitive,
+              instance.world,
+              color: (c.$1, c.$2, c.$3, c.$4 * 0.3),
+              xray: true,
+            ),
+          );
+      }
+    }
+
+    for (final p in _proxies) {
+      if (selected.contains(p.entity)) outline(p.instances);
+    }
+    for (final p in _shapeProxies) {
+      final instance = p.instance;
+      if (instance != null && selected.contains(p.entity)) outline([instance]);
+    }
+    for (final p in _providerProxies) {
+      if (selected.contains(p.entity)) outline(p.instances);
     }
   }
 
@@ -363,7 +649,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
       final look = proxy.look..begin();
       shape.writeMaterialValues(look);
       var restyled = look.end();
-      final metres = shape.tileInMetres && shape.texture.isNotEmpty;
+      final metres = shapes.tilesInMetres(shape);
       var instance = proxy.instance;
       if (reshaped ||
           metres != proxy.metres ||
@@ -408,6 +694,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
 
   void _follow() {
     for (final proxy in _proxies) {
+      _applyMaterials(proxy);
       final visible = proxy.component.visible;
       final shadows = proxy.component.castShadows;
       final posed = proxy.posed;
@@ -441,6 +728,37 @@ final class GraphicsSceneRenderer extends SceneRenderer {
           instance.markMoved();
         }
       }
+    }
+  }
+
+  /// [proxy]'s material files, where its component names them: swapped
+  /// in for its own once read, and its own back where they go.
+  void _applyMaterials(_Proxy proxy) {
+    final model = proxy.model;
+    if (model == null) return;
+    final wanted = proxy.component.materials;
+    if (wanted.isEmpty && proxy.materialsKey == null) return;
+    final key = wanted.isEmpty
+        ? null
+        : (
+            materials.revision,
+            Object.hashAllUnordered([
+              for (final e in wanted.entries) Object.hash(e.key, e.value),
+            ]),
+          );
+    if (key == proxy.materialsKey) return;
+    proxy.materialsKey = key;
+    final named = model.data.materials;
+    for (final instance in proxy.instances) {
+      final index = instance.primitive.material;
+      final path = index == null
+          ? wanted['*']
+          : wanted[index < named.length ? named[index].name : ''] ??
+                wanted['#$index'] ??
+                wanted['*'];
+      instance.material =
+          (path == null ? null : materials.gpuOf(path)) ??
+          model.materialOf(instance.primitive);
     }
   }
 
@@ -696,6 +1014,12 @@ final class GraphicsSceneRenderer extends SceneRenderer {
     for (final p in _proxies) p.path: p.instances.length,
   };
 
+  /// The models drawn, for tests: every instance of every one.
+  @visibleForTesting
+  List<MeshInstance> get debugModelInstances => [
+    for (final p in _proxies) ...p.instances,
+  ];
+
   /// The shapes drawn, for tests: each one's instance (null while it has
   /// no triangles).
   @visibleForTesting
@@ -718,6 +1042,9 @@ abstract class _Follower {
   _Follower(this.transform) : captures = transform.captureCount;
 
   final TransformComponent transform;
+
+  /// Whose transform it is.
+  Entity? entity;
 
   /// The transform's capture count at the last update seen.
   int captures;
@@ -770,6 +1097,10 @@ final class _Proxy extends _Follower {
   final Matrix4 world = Matrix4.zero();
   final List<MeshInstance> instances = [];
 
+  /// The material files last swapped in, and the library as it was then;
+  /// null while it draws its own.
+  Object? materialsKey;
+
   /// Entity space from each instance's primitive.
   final List<Matrix4> locals = [];
 
@@ -777,6 +1108,30 @@ final class _Proxy extends _Follower {
   AnimationPlayerComponent? player;
   PosedModel? posed;
   PlayerScratch? scratch;
+}
+
+/// What a [RenderProvider] drew for one component.
+final class _ProviderProxy extends _Follower {
+  _ProviderProxy(super.transform, this.component, this.provider, this.revision);
+
+  final Component component;
+  final RenderProvider<Component> provider;
+
+  /// [provider]'s revision of [component] when it was built.
+  final Object? revision;
+
+  /// The entity's transform when last followed; zero forces the first.
+  final Matrix4 world = Matrix4.zero();
+
+  final List<MeshInstance> instances = [];
+
+  /// Entity space from each instance.
+  final List<Matrix4> locals = [];
+
+  final List<InstanceBatch> batches = [];
+
+  /// Entity space from each copy of each batch.
+  final List<List<Matrix4>> batchLocals = [];
 }
 
 /// One entity's shape in the scene.

@@ -11,6 +11,7 @@ import '../serialization/component_definition_registry.dart';
 import '../serialization/core_codecs.dart';
 import '../serialization/field_type.dart';
 import '../serialization/migration_hooks.dart';
+import '../serialization/prefab_format.dart';
 import '../components/animation/animation_targets.dart';
 import '../components/animation/animator_bindings.dart';
 import '../../subsystems/sprite_atlas/sprite_asset_loader.dart';
@@ -34,6 +35,9 @@ typedef AnimatorGraphLoader = Future<AnimatorGraph> Function(String path);
 
 /// Loads a timeline by path.
 typedef TimelineLoader = Future<TimelineAsset> Function(String path);
+
+/// Loads a prefab file by path.
+typedef PrefabLoader = Future<PrefabFile> Function(String path);
 
 /// What a package teaches an engine: its component definitions, migrations,
 /// animator bindings, timeline track kinds, collision kinds and easings.
@@ -121,6 +125,7 @@ final class EngineContext {
     sprites = _bundleSprites = BundleSpriteAssetLoader(assets);
     animatorGraphs = _bundleGraph;
     timelines = _bundleTimeline;
+    prefabs = _bundlePrefab;
     tiles = TileAssets(readText: _bundleText, collisionKinds: collisionKinds);
     if (withBuiltIns) registerCoreCodecs(definitions);
     installAll(extensions);
@@ -236,6 +241,10 @@ final class EngineContext {
   /// The bundle by default.
   late TimelineLoader timelines;
 
+  /// Loads prefab files (`*.prefab.json`) for scenes and spawners — see
+  /// `PrefabLibrary`. The bundle by default.
+  late PrefabLoader prefabs;
+
   /// Tilesets and map files, and what was loaded of them; its
   /// [TileAssets.readText] is the fourth seam.
   late final TileAssets tiles;
@@ -245,6 +254,9 @@ final class EngineContext {
 
   Future<AnimatorGraph> _bundleGraph(String path) async =>
       AnimatorGraph.parse(await bundle.loadString(path));
+
+  Future<PrefabFile> _bundlePrefab(String path) async =>
+      PrefabFile.parse(await bundle.loadString(path, cache: false));
 
   Future<TimelineAsset> _bundleTimeline(String path) async =>
       TimelineAsset.parse(
@@ -262,6 +274,7 @@ final class EngineContext {
     AnimatorGraphLoader? animatorGraphs,
     TimelineLoader? timelines,
     TextReader? tileText,
+    PrefabLoader? prefabs,
   }) {
     final override = LoaderOverride._(
       this,
@@ -269,10 +282,12 @@ final class EngineContext {
       animatorGraphs: (this.animatorGraphs, animatorGraphs),
       timelines: (this.timelines, timelines),
       tileText: (tiles.readText, tileText),
+      prefabs: (this.prefabs, prefabs),
     );
     if (sprites != null) this.sprites = sprites;
     if (animatorGraphs != null) this.animatorGraphs = animatorGraphs;
     if (timelines != null) this.timelines = timelines;
+    if (prefabs != null) this.prefabs = prefabs;
     if (tileText != null) tiles.readText = tileText;
     return override;
   }
@@ -282,6 +297,7 @@ final class EngineContext {
     sprites = _bundleSprites;
     animatorGraphs = _bundleGraph;
     timelines = _bundleTimeline;
+    prefabs = _bundlePrefab;
     tiles
       ..readText = _bundleText
       ..clear();
@@ -372,16 +388,19 @@ final class LoaderOverride {
     required (AnimatorGraphLoader, AnimatorGraphLoader?) animatorGraphs,
     required (TimelineLoader, TimelineLoader?) timelines,
     required (TextReader, TextReader?) tileText,
+    required (PrefabLoader, PrefabLoader?) prefabs,
   }) : _sprites = sprites,
        _animatorGraphs = animatorGraphs,
        _timelines = timelines,
-       _tileText = tileText;
+       _tileText = tileText,
+       _prefabs = prefabs;
 
   final EngineContext _context;
   final (SpriteAssetLoader, SpriteAssetLoader?) _sprites;
   final (AnimatorGraphLoader, AnimatorGraphLoader?) _animatorGraphs;
   final (TimelineLoader, TimelineLoader?) _timelines;
   final (TextReader, TextReader?) _tileText;
+  final (PrefabLoader, PrefabLoader?) _prefabs;
   bool _restored = false;
 
   /// Puts back each seam this override set, if it still holds what it set.
@@ -402,6 +421,9 @@ final class LoaderOverride {
     }
     if (_tileText.$2 case final set? when identical(c.tiles.readText, set)) {
       c.tiles.readText = _tileText.$1;
+    }
+    if (_prefabs.$2 case final set? when identical(c.prefabs, set)) {
+      c.prefabs = _prefabs.$1;
     }
   }
 }

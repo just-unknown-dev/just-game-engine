@@ -4,11 +4,14 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart' show AssetBundle, rootBundle;
+import 'package:just_dart/just_dart.dart' show Quaternion, Vector3;
 
 import '../components/components.dart';
 import '../ecs.dart';
 import 'component_codec.dart';
 import 'component_definition_registry.dart';
+import 'prefab_format.dart';
+import 'prefab_library.dart';
 import 'scene_format.dart';
 
 /// Where scenes live in a game's assets, and how to find them.
@@ -60,6 +63,14 @@ abstract final class SceneLoader {
   /// with a debug message; a second component of a type an entity already
   /// has replaces the first, also with a message.
   ///
+  /// An entry that is an instance of a prefab file (a `prefab` block) makes
+  /// the prefab's entities, with the instance's changes
+  /// ([PrefabExpander.expandScene]): its top one named and placed as the
+  /// entry says, carrying a [PrefabInstanceComponent]; each one a
+  /// [PrefabLink]. The prefabs come from the engine's [PrefabLibrary] and
+  /// must have been read — [loadAsset] reads a scene's; one that has not
+  /// stands as an empty entity that keeps its instance, with a message.
+  ///
   /// [codecs] defaults to the world's `context.definitions`, and [hooks] —
   /// the packages' migration rules — to its `context.migrations`. An older
   /// file is migrated first; [onMigrated] hears what that found (it is not
@@ -83,7 +94,8 @@ abstract final class SceneLoader {
     if (list is! List) {
       throw FormatException('Scene: "entities" is $list, not a list.');
     }
-    final entries = <Map<String, dynamic>>[
+    final library = PrefabLibrary.of(world.context);
+    final entries = PrefabExpander.expandScene([
       for (var i = 0; i < list.length; i++)
         if (list[i] case final Map<Object?, Object?> entry)
           entry.cast<String, dynamic>()
@@ -91,7 +103,16 @@ abstract final class SceneLoader {
           throw FormatException(
             'Scene: entity #$i is ${list[i]}, not an object.',
           ),
-    ];
+    ], library.loaded);
+    for (final entry in entries) {
+      if (entry['prefabRef'] case {'missing': final String path}) {
+        debugPrint(
+          'SceneLoader: the prefab $path is not loaded (${library.errorOf(path) ?? 'not read yet'}); '
+          '"${entry['name']}" stands empty. SceneLoader.loadAsset reads a '
+          "scene's prefabs; before load, use PrefabLibrary.loadScene.",
+        );
+      }
+    }
 
     // Decode everything before creating anything, so a bad component leaves
     // the world untouched instead of half-loaded.
@@ -148,7 +169,61 @@ abstract final class SceneLoader {
       }
       parent.getComponent<ChildrenComponent>()!.addChild(child.id);
     }
+    // Where what a prefab made came from.
+    for (var i = 0; i < entries.length; i++) {
+      final ref = entries[i]['prefabRef'];
+      if (ref is! Map) continue;
+      created[i].addComponent(
+        PrefabLink(
+          instance: created[ref['instance'] as int].id,
+          path: ref['path'] as String,
+        ),
+      );
+      final block = ref['block'];
+      if (block is Map) {
+        created[i].addComponent(
+          PrefabInstanceComponent(
+            block: PrefabInstance.fromJson(block),
+            missing: ref['missing'] != null,
+          ),
+        );
+      }
+    }
+    // What is inside an instance is placed against the prefab's top where
+    // the prefab has it, then follows the top to where the instance is.
+    for (var i = 0; i < entries.length; i++) {
+      final ref = entries[i]['prefabRef'];
+      if (ref is! Map || ref['instance'] != i) continue;
+      if (ref['home'] case final Map home) {
+        final at = registry.decode(home.cast<String, dynamic>());
+        if (at is TransformComponent) placeFromHome(world, created[i], at);
+      }
+    }
     return created;
+  }
+
+  /// Settles what is under [top] as though [top] stood at [home] — its
+  /// transform in its prefab — then puts [top] back where it is, everything
+  /// under it following: how an instance's entities, saved in the prefab's
+  /// own space, come to stand where the instance is.
+  static void placeFromHome(World world, Entity top, TransformComponent home) {
+    final t = top.getComponent<TransformComponent>();
+    if (t == null) return;
+    final position = Vector3.copy(t.position), scale = Vector3.copy(t.scale);
+    final turn = Quaternion.identity();
+    t.rotationInto(turn);
+    final homeTurn = Quaternion.identity();
+    home.rotationInto(homeTurn);
+    t
+      ..position.setFrom(home.position)
+      ..scale.setFrom(home.scale)
+      ..setRotation(homeTurn);
+    world.transformHierarchy.propagateFrom(top);
+    t
+      ..position.setFrom(position)
+      ..scale.setFrom(scale)
+      ..setRotation(turn);
+    world.transformHierarchy.propagateFrom(top);
   }
 
   /// For each of a scene's [entries] (its `entities` list), the index of
@@ -161,11 +236,23 @@ abstract final class SceneLoader {
   /// this one. Failing that (a file written in another order), it is the
   /// nearest earlier entry of that name, else the last; and a message says
   /// the link was a guess, so the names can be made unique.
+  ///
+  /// An entry made inside a prefab instance names its parent by index
+  /// (`parentIndex`) and is not found by its name; an entry under an entity
+  /// inside an instance names the instance (`parentName`) and the entity's
+  /// path in it (`parentTarget`).
   static List<int?> parentIndices(List<Map<String, dynamic>> entries) {
     final names = [for (final e in entries) e['name'] as String?];
     final byName = <String, List<int>>{};
+    // An instance's entities, by their paths: instance top → path → entry.
+    final inside = <int, Map<String, int>>{};
     for (var i = 0; i < names.length; i++) {
       final name = names[i];
+      final ref = entries[i]['prefabRef'];
+      if (ref is Map) {
+        (inside[ref['instance'] as int] ??= {})[ref['path'] as String] = i;
+        if (ref['instance'] != i) continue;
+      }
       if (name != null) (byName[name] ??= []).add(i);
     }
 
@@ -198,6 +285,19 @@ abstract final class SceneLoader {
               '#$parent. Give them different names to make it certain.',
             );
           }
+        }
+      }
+      if (entries[i]['parentIndex'] case final int index) parent = index;
+      if (entries[i]['parentTarget'] case final String target when parent != null) {
+        final within = inside[parent]?[target];
+        if (within != null) {
+          parent = within;
+        } else {
+          debugPrint(
+            'SceneLoader: "${names[i] ?? 'unnamed'}" is under "$target" in '
+            '"${names[parent]}", which it does not have; put under the '
+            'instance.',
+          );
         }
       }
       if (parent == i) parent = null;
@@ -275,9 +375,12 @@ abstract final class SceneLoader {
       assetPath,
       cache: false,
     );
-    return loadString(
+    final json = jsonDecode(source) as Map<String, dynamic>;
+    // The prefabs its instances are made from, read before anything is.
+    await PrefabLibrary.of(world.context).loadScene(json);
+    return load(
       world,
-      source,
+      json,
       codecs: codecs,
       hooks: hooks,
       onMigrated: onMigrated,

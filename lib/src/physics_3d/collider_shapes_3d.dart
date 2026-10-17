@@ -293,6 +293,47 @@ final class ColliderShapes3D {
           scaled[i + 2] = points[i + 2] * sz;
         }
         return ConvexHullShape3D(scaled);
+      case SolidMesh(:final positions, :final indices):
+        if (indices.length < 3) return null;
+        final scaled = Float32List(positions.length);
+        for (var i = 0; i < positions.length; i += 3) {
+          scaled[i] = positions[i] * sx;
+          scaled[i + 1] = positions[i + 1] * sy;
+          scaled[i + 2] = positions[i + 2] * sz;
+        }
+        var turned = indices;
+        // A mirror turns triangles inside out; turn them back.
+        if (sx * sy * sz < 0) {
+          turned = Uint32List.fromList(indices);
+          for (var i = 0; i + 2 < turned.length; i += 3) {
+            final t = turned[i + 1];
+            turned[i + 1] = turned[i + 2];
+            turned[i + 2] = t;
+          }
+        }
+        return MeshShape3D(scaled, turned);
+      case SolidHeightField(
+        :final heights,
+        :final sampleCount,
+        :final cellSize,
+        :final x,
+        :final y,
+        :final z,
+      ):
+        if (sampleCount < 4 || heights.length < sampleCount * sampleCount) {
+          return null;
+        }
+        final scaled = Float32List(sampleCount * sampleCount);
+        for (var i = 0; i < scaled.length; i++) {
+          final h = heights[i];
+          scaled[i] = h >= SolidHeightField.holeHeight ? h : h * ay;
+        }
+        return at(
+          HeightFieldShape3D(scaled, sampleCount, cellSize * ax),
+          x,
+          y,
+          z,
+        );
     }
   }
 

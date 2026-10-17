@@ -8,6 +8,7 @@ export '../base/transform/transform_component.dart';
 export '../base/transform/euler_rotation.dart';
 export 'core/velocity_component.dart';
 export 'core/generated_entity_component.dart';
+export 'core/prefab_components.dart';
 
 // Rendering components
 export 'rendering/renderable_component.dart';

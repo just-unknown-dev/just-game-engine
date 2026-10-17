@@ -2,7 +2,7 @@
 
 A game engine for Flutter: 2D, with 3D graphics and physics to opt into. A game is entities, components and systems (ECS) in a `World`; its levels are JSON scenes loaded at runtime. The engine brings level maps, sprites and animator graphs, timelines, virtual cameras, physics, particles, audio and action-based input, and draws inside an ordinary Flutter widget. It runs on Android, iOS, Windows, macOS, Linux and the web (JavaScript or WebAssembly).
 
-2.0.0 is a breaking release, out first as the dev release 2.0.0-dev.1. Coming from 1.x? Read [MIGRATION.md](MIGRATION.md).
+2.0.0 is a breaking release, out first as dev releases, now 2.0.0-dev.2. Coming from 1.x? Read [MIGRATION.md](MIGRATION.md).
 
 | 2D | 3D |
 |---|---|
@@ -17,7 +17,7 @@ The levels in these pictures are scenes the editor saves, loaded and run by the 
 
 ```yaml
 dependencies:
-  just_game_engine: ^2.0.0-dev.1
+  just_game_engine: ^2.0.0-dev.2
 ```
 
 Needs Flutter 3.47.1 or newer. To build for Linux, also install what the audio plugin links: OpenAL Soft and libsndfile (`sudo apt install libopenal-dev libsndfile1-dev` on Debian and Ubuntu; players need `libopenal1` and `libsndfile1`).
@@ -111,6 +111,7 @@ Add these yourself when you use them: `ParticleSystemECS`, `EffectSystemECS`, `P
 - Parents and children with a live transform hierarchy: a `ParentComponent` hangs an entity under another, and the world keeps the parent's `ChildrenComponent` in step. `TransformComponent.position` and `scale` are `Vector3`; `angle` is the 2-D turn.
 - A `ComponentDefinition` describes a component's fields once, for saving, loading and editor inspectors. Each engine keeps its definitions, loaders and registries in its `EngineContext` (`engine.context`).
 - Signal-based views of the ECS, on `just_signals`: `ComponentSignal`, `EntitySignal`, `WorldSignal`, `ReactiveSystem`.
+- **Prefab files** (`*.prefab.json`): a scene entry can place one, its changes kept as overrides, entities removed or added, prefabs nested in prefabs. `PrefabLibrary.of(engine.context)` loads them and makes one at run time (`instantiate`); `Spawner.prefab` spawns one.
 
 ### Level maps
 
@@ -192,6 +193,8 @@ Future<Engine> start3D() async {
 
 - `EngineConfig(graphics3D: Graphics3D())`, from `package:just_game_engine/graphics_3d.dart`, draws 3-D scenes with [just_graphics_engine](https://pub.dev/packages/just_graphics_engine) on Flutter GPU: `ModelComponent` (a `.glb` or `.gltf` model; its `bounds` fill in once it loads), `LightComponent` (directional, point or spot, shining along the entity's +Z; a scene with no lights gets a default sun), `EnvironmentComponent` (a gradient sky or an `.hdr` skybox, ambient light, reflections, fog, exposure), `AnimationPlayerComponent` (glTF clips with crossfades and blends; animator graphs and timelines play on a model's skeleton) and `SocketComponent` (pins a child entity to a joint).
 - Eleven shapes made from their own sizes, no model file: `Cube3D`, `Sphere3D`, `Plane3D`, `Cylinder3D`, `Capsule3D`, `Cone3D`, `Torus3D`, `Ramp3D`, `Stairs3D`, `Arch3D` and `Polygon3D` (base `Primitive3D`), each with a material (colour, metallic, roughness, glow, opacity, unlit, a texture tiled per face or per metre). Equal shapes share a mesh and a material, so a hundred equal crates are one draw, and `Collider3D(shape: ColliderShape3D.matchShape)` gives one the same shape in 3-D physics.
+- **Material files** (`*.material.json`): one material shared by every shape drawn with it (`Primitive3D.material`) and laid over a model's own by name (`ModelComponent.materials`); texture coordinates natural, in metres or from the world; a layered material blends four layers by the vertex colour (a terrain's).
+- **Render providers**: a package draws a component of its own — a terrain, a road along a spline, a field of grass — as meshes and instance batches with `RenderProviders.of(engine.context).register(...)`; `just_world_builder_kit` is built on them.
 - Bodies and characters moved by physics are drawn between their last two poses, so they move smoothly at any frame rate.
 - Flutter GPU must be switched on in each platform's runner: see just_graphics_engine's README (Getting started).
 - `engine.graphics3D` is the one given: its `renderer` (`renderer.stats` tells what the last frame did), `models` and `sceneRenderer` (`dynamicResolution`). `Graphics3D(renderScale: 0.75)` renders fewer pixels.

@@ -114,9 +114,16 @@ class Camera implements GameCamera {
   @override
   CameraLens lens;
 
-  /// Whether this is a plain 2-D camera: no pitch or yaw, orthographic.
+  /// Whether this is a plain 2-D camera: no pitch or yaw, orthographic —
+  /// and not [inSpace].
   @override
-  bool get isPlanar => pitch == 0 && yaw == 0 && lens.isOrthographic;
+  bool get isPlanar =>
+      !inSpace && pitch == 0 && yaw == 0 && lens.isOrthographic;
+
+  /// Looking at a 3-D scene even when it looks like a 2-D camera: an
+  /// orthographic view straight along an axis (an editor's front view)
+  /// still sees space, not a flat level. Set by whoever points it so.
+  bool inSpace = false;
 
   /// Attach [CameraEffect] instances here (fade, letterbox, motion blur…).
   final CameraEffectManager effectManager = CameraEffectManager();

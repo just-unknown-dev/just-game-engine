@@ -13,12 +13,18 @@ class ModelComponent extends Component {
   /// A model loaded from the asset at [model].
   ModelComponent({
     this.model = '',
+    Map<String, String>? materials,
     this.castShadows = true,
     this.visible = true,
-  });
+  }) : materials = materials ?? {};
 
   /// Asset path, for example `assets/models/crate.glb`. Empty draws nothing.
   String model;
+
+  /// Material files (`*.material.json`) drawn instead of the model's own
+  /// materials: by a material's name, by `#` and its index (`#0`), or `*`
+  /// for every one. Empty draws the model as it is.
+  Map<String, String> materials;
 
   /// Whether it casts shadows (where shadows are on).
   bool castShadows;

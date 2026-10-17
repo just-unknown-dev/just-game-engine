@@ -1,6 +1,8 @@
 library;
 
 import '../../../ecs/ecs.dart';
+import '../../serialization/prefab_library.dart';
+import '../components.dart';
 
 /// Marks an entity as a spawn point: where the app creates something when
 /// the level starts. *What* is created is up to the app — the [spawner]
@@ -69,6 +71,29 @@ class Spawner {
 
   /// The name to show: [label], or [id] when it has none.
   String get displayName => label ?? id;
+
+  /// A spawner placing an instance of the prefab file at [path] at each
+  /// spawn point: its top entity where the point is, the rest keeping
+  /// their places against it. The prefab must have been read — a scene's
+  /// own prefabs are, by `SceneLoader.loadAsset`; any other through
+  /// `PrefabLibrary.load` first.
+  factory Spawner.prefab({
+    required String id,
+    required String path,
+    String? label,
+    String description = '',
+    Set<String> tags = const {},
+  }) => Spawner(
+    id: id,
+    label: label,
+    description: description,
+    tags: tags,
+    spawn: (world, point) => PrefabLibrary.of(world.context).instantiate(
+      world,
+      path,
+      position: point.getComponent<TransformComponent>()?.position,
+    ),
+  );
 
   /// Spawners without descriptions, from an old `id → function` map.
   static List<Spawner> fromMap(Map<String, SpawnFunction> registry) => [

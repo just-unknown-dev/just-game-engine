@@ -9,6 +9,7 @@ import 'package:just_graphics_engine/assets.dart';
 import 'package:just_graphics_engine/gpu.dart';
 import 'package:just_graphics_engine/renderer.dart';
 
+import 'material_library.dart';
 import 'shapes/primitive_3d.dart';
 
 /// The GPU side of the shapes ([Primitive3D]): meshes made from their sizes
@@ -22,13 +23,17 @@ import 'shapes/primitive_3d.dart';
 final class GraphicsShapes {
   /// Shapes uploaded with [uploader], their textures read by [read]; what is
   /// drawn now is told by [inUse].
-  GraphicsShapes(this.uploader, this.read, {this.inUse});
+  GraphicsShapes(this.uploader, this.read, {this.inUse, this.library});
 
   /// Where meshes and materials go.
   final ModelUploader uploader;
 
   /// The bytes of an asset (a texture).
   final Future<Uint8List> Function(String path) read;
+
+  /// The material files a shape may be drawn with ([Primitive3D.material]);
+  /// without one, every shape is drawn with its own look.
+  final MaterialLibrary? library;
 
   /// The meshes and materials drawn now, asked for only when old ones are
   /// let go: these are kept however long ago they were asked for. A
@@ -46,7 +51,7 @@ final class GraphicsShapes {
 
   /// Changes when a texture arrives: materials asked for before should be
   /// asked for again.
-  int get revision => _revision;
+  int get revision => _revision + (library?.revision ?? 0);
   int _revision = 0;
 
   /// How many meshes and materials are held.
@@ -56,7 +61,7 @@ final class GraphicsShapes {
   /// [shape]'s mesh, for an entity scaled by [scale] (which counts only
   /// for a texture tiled per metre); null when it has no triangles.
   GpuPrimitive? meshFor(Primitive3D shape, Vector3 scale) {
-    final uv = uvFor(shape, scale);
+    final uv = tilesInMetres(shape) ? _metres(scale) : ShapeUv.natural;
     final key = (shape.shapeKey, uv.key);
     final known = _meshes[key];
     if (known != null) {
@@ -70,16 +75,37 @@ final class GraphicsShapes {
     return gpu;
   }
 
-  /// How [shape]'s texture is laid out at [scale].
+  /// How [shape]'s texture is laid out at [scale], drawn with its own look.
   static ShapeUv uvFor(Primitive3D shape, Vector3 scale) {
     if (!shape.tileInMetres || shape.texture.isEmpty) return ShapeUv.natural;
-    // Rounded, so a scale animating by a hair does not make a mesh a frame.
+    return _metres(scale);
+  }
+
+  // Rounded, so a scale animating by a hair does not make a mesh a frame.
+  static ShapeUv _metres(Vector3 scale) {
     double q(double v) => (v.abs() * 1000).roundToDouble() / 1000;
     return ShapeUv.metresAt(q(scale.x), q(scale.y), q(scale.z));
   }
 
-  /// [shape]'s material: its look, with its texture once that has loaded.
+  /// Whether [shape]'s maps repeat per metre of the world, so its mesh is
+  /// made for its scale: its own texture tiled per metre, or a material
+  /// file laid out in metres.
+  bool tilesInMetres(Primitive3D shape) {
+    if (shape.material.isNotEmpty) {
+      return library?.fileOf(shape.material)?.uv == MaterialUv.metres;
+    }
+    return shape.tileInMetres && shape.texture.isNotEmpty;
+  }
+
+  /// [shape]'s material: its material file's once that is read (its own
+  /// look meanwhile), else its own look, with its texture once that has
+  /// loaded.
   GpuMaterial materialFor(Primitive3D shape) {
+    final file = shape.material;
+    if (file.isNotEmpty) {
+      final shared = library?.gpuOf(file);
+      if (shared != null) return shared;
+    }
     final key = shape.materialKey;
     final known = _materials[key];
     if (known != null) {

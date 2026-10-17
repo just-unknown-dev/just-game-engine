@@ -17,6 +17,8 @@ export 'timeline_definitions.dart';
 export 'core_component_schemas.dart';
 export 'field_value_codec.dart';
 export 'scene_format.dart';
+export 'prefab_format.dart';
+export 'prefab_library.dart';
 export 'scene_loader.dart';
 export 'scene_migrations.dart';
 export 'tag_library.dart';

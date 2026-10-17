@@ -321,6 +321,7 @@ abstract final class ShapeSchemas {
 
   /// The material's fields, in the order the inspector shows them.
   static const List<String> materialFields = [
+    'material',
     'color',
     'metallic',
     'roughness',
@@ -411,56 +412,78 @@ abstract final class ShapeSchemas {
     ),
   };
 
+  // Its own look: shown while it has no material file.
+  static bool _ownLook(Component c) => (c as Primitive3D).material.isEmpty;
+
+  static bool _textured(Component c) =>
+      _ownLook(c) && (c as Primitive3D).texture.isNotEmpty;
+
   static Map<String, FieldHint> get _materialHints => {
-    'color': const FieldHint(label: 'Colour'),
+    'material': const FieldHint(
+      label: 'Material',
+      description:
+          'A material file shared with everything drawn with it; empty for '
+          'its own colour and texture below.',
+      fileExtensions: ['material.json'],
+    ),
+    'color': const FieldHint(label: 'Colour', visibleWhen: _ownLook),
     'metallic': const FieldHint(
       label: 'Metallic',
       slider: true,
       scrub: ScrubHint(step: 0.01, fractionDigits: 2),
+      visibleWhen: _ownLook,
     ),
     'roughness': const FieldHint(
       label: 'Roughness',
       slider: true,
       scrub: ScrubHint(step: 0.01, fractionDigits: 2),
+      visibleWhen: _ownLook,
     ),
     'emission': const FieldHint(
       label: 'Glow',
       description: 'The light it gives off itself; black for none.',
+      visibleWhen: _ownLook,
     ),
     'emissionStrength': FieldHint(
       label: 'Glow strength',
       scrub: const ScrubHint(step: 0.1, fractionDigits: 1),
       visibleWhen: (c) =>
-          (c as Primitive3D).emission.toARGB32() & 0xFFFFFF != 0,
+          _ownLook(c) && (c as Primitive3D).emission.toARGB32() & 0xFFFFFF != 0,
     ),
     'opacity': const FieldHint(
       label: 'Opacity',
       slider: true,
       scrub: ScrubHint(step: 0.01, fractionDigits: 2),
+      visibleWhen: _ownLook,
     ),
     'unlit': const FieldHint(
       label: 'Unlit',
       description: 'Its colour as it is, with no light or shade.',
+      visibleWhen: _ownLook,
     ),
     'texture': const FieldHint(
       label: 'Texture',
       fileExtensions: ['png', 'jpg', 'jpeg', 'webp'],
+      visibleWhen: _ownLook,
     ),
-    'tiling': FieldHint(
-      label: 'Tiling',
-      visibleWhen: (c) => (c as Primitive3D).texture.isNotEmpty,
-    ),
-    'tileInMetres': FieldHint(
+    'tiling': const FieldHint(label: 'Tiling', visibleWhen: _textured),
+    'tileInMetres': const FieldHint(
       label: 'Tile per metre',
       description:
           'Tiling counts repeats per metre of the world, so the texture keeps its scale on any size.',
-      visibleWhen: (c) => (c as Primitive3D).texture.isNotEmpty,
+      visibleWhen: _textured,
     ),
     'castShadows': const FieldHint(label: 'Casts shadows'),
     'visible': const FieldHint(label: 'Visible'),
   };
 
   static List<SchemaField> get _material => [
+    SchemaField(
+      name: 'material',
+      kind: FieldTypes.assetRef,
+      read: (c) => (c as Primitive3D).material,
+      write: (c, v) => (c as Primitive3D).material = v as String? ?? '',
+    ),
     SchemaField(
       name: 'color',
       kind: FieldTypes.color,

@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:just_graphics_engine/gpu.dart';
 import 'package:just_graphics_engine/renderer.dart';
 
@@ -44,8 +44,13 @@ import 'skeletal_clip_track.dart';
 final class Graphics3D implements RefreshableExtension, EngineService {
   /// 3-D graphics drawn with [device], or with the platform's GPU when that
   /// is null, at [renderScale] of the physical resolution.
-  Graphics3D({GpuDevice? device, this.renderScale = 1.0, this.onUnsupported})
-    : _device = device;
+  Graphics3D({
+    GpuDevice? device,
+    this.renderScale = 1.0,
+    this.onUnsupported,
+    bool? keepEdges,
+  }) : _device = device,
+       keepEdges = keepEdges ?? kDebugMode;
 
   /// Registers the 3-D components into [context], so scenes holding them
   /// load and save — for tools that read and write 3-D scenes without
@@ -75,6 +80,11 @@ final class Graphics3D implements RefreshableExtension, EngineService {
 
   /// Told once, as the engine initializes, why 3-D is not drawn here.
   final void Function(String reason)? onUnsupported;
+
+  /// Whether meshes keep their edges for lines over the scene (an editor's
+  /// wireframe and selection outline): on in a debug build, where an
+  /// editor runs, off in a release, which never draws them.
+  final bool keepEdges;
 
   Engine? _engine;
   Renderer3D? _renderer;
@@ -154,7 +164,7 @@ final class Graphics3D implements RefreshableExtension, EngineService {
       );
       onUnsupported?.call(why);
     }
-    _renderer = renderer;
+    _renderer = renderer..uploader.keepEdges = keepEdges;
     final models = _models = GraphicsModels(
       engine.assets.bundle,
       renderer.uploader,
