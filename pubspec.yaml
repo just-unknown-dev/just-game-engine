@@ -43,7 +43,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  just_physics_engine: ^1.5.0
+  just_physics_engine: ^1.4.1
   just_inputs: ^0.1.1
   just_audio_engine: ^1.1.0
   just_storage: ^1.2.1
