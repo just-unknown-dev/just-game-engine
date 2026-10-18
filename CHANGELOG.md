@@ -25,6 +25,7 @@ The 3-D Level Designer's runtime seams, prefab files for every scene, and materi
 - **Render providers**: `RenderProvider`, `RenderProviders.of(context)` and `RenderProviderOutput` let a package draw its own components as meshes and instance batches, built again only when its revision changes.
 - **Editor aids in the renderer**: `SceneEditorAids` (what is hidden, the selection's outline, view modes, a slice plane, views to skip), `Camera.inSpace`, `Graphics3D(keepEdges:)`; up to 8 render surfaces.
 - **Collision**: `SolidMesh` (triangles) and `SolidHeightField` (with holes) are parts a `SolidShapeSource` can give a `Collider3D` set to match its shape.
+- **Collider outlines only when asked for**: `PhysicsSystem.drawsOutlines` (off by default, debug builds only) and `outlineFilter` (which entities). A game running in debug is no longer drawn with every collider outlined; the editor turns them on while a scene is edited.
 - Requires just_game_engine_formats ^0.2.0, just_physics_engine ^1.5.0 and just_graphics_engine ^0.1.0-dev.2.
 
 ## [2.0.0-dev.1] - 2026-10-15

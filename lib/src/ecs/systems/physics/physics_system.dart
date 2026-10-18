@@ -61,7 +61,7 @@ class PhysicsSystem extends System {
   /// backend; on web, the pure-Dart backend. Both share the same API.
   ///
   /// Pass the same [camera] as the `RenderSystem`, or the collider outlines
-  /// drawn in debug builds land at their world coordinates read as screen
+  /// ([drawsOutlines]) land at their world coordinates read as screen
   /// pixels — away from the entities they outline.
   PhysicsSystem(this.physics, {this.camera, this.reportContactStay = false});
 
@@ -80,6 +80,17 @@ class PhysicsSystem extends System {
   /// Must match the camera used by [RenderSystem] so collider outlines stay
   /// aligned with their visual counterparts.
   GameCamera? camera;
+
+  /// Whether the collider outlines are drawn: each collider coloured by its
+  /// body (see [debugPaintFor]) and each character's shape. Off by default,
+  /// so a game is never drawn with them; a debug build only, whatever it is
+  /// set to. The editor turns them on while a scene is edited.
+  bool drawsOutlines = false;
+
+  /// Which entities' outlines are drawn while [drawsOutlines]: all of them
+  /// when null. The editor leaves out what it hides. A collider's own
+  /// [Collider2D.showDebugOutline] has the last word.
+  bool Function(Entity entity)? outlineFilter;
 
   @override
   List<Type> get requiredComponents => const [TransformComponent, Collider2D];
@@ -1044,8 +1055,9 @@ class PhysicsSystem extends System {
   @override
   void render(Canvas canvas, Size size) {
     // Never draw collider outlines in release builds, regardless of the
-    // per-entity showDebugOutline flag.
-    if (!kDebugMode) return;
+    // per-entity showDebugOutline flag; nor unless asked for.
+    if (!kDebugMode || !drawsOutlines) return;
+    final filter = outlineFilter;
 
     // Apply the same camera transform that RenderSystem uses so collider
     // outlines are drawn in world space, not screen space.
@@ -1062,6 +1074,7 @@ class PhysicsSystem extends System {
       final transform = entity.getComponent<TransformComponent>()!;
       final collider = entity.getComponent<Collider2D>()!;
       if (!collider.showDebugOutline) return;
+      if (filter != null && !filter(entity)) return;
       final body = _linkByEntity[entity]?.body;
       final shape =
           body?.shape ??
@@ -1087,6 +1100,7 @@ class PhysicsSystem extends System {
       final transforms = archetype.getColumn(TransformComponent)!;
       final characters = archetype.getColumn(CharacterBody2D)!;
       for (var row = 0; row < transforms.length; row++) {
+        if (filter != null && !filter(archetype.entityAt(row))) continue;
         _paintCharacter(
           canvas,
           transforms[row] as TransformComponent,

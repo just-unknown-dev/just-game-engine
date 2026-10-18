@@ -290,7 +290,8 @@ class Collider2D extends Component {
   /// Which side [oneWay] makes it solid from.
   OneWayDirection oneWayDirection;
 
-  /// Whether `PhysicsSystem` draws its outline while a debug build runs.
+  /// Whether `PhysicsSystem` draws its outline when outlines are drawn
+  /// (`PhysicsSystem.drawsOutlines`: in the editor while a scene is edited).
   bool showDebugOutline;
 
   @override

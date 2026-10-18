@@ -343,7 +343,9 @@ abstract final class PhysicsDefinitions2D {
           ),
           'showDebugOutline': const FieldHint(
             label: 'Show outline',
-            description: 'Draws the collider while the game runs in debug.',
+            description:
+                'Draws the collider in the editor while the scene is edited '
+                'and gizmos are shown.',
           ),
         },
       ),
