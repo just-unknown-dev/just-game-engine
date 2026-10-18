@@ -112,6 +112,13 @@ class RenderingEngine implements RenderStatsSink {
   /// Debug mode flag
   bool debugMode = false;
 
+  /// The least time between two frames a [GameWidget] of the engine draws;
+  /// null (the default) draws every frame. The game goes on running every
+  /// frame — only drawing is spared, and in between the view shows the
+  /// frame it drew last: for a view hidden behind something, a full-screen
+  /// menu or an editor's window, which drawing every frame would only slow.
+  Duration? drawInterval;
+
   // ── Scene renderers and the frame's view ─────────────────────────────
 
   final List<SceneRenderer> _sceneRenderers = [];

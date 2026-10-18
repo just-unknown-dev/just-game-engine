@@ -133,6 +133,9 @@ class _GameWidgetState extends State<GameWidget>
   /// Notifier used to trigger CustomPainter repaints without calling setState.
   final _repaintNotifier = _FrameNotifier();
 
+  /// The frame stamp the view was last asked to draw at.
+  Duration _drawnAt = Duration.zero;
+
   /// Signal for the HUD overlay (FPS / debug), updated at ~1 Hz cadence.
   /// Reads from [GameLoop.currentFPS] so there is a single source of truth.
   final Signal<int> _fpsSignal = Signal<int>(0);
@@ -333,9 +336,15 @@ class _GameWidgetState extends State<GameWidget>
     // timestamp — not this ticker's `elapsed`, which counts from when this
     // view started: every view of the engine passes the same stamp in a
     // frame, and the loop counts the frame once however many tick it.
-    engine.gameLoop.tick(SchedulerBinding.instance.currentFrameTimeStamp);
-    // Signal the CustomPainter to repaint — no widget rebuild needed.
-    _repaintNotifier.notify();
+    final now = SchedulerBinding.instance.currentFrameTimeStamp;
+    engine.gameLoop.tick(now);
+    // Signal the CustomPainter to repaint — no widget rebuild needed — as
+    // often as the engine's drawInterval lets it.
+    final interval = engine.rendering.drawInterval;
+    if (interval == null || now - _drawnAt >= interval || now < _drawnAt) {
+      _drawnAt = now;
+      _repaintNotifier.notify();
+    }
     if (widget.showLayers) {
       final layers = engine.layers;
       for (final entry in _controllers.entries) {
