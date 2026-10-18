@@ -67,6 +67,11 @@ final class Lighting2DPass implements ScreenPass {
   List<Light2D> get lastLights => List.unmodifiable(_lastLights);
   final List<Light2D> _lastLights = [];
 
+  /// Whether it draws the normals the frame is lit by instead of lighting
+  /// it — an editor's view of them, as a normal map draws them: red, green
+  /// the normal's x and y (green up), blue its z; flat is (0.5, 0.5, 1).
+  bool showNormals = false;
+
   /// Whether the last frame had shadows: a light casting them, and
   /// something they were cast by.
   bool get lastHadShadows => _lastHadShadows;
@@ -299,6 +304,7 @@ final class Lighting2DPass implements ScreenPass {
       ..[0] = size.width
       ..[1] = size.height
       ..[2] = count.toDouble()
+      ..[3] = showNormals ? 1 : 0
       ..[4] = ambient.r * ai
       ..[5] = ambient.g * ai
       ..[6] = ambient.b * ai

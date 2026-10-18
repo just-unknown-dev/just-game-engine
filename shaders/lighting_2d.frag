@@ -11,7 +11,7 @@
 // reaches that far in, then fades. The layout is Lighting2DPass in
 // lib/src/subsystems/lighting_2d/.
 
-uniform vec4 uSize;        // view width, height (logical px), light count, unused
+uniform vec4 uSize;        // view width, height (logical px), light count, show normals (1)
 uniform vec4 uAmbient;     // rgb (times its strength), unused
 uniform vec4 uToWorld0;    // view to world: a, b, c, d   (world = [a c; b d] * view + [e f])
 uniform vec4 uToWorld1;    // e, f, unused, unused
@@ -108,5 +108,11 @@ void main() {
     light += uColours[i].rgb * k * ndl * cone * lit;
   }
   vec3 lit = base.rgb * mix(light, vec3(1.0), emissive);
-  fragColor = vec4(lit, base.a);
+  // Showing the normals (an editor's view of them) instead: as a normal map
+  // draws them, green up, flat (0.5, 0.5, 1). Chosen here at the end, not
+  // returned early: an early return with a loop crashed the OpenGL ES
+  // compile on Windows.
+  fragColor = uSize.w > 0.5
+      ? vec4(n.x * 0.5 + 0.5, 0.5 - n.y * 0.5, n.z * 0.5 + 0.5, 1.0)
+      : vec4(lit, base.a);
 }

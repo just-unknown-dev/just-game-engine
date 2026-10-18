@@ -13,7 +13,7 @@
 uniform vec4 uGrid;   // slot width, slot height, slots per row, pad
 uniform vec4 uSheet;  // sheet width, height; params width, height
 uniform vec4 uMode;   // has a normal map (1), strength, emissive amount, seconds
-uniform vec4 uOn;     // wave, scroll, unused, unused
+uniform vec4 uOn;     // wave, scroll, green down (DirectX, 1), unused
 uniform vec4 uWave;   // amplitude, wavelength, speed, vertical (1)
 uniform vec4 uScroll; // speed x, y, unused, unused
 uniform vec4 uMap;    // normal map width, height, unused, unused
@@ -91,7 +91,9 @@ void main() {
     vec2 size = max(uMap.xy, vec2(1.0));
     vec4 m = texture(uNormalMap, mod(frame.xy + q, size) / size);
     vec3 e = m.a > 0.0 ? m.rgb / m.a : vec3(0.5, 0.5, 1.0);
-    vec3 own = vec3(e.x * 2.0 - 1.0, -(e.y * 2.0 - 1.0), e.z * 2.0 - 1.0);
+    // Green up (OpenGL), unless the map has it down (DirectX).
+    float up = uOn.z > 0.5 ? 1.0 : -1.0;
+    vec3 own = vec3(e.x * 2.0 - 1.0, up * (e.y * 2.0 - 1.0), e.z * 2.0 - 1.0);
     own.xy *= uMode.y;
     // The sprite's space to the world's: [a c; b d]. Normals go by its
     // inverse transpose, which keeps a mirrored sprite's facing right.

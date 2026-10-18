@@ -350,7 +350,7 @@ abstract final class Material2DShader {
       time,
       file.isOn('wave') ? 1 : 0,
       file.isOn('scroll') ? 1 : 0,
-      0,
+      file.isOn('normalMap') && file.toggle('normalMap.directX') ? 1 : 0,
       0,
       n('wave.amplitude'),
       n('wave.wavelength'),

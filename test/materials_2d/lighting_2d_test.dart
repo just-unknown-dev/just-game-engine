@@ -16,6 +16,8 @@ const _bumpy = 'bumpy.material2d.json';
 const _glow = 'glow.material2d.json';
 const _grey = 'grey.material2d.json';
 const _halves = 'halves.material2d.json';
+const _up = 'up.material2d.json';
+const _upDirectX = 'up_dx.material2d.json';
 
 final _files = {
   _bumpy: jsonEncode({
@@ -30,6 +32,12 @@ final _files = {
   }),
   _halves: jsonEncode({
     'normalMap': {'map': 'halves.png'},
+  }),
+  _up: jsonEncode({
+    'normalMap': {'map': 'up.png'},
+  }),
+  _upDirectX: jsonEncode({
+    'normalMap': {'map': 'up.png', 'directX': true},
   }),
 };
 
@@ -89,12 +97,15 @@ void main() {
   late ui.Image white;
   late ui.Image facingRight;
   late ui.Image halves;
+  late ui.Image facingUp;
 
   setUpAll(() async {
     white = await _solid(8, 8, const Color(0xFFFFFFFF));
     // A normal map whose every normal faces right: (1, 0, 0).
     facingRight = await _solid(8, 8, const Color(0xFFFF8080));
     halves = await _halvesMap();
+    // Green full: up, read OpenGL-style; down, read DirectX-style.
+    facingUp = await _solid(8, 8, const Color(0xFF80FF80));
   });
 
   setUp(() async {
@@ -107,6 +118,7 @@ void main() {
     engine.context.sprites = _Images({
       'right.png': facingRight,
       'halves.png': halves,
+      'up.png': facingUp,
     });
     engine.rendering
       ..backgroundColor = const Color(0xFFFFFFFF)
@@ -121,6 +133,7 @@ void main() {
       }
       library.imageOf('right.png');
       library.imageOf('halves.png');
+      library.imageOf('up.png');
       library.shadowsProgram;
       library.screenProgram;
       if (library.lightingProgram != null &&
@@ -130,6 +143,7 @@ void main() {
           library.program != null &&
           library.imageOf('right.png') != null &&
           library.imageOf('halves.png') != null &&
+          library.imageOf('up.png') != null &&
           _files.keys.every((p) => library.fileOf(p) != null)) {
         break;
       }
@@ -298,6 +312,38 @@ void main() {
         reason: 'below it, where it is clear: flat, lit from above',
       );
     });
+  });
+
+  test('green up, or down when the map says DirectX', () async {
+    lighting();
+    final s = sprite(const Offset(20, 15), material: _up);
+    light(
+      const Offset(20, 1),
+      colour: const Color(0xFFFFFFFF),
+      radius: 40,
+      height: 2,
+    );
+    var d = await frame();
+    expect(at(d, 20, 15).$1, greaterThan(100), reason: 'faces the light above');
+
+    s.getComponent<Material2D>()!.material = _upDirectX;
+    d = await frame();
+    expect(at(d, 20, 15).$1, lessThan(20), reason: 'the same map, facing down');
+  });
+
+  test('showing the normals: as a normal map draws them', () async {
+    lighting();
+    sprite(const Offset(20, 15), material: _bumpy);
+    engine.rendering.screenPasses
+            .whereType<Lighting2DPass>()
+            .single
+            .showNormals =
+        true;
+    final d = await frame();
+    final (r, g, b) = at(d, 20, 15);
+    expect(r, greaterThan(240), reason: 'facing right: red full');
+    expect([g, b], [closeTo(128, 3), closeTo(128, 3)]);
+    expect(at(d, 2, 2), (128, 128, 255), reason: 'flat where nothing is');
   });
 
   test('emissive glows in the dark; plain stays dark', () async {
