@@ -320,6 +320,10 @@ class AnimationPlayerComponent extends Component {
 
   /// Plays [clips] together, weighted by [weights] (see [setBlendWeights])
   /// and kept in step, fading from what played over [fade] seconds.
+  ///
+  /// [speeds] are each clip's own rate (1 when null). One cycle lasts the
+  /// clips' lengths over their speeds, weighted; a clip listed twice, at
+  /// two speeds, plays at their speeds' weighted mean.
   void playBlend(
     List<String> clips,
     List<double> weights, {

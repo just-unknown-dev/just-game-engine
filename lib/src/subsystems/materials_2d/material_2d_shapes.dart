@@ -31,11 +31,17 @@ final class ShapeSheet {
 /// Each entity's shape drawn into an image, kept while it looks the same.
 ///
 /// A shape is drawn again only when what it is drawn from — [sheetOf]'s
-/// `signature`, its box or the resolution it is drawn at — changes; one not
-/// asked for in a frame is let go. Images are let go a frame after they are
-/// last drawn with.
+/// `signature` or its box — changes, and each resolution it is drawn at
+/// keeps its own image; one not asked for in [keepFor] renders is let go.
+/// Images are let go a render after they are last drawn with.
 final class ShapeSheets {
-  final Map<Entity, ShapeSheet> _sheets = Map.identity();
+  // Each entity's sheets, by the resolution they were drawn at: a frame can
+  // draw the world more than once at different scales — an editor's
+  // preview of the game camera, a minimap — and one sheet an entity, drawn
+  // again whenever the scale asked for changed, was drawn again at every
+  // one of those renders. Made with toImageSync inside other offscreen work
+  // (a lighting pass), that filled the GPU's memory.
+  final Map<Entity, Map<double, ShapeSheet>> _sheets = Map.identity();
   final List<ui.Image> _gone = [];
   final List<ui.Image> _going = [];
   int _frame = 0;
@@ -43,10 +49,18 @@ final class ShapeSheets {
   /// The largest side an image is drawn at.
   static const int maxSide = 2048;
 
+  /// How many renders ([beginFrame]s) a sheet nobody drew with is kept:
+  /// long enough for each of the views a frame renders to keep its own.
+  static const int keepFor = 4;
+
   /// How many entities' shapes are held. For tests.
   int get length => _sheets.length;
 
-  /// Starts a frame.
+  /// How many sheets are held, every resolution of every entity. For tests.
+  int get sheetCount =>
+      _sheets.values.fold(0, (count, sheets) => count + sheets.length);
+
+  /// Starts a render of the world.
   void beginFrame() {
     for (final i in _gone) {
       i.dispose();
@@ -55,10 +69,13 @@ final class ShapeSheets {
       ..clear()
       ..addAll(_going);
     _going.clear();
-    _sheets.removeWhere((_, sheet) {
-      if (sheet._used >= _frame) return false;
-      _going.add(sheet.image);
-      return true;
+    _sheets.removeWhere((_, sheets) {
+      sheets.removeWhere((_, sheet) {
+        if (sheet._used > _frame - keepFor) return false;
+        _going.add(sheet.image);
+        return true;
+      });
+      return sheets.isEmpty;
     });
     _frame++;
   }
@@ -81,7 +98,8 @@ final class ShapeSheets {
       return null;
     }
     final resolution = resolutionFor(scale, bounds);
-    final known = _sheets[entity];
+    final sheets = _sheets.putIfAbsent(entity, () => {});
+    final known = sheets[resolution];
     if (known != null &&
         known._signature == signature &&
         known.bounds == bounds &&
@@ -120,7 +138,7 @@ final class ShapeSheets {
     final image = picture.toImageSync(width, height);
     picture.dispose();
     if (known != null) _going.add(known.image);
-    final sheet = _sheets[entity] = ShapeSheet._(
+    final sheet = sheets[resolution] = ShapeSheet._(
       image,
       bounds,
       resolution,
@@ -146,10 +164,18 @@ final class ShapeSheets {
 
   /// Lets go of every image.
   void clear() {
-    beginFrame();
-    beginFrame();
-    for (final s in _sheets.values) {
-      s.image.dispose();
+    for (final i in _gone) {
+      i.dispose();
+    }
+    for (final i in _going) {
+      i.dispose();
+    }
+    _gone.clear();
+    _going.clear();
+    for (final sheets in _sheets.values) {
+      for (final s in sheets.values) {
+        s.image.dispose();
+      }
     }
     _sheets.clear();
   }

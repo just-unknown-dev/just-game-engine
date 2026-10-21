@@ -131,6 +131,12 @@ double _wrap(double t, double duration) {
 
 /// Seconds one cycle of a blend lasts: its clips' lengths over their
 /// speeds, weighted.
+///
+/// Motions of one clip count as that clip at their speeds' weighted mean.
+/// Its stride is the same at any speed, so between two of them its feet
+/// keep to the ground, as they do at each; weighting their lengths instead
+/// would play it too slowly. Different clips' lengths are weighted, so a
+/// long idle keeps near its own pace as a walk comes in.
 double _cycleOf(
   GpuModel? model,
   List<String> clips,
@@ -139,11 +145,20 @@ double _cycleOf(
 ) {
   var cycle = 0.0, total = 0.0;
   for (var i = 0; i < clips.length; i++) {
+    // Each clip once, with every motion that plays it.
+    if (clips.indexOf(clips[i]) < i) continue;
     final duration = model?.clips[clips[i]]?.duration ?? 0;
-    final w = i < weights.length ? weights[i] : 0.0;
-    final speed = i < speeds.length && speeds[i] > 0 ? speeds[i] : 1.0;
-    if (duration <= 0 || w <= 0) continue;
-    cycle += w * duration / speed;
+    if (duration <= 0) continue;
+    var w = 0.0, rate = 0.0;
+    for (var j = i; j < clips.length; j++) {
+      final wj = j < weights.length ? weights[j] : 0.0;
+      if (clips[j] != clips[i] || wj <= 0) continue;
+      w += wj;
+      rate += wj * (j < speeds.length && speeds[j] > 0 ? speeds[j] : 1.0);
+    }
+    if (w <= 0) continue;
+    // Its weight times its length over its mean speed, rate / w.
+    cycle += w * w * duration / rate;
     total += w;
   }
   return total > 0 ? cycle / total : 0;

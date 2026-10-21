@@ -1,7 +1,8 @@
 // What fades out keeps playing as it played (held at its end, at its own
-// speed), a socket is drawn between its poses like the parent it rides, a
-// parent is posed once an update however many sockets it carries, and a
-// parent's pose is let go with the parent.
+// speed), a blend's cycle keeps one clip's stride between two speeds of it
+// and weighs different clips' lengths, a socket is drawn between its poses
+// like the parent it rides, a parent is posed once an update however many
+// sockets it carries, and a parent's pose is let go with the parent.
 @Tags(['graphics3d'])
 library;
 
@@ -131,6 +132,64 @@ void main() {
       expect((player.clip, player.speed), ('hop', 3.0));
       system().update(0.1);
       expect(player.fadingFromTime, closeTo(0.25, 1e-9));
+    });
+  });
+
+  // The bar's clips each last 1 s.
+  group('a blend\'s cycle', () {
+    test('one clip at two speeds keeps its stride between them', () {
+      // A walk whose feet cover 2 m a cycle: slowed to 0.6 at 1.2 m/s, as
+      // authored at 2 m/s.
+      const tree = AnimatorBlendTree(
+        parameter: 'speed',
+        motions: [
+          AnimatorBlendMotion(clip: 'bend', threshold: 1.2, speed: 0.6),
+          AnimatorBlendMotion(clip: 'bend', threshold: 2),
+        ],
+      );
+      final player = AnimationPlayerComponent();
+      character(player);
+      player.playBlend(['bend', 'bend'], [1, 0], speeds: [0.6, 1], fade: 0);
+      for (final speed in [1.2, 1.4, 1.6, 1.8, 2.0]) {
+        player.setBlendWeights(tree.weights(speed));
+        system().update(0.1);
+        expect(speed * player.duration, closeTo(2, 1e-9), reason: '$speed m/s');
+      }
+    });
+
+    test('different clips weigh their lengths, as an idle and a walk', () {
+      final player = AnimationPlayerComponent();
+      character(player);
+      player.playBlend(['bend', 'grow'], [0.5, 0.5], speeds: [1, 3], fade: 0);
+      system().update(0.1);
+      // Half of 1 s and half of a third of one.
+      expect(player.duration, closeTo(2 / 3, 1e-9));
+      expect(player.phase, closeTo(0.15, 1e-9));
+    });
+
+    test('a clip twice beside another: its speeds, then the clips', () {
+      final player = AnimationPlayerComponent();
+      character(player);
+      player.playBlend(
+        ['grow', 'bend', 'grow'],
+        [0.25, 0.5, 0.25],
+        speeds: [1, 1, 3],
+        fade: 0,
+      );
+      system().update(0.1);
+      // grow at its mean speed, 2, lasts half a second; bend 1 s.
+      expect(player.duration, closeTo(0.75, 1e-9));
+    });
+
+    test('what fades out keeps its cycle', () {
+      final player = AnimationPlayerComponent();
+      character(player);
+      player.playBlend(['bend', 'bend'], [0.5, 0.5], speeds: [1, 3], fade: 0);
+      system().update(0.1);
+      expect(player.phase, closeTo(0.2, 1e-9), reason: 'at speed 2');
+      player.play('hop', fade: 1);
+      system().update(0.1);
+      expect(player.fadingFromPhase, closeTo(0.4, 1e-9));
     });
   });
 
