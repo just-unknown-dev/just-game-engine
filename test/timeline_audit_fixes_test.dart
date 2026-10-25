@@ -284,14 +284,18 @@ void main() {
       )..play();
       final once = play(TimelineWrap.once)..update(2);
       expect(once.isFinished, isTrue);
-      expect(sprite.clip, 'wave');
+      expect(sprite.playingClip, 'wave');
       once.dispose();
-      expect(sprite.clip, 'idle', reason: 'given back when the play ends');
+      expect(
+        sprite.playingClip,
+        'idle',
+        reason: 'given back when the play ends',
+      );
 
       final loop = play(TimelineWrap.loop)..seek(1.5);
-      expect(sprite.clip, 'wave');
+      expect(sprite.playingClip, 'wave');
       loop.seek(2);
-      expect(sprite.clip, 'idle', reason: 'its end is its start');
+      expect(sprite.playingClip, 'idle', reason: 'its end is its start');
       loop.dispose();
     });
   });
@@ -319,7 +323,7 @@ void main() {
     p.update(0.25);
     expect(sprite.elapsed, 0.9, reason: 'not restarted inside a lap');
     p.update(0.5);
-    expect(sprite.clip, 'wave');
+    expect(sprite.playingClip, 'wave');
     expect(sprite.elapsed, 0);
   });
 
@@ -343,7 +347,7 @@ void main() {
         owner: e,
       )..play();
       p.update(0.5);
-      expect(player.clip, 'wave');
+      expect(player.playingClip, 'wave');
       player.time = 0.9;
       p.update(0.25);
       expect(player.time, 0.9, reason: 'not restarted inside a lap');

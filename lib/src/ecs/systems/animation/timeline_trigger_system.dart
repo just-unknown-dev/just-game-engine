@@ -60,7 +60,7 @@ class TimelineTriggerSystem extends System {
         player.forwards();
       case TimelineTriggerAction.restart:
         player
-          ..speed = player.speed.abs()
+          ..playingSpeed = player.playingSpeed.abs()
           ..restart();
       case TimelineTriggerAction.reverse:
         player.reverse();

@@ -115,7 +115,7 @@ class TimelineSystem extends System {
       // An event handler earlier this frame may have taken it away.
       final player = entity.getComponent<TimelinePlayerComponent>();
       if (player == null || player.suspended) return;
-      final path = player.timelinePath.trim();
+      final path = player.playingTimelinePath.trim();
       var source = _sources[entity];
       if (source == null ||
           source.path != path ||
@@ -140,7 +140,7 @@ class TimelineSystem extends System {
       final playback = player.playback;
       if (playback == null) return;
       playback
-        ..speed = player.speed
+        ..speed = player.playingSpeed
         ..wrap = player.wrap.wrap
         ..range = player.playRange
         ..update(deltaTime);
@@ -212,7 +212,7 @@ class TimelineSystem extends System {
             onEvent: _events.add,
             loader: _read,
           )
-          ..speed = player.speed
+          ..speed = player.playingSpeed
           ..range = player.playRange;
     player.playback = playback;
     if (!player.initialized) {

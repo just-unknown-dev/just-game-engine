@@ -34,6 +34,11 @@ enum TimelineWrapChoice {
 ///
 /// Tracks bound to "self" act on the entity holding this component, which is
 /// what lets one asset animate many entities.
+///
+/// Its configuration is what was authored, and what a scene saves. A
+/// timeline asked for at run time ([playTimeline]: an animator state's) and
+/// a direction set at run time ([forwards], [reverse]) are kept apart from
+/// it — [playingTimelinePath], [playingSpeed] — and never saved.
 class TimelinePlayerComponent extends Component {
   /// A player of the asset at [timelinePath] — or of [inline] while the path
   /// is empty — that waits to be started, at normal [speed], with the
@@ -49,10 +54,11 @@ class TimelinePlayerComponent extends Component {
     this.to = 0,
   });
 
-  /// The asset to play. Empty plays [inline].
+  /// The asset to play, as authored. Empty plays [inline].
   ///
   /// Changed while a timeline is playing — or just before [play] — the
-  /// player plays the new timeline from its start once it has loaded.
+  /// player plays the new timeline from its start once it has loaded. What
+  /// plays now is [playingTimelinePath].
   String timelinePath;
 
   /// A timeline saved inside the scene, for a one-off.
@@ -61,7 +67,8 @@ class TimelinePlayerComponent extends Component {
   /// Start playing the first time the system sees this component.
   bool playOnStart;
 
-  /// 1 is as authored; negative plays backwards.
+  /// 1 is as authored; negative plays backwards. The rate it plays at now
+  /// is [playingSpeed].
   double speed;
 
   /// What happens at the end: the timeline's own wrap, or one imposed on
@@ -103,6 +110,18 @@ class TimelinePlayerComponent extends Component {
   bool initialized = false;
   void Function(TimelinePlayback playback)? _pending;
 
+  String? _pathNow;
+  double? _speedNow;
+
+  /// The asset playing (runtime): what [playTimeline] asked for, else
+  /// [timelinePath].
+  String get playingTimelinePath => _pathNow ?? timelinePath;
+
+  /// The rate playing (runtime): what was set at run time — by [forwards],
+  /// [reverse], or here — else [speed].
+  double get playingSpeed => _speedNow ?? speed;
+  set playingSpeed(double value) => _speedNow = value;
+
   /// Whether the timeline is running; false before it has loaded.
   bool get isPlaying => playback?.isPlaying ?? false;
 
@@ -119,16 +138,16 @@ class TimelinePlayerComponent extends Component {
   // A timeline loads asynchronously, so what is asked before then is kept
   // and done the moment it arrives.
   //
-  // The playback's speed is only brought in line with [speed] when the
-  // system next runs; whoever just set [speed] (a trigger, say) means it
-  // for this action already, so it is copied first.
+  // The playback's speed is only brought in line with [playingSpeed] when
+  // the system next runs; whoever just set it (a trigger, say) means it for
+  // this action already, so it is copied first.
   void _do(void Function(TimelinePlayback playback) action) {
     final running = playback;
     if (running == null) {
       _pending = action;
       return;
     }
-    running.speed = speed;
+    running.speed = playingSpeed;
     action(running);
   }
 
@@ -147,21 +166,22 @@ class TimelinePlayerComponent extends Component {
   /// end. A timeline that finished at its start (played backwards) turns
   /// round there, so a relative track keeps the value it is relative to.
   void forwards() => _do((p) {
-    speed = speed.abs();
-    p.speed = speed;
+    playingSpeed = playingSpeed.abs();
+    p.speed = playingSpeed;
     // A timeline that finished at its end has nowhere to go on to but the
     // start; one sitting at its start turns round there.
     p.play(from: p.time >= p.rangeEnd ? p.rangeStart : null);
   });
 
   /// Plays [path] from its start, in place of whatever was playing — what an
-  /// animator state with a timeline does on entry.
+  /// animator state with a timeline does on entry. The authored
+  /// [timelinePath] stays as it is.
   void playTimeline(String path) {
-    if (path.trim() == timelinePath.trim() && playback != null) {
+    if (path.trim() == playingTimelinePath.trim() && playback != null) {
       restart();
       return;
     }
-    timelinePath = path;
+    _pathNow = path;
     reset();
     // Not on start: the timeline was asked for, so it plays either way.
     initialized = true;
@@ -171,8 +191,8 @@ class TimelinePlayerComponent extends Component {
   /// Plays back towards the start from where it is — from the end when it
   /// is at the start.
   void reverse() => _do((p) {
-    speed = -speed.abs();
-    p.speed = speed;
+    playingSpeed = -playingSpeed.abs();
+    p.speed = playingSpeed;
     // A timeline that finished at its end turns round there; one sitting
     // at its start has nowhere to go back to but the end.
     p.play(from: p.time <= p.rangeStart ? p.rangeEnd : null);

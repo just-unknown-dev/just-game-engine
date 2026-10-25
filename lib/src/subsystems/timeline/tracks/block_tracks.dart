@@ -188,7 +188,9 @@ abstract class BlockTrack extends TimelineTrack {
 // ── Sprite clips ────────────────────────────────────────────────────────────
 
 /// Plays clips on the bound entity's [SpriteAnimationComponent]. Between
-/// blocks the sprite goes back to the clip it was playing before.
+/// blocks the sprite goes back to the clip it was playing before — what
+/// was authored, unless something (an animator) had switched it. It sets
+/// what the sprite plays at run time, never what it saves.
 class SpriteClipTrack extends BlockTrack {
   /// A track of clip [blocks]: each block's value names the clip, its speed
   /// and loop are the sprite's while it lasts.
@@ -258,10 +260,12 @@ class _SpriteClipRunner extends TrackRunner {
   // loop's wrap: its clip starts over.
   bool _reentered = false;
 
-  // What the sprite was doing before the first block took it over.
+  // What the sprite was doing before the first block took it over, and
+  // whether that was something set at run time rather than authored.
   String? _clipBefore;
   double _speedBefore = 1;
   bool? _loopBefore;
+  bool _drivenBefore = false;
 
   @override
   void begin(TimelineContext context) {
@@ -300,21 +304,27 @@ class _SpriteClipRunner extends TrackRunner {
     }
     if (_clipBefore == null) {
       _sprite = sprite;
-      _clipBefore = sprite.clip;
-      _speedBefore = sprite.speed;
+      _clipBefore = sprite.playingClip;
+      _speedBefore = sprite.playingSpeed;
       _loopBefore = sprite.loopOverride;
+      _drivenBefore = sprite.isDriven;
     }
     sprite
-      ..speed = block.speed
+      ..playingSpeed = block.speed
       ..switchClip(block.value, restartIfSame: true, loop: block.loop);
   }
 
   void _restore() {
     final sprite = _sprite, clip = _clipBefore;
     if (sprite == null || clip == null) return;
-    sprite
-      ..speed = _speedBefore
-      ..switchClip(clip, loop: _loopBefore);
+    if (_drivenBefore) {
+      sprite
+        ..playingSpeed = _speedBefore
+        ..switchClip(clip, loop: _loopBefore);
+    } else {
+      // Nothing had taken it over: back to what was authored.
+      sprite.release();
+    }
     _clipBefore = null;
   }
 

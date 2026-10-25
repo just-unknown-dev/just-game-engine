@@ -2,6 +2,17 @@
 
 All notable changes to the Just Game Engine will be documented in this file.
 
+## [2.0.0-dev.3] - 2026-10-24
+
+What an animator or a timeline plays is runtime state: a scene saved while they run is the scene as it was authored.
+
+- **Saved fields stay as authored**: `AnimatorSystem` no longer writes the fields a scene saves. An editor runs it while a scene is edited (ticking at 0), so characters animate there — and its next save used to write what the animator had chosen into the scene: a hero saved mid-jump (`clip: jump`, `loop: false`) because its `grounded` binding read false before anything had moved it. What it chooses now lives beside the authored fields and is never saved; the players read it in preference to them.
+- `SpriteAnimationComponent`: `playingClip`, `playingSpeed` and `playingFlipX` (runtime) are what plays; `clip`, `speed` and `flipX` are what was authored. `switchClip` changes `playingClip`; `isDriven` says whether anything at run time has taken over; `release()` goes back to what was authored. `SpriteAnimationSystem` plays the `playing…` values.
+- `AnimationPlayerComponent`: `playingClip`, `playingSpeed`, `playingLoop` and `isPlaying` (runtime) are what plays; `clip`, `speed`, `loop` and `playing` are what was authored. `play` and `playBlend` change the runtime ones; `isDriven` and `release({fade})` as on the sprite. `AnimationSystem3D`, `samplePlayer` and `SkeletalAnimationTarget` use them.
+- `TimelinePlayerComponent`: `playTimeline` (an animator state's timeline) sets `playingTimelinePath`, and `forwards`, `reverse` and a trigger's restart set `playingSpeed`, leaving `timelinePath` and `speed` as authored; `TimelineSystem` plays those.
+- When an animator goes — taken off, its entity switched off, given another graph, or its system removed — what it drove is handed back to what was authored (`AnimationTarget.release`, which `SkeletalAnimationTarget` implements).
+- `SpriteClipTrack` and `SkeletalClipTrack` drive the same runtime values, so an editor's Timeline preview no longer leaves its scrubbed clip in the scene either; after their last block they go back to what played before — what was authored, unless an animator had taken over.
+
 ## [2.0.0-dev.2] - 2026-10-17
 
 The 3-D Level Designer's runtime seams, prefab files for every scene, and materials for 2-D and 3-D.

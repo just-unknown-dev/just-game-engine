@@ -5,8 +5,10 @@ import 'graphics_components.dart';
 /// [AnimationPlayerComponent]): each block names a clip, plays at the
 /// block's speed, and loops as the block says. Entering a block crossfades
 /// over the player's crossfade; between blocks the model goes back to the
-/// clip it was playing before. Scrubbing puts the clip exactly where the
-/// block says it should be.
+/// clip it was playing before — what was authored, unless something (an
+/// animator) had taken it over. Scrubbing puts the clip exactly where the
+/// block says it should be. It sets what the player plays at run time,
+/// never what it saves.
 ///
 /// Saved with kind `skeletalClip`; `Graphics3D` registers it.
 class SkeletalClipTrack extends BlockTrack {
@@ -71,10 +73,12 @@ class _SkeletalClipRunner extends TrackRunner {
   TimelineBlock? _current;
   AnimationPlayerComponent? _player;
 
-  // What the model was playing before the first block took it over.
+  // What the model was playing before the first block took it over, and
+  // whether that was something set at run time rather than authored.
   String? _clipBefore;
   double _speedBefore = 1;
   bool _loopBefore = true;
+  bool _drivenBefore = false;
 
   // Time came round into the current block over its start again — a
   // loop's wrap: its clip starts over.
@@ -117,16 +121,17 @@ class _SkeletalClipRunner extends TrackRunner {
       }
       if (_clipBefore == null) {
         _player = player;
-        _clipBefore = player.clip;
-        _speedBefore = player.speed;
-        _loopBefore = player.loop;
+        _clipBefore = player.playingClip;
+        _speedBefore = player.playingSpeed;
+        _loopBefore = player.playingLoop;
+        _drivenBefore = player.isDriven;
       }
       // Played first, so what fades out keeps its own speed and looping.
       player
         // A scrub cuts; playing through crossfades.
         ..play(block.value, fade: context.isPreview ? 0 : null, restart: true)
-        ..speed = block.speed
-        ..loop = block.loop;
+        ..playingSpeed = block.speed
+        ..playingLoop = block.loop;
     }
     if (block != null && context.isPreview) {
       // Scrubbing: the clip stands where the timeline says.
@@ -139,10 +144,15 @@ class _SkeletalClipRunner extends TrackRunner {
   void _restore() {
     final player = _player, clip = _clipBefore;
     if (player == null || clip == null) return;
-    player
-      ..play(clip, restart: true)
-      ..speed = _speedBefore
-      ..loop = _loopBefore;
+    if (_drivenBefore) {
+      player
+        ..play(clip, restart: true)
+        ..playingSpeed = _speedBefore
+        ..playingLoop = _loopBefore;
+    } else {
+      // Nothing had taken it over: back to what was authored.
+      player.release();
+    }
     _clipBefore = null;
   }
 

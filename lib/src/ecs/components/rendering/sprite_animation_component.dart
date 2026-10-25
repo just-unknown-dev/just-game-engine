@@ -11,6 +11,13 @@ import '../../ecs.dart';
 /// clips. This component is only the choice of what to play;
 /// [SpriteAnimationSystem] loads the atlas, advances the frames and keeps the
 /// entity's renderable showing the right one.
+///
+/// Its configuration is what was authored, and what a scene saves. What
+/// plays at run time — the clip an animator or a timeline switched to, the
+/// speed it set, the way it faces the sprite — is kept apart from it
+/// ([playingClip], [playingSpeed], [playingFlipX]) and never saved, so an
+/// editor that runs the game's systems while a scene is edited saves the
+/// scene as it was authored.
 class SpriteAnimationComponent extends Component {
   /// Plays [clip] of the atlas at [atlasPath] at its authored speed once
   /// loaded, unflipped, untinted and without smoothing. An empty
@@ -31,17 +38,20 @@ class SpriteAnimationComponent extends Component {
   /// Asset path of the atlas JSON (e.g. `assets/sprites/hero.json`).
   String atlasPath;
 
-  /// The clip to play: a tag in the atlas. Empty plays every frame in order.
-  /// Change it with [switchClip] so playback restarts cleanly.
+  /// The clip it plays as authored: a tag in the atlas; empty plays every
+  /// frame in order. [switchClip] plays another without changing this;
+  /// what plays now is [playingClip].
   String clip;
 
   /// Start playing when the atlas has loaded.
   bool playOnStart;
 
-  /// Playback rate: 1 is the authored timing, 0 holds the frame.
+  /// Playback rate as authored: 1 is the authored timing, 0 holds the
+  /// frame. What it plays at now is [playingSpeed].
   double speed;
 
-  /// Draw the frames mirrored left to right.
+  /// Draw the frames mirrored left to right, as authored. How they are
+  /// drawn now is [playingFlipX].
   bool flipX;
 
   /// Draw the frames mirrored top to bottom.
@@ -61,7 +71,7 @@ class SpriteAnimationComponent extends Component {
   /// cleared when a clip that does not loop ends.
   bool isPlaying = false;
 
-  /// Seconds into the current pass of [clip].
+  /// Seconds into the current pass of [playingClip].
   double elapsed = 0.0;
 
   /// Index of the showing frame within the clip.
@@ -75,6 +85,32 @@ class SpriteAnimationComponent extends Component {
 
   /// When set, overrides whether the clip loops; null takes the clip's own.
   bool? loopOverride;
+
+  String? _clipNow;
+  double? _speedNow;
+  bool? _flipXNow;
+
+  /// The clip playing: what [switchClip] last chose, else [clip] as
+  /// authored.
+  String get playingClip => _clipNow ?? clip;
+
+  /// The rate playing: what was set here at run time, else [speed].
+  double get playingSpeed => _speedNow ?? speed;
+  set playingSpeed(double value) => _speedNow = value;
+
+  /// Whether the frames are drawn mirrored left to right now: what was set
+  /// here at run time (an animator turning the sprite the way it moves),
+  /// else [flipX].
+  bool get playingFlipX => _flipXNow ?? flipX;
+  set playingFlipX(bool value) => _flipXNow = value;
+
+  /// Whether something at run time has taken over from what was authored:
+  /// a clip switched to, a speed, a facing or a looping set.
+  bool get isDriven =>
+      _clipNow != null ||
+      _speedNow != null ||
+      _flipXNow != null ||
+      loopOverride != null;
 
   // ── Playback control ─────────────────────────────────────────────────────
 
@@ -101,20 +137,35 @@ class SpriteAnimationComponent extends Component {
     isComplete = false;
   }
 
-  /// Plays [name] from its first frame. Asking for the clip that is already
-  /// playing does nothing unless [restartIfSame].
+  /// Plays [name] from its first frame, [loop] overriding whether it loops
+  /// (null: the clip's own). Asking for the clip that is already playing
+  /// does nothing unless [restartIfSame]. The authored [clip] stays as it
+  /// is.
   void switchClip(String name, {bool restartIfSame = false, bool? loop}) {
     loopOverride = loop;
-    if (name == clip && !restartIfSame) {
+    if (name == playingClip && !restartIfSame) {
       isPlaying = true;
       return;
     }
-    clip = name;
+    _clipNow = name;
     restart();
     isPlaying = true;
   }
 
+  /// Lets go of everything set at run time — the clip switched to, the
+  /// speed, the facing, the looping — and plays what was authored from its
+  /// first frame, as when it first loaded. What an animator or a timeline
+  /// does when it lets go of the sprite.
+  void release() {
+    _clipNow = null;
+    _speedNow = null;
+    _flipXNow = null;
+    loopOverride = null;
+    restart();
+    isPlaying = playOnStart;
+  }
+
   @override
   String toString() =>
-      'SpriteAnimation($atlasPath, clip: $clip, frame: $frameIndex)';
+      'SpriteAnimation($atlasPath, clip: $playingClip, frame: $frameIndex)';
 }

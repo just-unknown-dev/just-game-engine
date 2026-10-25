@@ -2,7 +2,7 @@
 
 A game engine for Flutter: 2D, with 3D graphics and physics to opt into. A game is entities, components and systems (ECS) in a `World`; its levels are JSON scenes loaded at runtime. The engine brings level maps, sprites and animator graphs, timelines, virtual cameras, physics, particles, audio and action-based input, and draws inside an ordinary Flutter widget. It runs on Android, iOS, Windows, macOS, Linux and the web (JavaScript or WebAssembly).
 
-2.0.0 is a breaking release, out first as dev releases, now 2.0.0-dev.2. Coming from 1.x? Read [MIGRATION.md](MIGRATION.md).
+2.0.0 is a breaking release, out first as dev releases, now 2.0.0-dev.3. Coming from 1.x? Read [MIGRATION.md](MIGRATION.md).
 
 | 2D | 3D |
 |---|---|
@@ -17,7 +17,7 @@ The levels in these pictures are scenes the editor saves, loaded and run by the 
 
 ```yaml
 dependencies:
-  just_game_engine: ^2.0.0-dev.2
+  just_game_engine: ^2.0.0-dev.3
 ```
 
 Needs Flutter 3.47.1 or newer. To build for Linux, also install what the audio plugin links: OpenAL Soft and libsndfile (`sudo apt install libopenal-dev libsndfile1-dev` on Debian and Ubuntu; players need `libopenal1` and `libsndfile1`).

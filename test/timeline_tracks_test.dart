@@ -92,17 +92,23 @@ void main() {
         entity,
       );
       playback.update(0.5);
-      expect(sprite.clip, 'idle');
+      expect(sprite.playingClip, 'idle');
       playback.update(1.0);
-      expect(sprite.clip, 'wave');
-      expect(sprite.speed, 2);
+      expect(sprite.playingClip, 'wave');
+      expect(sprite.playingSpeed, 2);
+      expect((sprite.clip, sprite.speed), ('idle', 1.5), reason: 'as authored');
       expect(sprite.isPlaying, isTrue);
       sprite.elapsed = 0.3;
       playback.update(0.1);
       expect(sprite.elapsed, 0.3, reason: 'inside a block it is left to play');
       playback.update(1.0);
-      expect(sprite.clip, 'idle');
-      expect(sprite.speed, 1.5);
+      expect(sprite.playingClip, 'idle');
+      expect(sprite.playingSpeed, 1.5);
+      expect(
+        sprite.isDriven,
+        isFalse,
+        reason: 'handed back to what was authored',
+      );
     });
 
     test('a camera shot raises a priority for its length, and on stop', () {
@@ -504,7 +510,8 @@ void main() {
       animator.setTrigger('open');
       w.update(_dt);
       expect(animator.currentState, 'opening');
-      expect(timeline.timelinePath, 'door.timeline.json');
+      expect(timeline.playingTimelinePath, 'door.timeline.json');
+      expect(timeline.timelinePath, isEmpty, reason: 'what was authored stays');
       w.update(_dt);
       await Future<void>.delayed(Duration.zero);
       expect(timeline.isPlaying, isTrue);

@@ -7,7 +7,8 @@ import 'graphics_components.dart';
 /// with an [AnimatorComponent], a [ModelComponent] and an
 /// [AnimationPlayerComponent] (which it drives). A transition's duration
 /// crossfades; a blend tree blends its motions, weighted by the graph's
-/// parameters every update.
+/// parameters every update. It sets what the player plays at run time
+/// (`playingClip`, `playingSpeed`, `playingLoop`), never what it saves.
 ///
 /// `Graphics3D` registers it (`context.animationTargets`).
 final class SkeletalAnimationTarget extends AnimationTarget {
@@ -36,9 +37,13 @@ final class SkeletalAnimationTarget extends AnimationTarget {
     }
     // Set after playing, so what fades out keeps its own speed and looping.
     player
-      ..speed = state.speed
-      ..loop = state.loop ?? true;
+      ..playingSpeed = state.speed
+      ..playingLoop = state.loop ?? true;
   }
+
+  @override
+  void release(Entity entity) =>
+      entity.getComponent<AnimationPlayerComponent>()?.release(fade: 0);
 
   @override
   void update(
@@ -71,7 +76,7 @@ final class SkeletalAnimationTarget extends AnimationTarget {
   @override
   bool isComplete(Entity entity, AnimatorState state) {
     final p = entity.getComponent<AnimationPlayerComponent>()!;
-    if (p.loop || p.duration <= 0) return false;
+    if (p.playingLoop || p.duration <= 0) return false;
     return p.isBlending ? p.phase >= 1 : p.time >= p.duration;
   }
 }

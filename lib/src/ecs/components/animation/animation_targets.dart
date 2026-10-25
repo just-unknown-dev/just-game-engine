@@ -42,6 +42,12 @@ abstract class AnimationTarget {
 
   /// Whether [state]'s clip has played to its end and stopped.
   bool isComplete(Entity entity, AnimatorState state);
+
+  /// [entity]'s animator has gone — taken off, switched off, playing
+  /// another graph: hand what it drove back to what was authored. What a
+  /// target sets while it drives is runtime state only, never what a scene
+  /// saves.
+  void release(Entity entity) {}
 }
 
 /// The [AnimationTarget]s of one engine context, tried in the order they

@@ -91,7 +91,7 @@ void main() {
       expect(player.time, closeTo(0.2, 1e-9));
       player
         ..play('hop', fade: 1)
-        ..speed = 2;
+        ..playingSpeed = 2;
       system().update(0.1);
       expect(player.fadingFromTime, closeTo(0.25, 1e-9));
       expect(player.time, closeTo(0.2, 1e-9));
@@ -102,7 +102,7 @@ void main() {
       character(player);
       system().update(0.3);
       player
-        ..playing = false
+        ..isPlaying = false
         ..play('hop', fade: 1);
       system().update(0.2);
       expect(player.fadingFromTime, closeTo(0.3, 1e-9));
@@ -129,7 +129,8 @@ void main() {
         const AnimatorState(name: 'fast hop', clip: 'hop', speed: 3),
         fade: 1,
       );
-      expect((player.clip, player.speed), ('hop', 3.0));
+      expect((player.playingClip, player.playingSpeed), ('hop', 3.0));
+      expect((player.clip, player.speed), ('bend', 0.5), reason: 'as authored');
       system().update(0.1);
       expect(player.fadingFromTime, closeTo(0.25, 1e-9));
     });

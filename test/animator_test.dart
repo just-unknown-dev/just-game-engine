@@ -166,7 +166,7 @@ void main() {
     final h = hero();
     await settle();
     expect(h.animator.currentState, 'idle');
-    expect(h.sprite.clip, 'idle');
+    expect(h.sprite.playingClip, 'idle');
     expect(h.animator.getBool('grounded'), isFalse, reason: 'defaults filled');
   });
 
@@ -177,14 +177,14 @@ void main() {
     world.update(_dt);
     expect(h.animator.getFloat('speed'), 120, reason: 'speedX is absolute');
     expect(h.animator.currentState, 'run');
-    expect(h.sprite.clip, 'run');
-    expect(h.sprite.speed, 2, reason: "the state's speed");
+    expect(h.sprite.playingClip, 'run');
+    expect(h.sprite.playingSpeed, 2, reason: "the state's speed");
 
     setSpeed(h.entity, 0);
     world.update(_dt);
     expect(h.animator.currentState, 'idle');
     expect(h.animator.previousState, 'run');
-    expect(h.sprite.speed, 1);
+    expect(h.sprite.playingSpeed, 1);
   });
 
   test(
@@ -226,7 +226,11 @@ void main() {
       h.animator.setTrigger('hit');
       world.update(_dt);
       expect(h.animator.currentState, 'ouch');
-      expect(h.sprite.clip, 'hurt', reason: "the state's clip, not its name");
+      expect(
+        h.sprite.playingClip,
+        'hurt',
+        reason: "the state's clip, not its name",
+      );
 
       h.animator.setTrigger('hit');
       world.update(_dt);
@@ -241,13 +245,13 @@ void main() {
     await settle();
     setSpeed(h.entity, -40);
     world.update(_dt);
-    expect(h.sprite.flipX, isTrue);
+    expect(h.sprite.playingFlipX, isTrue);
     setSpeed(h.entity, 0);
     world.update(_dt);
-    expect(h.sprite.flipX, isTrue, reason: 'still facing left');
+    expect(h.sprite.playingFlipX, isTrue, reason: 'still facing left');
     setSpeed(h.entity, 40);
     world.update(_dt);
-    expect(h.sprite.flipX, isFalse);
+    expect(h.sprite.playingFlipX, isFalse);
 
     h.animator.enabled = false;
     final state = h.animator.currentState;

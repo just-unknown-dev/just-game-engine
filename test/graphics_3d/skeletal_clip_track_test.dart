@@ -37,12 +37,14 @@ void main() {
     final entity = world.createEntityWithComponents([player]);
     final playback = TimelinePlayback(asset(), world: world, owner: entity)..play();
     playback.update(0.5);
-    expect(player.clip, 'idle');
+    expect(player.playingClip, 'idle');
     playback.update(1.0);
-    expect((player.clip, player.speed, player.loop), ('wave', 2.0, false));
+    expect((player.playingClip, player.playingSpeed, player.playingLoop), ('wave', 2.0, false));
     expect(player.fadingFrom, 'idle', reason: 'playing through crossfades');
+    expect((player.clip, player.speed, player.loop), ('idle', 1.5, true), reason: 'what was authored stays');
     playback.update(1.0);
-    expect((player.clip, player.speed, player.loop), ('idle', 1.5, true));
+    expect((player.playingClip, player.playingSpeed, player.playingLoop), ('idle', 1.5, true));
+    expect(player.isDriven, isFalse, reason: 'handed back to what was authored');
   });
 
   test('scrubbing in an editor puts the clip where the timeline is', () {
@@ -50,7 +52,8 @@ void main() {
     final entity = world.createEntityWithComponents([player]);
     final playback = TimelinePlayback(asset(), world: world, owner: entity, isPreview: true)..play();
     playback.seek(1.25);
-    expect(player.clip, 'wave');
+    expect(player.playingClip, 'wave');
+    expect(player.clip, 'idle', reason: 'a preview leaves what is saved alone');
     expect(player.time, closeTo(0.5, 1e-9), reason: 'a quarter second in at speed 2');
     expect(player.isFading, isFalse, reason: 'a scrub cuts');
   });

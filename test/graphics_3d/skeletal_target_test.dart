@@ -84,7 +84,7 @@ void main() {
     await Future<void>.delayed(Duration.zero); // the graph loads
     step();
     expect(animator.currentState, 'bending');
-    expect((player.clip, player.loop), ('bend', false));
+    expect((player.playingClip, player.playingLoop), ('bend', false));
 
     animator.parameters['grow'] = 0.25;
     animator.parameters['go'] = true;
@@ -112,6 +112,6 @@ void main() {
     expect(animator.currentState, 'mix');
     step(15);
     expect(animator.currentState, 'hopping');
-    expect((player.clip, player.isBlending), ('hop', false));
+    expect((player.playingClip, player.isBlending), ('hop', false));
   });
 }

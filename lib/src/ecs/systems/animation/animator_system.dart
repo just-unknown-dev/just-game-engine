@@ -42,6 +42,14 @@ class _Running {
 /// [SpriteAnimationComponent] which clip to play — or, for an entity
 /// without one, the first of the context's [AnimationTarget]s that drives
 /// it (a 3-D model's skeleton).
+///
+/// What it chooses is runtime state on those components — a sprite's
+/// `playingClip`, `playingSpeed` and `playingFlipX`, a model player's
+/// `playingClip`, `playingSpeed` and `playingLoop` — never the fields a
+/// scene saves: an editor runs it while a scene is edited, so characters
+/// animate there, and saves the scene as it was authored. When an
+/// animator goes (taken off, switched off, given another graph), what it
+/// drove is handed back to what was authored.
 class AnimatorSystem extends System {
   /// A system that reads each graph with [loader] — the world context's
   /// `animatorGraphs` when null — once per path, shared by every animator
@@ -92,9 +100,22 @@ class AnimatorSystem extends System {
     }
     _running.removeWhere((entity, r) {
       if (graphPath != null && r.path != graphPath) return false;
+      _release(entity);
       entity.getComponent<AnimatorComponent>()?.restart();
       return true;
     });
+  }
+
+  /// Hands what [entity]'s animator drove back to what was authored: the
+  /// animator is gone, switched off, or plays another graph now.
+  void _release(Entity entity) {
+    if (!entity.isAlive) return;
+    final sprite = entity.getComponent<SpriteAnimationComponent>();
+    if (sprite != null) {
+      sprite.release();
+    } else {
+      world.context.animationTargets.targetFor(entity)?.release(entity);
+    }
   }
 
   @override
@@ -114,6 +135,8 @@ class AnimatorSystem extends System {
       final path = animator.graphPath.trim();
       var running = _running[entity];
       if (running == null || running.path != path) {
+        // Another graph: what the old one chose goes with it.
+        if (running != null) _release(entity);
         running = _running[entity] = _Running(path);
         animator.restart();
         if (path.isNotEmpty) _load(entity, running);
@@ -125,7 +148,7 @@ class AnimatorSystem extends System {
 
       if (sprite != null && animator.faceVelocity) {
         final vx = entity.getComponent<VelocityComponent>()?.velocity.x ?? 0;
-        if (vx.abs() > facingDeadZone) sprite.flipX = vx < 0;
+        if (vx.abs() > facingDeadZone) sprite.playingFlipX = vx < 0;
       }
 
       for (final p in graph.parameters) {
@@ -173,7 +196,11 @@ class AnimatorSystem extends System {
     // or without the components — is forgotten, and starts again from its
     // entry when it next runs.
     if (_running.length > seen) {
-      _running.removeWhere((_, running) => running.seenAt != frame);
+      _running.removeWhere((entity, running) {
+        if (running.seenAt == frame) return false;
+        _release(entity);
+        return true;
+      });
     }
   }
 
@@ -255,7 +282,7 @@ class AnimatorSystem extends System {
     final total = system.clipOf(atlas, sprite).totalDuration;
     if (total <= 0) return 1.0;
     final animator = entity.getComponent<AnimatorComponent>()!;
-    final played = animator.stateTime * sprite.speed;
+    final played = animator.stateTime * sprite.playingSpeed;
     return played / total;
   }
 
@@ -278,7 +305,7 @@ class AnimatorSystem extends System {
           ? state.clipName
           : _heaviest(state.blend!, animator) ?? state.clipName;
       sprite
-        ..speed = state.speed
+        ..playingSpeed = state.speed
         ..switchClip(clip, restartIfSame: true, loop: state.loop);
     } else {
       target!.enter(entity, state, fade: fade);
@@ -308,7 +335,7 @@ class AnimatorSystem extends System {
     final tree = state.blend;
     if (tree == null || sprite == null) return;
     final clip = _heaviest(tree, animator);
-    if (clip != null && clip != sprite.clip) {
+    if (clip != null && clip != sprite.playingClip) {
       sprite.switchClip(clip, restartIfSame: false, loop: state.loop);
     }
   }
@@ -328,6 +355,11 @@ class AnimatorSystem extends System {
 
   @override
   void dispose() {
+    // Taken out of the world: what it drove goes back to what was authored.
+    for (final entity in _running.keys) {
+      _release(entity);
+    }
+    _running.clear();
     _changes.close();
     super.dispose();
   }

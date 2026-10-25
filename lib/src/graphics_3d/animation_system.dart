@@ -46,7 +46,7 @@ void samplePlayer(
     );
   } else {
     pose.setRest(model.data);
-    final clip = model.clips[player.clip];
+    final clip = model.clips[player.playingClip];
     if (clip != null) clip.sample(_timeAt(player, clip.duration, alpha), pose);
   }
   if (!player.isFading) return;
@@ -104,24 +104,24 @@ double _timeAt(AnimationPlayerComponent p, double duration, double alpha) {
   if (alpha >= 1 || p.previousTime == p.time) return p.time;
   var current = p.time;
   // A loop that wrapped since the last update: unwrap to blend across.
-  if (p.loop && duration > 0) {
-    if (p.speed > 0 && current < p.previousTime) current += duration;
-    if (p.speed < 0 && current > p.previousTime) current -= duration;
+  if (p.playingLoop && duration > 0) {
+    if (p.playingSpeed > 0 && current < p.previousTime) current += duration;
+    if (p.playingSpeed < 0 && current > p.previousTime) current -= duration;
   }
   final t = p.previousTime + (current - p.previousTime) * alpha;
-  return p.loop && duration > 0 ? _wrap(t, duration) : t;
+  return p.playingLoop && duration > 0 ? _wrap(t, duration) : t;
 }
 
 /// The blend's phase between the player's last two updates.
 double _blendPhaseAt(AnimationPlayerComponent p, double alpha) {
   if (alpha >= 1 || p.previousPhase == p.phase) return p.phase;
   var current = p.phase;
-  if (p.loop) {
-    if (p.speed > 0 && current < p.previousPhase) current += 1;
-    if (p.speed < 0 && current > p.previousPhase) current -= 1;
+  if (p.playingLoop) {
+    if (p.playingSpeed > 0 && current < p.previousPhase) current += 1;
+    if (p.playingSpeed < 0 && current > p.previousPhase) current -= 1;
   }
   final t = p.previousPhase + (current - p.previousPhase) * alpha;
-  return p.loop ? _wrap(t, 1) : t;
+  return p.playingLoop ? _wrap(t, 1) : t;
 }
 
 double _wrap(double t, double duration) {
@@ -233,9 +233,9 @@ final class AnimationSystem3D extends System {
         p.blendSpeeds,
       );
       p.duration = cycle;
-      if (p.playing && cycle > 0) {
-        final next = p.phase + dt * p.speed / cycle;
-        if (p.loop) {
+      if (p.isPlaying && cycle > 0) {
+        final next = p.phase + dt * p.playingSpeed / cycle;
+        if (p.playingLoop) {
           p.cycles += next.floor() - p.phase.floor();
           p.phase = _wrap(next, 1);
         } else {
@@ -244,11 +244,11 @@ final class AnimationSystem3D extends System {
         p.time = p.phase * cycle;
       }
     } else {
-      final duration = model?.clips[p.clip]?.duration ?? 0;
+      final duration = model?.clips[p.playingClip]?.duration ?? 0;
       p.duration = duration;
-      if (p.playing && duration > 0) {
-        final t = p.time + dt * p.speed;
-        if (p.loop) {
+      if (p.isPlaying && duration > 0) {
+        final t = p.time + dt * p.playingSpeed;
+        if (p.playingLoop) {
           p.cycles += (t / duration).floor() - (p.time / duration).floor();
           p.time = _wrap(t, duration);
         } else {

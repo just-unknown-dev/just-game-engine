@@ -202,11 +202,15 @@ class EnvironmentComponent extends Component {
 
 /// Plays the animations (glTF clips) of the entity's [ModelComponent].
 ///
-/// Saved: which [clip] plays, how fast, whether it loops, and how long a
-/// change of clip fades. The playback position is runtime state. Call
-/// [play] to change clip, or [playBlend] for several clips at once (a blend
-/// tree's motions, kept in step); the old one fades out over [crossfade]
-/// seconds. An animator graph drives it through `SkeletalAnimationTarget`.
+/// Saved, as authored: which [clip] plays, how fast, whether it loops,
+/// whether it plays, and how long a change of clip fades. What plays at run
+/// time is kept apart from that and never saved — [playingClip],
+/// [playingSpeed], [playingLoop], [isPlaying], with the playback position —
+/// so an editor that runs the game's systems while a scene is edited saves
+/// the scene as it was authored. Call [play] to change clip, or [playBlend]
+/// for several clips at once (a blend tree's motions, kept in step); the old
+/// one fades out over [crossfade] seconds. [release] goes back to what was
+/// authored. An animator graph drives it through `SkeletalAnimationTarget`.
 class AnimationPlayerComponent extends Component {
   /// A player starting [clip].
   AnimationPlayerComponent({
@@ -217,36 +221,74 @@ class AnimationPlayerComponent extends Component {
     this.crossfade = 0.2,
   });
 
-  /// The clip's name in the model; empty shows the rest pose. While a
-  /// blend plays ([blendClips]), the first of them.
+  /// The clip's name in the model, as authored: what plays until [play] or
+  /// [playBlend] says otherwise; empty shows the rest pose. What plays now
+  /// is [playingClip].
   String clip;
 
-  /// Playback rate: 1 is as authored, negative plays backwards.
+  /// Playback rate as authored: 1 is as made, negative plays backwards.
+  /// The rate now is [playingSpeed].
   double speed;
 
-  /// Whether the clip starts again at its end (else it holds the last pose).
+  /// Whether the clip starts again at its end (else it holds the last
+  /// pose), as authored. Whether it does now is [playingLoop].
   bool loop;
 
-  /// Whether time moves.
+  /// Whether time moves, as authored. Whether it moves now is [isPlaying].
   bool playing;
 
   /// Seconds a change of clip blends over.
   double crossfade;
 
-  /// Seconds into [clip] (runtime).
+  String? _clipNow;
+  double? _speedNow;
+  bool? _loopNow;
+  bool? _playingNow;
+
+  /// The clip playing (runtime): what [play] or [playBlend] chose — while a
+  /// blend plays ([blendClips]), the first of them — else [clip].
+  String get playingClip => _clipNow ?? clip;
+
+  /// The rate playing (runtime): what was set here at run time, else
+  /// [speed].
+  double get playingSpeed => _speedNow ?? speed;
+  set playingSpeed(double value) => _speedNow = value;
+
+  /// Whether what plays loops (runtime): what was set here at run time,
+  /// else [loop].
+  bool get playingLoop => _loopNow ?? loop;
+  set playingLoop(bool value) => _loopNow = value;
+
+  /// Whether time moves (runtime): [play] and [playBlend] start it; else
+  /// [playing].
+  bool get isPlaying => _playingNow ?? playing;
+  set isPlaying(bool value) => _playingNow = value;
+
+  /// Whether something at run time has taken over from what was authored:
+  /// a clip or a blend played, a speed, a looping or a pause set.
+  bool get isDriven =>
+      _clipNow != null ||
+      _speedNow != null ||
+      _loopNow != null ||
+      _playingNow != null ||
+      isBlending;
+
+  /// Seconds into [playingClip] (runtime).
   double time = 0;
 
   /// [time] at the previous update, for drawing between updates (runtime).
   double previousTime = 0;
 
-  /// How many times [clip] (or the blend) has looped since it started
-  /// (runtime).
+  /// How many times [playingClip] (or the blend) has looped since it
+  /// started (runtime).
   int cycles = 0;
 
-  /// [clip]'s length in seconds, once its model has loaded (runtime).
+  /// [playingClip]'s length in seconds, once its model has loaded
+  /// (runtime).
   double duration = 0;
 
-  /// The clips of the blend playing, or empty for [clip] alone (runtime).
+  /// The clips of the blend playing, or empty for [playingClip] alone
+  /// (runtime).
   List<String> blendClips = const [];
 
   /// Each of [blendClips]' weight; they sum to 1 (runtime).
@@ -281,12 +323,12 @@ class AnimationPlayerComponent extends Component {
   /// Its clips' own speeds (runtime).
   List<double> fadingFromSpeeds = const [];
 
-  /// The rate what fades out plays at: [speed] as it began to fade, or 0
-  /// when it was paused (runtime).
+  /// The rate what fades out plays at: [playingSpeed] as it began to fade,
+  /// or 0 when it was paused (runtime).
   double fadingFromSpeed = 1;
 
-  /// Whether what fades out loops, as [loop] said when it began to fade;
-  /// otherwise it holds at its end (runtime).
+  /// Whether what fades out loops, as [playingLoop] said when it began to
+  /// fade; otherwise it holds at its end (runtime).
   bool fadingFromLoop = true;
 
   /// How far the fade has gone: 1 when only what plays now shows (runtime).
@@ -297,25 +339,26 @@ class AnimationPlayerComponent extends Component {
 
   /// Plays [name] from its start, fading from what played over [fade]
   /// seconds ([crossfade] when null; 0 cuts). Asking for the clip already
-  /// playing does nothing unless [restart].
+  /// playing does nothing unless [restart]. The authored [clip] stays as it
+  /// is.
   ///
-  /// What fades out goes on as it played — at its [speed], looping or
-  /// holding at its end as [loop] said — so set those for the new clip
-  /// after this call, not before.
+  /// What fades out goes on as it played — at its [playingSpeed], looping
+  /// or holding at its end as [playingLoop] said — so set those for the new
+  /// clip after this call, not before.
   void play(String name, {double? fade, bool restart = false}) {
-    if (name == clip && !isBlending && !restart) {
-      playing = true;
+    if (name == playingClip && !isBlending && !restart) {
+      _playingNow = true;
       return;
     }
     _fadeFromNow(fade ?? crossfade);
-    clip = name;
+    _clipNow = name;
     blendClips = const [];
     blendWeights = const [];
     blendSpeeds = const [];
     time = 0;
     previousTime = 0;
     cycles = 0;
-    playing = true;
+    _playingNow = true;
   }
 
   /// Plays [clips] together, weighted by [weights] (see [setBlendWeights])
@@ -332,7 +375,7 @@ class AnimationPlayerComponent extends Component {
   }) {
     assert(clips.length == weights.length, 'one weight per clip');
     _fadeFromNow(fade ?? crossfade);
-    clip = clips.isEmpty ? '' : clips.first;
+    _clipNow = clips.isEmpty ? '' : clips.first;
     blendClips = List.of(clips);
     blendWeights = List.of(weights);
     blendSpeeds = speeds == null
@@ -343,7 +386,29 @@ class AnimationPlayerComponent extends Component {
     time = 0;
     previousTime = 0;
     cycles = 0;
-    playing = true;
+    _playingNow = true;
+  }
+
+  /// Lets go of everything set at run time — the clip or blend played, the
+  /// speed, the looping, a pause — and plays what was authored from its
+  /// start, fading from what played over [fade] seconds ([crossfade] when
+  /// null; 0 cuts). What an animator or a timeline does when it lets go of
+  /// the model.
+  void release({double? fade}) {
+    if (!isDriven) return;
+    _fadeFromNow(fade ?? crossfade);
+    _clipNow = null;
+    _speedNow = null;
+    _loopNow = null;
+    _playingNow = null;
+    blendClips = const [];
+    blendWeights = const [];
+    blendSpeeds = const [];
+    phase = 0;
+    previousPhase = 0;
+    time = 0;
+    previousTime = 0;
+    cycles = 0;
   }
 
   /// Changes the playing blend's weights, every update as its parameters
@@ -354,16 +419,16 @@ class AnimationPlayerComponent extends Component {
   }
 
   void _fadeFromNow(double seconds) {
-    final showing = isBlending || clip.isNotEmpty;
+    final showing = isBlending || playingClip.isNotEmpty;
     if (showing && seconds > 0) {
-      fadingFrom = isBlending ? '' : clip;
+      fadingFrom = isBlending ? '' : playingClip;
       fadingFromTime = time;
       fadingFromBlend = isBlending ? blendClips : const [];
       fadingFromWeights = isBlending ? blendWeights : const [];
       fadingFromSpeeds = isBlending ? blendSpeeds : const [];
       fadingFromPhase = phase;
-      fadingFromSpeed = playing ? speed : 0;
-      fadingFromLoop = loop;
+      fadingFromSpeed = isPlaying ? playingSpeed : 0;
+      fadingFromLoop = playingLoop;
       fade = 0;
     } else {
       fadingFrom = '';

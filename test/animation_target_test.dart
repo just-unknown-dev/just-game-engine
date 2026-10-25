@@ -121,10 +121,10 @@ void main() {
     animator.parameters['speed'] = 2.0;
     world.update(1 / 60);
     expect(animator.currentState, 'move');
-    expect(sprite.clip, 'walk');
+    expect(sprite.playingClip, 'walk');
     expect(target.log, isEmpty, reason: 'a sprite is never handed to a target');
     animator.parameters['speed'] = 4.5;
     world.update(1 / 60);
-    expect(sprite.clip, 'run');
+    expect(sprite.playingClip, 'run');
   });
 }

@@ -271,8 +271,12 @@ class _Playing {
 /// Plays [SpriteAnimationComponent]s: loads the atlas, advances the clip by
 /// each frame's own duration, shows the frame, and reports events.
 ///
-/// A negative [SpriteAnimationComponent.speed] plays the clip backwards,
-/// from its last frame. Frame events fire as time passes them either way —
+/// It plays what the component plays now — its `playingClip`, at its
+/// `playingSpeed`, facing as its `playingFlipX` says — and writes nothing
+/// the component saves.
+///
+/// A negative playing speed plays the clip backwards, from its last frame.
+/// Frame events fire as time passes them either way —
 /// one at the very start of a clip as it begins, one at its very end as a
 /// clip played backwards begins.
 class SpriteAnimationSystem extends System {
@@ -331,10 +335,10 @@ class SpriteAnimationSystem extends System {
     }
   }
 
-  /// The clip [c] names, or every frame in order when it names none the
-  /// atlas has.
+  /// The clip [c] plays ([SpriteAnimationComponent.playingClip]), or every
+  /// frame in order when it names none the atlas has.
   AtlasAnimationClip clipOf(SpriteAtlas atlas, SpriteAnimationComponent c) {
-    final named = atlas.getClip(c.clip);
+    final named = atlas.getClip(c.playingClip);
     if (named != null) return named;
     return _everyFrame[atlas] ??= AtlasAnimationClip(
       name: '',
@@ -414,15 +418,16 @@ class SpriteAnimationSystem extends System {
     final total = clip.totalDuration;
     if (total <= 0) return;
     final loops = c.loopOverride ?? clip.loop;
+    final speed = c.playingSpeed;
     // Switched to, or restarted, since this system last moved it.
-    final fresh = state.clip != c.clip || c.elapsed != state.elapsed;
+    final fresh = state.clip != c.playingClip || c.elapsed != state.elapsed;
 
     double now;
-    if (c.speed >= 0) {
+    if (speed >= 0) {
       final before = c.elapsed;
       // What sits on the very start happens as the clip begins.
       final starting = fresh && before <= 0;
-      now = before + dt * c.speed;
+      now = before + dt * speed;
       if (now >= total) {
         _fire(entity, atlas, c, before, total, fromStart: starting);
         if (loops) {
@@ -440,7 +445,7 @@ class SpriteAnimationSystem extends System {
       // wraps round to the end again.
       final starting = fresh && c.elapsed <= 0;
       final before = starting ? total : c.elapsed;
-      now = before + dt * c.speed;
+      now = before + dt * speed;
       if (now <= 0) {
         _fireBack(entity, atlas, c, 0, before, atEnd: starting);
         if (loops) {
@@ -458,7 +463,7 @@ class SpriteAnimationSystem extends System {
       ..elapsed = now
       ..frameIndex = clip.frameIndexAt(now);
     state
-      ..clip = c.clip
+      ..clip = c.playingClip
       ..elapsed = now;
   }
 
@@ -467,7 +472,11 @@ class SpriteAnimationSystem extends System {
       ..isComplete = true
       ..isPlaying = false;
     _signals.add(
-      SpriteAnimationSignal(entity, c.clip, SpriteAnimationSignal.completed),
+      SpriteAnimationSignal(
+        entity,
+        c.playingClip,
+        SpriteAnimationSignal.completed,
+      ),
     );
   }
 
@@ -482,10 +491,10 @@ class SpriteAnimationSystem extends System {
     bool fromStart = false,
   }) {
     if (!_signals.hasListener) return;
-    for (final event in _eventsOf(atlas, c.clip)) {
+    for (final event in _eventsOf(atlas, c.playingClip)) {
       final t = event.time;
       if ((t > after || (fromStart && t == after)) && t <= upTo) {
-        _signals.add(SpriteAnimationSignal(entity, c.clip, event.name));
+        _signals.add(SpriteAnimationSignal(entity, c.playingClip, event.name));
       }
     }
   }
@@ -501,11 +510,13 @@ class SpriteAnimationSystem extends System {
     bool atEnd = false,
   }) {
     if (!_signals.hasListener) return;
-    final events = _eventsOf(atlas, c.clip);
+    final events = _eventsOf(atlas, c.playingClip);
     for (var i = events.length - 1; i >= 0; i--) {
       final t = events[i].time;
       if (t >= from && (t < before || (atEnd && t == before))) {
-        _signals.add(SpriteAnimationSignal(entity, c.clip, events[i].name));
+        _signals.add(
+          SpriteAnimationSignal(entity, c.playingClip, events[i].name),
+        );
       }
     }
   }
@@ -561,7 +572,7 @@ class SpriteAnimationSystem extends System {
     sprite
       ..image = atlas.pages[region.pageIndex].image
       ..region = region
-      ..flipX = c.flipX
+      ..flipX = c.playingFlipX
       ..flipY = c.flipY
       ..tint = c.tint
       ..filterQuality = c.pixelArt

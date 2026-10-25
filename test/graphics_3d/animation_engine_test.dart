@@ -81,7 +81,8 @@ void main() {
       character(player);
       system().update(0.3);
       player.play('hop');
-      expect((player.clip, player.fadingFrom, player.fade), ('hop', 'bend', 0.0));
+      expect((player.playingClip, player.fadingFrom, player.fade), ('hop', 'bend', 0.0));
+      expect(player.clip, 'bend', reason: 'what was authored stays');
       system().update(0.25);
       expect(player.fade, closeTo(0.5, 1e-9));
       system().update(0.25);
