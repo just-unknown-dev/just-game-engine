@@ -62,34 +62,34 @@ class UnknownComponentTypeException implements Exception {
   /// 3-D graphics and 3-D physics components. Null for any other type.
   static String? builtInHint(String type) => switch (type) {
     'ModelComponent' ||
-    'LightComponent' ||
+    'Light3DComponent' ||
     'EnvironmentComponent' ||
     'AnimationPlayerComponent' ||
     'SocketComponent' ||
-    'Cube3D' ||
-    'Sphere3D' ||
-    'Plane3D' ||
-    'Cylinder3D' ||
-    'Capsule3D' ||
-    'Cone3D' ||
-    'Torus3D' ||
-    'Ramp3D' ||
-    'Stairs3D' ||
-    'Arch3D' ||
-    'Polygon3D' =>
+    'Cube3DComponent' ||
+    'Sphere3DComponent' ||
+    'Plane3DComponent' ||
+    'Cylinder3DComponent' ||
+    'Capsule3DComponent' ||
+    'Cone3DComponent' ||
+    'Torus3DComponent' ||
+    'Ramp3DComponent' ||
+    'Stairs3DComponent' ||
+    'Arch3DComponent' ||
+    'Polygon3DComponent' =>
       'It is a 3-D graphics component: give the engine '
           'EngineConfig(graphics3D: Graphics3D()) '
           '(package:just_game_engine/graphics_3d.dart).',
-    'RigidBody3D' ||
-    'Collider3D' ||
-    'CharacterBody3D' ||
-    'FixedJoint3D' ||
-    'PointJoint3D' ||
-    'HingeJoint3D' ||
-    'SliderJoint3D' ||
-    'DistanceJoint3D' ||
-    'SixDofJoint3D' ||
-    'CameraCollision3D' =>
+    'RigidBody3DComponent' ||
+    'Collider3DComponent' ||
+    'CharacterBody3DComponent' ||
+    'FixedJoint3DComponent' ||
+    'PointJoint3DComponent' ||
+    'HingeJoint3DComponent' ||
+    'SliderJoint3DComponent' ||
+    'DistanceJoint3DComponent' ||
+    'SixDofJoint3DComponent' ||
+    'CameraCollision3DComponent' =>
       'It is a 3-D physics component: give the engine '
           'EngineConfig(physics3D: Physics3D()) '
           '(package:just_game_engine/physics_3d.dart).',

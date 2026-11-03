@@ -1,4 +1,4 @@
-/// 2-D lighting: the frame lit by the world's [Light2D]s, as a screen pass.
+/// 2-D lighting: the frame lit by the world's [Light2DComponent]s, as a screen pass.
 library;
 
 import 'dart:math' as math;
@@ -13,12 +13,12 @@ import '../../ecs/systems/rendering/render_system.dart';
 import '../materials_2d/material_2d_library.dart';
 import '../rendering/screen_pass.dart';
 
-/// Lights the frame when the world has a [Lighting2D] on: the frame and its
+/// Lights the frame when the world has a [Lighting2DComponent] on: the frame and its
 /// normals (`RenderSystem.renderNormals`) drawn through
-/// `shaders/lighting_2d.frag`, lit by up to [maxLights] [Light2D]s — those
+/// `shaders/lighting_2d.frag`, lit by up to [maxLights] [Light2DComponent]s — those
 /// reaching the view, the nearest its middle first — over the ambient
 /// light. Lights that cast shadows are stopped by what casts them
-/// ([ShadowCaster2D], Level Map layers that cast them): their shapes drawn
+/// ([ShadowCaster2DComponent], Level Map layers that cast them): their shapes drawn
 /// into a mask (`RenderSystem.renderOccluders`), how far each light reaches
 /// every way found from it (`shaders/shadow_map_2d.frag`). What the engine
 /// puts first in `RenderingEngine.screenPasses`.
@@ -51,7 +51,7 @@ final class Lighting2DPass implements ScreenPass {
   /// aborts when one cannot be made — and light is smooth.
   static const int fullNormalsPixels = 1920 * 1080;
 
-  Lighting2D? _lighting;
+  Lighting2DComponent? _lighting;
   RenderSystem? _render;
   ui.FragmentShader? _shader;
   ui.FragmentProgram? _shaderOf;
@@ -64,8 +64,8 @@ final class Lighting2DPass implements ScreenPass {
 
   /// The lights drawn in the last frame, nearest the view's middle first.
   /// For tests and an editor's overlay.
-  List<Light2D> get lastLights => List.unmodifiable(_lastLights);
-  final List<Light2D> _lastLights = [];
+  List<Light2DComponent> get lastLights => List.unmodifiable(_lastLights);
+  final List<Light2DComponent> _lastLights = [];
 
   /// Whether it draws the normals the frame is lit by instead of lighting
   /// it — an editor's view of them, as a normal map draws them: red, green
@@ -83,10 +83,10 @@ final class Lighting2DPass implements ScreenPass {
     if (!enabled) return false;
     final w = world();
     if (w == null) return false;
-    Lighting2D? on;
-    for (final entity in w.query(const [Lighting2D])) {
+    Lighting2DComponent? on;
+    for (final entity in w.query(const [Lighting2DComponent])) {
       if (!entity.isActiveInHierarchy) continue;
-      final c = entity.getComponent<Lighting2D>();
+      final c = entity.getComponent<Lighting2DComponent>();
       if (c != null && c.enabled) {
         on = c;
         break;
@@ -221,10 +221,13 @@ final class Lighting2DPass implements ScreenPass {
 
     // The lights that reach the view, nearest its middle first.
     final middle = view.center;
-    final found = <(Light2D, TransformComponent, double)>[];
-    for (final entity in w.query(const [Light2D, TransformComponent])) {
+    final found = <(Light2DComponent, TransformComponent, double)>[];
+    for (final entity in w.query(const [
+      Light2DComponent,
+      TransformComponent,
+    ])) {
       if (!entity.isActiveInHierarchy) continue;
-      final light = entity.getComponent<Light2D>()!;
+      final light = entity.getComponent<Light2DComponent>()!;
       if (!light.enabled || light.radius <= 0 || light.intensity <= 0) continue;
       final t = entity.getComponent<TransformComponent>()!;
       final p = Offset(t.position.x, t.position.y);

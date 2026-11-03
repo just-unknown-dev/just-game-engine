@@ -5,13 +5,13 @@ import 'dart:ui' show Offset;
 import '../../ecs.dart';
 
 /// What a joint holds its entity's body to — in step with the 3-D
-/// `Joint3D`. The joint is on one entity (A, which has a body: a
-/// [RigidBody2D] and a [Collider2D]) and names the other ([connectedBody],
+/// `Joint3DComponent`. The joint is on one entity (A, which has a body: a
+/// [RigidBody2DComponent] and a [Collider2DComponent]) and names the other ([connectedBody],
 /// B). `PhysicsJointBindingSystem` makes it once both bodies exist, and
 /// again when a setting changes.
-abstract class Joint2D extends Component {
+abstract class Joint2DComponent extends Component {
   /// A joint to [connectedBody].
-  Joint2D({
+  Joint2DComponent({
     this.connectedBody = EntityTarget.none,
     this.anchor = Offset.zero,
     this.connectedAnchor = Offset.zero,
@@ -36,9 +36,9 @@ abstract class Joint2D extends Component {
 }
 
 /// Keeps two bodies a set distance apart, springily.
-class DistanceJoint2D extends Joint2D {
+class DistanceJoint2DComponent extends Joint2DComponent {
   /// A distance joint [length] long.
-  DistanceJoint2D({
+  DistanceJoint2DComponent({
     super.connectedBody,
     super.anchor,
     super.connectedAnchor,
@@ -62,9 +62,9 @@ class DistanceJoint2D extends Joint2D {
 }
 
 /// Holds two bodies rigidly together (Box2D calls it a weld).
-class FixedJoint2D extends Joint2D {
+class FixedJoint2DComponent extends Joint2DComponent {
   /// A fixed joint.
-  FixedJoint2D({
+  FixedJoint2DComponent({
     super.connectedBody,
     super.anchor,
     super.connectedAnchor,
@@ -75,9 +75,9 @@ class FixedJoint2D extends Joint2D {
 
 /// Lets two bodies slide along one axis: a drawer, a piston, a lift (Box2D
 /// calls it prismatic).
-class SliderJoint2D extends Joint2D {
+class SliderJoint2DComponent extends Joint2DComponent {
   /// A slider along [axis].
-  SliderJoint2D({
+  SliderJoint2DComponent({
     super.connectedBody,
     super.anchor,
     super.connectedAnchor,
@@ -112,9 +112,9 @@ class SliderJoint2D extends Joint2D {
 }
 
 /// A wheel on a suspension along [axis].
-class WheelJoint2D extends Joint2D {
+class WheelJoint2DComponent extends Joint2DComponent {
   /// A wheel joint.
-  WheelJoint2D({
+  WheelJoint2DComponent({
     super.connectedBody,
     super.anchor,
     super.connectedAnchor,

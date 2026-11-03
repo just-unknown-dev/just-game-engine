@@ -39,21 +39,21 @@ Future<void> main() async {
   final world = engine.world;
   world.createEntityWithComponents([
     TransformComponent(),
-    Plane3D(width: 20, depth: 20, color: const Color(0xFF7A8B6F)),
+    Plane3DComponent(width: 20, depth: 20, color: const Color(0xFF7A8B6F)),
   ], name: 'Ground');
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(-1.5, -0.5, 0)),
-    Cube3D(color: Colors.orange, roughness: 0.6),
+    Cube3DComponent(color: Colors.orange, roughness: 0.6),
   ], name: 'Crate');
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(1.5, -0.5, 0)),
-    Sphere3D(color: const Color(0xFFFFD54F), metallic: 1, roughness: 0.25),
+    Sphere3DComponent(color: const Color(0xFFFFD54F), metallic: 1, roughness: 0.25),
   ], name: 'GoldBall');
 
   // The sun shines along its entity's +Z axis, here turned to point down.
   world.createEntityWithComponents([
     TransformComponent(euler: Vector3(-0.9, 0.4, 0)),
-    LightComponent(kind: LightKind.directional, intensity: 3),
+    Light3DComponent(kind: LightKind.directional, intensity: 3),
   ], name: 'Sun');
   world.createEntityWithComponents([
     TransformComponent(),
@@ -128,7 +128,7 @@ void walk(Entity knight) {
 
 ## Lights and sky
 
-`LightComponent` lights the scene from its entity:
+`Light3DComponent` lights the scene from its entity:
 
 - `LightKind.directional`: a sun, shining along the entity's +Z axis; turn the entity to aim it. The first one is the sun the renderer uses, and it casts the shadows.
 - `LightKind.point`, the default: shines every way from the entity, out to `range` metres (0 for no limit).
@@ -144,21 +144,21 @@ Eleven shapes build their own meshes from their sizes, in metres, centred on the
 
 | Shape | Sizes, with defaults |
 |---|---|
-| `Cube3D` | `width`, `height`, `depth` (1 each) |
-| `Plane3D` | `width`, `depth` (10 each); flat, seen from both sides |
-| `Sphere3D` | `radius` (0.5), `segments`, `rings` |
-| `Cylinder3D` | `radius` (0.5), `height` (1), `segments` |
-| `Capsule3D` | `radius` (0.5), `height` (2, ends included) |
-| `Cone3D` | `radius` (0.5), `height` (1), tip up |
-| `Torus3D` | `radius` (0.5, to the middle of the tube), `tubeRadius` (0.2) |
-| `Ramp3D` | `width` (1), `height` (1, at its back), `depth` (2), rising towards +Z |
-| `Stairs3D` | `width` (1), `height` (1), `depth` (2), `steps` (5) |
-| `Arch3D` | `radius` (1.5, outside), `thickness` (0.3), `depth` (0.5), `angle` (half a turn) |
-| `Polygon3D` | `points`, an (x, z) outline (a hexagon by default), and `height` (1) |
+| `Cube3DComponent` | `width`, `height`, `depth` (1 each) |
+| `Plane3DComponent` | `width`, `depth` (10 each); flat, seen from both sides |
+| `Sphere3DComponent` | `radius` (0.5), `segments`, `rings` |
+| `Cylinder3DComponent` | `radius` (0.5), `height` (1), `segments` |
+| `Capsule3DComponent` | `radius` (0.5), `height` (2, ends included) |
+| `Cone3DComponent` | `radius` (0.5), `height` (1), tip up |
+| `Torus3DComponent` | `radius` (0.5, to the middle of the tube), `tubeRadius` (0.2) |
+| `Ramp3DComponent` | `width` (1), `height` (1, at its back), `depth` (2), rising towards +Z |
+| `Stairs3DComponent` | `width` (1), `height` (1), `depth` (2), `steps` (5) |
+| `Arch3DComponent` | `radius` (1.5, outside), `thickness` (0.3), `depth` (0.5), `angle` (half a turn) |
+| `Polygon3DComponent` | `points`, an (x, z) outline (a hexagon by default), and `height` (1) |
 
 Every shape also carries its material: `color`, `metallic` (0 to 1), `roughness` (0 a mirror, 1 chalk), `emission` and `emissionStrength` for a glow, `opacity` (below 1 draws blended), `unlit`, and a `texture` repeated `tiling` times per face, or per metre with `tileInMetres`. `castShadows` and `visible` switch it, and round shapes take `smooth: false` for a faceted look.
 
-An entity has at most one shape: find it with `entity.getComponent<Primitive3D>()`. Equal shapes share a mesh and a material, so a hundred equal crates are one draw. In [3D physics](/docs/physics-3d), `Collider3D(shape: ColliderShape3D.matchShape)` gives a body the same shape.
+An entity has at most one shape: find it with `entity.getComponent<Primitive3DComponent>()`. Equal shapes share a mesh and a material, so a hundred equal crates are one draw. In [3D physics](/docs/physics-3d), `Collider3DComponent(shape: ColliderShape3D.matchShape)` gives a body the same shape.
 
 ## Performance and stats
 

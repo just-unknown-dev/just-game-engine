@@ -12,7 +12,7 @@ import 'physics_queries_3d.dart';
 import 'physics_system_3d.dart';
 
 /// 3-D physics for an engine. Give one to the engine and its 3-D physics
-/// components — [RigidBody3D], [Collider3D], [CharacterBody3D] and the
+/// components — [RigidBody3DComponent], [Collider3DComponent], [CharacterBody3DComponent] and the
 /// joints — are saved, loaded, offered in the editor's 3-D scenes and
 /// simulated:
 ///

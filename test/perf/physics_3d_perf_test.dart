@@ -27,10 +27,10 @@ void main() {
         TransformComponent(
           position: Vector3((i % 25) * 2.0, -(i ~/ 25) * 2.0, 0),
         ),
-        Collider3D(
+        Collider3DComponent(
           shape: i.isEven ? ColliderShape3D.box : ColliderShape3D.sphere,
         ),
-        RigidBody3D(canSleep: false),
+        RigidBody3DComponent(canSleep: false),
       ]);
     }
     for (var i = 0; i < 30; i++) {

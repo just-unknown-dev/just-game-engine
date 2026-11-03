@@ -23,12 +23,12 @@ import 'field_type.dart';
 /// matching schema field — an inspector field that did not persist would
 /// look editable and quietly lose its value on save.
 abstract final class CoreComponentSchemas {
-  /// [Material2D].
-  static ComponentSchema<Material2D> get material2D =>
-      ComponentSchema<Material2D>(
-        type: 'Material2D',
+  /// [Material2DComponent].
+  static ComponentSchema<Material2DComponent> get material2D =>
+      ComponentSchema<Material2DComponent>(
+        type: 'Material2DComponent',
         id: 'material_2d_4c8e1b27',
-        create: Material2D.new,
+        create: Material2DComponent.new,
         hints: const ComponentHints(
           dimensions: Dimensions.twoD,
           name: 'Material',
@@ -55,14 +55,16 @@ abstract final class CoreComponentSchemas {
           SchemaField(
             name: 'material',
             kind: FieldTypes.assetRef,
-            read: (c) => (c as Material2D).material,
-            write: (c, v) => (c as Material2D).material = v as String? ?? '',
+            read: (c) => (c as Material2DComponent).material,
+            write: (c, v) =>
+                (c as Material2DComponent).material = v as String? ?? '',
           ),
           SchemaField(
             name: 'overrides',
             kind: MaterialOverridesFieldType.material2D,
-            read: (c) => Map<Object?, Object?>.of((c as Material2D).overrides),
-            write: (c, v) => (c as Material2D).overrides = {
+            read: (c) =>
+                Map<Object?, Object?>.of((c as Material2DComponent).overrides),
+            write: (c, v) => (c as Material2DComponent).overrides = {
               if (v is Map)
                 for (final e in v.entries)
                   if (e.value != null) '${e.key}': e.value as Object,
@@ -71,12 +73,12 @@ abstract final class CoreComponentSchemas {
         ],
       );
 
-  /// [ScreenMaterial].
-  static ComponentSchema<ScreenMaterial> get screenMaterial =>
-      ComponentSchema<ScreenMaterial>(
-        type: 'ScreenMaterial',
+  /// [ScreenMaterialComponent].
+  static ComponentSchema<ScreenMaterialComponent> get screenMaterial =>
+      ComponentSchema<ScreenMaterialComponent>(
+        type: 'ScreenMaterialComponent',
         id: 'screen_material_2d_71d3a0e5',
-        create: ScreenMaterial.new,
+        create: ScreenMaterialComponent.new,
         hints: const ComponentHints(
           dimensions: Dimensions.twoD,
           name: 'Screen Material',
@@ -109,29 +111,31 @@ abstract final class CoreComponentSchemas {
           SchemaField(
             name: 'material',
             kind: FieldTypes.assetRef,
-            read: (c) => (c as ScreenMaterial).material,
+            read: (c) => (c as ScreenMaterialComponent).material,
             write: (c, v) =>
-                (c as ScreenMaterial).material = v as String? ?? '',
+                (c as ScreenMaterialComponent).material = v as String? ?? '',
           ),
           SchemaField(
             name: 'enabled',
             kind: FieldTypes.boolean,
-            read: (c) => (c as ScreenMaterial).enabled,
-            write: (c, v) => (c as ScreenMaterial).enabled = v as bool? ?? true,
+            read: (c) => (c as ScreenMaterialComponent).enabled,
+            write: (c, v) =>
+                (c as ScreenMaterialComponent).enabled = v as bool? ?? true,
           ),
           SchemaField(
             name: 'order',
             kind: FieldTypes.integer,
-            read: (c) => (c as ScreenMaterial).order,
-            write: (c, v) =>
-                (c as ScreenMaterial).order = (v as num?)?.toInt() ?? 0,
+            read: (c) => (c as ScreenMaterialComponent).order,
+            write: (c, v) => (c as ScreenMaterialComponent).order =
+                (v as num?)?.toInt() ?? 0,
           ),
           SchemaField(
             name: 'overrides',
             kind: MaterialOverridesFieldType.material2D,
-            read: (c) =>
-                Map<Object?, Object?>.of((c as ScreenMaterial).overrides),
-            write: (c, v) => (c as ScreenMaterial).overrides = {
+            read: (c) => Map<Object?, Object?>.of(
+              (c as ScreenMaterialComponent).overrides,
+            ),
+            write: (c, v) => (c as ScreenMaterialComponent).overrides = {
               if (v is Map)
                 for (final e in v.entries)
                   if (e.value != null) '${e.key}': e.value as Object,
@@ -140,136 +144,145 @@ abstract final class CoreComponentSchemas {
         ],
       );
 
-  /// [Light2D].
-  static ComponentSchema<Light2D> get light2D => ComponentSchema<Light2D>(
-    type: 'Light2D',
-    id: 'light_2d_8b5e2f94',
-    create: Light2D.new,
-    hints: ComponentHints(
-      dimensions: Dimensions.twoD,
-      name: 'Light 2D',
-      group: 'Lighting',
-      description:
-          'A point or spot light for a scene with Lighting 2D on: it '
-          'shades sprites by their normal maps and casts shadows.',
-      icon: Icons.lightbulb_outline,
-      accentColor: const Color(0xFFFFCA28),
-      fields: {
-        'kind': const FieldHint(label: 'Kind'),
-        'colour': const FieldHint(label: 'Colour'),
-        'intensity': const FieldHint(
-          label: 'Intensity',
-          scrub: ScrubHint(step: 0.1, fractionDigits: 2),
-        ),
-        'radius': const FieldHint(
-          label: 'Radius',
-          scrub: ScrubHint(step: 4, fractionDigits: 0, suffix: 'px'),
-        ),
-        'height': const FieldHint(
-          label: 'Height',
+  /// [Light2DComponent].
+  static ComponentSchema<Light2DComponent> get light2D =>
+      ComponentSchema<Light2DComponent>(
+        type: 'Light2DComponent',
+        id: 'light_2d_8b5e2f94',
+        create: Light2DComponent.new,
+        hints: ComponentHints(
+          dimensions: Dimensions.twoD,
+          name: 'Light 2D',
+          group: 'Lighting',
           description:
-              'How far above the scene it hangs: the lower, '
-              'the more bumps catch it from the side.',
-          scrub: ScrubHint(step: 1, fractionDigits: 0, suffix: 'px'),
+              'A point or spot light for a scene with Lighting 2D on: it '
+              'shades sprites by their normal maps and casts shadows.',
+          icon: Icons.lightbulb_outline,
+          accentColor: const Color(0xFFFFCA28),
+          fields: {
+            'kind': const FieldHint(label: 'Kind'),
+            'colour': const FieldHint(label: 'Colour'),
+            'intensity': const FieldHint(
+              label: 'Intensity',
+              scrub: ScrubHint(step: 0.1, fractionDigits: 2),
+            ),
+            'radius': const FieldHint(
+              label: 'Radius',
+              scrub: ScrubHint(step: 4, fractionDigits: 0, suffix: 'px'),
+            ),
+            'height': const FieldHint(
+              label: 'Height',
+              description:
+                  'How far above the scene it hangs: the lower, '
+                  'the more bumps catch it from the side.',
+              scrub: ScrubHint(step: 1, fractionDigits: 0, suffix: 'px'),
+            ),
+            'falloff': const FieldHint(
+              label: 'Falloff',
+              scrub: ScrubHint(step: 0.1, fractionDigits: 1),
+            ),
+            'coneAngle': FieldHint(
+              label: 'Cone',
+              scrub: const ScrubHint(step: 1, fractionDigits: 0, suffix: '°'),
+              visibleWhen: (c) =>
+                  (c as Light2DComponent).kind == Light2DKind.spot,
+            ),
+            'coneSoftness': FieldHint(
+              label: 'Cone edge',
+              scrub: const ScrubHint(step: 0.05, fractionDigits: 2),
+              visibleWhen: (c) =>
+                  (c as Light2DComponent).kind == Light2DKind.spot,
+            ),
+            'castsShadows': const FieldHint(label: 'Casts shadows'),
+            'enabled': const FieldHint(label: 'Enabled'),
+          },
         ),
-        'falloff': const FieldHint(
-          label: 'Falloff',
-          scrub: ScrubHint(step: 0.1, fractionDigits: 1),
-        ),
-        'coneAngle': FieldHint(
-          label: 'Cone',
-          scrub: const ScrubHint(step: 1, fractionDigits: 0, suffix: '°'),
-          visibleWhen: (c) => (c as Light2D).kind == Light2DKind.spot,
-        ),
-        'coneSoftness': FieldHint(
-          label: 'Cone edge',
-          scrub: const ScrubHint(step: 0.05, fractionDigits: 2),
-          visibleWhen: (c) => (c as Light2D).kind == Light2DKind.spot,
-        ),
-        'castsShadows': const FieldHint(label: 'Casts shadows'),
-        'enabled': const FieldHint(label: 'Enabled'),
-      },
-    ),
-    fields: [
-      SchemaField(
-        name: 'kind',
-        kind: const EnumFieldType(
-          Light2DKind.values,
-          fallback: Light2DKind.point,
-          id: 'rendering.light2DKind',
-        ),
-        read: (c) => (c as Light2D).kind,
-        write: (c, v) => (c as Light2D).kind = v as Light2DKind,
-      ),
-      SchemaField(
-        name: 'colour',
-        kind: FieldTypes.color,
-        read: (c) => (c as Light2D).colour,
-        write: (c, v) => (c as Light2D).colour = v as Color,
-      ),
-      SchemaField(
-        name: 'intensity',
-        kind: FieldTypes.decimal,
-        read: (c) => (c as Light2D).intensity,
-        write: (c, v) => (c as Light2D).intensity = (v as num).toDouble(),
-        min: 0,
-      ),
-      SchemaField(
-        name: 'radius',
-        kind: FieldTypes.decimal,
-        read: (c) => (c as Light2D).radius,
-        write: (c, v) => (c as Light2D).radius = (v as num).toDouble(),
-        min: 0,
-      ),
-      SchemaField(
-        name: 'height',
-        kind: FieldTypes.decimal,
-        read: (c) => (c as Light2D).height,
-        write: (c, v) => (c as Light2D).height = (v as num).toDouble(),
-        min: 0,
-      ),
-      SchemaField(
-        name: 'falloff',
-        kind: FieldTypes.decimal,
-        read: (c) => (c as Light2D).falloff,
-        write: (c, v) => (c as Light2D).falloff = (v as num).toDouble(),
-        min: 0.1,
-      ),
-      SchemaField(
-        name: 'coneAngle',
-        kind: FieldTypes.decimal,
-        read: (c) => (c as Light2D).coneAngle,
-        write: (c, v) => (c as Light2D).coneAngle = (v as num).toDouble(),
-        min: 0,
-      ),
-      SchemaField(
-        name: 'coneSoftness',
-        kind: FieldTypes.decimal,
-        read: (c) => (c as Light2D).coneSoftness,
-        write: (c, v) => (c as Light2D).coneSoftness = (v as num).toDouble(),
-        min: 0,
-      ),
-      SchemaField(
-        name: 'castsShadows',
-        kind: FieldTypes.boolean,
-        read: (c) => (c as Light2D).castsShadows,
-        write: (c, v) => (c as Light2D).castsShadows = v as bool,
-      ),
-      SchemaField(
-        name: 'enabled',
-        kind: FieldTypes.boolean,
-        read: (c) => (c as Light2D).enabled,
-        write: (c, v) => (c as Light2D).enabled = v as bool,
-      ),
-    ],
-  );
+        fields: [
+          SchemaField(
+            name: 'kind',
+            kind: const EnumFieldType(
+              Light2DKind.values,
+              fallback: Light2DKind.point,
+              id: 'rendering.light2DKind',
+            ),
+            read: (c) => (c as Light2DComponent).kind,
+            write: (c, v) => (c as Light2DComponent).kind = v as Light2DKind,
+          ),
+          SchemaField(
+            name: 'colour',
+            kind: FieldTypes.color,
+            read: (c) => (c as Light2DComponent).colour,
+            write: (c, v) => (c as Light2DComponent).colour = v as Color,
+          ),
+          SchemaField(
+            name: 'intensity',
+            kind: FieldTypes.decimal,
+            read: (c) => (c as Light2DComponent).intensity,
+            write: (c, v) =>
+                (c as Light2DComponent).intensity = (v as num).toDouble(),
+            min: 0,
+          ),
+          SchemaField(
+            name: 'radius',
+            kind: FieldTypes.decimal,
+            read: (c) => (c as Light2DComponent).radius,
+            write: (c, v) =>
+                (c as Light2DComponent).radius = (v as num).toDouble(),
+            min: 0,
+          ),
+          SchemaField(
+            name: 'height',
+            kind: FieldTypes.decimal,
+            read: (c) => (c as Light2DComponent).height,
+            write: (c, v) =>
+                (c as Light2DComponent).height = (v as num).toDouble(),
+            min: 0,
+          ),
+          SchemaField(
+            name: 'falloff',
+            kind: FieldTypes.decimal,
+            read: (c) => (c as Light2DComponent).falloff,
+            write: (c, v) =>
+                (c as Light2DComponent).falloff = (v as num).toDouble(),
+            min: 0.1,
+          ),
+          SchemaField(
+            name: 'coneAngle',
+            kind: FieldTypes.decimal,
+            read: (c) => (c as Light2DComponent).coneAngle,
+            write: (c, v) =>
+                (c as Light2DComponent).coneAngle = (v as num).toDouble(),
+            min: 0,
+          ),
+          SchemaField(
+            name: 'coneSoftness',
+            kind: FieldTypes.decimal,
+            read: (c) => (c as Light2DComponent).coneSoftness,
+            write: (c, v) =>
+                (c as Light2DComponent).coneSoftness = (v as num).toDouble(),
+            min: 0,
+          ),
+          SchemaField(
+            name: 'castsShadows',
+            kind: FieldTypes.boolean,
+            read: (c) => (c as Light2DComponent).castsShadows,
+            write: (c, v) => (c as Light2DComponent).castsShadows = v as bool,
+          ),
+          SchemaField(
+            name: 'enabled',
+            kind: FieldTypes.boolean,
+            read: (c) => (c as Light2DComponent).enabled,
+            write: (c, v) => (c as Light2DComponent).enabled = v as bool,
+          ),
+        ],
+      );
 
-  /// [ShadowCaster2D].
-  static ComponentSchema<ShadowCaster2D> get shadowCaster2D =>
-      ComponentSchema<ShadowCaster2D>(
-        type: 'ShadowCaster2D',
+  /// [ShadowCaster2DComponent].
+  static ComponentSchema<ShadowCaster2DComponent> get shadowCaster2D =>
+      ComponentSchema<ShadowCaster2DComponent>(
+        type: 'ShadowCaster2DComponent',
         id: 'shadow_caster_2d_d29a4c17',
-        create: ShadowCaster2D.new,
+        create: ShadowCaster2DComponent.new,
         hints: const ComponentHints(
           dimensions: Dimensions.twoD,
           name: 'Shadow Caster 2D',
@@ -294,27 +307,27 @@ abstract final class CoreComponentSchemas {
           SchemaField(
             name: 'enabled',
             kind: FieldTypes.boolean,
-            read: (c) => (c as ShadowCaster2D).enabled,
-            write: (c, v) => (c as ShadowCaster2D).enabled = v as bool,
+            read: (c) => (c as ShadowCaster2DComponent).enabled,
+            write: (c, v) => (c as ShadowCaster2DComponent).enabled = v as bool,
           ),
           SchemaField(
             name: 'depth',
             kind: FieldTypes.decimal,
-            read: (c) => (c as ShadowCaster2D).depth,
+            read: (c) => (c as ShadowCaster2DComponent).depth,
             write: (c, v) =>
-                (c as ShadowCaster2D).depth = (v as num).toDouble(),
+                (c as ShadowCaster2DComponent).depth = (v as num).toDouble(),
             min: 0,
             max: 64,
           ),
         ],
       );
 
-  /// [Lighting2D].
-  static ComponentSchema<Lighting2D> get lighting2D =>
-      ComponentSchema<Lighting2D>(
-        type: 'Lighting2D',
+  /// [Lighting2DComponent].
+  static ComponentSchema<Lighting2DComponent> get lighting2D =>
+      ComponentSchema<Lighting2DComponent>(
+        type: 'Lighting2DComponent',
         id: 'lighting_2d_3f61c8a2',
-        create: Lighting2D.new,
+        create: Lighting2DComponent.new,
         hints: const ComponentHints(
           dimensions: Dimensions.twoD,
           name: 'Lighting 2D',
@@ -341,29 +354,29 @@ abstract final class CoreComponentSchemas {
           SchemaField(
             name: 'enabled',
             kind: FieldTypes.boolean,
-            read: (c) => (c as Lighting2D).enabled,
-            write: (c, v) => (c as Lighting2D).enabled = v as bool,
+            read: (c) => (c as Lighting2DComponent).enabled,
+            write: (c, v) => (c as Lighting2DComponent).enabled = v as bool,
           ),
           SchemaField(
             name: 'ambient',
             kind: FieldTypes.color,
-            read: (c) => (c as Lighting2D).ambient,
-            write: (c, v) => (c as Lighting2D).ambient = v as Color,
+            read: (c) => (c as Lighting2DComponent).ambient,
+            write: (c, v) => (c as Lighting2DComponent).ambient = v as Color,
           ),
           SchemaField(
             name: 'ambientIntensity',
             kind: FieldTypes.decimal,
-            read: (c) => (c as Lighting2D).ambientIntensity,
-            write: (c, v) =>
-                (c as Lighting2D).ambientIntensity = (v as num).toDouble(),
+            read: (c) => (c as Lighting2DComponent).ambientIntensity,
+            write: (c, v) => (c as Lighting2DComponent).ambientIntensity =
+                (v as num).toDouble(),
             min: 0,
           ),
           SchemaField(
             name: 'shadowSoftness',
             kind: FieldTypes.decimal,
-            read: (c) => (c as Lighting2D).shadowSoftness,
-            write: (c, v) =>
-                (c as Lighting2D).shadowSoftness = (v as num).toDouble(),
+            read: (c) => (c as Lighting2DComponent).shadowSoftness,
+            write: (c, v) => (c as Lighting2DComponent).shadowSoftness =
+                (v as num).toDouble(),
             min: 0,
           ),
         ],
@@ -486,10 +499,10 @@ abstract final class CoreComponentSchemas {
         ],
       );
 
-  /// [LineComponent], from `line_editor_component.dart`.
-  static ComponentSchema<LineComponent> get line =>
-      ComponentSchema<LineComponent>(
-        type: 'LineComponent',
+  /// [Line2DComponent], from `line_editor_component.dart`.
+  static ComponentSchema<Line2DComponent> get line =>
+      ComponentSchema<Line2DComponent>(
+        type: 'Line2DComponent',
         hints: const ComponentHints(
           dimensions: Dimensions.twoD,
           name: 'Line',
@@ -526,73 +539,73 @@ abstract final class CoreComponentSchemas {
           },
         ),
         id: 'line_5a69b8e2',
-        create: () => LineComponent(end: const Offset(100, 0)),
+        create: () => Line2DComponent(end: const Offset(100, 0)),
         extent: const _LineExtent(),
         fields: [
           SchemaField(
             name: 'startX',
             kind: FieldTypes.decimal,
-            read: (c) => (c as LineComponent).start.dx,
+            read: (c) => (c as Line2DComponent).start.dx,
             write: (c, v) {
-              final l = c as LineComponent;
+              final l = c as Line2DComponent;
               l.start = Offset((v as num).toDouble(), l.start.dy);
             },
           ),
           SchemaField(
             name: 'startY',
             kind: FieldTypes.decimal,
-            read: (c) => (c as LineComponent).start.dy,
+            read: (c) => (c as Line2DComponent).start.dy,
             write: (c, v) {
-              final l = c as LineComponent;
+              final l = c as Line2DComponent;
               l.start = Offset(l.start.dx, (v as num).toDouble());
             },
           ),
           SchemaField(
             name: 'endX',
             kind: FieldTypes.decimal,
-            read: (c) => (c as LineComponent).end.dx,
+            read: (c) => (c as Line2DComponent).end.dx,
             write: (c, v) {
-              final l = c as LineComponent;
+              final l = c as Line2DComponent;
               l.end = Offset((v as num).toDouble(), l.end.dy);
             },
           ),
           SchemaField(
             name: 'endY',
             kind: FieldTypes.decimal,
-            read: (c) => (c as LineComponent).end.dy,
+            read: (c) => (c as Line2DComponent).end.dy,
             write: (c, v) {
-              final l = c as LineComponent;
+              final l = c as Line2DComponent;
               l.end = Offset(l.end.dx, (v as num).toDouble());
             },
           ),
           SchemaField(
             name: 'strokeColor',
             kind: FieldTypes.shapePaintStyle,
-            read: (c) => (c as LineComponent).strokeStyle,
+            read: (c) => (c as Line2DComponent).strokeStyle,
             write: (c, v) =>
-                (c as LineComponent).strokeStyle = v as ShapePaintStyle,
+                (c as Line2DComponent).strokeStyle = v as ShapePaintStyle,
           ),
           SchemaField(
             name: 'strokeW',
             kind: FieldTypes.decimal,
-            read: (c) => (c as LineComponent).strokeWidth,
+            read: (c) => (c as Line2DComponent).strokeWidth,
             write: (c, v) =>
-                (c as LineComponent).strokeWidth = (v as num).toDouble(),
+                (c as Line2DComponent).strokeWidth = (v as num).toDouble(),
             min: 0.0,
           ),
           SchemaField(
             name: 'roundCaps',
             kind: FieldTypes.boolean,
-            read: (c) => (c as LineComponent).roundCaps,
-            write: (c, v) => (c as LineComponent).roundCaps = v as bool,
+            read: (c) => (c as Line2DComponent).roundCaps,
+            write: (c, v) => (c as Line2DComponent).roundCaps = v as bool,
           ),
         ],
       );
 
-  /// [PolygonComponent], from `polygon_editor_component.dart`.
-  static ComponentSchema<PolygonComponent> get polygon =>
-      ComponentSchema<PolygonComponent>(
-        type: 'PolygonComponent',
+  /// [Polygon2DComponent], from `polygon_editor_component.dart`.
+  static ComponentSchema<Polygon2DComponent> get polygon =>
+      ComponentSchema<Polygon2DComponent>(
+        type: 'Polygon2DComponent',
         hints: const ComponentHints(
           dimensions: Dimensions.twoD,
           name: 'Polygon',
@@ -616,7 +629,7 @@ abstract final class CoreComponentSchemas {
           },
         ),
         id: 'polygon_671a97e0',
-        create: () => PolygonComponent(
+        create: () => Polygon2DComponent(
           vertices: const [
             Offset(-32, -32),
             Offset(32, -32),
@@ -629,7 +642,7 @@ abstract final class CoreComponentSchemas {
           SchemaField(
             name: 'vertCount',
             kind: FieldTypes.integer,
-            read: (c) => (c as PolygonComponent).vertices.length,
+            read: (c) => (c as Polygon2DComponent).vertices.length,
           ),
           // The shape itself. The descriptor this schema was transcribed from
           // saved only the count, so every polygon reloaded as the default
@@ -637,37 +650,37 @@ abstract final class CoreComponentSchemas {
           SchemaField(
             name: 'vertices',
             kind: FieldTypes.offsetList,
-            read: (c) => (c as PolygonComponent).vertices,
-            write: (c, v) => (c as PolygonComponent).vertices = (v as List)
+            read: (c) => (c as Polygon2DComponent).vertices,
+            write: (c, v) => (c as Polygon2DComponent).vertices = (v as List)
                 .cast<Offset>()
                 .toList(),
           ),
           SchemaField(
             name: 'filled',
             kind: FieldTypes.boolean,
-            read: (c) => (c as PolygonComponent).filled,
-            write: (c, v) => (c as PolygonComponent).filled = v as bool,
+            read: (c) => (c as Polygon2DComponent).filled,
+            write: (c, v) => (c as Polygon2DComponent).filled = v as bool,
           ),
           SchemaField(
             name: 'fillColor',
             kind: FieldTypes.shapePaintStyle,
-            read: (c) => (c as PolygonComponent).fillStyle,
+            read: (c) => (c as Polygon2DComponent).fillStyle,
             write: (c, v) =>
-                (c as PolygonComponent).fillStyle = v as ShapePaintStyle,
+                (c as Polygon2DComponent).fillStyle = v as ShapePaintStyle,
           ),
           SchemaField(
             name: 'strokeColor',
             kind: FieldTypes.shapePaintStyle,
-            read: (c) => (c as PolygonComponent).strokeStyle,
+            read: (c) => (c as Polygon2DComponent).strokeStyle,
             write: (c, v) =>
-                (c as PolygonComponent).strokeStyle = v as ShapePaintStyle,
+                (c as Polygon2DComponent).strokeStyle = v as ShapePaintStyle,
           ),
           SchemaField(
             name: 'strokeW',
             kind: FieldTypes.decimal,
-            read: (c) => (c as PolygonComponent).strokeWidth,
+            read: (c) => (c as Polygon2DComponent).strokeWidth,
             write: (c, v) =>
-                (c as PolygonComponent).strokeWidth = (v as num).toDouble(),
+                (c as Polygon2DComponent).strokeWidth = (v as num).toDouble(),
             min: 0.0,
           ),
         ],
@@ -1249,7 +1262,7 @@ class _PolygonExtent extends ComponentExtent {
 
   @override
   Size? sizeOf(Component component) {
-    final vertices = (component as PolygonComponent).vertices;
+    final vertices = (component as Polygon2DComponent).vertices;
     if (vertices.isEmpty) return null;
     var bounds = Rect.fromPoints(vertices.first, vertices.first);
     for (final v in vertices) {
@@ -1260,7 +1273,7 @@ class _PolygonExtent extends ComponentExtent {
 
   @override
   bool scale(Component component, double sx, double sy) {
-    final polygon = component as PolygonComponent;
+    final polygon = component as Polygon2DComponent;
     polygon.vertices = [
       for (final v in polygon.vertices) Offset(v.dx * sx, v.dy * sy),
     ];
@@ -1275,13 +1288,13 @@ class _LineExtent extends ComponentExtent {
 
   @override
   Size? sizeOf(Component component) {
-    final line = component as LineComponent;
+    final line = component as Line2DComponent;
     return Rect.fromPoints(line.start, line.end).size;
   }
 
   @override
   bool scale(Component component, double sx, double sy) {
-    final line = component as LineComponent;
+    final line = component as Line2DComponent;
     final mid = (line.start + line.end) / 2;
     Offset about(Offset p) =>
         Offset(mid.dx + (p.dx - mid.dx) * sx, mid.dy + (p.dy - mid.dy) * sy);

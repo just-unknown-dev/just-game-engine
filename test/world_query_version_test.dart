@@ -103,7 +103,7 @@ void main() {
       world.addSystem(render);
       final first = world.createEntityWithComponents([
         TransformComponent(),
-        RectangleComponent(width: 4, height: 4),
+        Rectangle2DComponent(width: 4, height: 4),
       ]);
       expect(render.debugDrawOrder().map((d) => d.$1), [first]);
 
@@ -114,12 +114,12 @@ void main() {
 
       final second = world.createEntityWithComponents([
         TransformComponent(),
-        CircleComponent(radius: 2),
+        Circle2DComponent(radius: 2),
       ]);
       expect(render.debugDrawOrder().map((d) => d.$1), [first, second]);
 
       // A renderable replaced is drawn as the new one.
-      final replacement = RectangleComponent(width: 8, height: 8);
+      final replacement = Rectangle2DComponent(width: 8, height: 8);
       first.addComponent(replacement);
       expect(
         render.debugDrawOrder().map((d) => d.$1),
@@ -140,11 +140,11 @@ void main() {
       world.update(1 / 60);
       final box = world.createEntityWithComponents([
         TransformComponent(),
-        Collider2D(size: Vector2(4, 4)),
+        Collider2DComponent(size: Vector2(4, 4)),
       ]);
       world.update(1 / 60);
       expect(box.hasComponent<PhysicsBodyRefComponent>(), isTrue);
-      box.removeComponent<Collider2D>();
+      box.removeComponent<Collider2DComponent>();
       world.update(1 / 60);
       expect(box.hasComponent<PhysicsBodyRefComponent>(), isFalse);
     });

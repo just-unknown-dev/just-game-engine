@@ -37,8 +37,8 @@ Each guide is `<slug>.md` (the site's page is `/docs/<slug>`): a `# Title`, then
 
 ## Gameplay
 
-- [2D physics](physics-2d.md): Give entities bodies and shapes with RigidBody2D and Collider2D, move them with forces or a CharacterBody2D, and react to collisions, sensors and queries.
-- [3D physics](physics-3d.md): Opt into Jolt-based 3D physics with Physics3D, then use RigidBody3D, Collider3D and CharacterBody3D, which mirror the 2D components.
+- [2D physics](physics-2d.md): Give entities bodies and shapes with RigidBody2DComponent and Collider2DComponent, move them with forces or a CharacterBody2DComponent, and react to collisions, sensors and queries.
+- [3D physics](physics-3d.md): Opt into Jolt-based 3D physics with Physics3D, then use RigidBody3DComponent, Collider3DComponent and CharacterBody3DComponent, which mirror the 2D components.
 - [Input](input.md): Read named actions from keyboard, mouse, gamepads and touch through engine.input, with local multiplayer, rebinding and on-screen controls.
 - [Level maps](level-maps.md): Draw tile maps from the scene, a .map.json file or a Tiled .tmx/.tmj with LevelMapComponent, give layers collision, and change tiles while the game runs.
 - [Tags, targets & spawners](tags-spawners.md): Label entities with tags, point at entities by name or tag with EntityTarget, and create players and enemies at spawn points with your own spawners.

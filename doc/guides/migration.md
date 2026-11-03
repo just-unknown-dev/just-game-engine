@@ -11,7 +11,7 @@ This page condenses the [full migration guide](https://github.com/just-unknown-d
 1. Raise the constraints: `just_game_engine: ^2.0.0-dev.2` and Flutter 3.47.1 or newer. `^2.0.0` alone does not pick up dev releases.
 2. Create the engine with `Engine(config: ...)`, `await initialize()` before `runApp`, and dispose it once. Replace `Engine.instance` with a reference you pass around.
 3. Add the standard systems through `EngineConfig.defaultSystems`, or give `PhysicsSystem` the engine's physics.
-4. Replace `PhysicsBodyComponent` with a `RigidBody2D` and a `Collider2D`, and the collision events with the `...2D` events.
+4. Replace `PhysicsBodyComponent` with a `RigidBody2DComponent` and a `Collider2DComponent`, and the collision events with the `...2D` events.
 5. Using achievements, sign-in, leaderboards, currency, inventory or ads? Add `just_game_services`.
 6. Rename `transform.rotation` to `transform.angle`, drop `HierarchySystem`, and rename `ParentComponent.localOffset` to `localPosition`.
 7. Replace camera behaviours and `CameraFollowComponent` with virtual cameras, and read input as actions from `just_inputs`.
@@ -58,7 +58,7 @@ Future<void> main() async {
 
 ## Physics bodies
 
-`PhysicsBodyComponent` is split the way 3D physics splits a body: `RigidBody2D` says how it moves, `Collider2D` gives it its shape. A `Collider2D` alone is a static body, so walls and floors need nothing else.
+`PhysicsBodyComponent` is split the way 3D physics splits a body: `RigidBody2DComponent` says how it moves, `Collider2DComponent` gives it its shape. A `Collider2DComponent` alone is a static body, so walls and floors need nothing else.
 
 ```dart
 // 1.6
@@ -69,25 +69,25 @@ PhysicsBodyComponent(
 );
 
 // 2.0
-RigidBody2D(lockRotation: true, friction: 0.2),
-Collider2D(size: Vector2(32, 48)),
+RigidBody2DComponent(lockRotation: true, friction: 0.2),
+Collider2DComponent(size: Vector2(32, 48)),
 ```
 
 | 1.6 | 2.0 |
 |---|---|
-| `shape: RectangleShape(w, h)` | `Collider2D(size: Vector2(w, h))` (a box, the default shape) |
-| `shape: CircleShape(r)` | `Collider2D(shape: ColliderShape2D.circle, radius: r)` |
+| `shape: RectangleShape(w, h)` | `Collider2DComponent(size: Vector2(w, h))` (a box, the default shape) |
+| `shape: CircleShape(r)` | `Collider2DComponent(shape: ColliderShape2D.circle, radius: r)` |
 | a shape sized to the sprite or rectangle | `ColliderShape2D.matchShape`, kept in step as the drawing changes |
-| `isStatic` | `RigidBody2D.bodyType` (`BodyType.static`, `BodyType.kinematic`, or dynamic by default) |
+| `isStatic` | `RigidBody2DComponent.bodyType` (`BodyType.static`, `BodyType.kinematic`, or dynamic by default) |
 | `drag`, `fixedRotation`, `isBullet` | `linearDamping`, `lockRotation`, `continuousCollision` |
 | `layer` as a bit, `collisionMask` | `layer` as a number from 0 to 15, `collidesWith` |
 | `CollisionEvent`, `ContactExitEvent`, `SensorEnterEvent`, `SensorExitEvent` | `CollisionEnter2DEvent`, `CollisionExit2DEvent`, `SensorEnter2DEvent`, `SensorExit2DEvent` (`visitor` is now `other`) |
-| `DistanceJointComponent`, `WeldJointComponent`, `PrismaticJointComponent`, `WheelJointComponent` | `DistanceJoint2D`, `FixedJoint2D`, `SliderJoint2D`, `WheelJoint2D` |
+| `DistanceJointComponent`, `WeldJointComponent`, `PrismaticJointComponent`, `WheelJointComponent` | `DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent`, `WheelJoint2DComponent` |
 
 - **The defaults changed** to 3D's: `friction` 0.5 (1.6 used 0.2), `restitution` 0 (1.6: 0.8, so everything bounced), `linearDamping` and `angularDamping` 0.05 (1.6's `drag` was 0.98), and `mass` 0, which works the mass out from the collider's area. Set the old values where you relied on them; scenes saved by 1.6 keep theirs.
 - **Colliders follow scale.** Scale an entity by 2 and its collider grows with it. Code that sized a shape for an entity it also scaled now sizes it unscaled.
 - **Named layers.** The layer names and which pairs collide live in `assets/project/physics.json` (a `PhysicsLayers`); list it under `flutter: assets:`. Check pairs with `engine.context.physicsLayers.collides(a, b)`.
-- **New:** `CharacterBody2D`, a character gameplay moves (`moveVelocity`, `jump`) instead of the simulation. See [2D physics](/docs/physics-2d).
+- **New:** `CharacterBody2DComponent`, a character gameplay moves (`moveVelocity`, `jump`) instead of the simulation. See [2D physics](/docs/physics-2d).
 
 ## Transforms and the hierarchy
 
@@ -230,7 +230,7 @@ Saved progress carries over: achievements, currency and inventory still save to 
 
 These wait on `just_physics_engine` and `just_audio_engine`. The fields involved are saved as usual, so scenes need no change when the limits lift.
 
-- **Joint anchors.** `anchor` and `connectedAnchor` of `DistanceJoint2D` and `FixedJoint2D` are not passed to the physics engine. A wheel joint's axle anchor is honoured on native Box2D only.
+- **Joint anchors.** `anchor` and `connectedAnchor` of `DistanceJoint2DComponent` and `FixedJoint2DComponent` are not passed to the physics engine. A wheel joint's axle anchor is honoured on native Box2D only.
 - **`collideConnected`.** Jointed bodies with it off send no contact events between them, but on the pure-Dart backend (the web) they still push each other apart.
 - **Queries on native Box2D** skip bodies whose collision mask is 0; the Dart backend finds them.
 - **Stream channels.** An `AudioStreamComponent`'s channel volume does not apply to the stream, and a playing sound's pitch, pan, speed and loop cannot change.

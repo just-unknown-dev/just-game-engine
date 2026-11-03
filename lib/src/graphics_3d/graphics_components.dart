@@ -38,7 +38,7 @@ class ModelComponent extends Component {
 }
 
 /// An entity's own values for the material files it is drawn with — its
-/// shape's (`Primitive3D.material`) or its model's
+/// shape's (`Primitive3DComponent.material`) or its model's
 /// ([ModelComponent.materials]): a glow pulsing, a colour fading, a
 /// texture sliding. By [key] from `MaterialFile.animatableKeys`, shaped as
 /// a material file saves them (`color` an ARGB number, `tiling` `[x, y]`).
@@ -46,9 +46,10 @@ class ModelComponent extends Component {
 /// Change them with [set] and [remove] (or give [values] a new map), so the
 /// renderer sees the change; values for a shape drawn with its own look,
 /// without a material file, do nothing.
-class MaterialOverrides3D extends Component {
+class MaterialOverrides3DComponent extends Component {
   /// Overrides holding [values].
-  MaterialOverrides3D({Map<String, Object>? values}) : _values = {...?values};
+  MaterialOverrides3DComponent({Map<String, Object>? values})
+    : _values = {...?values};
 
   Map<String, Object> _values;
   int _revision = 0;
@@ -80,7 +81,7 @@ class MaterialOverrides3D extends Component {
   }
 }
 
-/// The kind of a [LightComponent].
+/// The kind of a [Light3DComponent].
 enum LightKind {
   /// Light from far away along the entity's forward (+Z) axis: the sun.
   directional,
@@ -94,9 +95,9 @@ enum LightKind {
 
 /// A light at its entity's transform. Directional and spot lights shine
 /// along the entity's forward (+Z) axis.
-class LightComponent extends Component {
+class Light3DComponent extends Component {
   /// A light of [kind].
-  LightComponent({
+  Light3DComponent({
     this.kind = LightKind.point,
     this.color = const Color(0xFFFFFFFF),
     this.intensity = 10.0,

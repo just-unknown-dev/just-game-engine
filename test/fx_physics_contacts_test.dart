@@ -30,21 +30,21 @@ final _backends = <String, PhysicsEngine Function()>{
 /// A slab whose top is at y = 280.
 Entity _ground(World world) => world.createEntityWithComponents([
   TransformComponent(position: Vector3(0, 300, 0)),
-  Collider2D(size: Vector2(2000, 40)),
+  Collider2DComponent(size: Vector2(2000, 40)),
 ], name: 'Ground');
 
 Entity _crate(World world, {double x = 0, double y = 260}) =>
     world.createEntityWithComponents([
       TransformComponent(position: Vector3(x, y, 0)),
-      RigidBody2D(restitution: 0, lockRotation: true),
-      Collider2D(size: Vector2(20, 20)),
+      RigidBody2DComponent(restitution: 0, lockRotation: true),
+      Collider2DComponent(size: Vector2(20, 20)),
     ], name: 'Crate');
 
 /// A static sensor 100 wide round (0, 250).
 Entity _zone(World world) => world.createEntityWithComponents([
   TransformComponent(position: Vector3(0, 250, 0)),
-  RigidBody2D(bodyType: BodyType.static, isSensor: true),
-  Collider2D(size: Vector2(100, 100)),
+  RigidBody2DComponent(bodyType: BodyType.static, isSensor: true),
+  Collider2DComponent(size: Vector2(100, 100)),
 ], name: 'Zone');
 
 void _step(World world, [int frames = 1, void Function(int)? each]) {
@@ -106,14 +106,14 @@ void main() {
         final log = _Log(world);
         _step(world, 60);
         expect(log.enters, 1);
-        expect(crate.getComponent<RigidBody2D>()!.isGrounded, isTrue);
+        expect(crate.getComponent<RigidBody2DComponent>()!.isGrounded, isTrue);
         log.clear();
 
         final scale = crate.getComponent<TransformComponent>()!.scale;
         _step(world, 30, (i) => scale.y = i.isEven ? 1.001 : 1.0);
         expect(log.enters, 0);
         expect(log.exits, 0);
-        expect(crate.getComponent<RigidBody2D>()!.isGrounded, isTrue);
+        expect(crate.getComponent<RigidBody2DComponent>()!.isGrounded, isTrue);
       });
 
       test('a sensor made again too small to hold the crate exits once', () {
@@ -170,8 +170,8 @@ void main() {
         _ground(world);
         world.createEntityWithComponents([
           TransformComponent(position: Vector3(300, 280, 0)),
-          RigidBody2D(bodyType: BodyType.static, isSensor: true),
-          Collider2D(size: Vector2(100, 100)),
+          RigidBody2DComponent(bodyType: BodyType.static, isSensor: true),
+          Collider2DComponent(size: Vector2(100, 100)),
         ], name: 'Low zone');
         final log = _Log(world);
         _step(world, 10);
@@ -183,7 +183,7 @@ void main() {
           final (:world, :physics) = _setUp(make());
           world.createEntityWithComponents([
             TransformComponent(position: Vector3(0, 280, 0)),
-            Collider2D(
+            Collider2DComponent(
               shape: ColliderShape2D.chain,
               thickness: thickness,
               points: [
@@ -193,11 +193,15 @@ void main() {
           ], name: 'Chain');
           final crate = world.createEntityWithComponents([
             TransformComponent(position: Vector3(-150, 260, 0)),
-            RigidBody2D(restitution: 0, friction: 0, lockRotation: true),
-            Collider2D(size: Vector2(40, 20)),
+            RigidBody2DComponent(
+              restitution: 0,
+              friction: 0,
+              lockRotation: true,
+            ),
+            Collider2DComponent(size: Vector2(40, 20)),
           ], name: 'Crate');
           final log = _Log(world);
-          final rigid = crate.getComponent<RigidBody2D>()!;
+          final rigid = crate.getComponent<RigidBody2DComponent>()!;
           _step(world, 30);
           // Slides across the segments (a 2-thick chain's rounded joins
           // can bump it off them for a moment: a real exit and enter).

@@ -26,10 +26,10 @@ void main() {
   });
 
   test('a field that hands out the Vector2 it holds', () {
-    final collider = Collider2D(size: Vector2(4, 6));
+    final collider = Collider2DComponent(size: Vector2(4, 6));
     final entity = world.createEntityWithComponents([TransformComponent(), collider]);
-    final x = PropertyAccess.of(entity, 'Collider2D', 'size', 'x')!;
-    final y = PropertyAccess.of(entity, 'Collider2D', 'size', 'y')!;
+    final x = PropertyAccess.of(entity, 'Collider2DComponent', 'size', 'x')!;
+    final y = PropertyAccess.of(entity, 'Collider2DComponent', 'size', 'y')!;
     x.write(-3);
     expect([collider.size.x, collider.size.y], [3.0, 6.0], reason: 'through its own write');
     y.write(8);
@@ -38,9 +38,9 @@ void main() {
   });
 
   test('a channel of an Offset', () {
-    final collider = Collider2D(offset: const Offset(1, 2));
+    final collider = Collider2DComponent(offset: const Offset(1, 2));
     final entity = world.createEntityWithComponents([TransformComponent(), collider]);
-    PropertyAccess.of(entity, 'Collider2D', 'offset', 'dy')!.write(7);
+    PropertyAccess.of(entity, 'Collider2DComponent', 'offset', 'dy')!.write(7);
     expect(collider.offset, const Offset(1, 7));
   });
 }

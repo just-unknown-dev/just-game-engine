@@ -45,7 +45,7 @@ void main() {
       ]),
     );
     expect(componentsOf(out).single, {
-      'type': 'RectangleComponent',
+      'type': 'Rectangle2DComponent',
       'fields': {'width': 10.0, 'height': 5.0, 'filled': true},
     });
   });

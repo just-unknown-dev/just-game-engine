@@ -1,4 +1,4 @@
-/// 2-D materials: the files entities are drawn through ([Material2D]), and
+/// 2-D materials: the files entities are drawn through ([Material2DComponent]), and
 /// what draws them.
 library;
 

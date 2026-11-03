@@ -25,11 +25,11 @@ Five components draw themselves, centred on their entity's `TransformComponent`.
 
 | Component | Size fields |
 |---|---|
-| `RectangleComponent` | `width`, `height`, `cornerRadius` |
-| `CircleComponent` | `radius` |
-| `CapsuleComponent` | `width`, `height`; round at both ends of the longer side |
-| `PolygonComponent` | `vertices`, a list of `Offset`s closed back to the first |
-| `LineComponent` | `start` (the entity's position by default), `end`, `roundCaps` |
+| `Rectangle2DComponent` | `width`, `height`, `cornerRadius` |
+| `Circle2DComponent` | `radius` |
+| `Capsule2DComponent` | `width`, `height`; round at both ends of the longer side |
+| `Polygon2DComponent` | `vertices`, a list of `Offset`s closed back to the first |
+| `Line2DComponent` | `start` (the entity's position by default), `end`, `roundCaps` |
 
 Each has a `fillStyle` and a `strokeStyle` (a line has only the stroke), `filled`, and a `strokeWidth` in world units. By default a shape is filled white with a translucent white outline one unit wide. The outline is drawn whenever its style is not fully transparent, so pass `strokeStyle: const ShapePaintStyle(color: Colors.transparent)` to remove it.
 
@@ -43,7 +43,7 @@ void addScenery(World world) {
   // Far behind everything: a gradient sky with no outline.
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(0, -150, 0)),
-    RectangleComponent(
+    Rectangle2DComponent(
       width: 2400,
       height: 700,
       fillStyle: const ShapePaintStyle(
@@ -61,7 +61,7 @@ void addScenery(World world) {
   // The main layer, drawn after main-layer entities with a lower zOrder.
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(0, 140, 0)),
-    CapsuleComponent(
+    Capsule2DComponent(
       width: 32,
       height: 72,
       fillStyle: const ShapePaintStyle(
@@ -74,7 +74,7 @@ void addScenery(World world) {
   // In front of everything: an outlined triangle.
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(220, 120, 0)),
-    PolygonComponent(
+    Polygon2DComponent(
       vertices: const [Offset(0, -30), Offset(26, 15), Offset(-26, 15)],
       filled: false,
       strokeStyle: const ShapePaintStyle(color: Colors.amber),
@@ -87,12 +87,12 @@ void addScenery(World world) {
 /// Shapes are stored as RenderableComponent: read them back by that type.
 void highlight(Entity entity) {
   final shape = entity.getComponent<RenderableComponent>();
-  if (shape is RectangleComponent) shape.strokeWidth = 6;
+  if (shape is Rectangle2DComponent) shape.strokeWidth = 6;
   shape?.renderable.tint = Colors.yellow;
 }
 ```
 
-Every field is read when the shape draws, so change `width`, `radius` or a style at any time and the next frame shows it. To find a shape later, keep the component you created, or ask for `RenderableComponent` and check its type, as `highlight` does: `getComponent<CircleComponent>()` finds nothing. The renderable inside also has `opacity`, `tint` and `visible`, which effects such as `FadeEffect` animate (see [Particles, effects & post-processing](/docs/particles)).
+Every field is read when the shape draws, so change `width`, `radius` or a style at any time and the next frame shows it. To find a shape later, keep the component you created, or ask for `RenderableComponent` and check its type, as `highlight` does: `getComponent<Circle2DComponent>()` finds nothing. The renderable inside also has `opacity`, `tint` and `visible`, which effects such as `FadeEffect` animate (see [Particles, effects & post-processing](/docs/particles)).
 
 ## Draw order and layers
 

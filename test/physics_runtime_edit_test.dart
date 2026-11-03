@@ -24,14 +24,18 @@ void main() {
 
   Entity box({required bool sensor}) => world.createEntityWithComponents([
     TransformComponent(position: Vector3(0, 0, 0)),
-    RigidBody2D(bodyType: BodyType.static, isSensor: sensor, restitution: 0),
-    Collider2D(size: Vector2(200, 20)),
+    RigidBody2DComponent(
+      bodyType: BodyType.static,
+      isSensor: sensor,
+      restitution: 0,
+    ),
+    Collider2DComponent(size: Vector2(200, 20)),
   ], name: 'box');
 
   Entity ball() => world.createEntityWithComponents([
     TransformComponent(position: Vector3(0, -150, 0)),
-    RigidBody2D(restitution: 0),
-    Collider2D(shape: ColliderShape2D.circle, radius: 10),
+    RigidBody2DComponent(restitution: 0),
+    Collider2DComponent(shape: ColliderShape2D.circle, radius: 10),
   ], name: 'ball');
 
   double run(Entity e, int frames) {
@@ -44,7 +48,7 @@ void main() {
   test('a box made solid at runtime catches what falls on it', () {
     final b = box(sensor: true);
     world.update(1 / 60);
-    b.getComponent<RigidBody2D>()!.isSensor = false;
+    b.getComponent<RigidBody2DComponent>()!.isSensor = false;
     final y = run(ball(), 90);
     // Resting on the box's top (-10) — not fallen through it.
     expect(y, closeTo(-20, 1));
@@ -54,7 +58,7 @@ void main() {
     final b = box(sensor: false);
     final ballEntity = ball();
     expect(run(ballEntity, 90), closeTo(-20, 1));
-    b.getComponent<RigidBody2D>()!.isSensor = true;
+    b.getComponent<RigidBody2DComponent>()!.isSensor = true;
     expect(run(ballEntity, 60), greaterThan(100));
   });
 
@@ -63,7 +67,7 @@ void main() {
     final ballEntity = ball();
     expect(run(ballEntity, 90), closeTo(-20, 1));
     // Taller box, same centre: its top moves up from -10 to -30.
-    b.getComponent<Collider2D>()!.size = Vector2(200, 60);
+    b.getComponent<Collider2DComponent>()!.size = Vector2(200, 60);
     expect(run(ballEntity, 60), closeTo(-40, 1));
   });
 

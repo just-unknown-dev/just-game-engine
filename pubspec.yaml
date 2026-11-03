@@ -81,7 +81,7 @@ hooks:
       build: true
 
 flutter:
-  # The 2-D material shader (Material2D): compiled into every game.
+  # The 2-D material shader (Material2DComponent): compiled into every game.
   shaders:
     - shaders/material_2d.frag
     - shaders/material_2d_screen.frag

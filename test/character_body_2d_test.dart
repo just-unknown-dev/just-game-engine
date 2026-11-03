@@ -1,5 +1,5 @@
-// CharacterBody2D through PhysicsSystem: the 2-D twin of the 3-D
-// CharacterBody3D — gravity and the ground, walking and jumping, platforms,
+// CharacterBody2DComponent through PhysicsSystem: the 2-D twin of the 3-D
+// CharacterBody3DComponent — gravity and the ground, walking and jumping, platforms,
 // one-way platforms, sensors seeing it, teleports, and saving.
 
 import 'package:flutter_test/flutter_test.dart';
@@ -39,7 +39,7 @@ void _suite(PhysicsEngine Function() make) {
   /// A long static floor whose top is at y = 100: a collider alone.
   Entity floor() => world.createEntityWithComponents([
     TransformComponent(position: Vector3(0, 120, 0)),
-    Collider2D(size: Vector2(4000, 40)),
+    Collider2DComponent(size: Vector2(4000, 40)),
   ], name: 'floor');
 
   Entity hero({
@@ -48,10 +48,10 @@ void _suite(PhysicsEngine Function() make) {
     double y = 0,
   }) => world.createEntityWithComponents([
     TransformComponent(position: Vector3(x, y, 0)),
-    CharacterBody2D(shape: shape),
+    CharacterBody2DComponent(shape: shape),
   ], name: 'hero');
 
-  CharacterBody2D of(Entity e) => e.getComponent<CharacterBody2D>()!;
+  CharacterBody2DComponent of(Entity e) => e.getComponent<CharacterBody2DComponent>()!;
   Offset at(Entity e) {
     final p = e.getComponent<TransformComponent>()!.position;
     return Offset(p.x, p.y);
@@ -103,8 +103,8 @@ void _suite(PhysicsEngine Function() make) {
     final platform = world.createEntityWithComponents([
       TransformComponent(position: Vector3(0, 40, 0)),
       VelocityComponent(),
-      RigidBody2D(bodyType: BodyType.kinematic),
-      Collider2D(size: Vector2(200, 10)),
+      RigidBody2DComponent(bodyType: BodyType.kinematic),
+      Collider2DComponent(size: Vector2(200, 10)),
     ], name: 'platform');
     final h = hero(y: 0);
     run(30);
@@ -120,7 +120,7 @@ void _suite(PhysicsEngine Function() make) {
     floor();
     world.createEntityWithComponents([
       TransformComponent(position: Vector3(0, 20, 0)),
-      Collider2D(size: Vector2(200, 10), oneWay: true),
+      Collider2DComponent(size: Vector2(200, 10), oneWay: true),
     ], name: 'ledge');
     final h = hero(y: 70);
     run(20);
@@ -136,8 +136,8 @@ void _suite(PhysicsEngine Function() make) {
       floor();
       world.createEntityWithComponents([
         TransformComponent(position: Vector3(0, 70, 0)),
-        RigidBody2D(bodyType: BodyType.static, isSensor: true),
-        Collider2D(size: Vector2(40, 40)),
+        RigidBody2DComponent(bodyType: BodyType.static, isSensor: true),
+        Collider2DComponent(size: Vector2(40, 40)),
       ], name: 'coin');
       final seen = <Entity>[];
       world.events.on<SensorEnter2DEvent>((e) => seen.add(e.other));
@@ -146,7 +146,7 @@ void _suite(PhysicsEngine Function() make) {
       expect(seen, [h]);
 
       final ghost = hero(x: 0, y: 0)
-        ..getComponent<CharacterBody2D>()!.detectable = false;
+        ..getComponent<CharacterBody2DComponent>()!.detectable = false;
       seen.clear();
       run(60);
       expect(seen, isEmpty, reason: 'nothing of it in the world');
@@ -174,7 +174,7 @@ void _suite(PhysicsEngine Function() make) {
     run(1);
     final body = world.getSystem<PhysicsSystem>()!.bodyOf(h)!;
     expect(physics.bodies, contains(body));
-    h.removeComponent<CharacterBody2D>();
+    h.removeComponent<CharacterBody2DComponent>();
     run(1);
     expect(physics.bodies, isNot(contains(body)));
   });
@@ -201,7 +201,7 @@ void _suite(PhysicsEngine Function() make) {
 
   test('it is saved field for field', () {
     final definitions = ComponentDefinitionRegistry.core();
-    final c = CharacterBody2D(
+    final c = CharacterBody2DComponent(
       shape: CharacterShape2D.box,
       width: 20,
       height: 40,
@@ -213,8 +213,8 @@ void _suite(PhysicsEngine Function() make) {
       gravityScale: 1.5,
     );
     final json = definitions.encode(c)!;
-    expect(json['type'], 'CharacterBody2D');
-    final back = definitions.decode(json)! as CharacterBody2D;
+    expect(json['type'], 'CharacterBody2DComponent');
+    final back = definitions.decode(json)! as CharacterBody2DComponent;
     expect(back.shape, CharacterShape2D.box);
     expect(
       (back.width, back.height, back.offset),

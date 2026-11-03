@@ -123,7 +123,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   );
 
   /// The material files shapes and models are drawn with
-  /// ([Primitive3D.material], [ModelComponent.materials]).
+  /// ([Primitive3DComponent.material], [ModelComponent.materials]).
   late final MaterialLibrary materials = MaterialLibrary(
     renderer.uploader,
     models.read,
@@ -312,7 +312,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   int _queriesVersion(World world) {
     var version = math.max(
       world.queryVersion(const [TransformComponent, ModelComponent]),
-      world.queryVersion(const [TransformComponent, Primitive3D]),
+      world.queryVersion(const [TransformComponent, Primitive3DComponent]),
     );
     final providers = this.providers;
     for (final provider in providers.all) {
@@ -414,15 +414,15 @@ final class GraphicsSceneRenderer extends SceneRenderer {
     _shapeProxies.clear();
     for (final archetype in world.queryArchetypes(const [
       TransformComponent,
-      Primitive3D,
+      Primitive3DComponent,
     ])) {
       final transforms = archetype.getColumn(TransformComponent)!;
-      final column = archetype.getColumn(Primitive3D)!;
+      final column = archetype.getColumn(Primitive3DComponent)!;
       for (var row = 0; row < archetype.length; row++) {
         final entity = archetype.entityAt(row);
         if (!entity.isActiveInHierarchy) continue;
         final transform = transforms[row] as TransformComponent;
-        final shape = column[row] as Primitive3D;
+        final shape = column[row] as Primitive3DComponent;
         final known = knownShapes[transform];
         if (known != null && identical(known.shape, shape)) {
           known.entity = entity;
@@ -649,7 +649,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
       final look = proxy.look..begin();
       shape.writeMaterialValues(look);
       var restyled = look.end();
-      final overrides = proxy.entity?.getComponent<MaterialOverrides3D>();
+      final overrides = proxy.entity?.getComponent<MaterialOverrides3DComponent>();
       final overridesKey = overrides == null
           ? 0
           : Object.hash(identityHashCode(overrides), overrides.revision);
@@ -743,14 +743,14 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   }
 
   /// [proxy]'s material files, where its component names them: swapped
-  /// in for its own once read — with its entity's [MaterialOverrides3D] on
+  /// in for its own once read — with its entity's [MaterialOverrides3DComponent] on
   /// top — and its own back where they go.
   void _applyMaterials(_Proxy proxy) {
     final model = proxy.model;
     if (model == null) return;
     final wanted = proxy.component.materials;
     if (wanted.isEmpty && proxy.materialsKey == null) return;
-    final overrides = proxy.entity?.getComponent<MaterialOverrides3D>();
+    final overrides = proxy.entity?.getComponent<MaterialOverrides3DComponent>();
     final values = overrides?.values ?? const <String, Object>{};
     final key = wanted.isEmpty
         ? null
@@ -817,13 +817,13 @@ final class GraphicsSceneRenderer extends SceneRenderer {
     var count = 0;
     for (final archetype in world.queryArchetypes(const [
       TransformComponent,
-      LightComponent,
+      Light3DComponent,
     ])) {
       final transforms = archetype.getColumn(TransformComponent)!;
-      final lights = archetype.getColumn(LightComponent)!;
+      final lights = archetype.getColumn(Light3DComponent)!;
       for (var row = 0; row < archetype.length; row++) {
         if (!archetype.entityAt(row).isActiveInHierarchy) continue;
-        final light = lights[row] as LightComponent;
+        final light = lights[row] as Light3DComponent;
         (transforms[row] as TransformComponent).localToWorldInto(_scratch);
         final m = _scratch.storage;
         if (light.kind == LightKind.directional) {
@@ -1155,7 +1155,7 @@ final class _ProviderProxy extends _Follower {
 final class _ShapeProxy extends _Follower {
   _ShapeProxy(super.transform, this.shape);
 
-  final Primitive3D shape;
+  final Primitive3DComponent shape;
 
   /// Its instance, once it has a mesh.
   MeshInstance? instance;
@@ -1163,7 +1163,7 @@ final class _ShapeProxy extends _Follower {
   /// Its mesh, null for none (an outline of fewer than three points).
   GpuPrimitive? mesh;
 
-  /// Its entity's [MaterialOverrides3D] as last drawn; 0 for none.
+  /// Its entity's [MaterialOverrides3DComponent] as last drawn; 0 for none.
   int overridesKey = 0;
 
   // What its mesh and material were made from.

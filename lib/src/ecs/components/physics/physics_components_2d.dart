@@ -8,20 +8,20 @@ import 'package:just_physics_engine/just_physics_engine.dart';
 import '../../ecs.dart';
 
 // The 2-D physics components, in step with the 3-D ones:
-// `RigidBody2D` ↔ `RigidBody3D`, `Collider2D` ↔ `Collider3D`, with the same
+// `RigidBody2DComponent` ↔ `RigidBody3DComponent`, `Collider2DComponent` ↔ `Collider3DComponent`, with the same
 // field names wherever the meaning is the same. `PhysicsSystem` simulates
 // them. Units are the world's (pixels in a 2-D game); +Y is down.
 
 /// Makes its entity a body that `PhysicsSystem` simulates: how it moves,
-/// how heavy it is, what it is made of. It needs a [Collider2D] on the same
+/// how heavy it is, what it is made of. It needs a [Collider2DComponent] on the same
 /// entity for its shape; a collider without one is a static body.
 ///
 /// Gameplay moves a dynamic body with [addForce], [addImpulse] or
 /// [setVelocity] — all applied before the next step — and a kinematic or
 /// static one by writing its entity's transform (or a `VelocityComponent`).
-class RigidBody2D extends Component {
+class RigidBody2DComponent extends Component {
   /// A dynamic body on layer 0, by default.
-  RigidBody2D({
+  RigidBody2DComponent({
     this.bodyType = BodyType.dynamic,
     this.mass = 0.0,
     this.friction = 0.5,
@@ -184,32 +184,32 @@ class RigidBody2D extends Component {
   void wakeUp() => pendingWake = true;
 
   @override
-  String toString() => 'RigidBody2D(${bodyType.name}, mass: $mass)';
+  String toString() => 'RigidBody2DComponent(${bodyType.name}, mass: $mass)';
 }
 
-/// The shapes a [Collider2D] can be.
+/// The shapes a [Collider2DComponent] can be.
 enum ColliderShape2D {
-  /// A box [Collider2D.size] big, its corners rounded by
-  /// [Collider2D.cornerRadius].
+  /// A box [Collider2DComponent.size] big, its corners rounded by
+  /// [Collider2DComponent.cornerRadius].
   box,
 
-  /// A circle of [Collider2D.radius].
+  /// A circle of [Collider2DComponent.radius].
   circle,
 
-  /// A capsule along Y, [Collider2D.height] tall overall, of
-  /// [Collider2D.radius]; turn it with [Collider2D.rotation].
+  /// A capsule along Y, [Collider2DComponent.height] tall overall, of
+  /// [Collider2DComponent.radius]; turn it with [Collider2DComponent.rotation].
   capsule,
 
-  /// The convex polygon through [Collider2D.points] (at most 8), its
-  /// corners rounded by [Collider2D.cornerRadius].
+  /// The convex polygon through [Collider2DComponent.points] (at most 8), its
+  /// corners rounded by [Collider2DComponent.cornerRadius].
   polygon,
 
-  /// A line from [Collider2D.points]' first point to its second,
-  /// [Collider2D.thickness] thick.
+  /// A line from [Collider2DComponent.points]' first point to its second,
+  /// [Collider2DComponent.thickness] thick.
   segment,
 
-  /// A line through every one of [Collider2D.points] — a closed outline
-  /// with [Collider2D.loop] — [Collider2D.thickness] thick: terrain.
+  /// A line through every one of [Collider2DComponent.points] — a closed outline
+  /// with [Collider2DComponent.loop] — [Collider2DComponent.thickness] thick: terrain.
   chain,
 
   /// The shape its entity is drawn as — a Rectangle, Circle, Capsule,
@@ -218,12 +218,12 @@ enum ColliderShape2D {
   matchShape,
 }
 
-/// The shape of its entity's [RigidBody2D] — or, without one, of a static
+/// The shape of its entity's [RigidBody2DComponent] — or, without one, of a static
 /// body made for it. It follows the entity's scale. Set to
 /// [ColliderShape2D.matchShape] it takes the shape its entity is drawn as.
-class Collider2D extends Component {
+class Collider2DComponent extends Component {
   /// A 64 × 64 box, by default.
-  Collider2D({
+  Collider2DComponent({
     this.shape = ColliderShape2D.box,
     Vector2? size,
     this.radius = 32.0,
@@ -295,10 +295,10 @@ class Collider2D extends Component {
   bool showDebugOutline;
 
   @override
-  String toString() => 'Collider2D(${shape.name})';
+  String toString() => 'Collider2DComponent(${shape.name})';
 }
 
-/// The shape a [CharacterBody2D] moves as.
+/// The shape a [CharacterBody2DComponent] moves as.
 enum CharacterShape2D {
   /// An upright capsule: rounded feet slide over bumps and off ledges.
   capsule,
@@ -312,16 +312,16 @@ enum CharacterShape2D {
 /// up to [maxSlopeAngle], climbs steps up to [stepHeight], keeps to the
 /// floor going down, rides moving platforms, stands on one-way platforms and
 /// jumps up through them, and pushes dynamic bodies — like
-/// the 3-D `CharacterBody3D`, field for field. It needs no
-/// [RigidBody2D] or [Collider2D]: its shape is its own, centred on the
+/// the 3-D `CharacterBody3DComponent`, field for field. It needs no
+/// [RigidBody2DComponent] or [Collider2DComponent]: its shape is its own, centred on the
 /// entity (plus [offset]).
 ///
 /// Each step, set [moveVelocity] (only its sideways part counts while
 /// [useGravity]) and call [jump] to leave the ground; read [isGrounded],
 /// [groundNormal], [groundEntity] and [velocity] after it.
-class CharacterBody2D extends Component {
+class CharacterBody2DComponent extends Component {
   /// A 32 × 48 capsule, by default.
-  CharacterBody2D({
+  CharacterBody2DComponent({
     this.shape = CharacterShape2D.capsule,
     this.radius = 16.0,
     this.width = 32.0,
@@ -423,5 +423,5 @@ class CharacterBody2D extends Component {
       : MoverShape.capsule(radius: radius, height: height);
 
   @override
-  String toString() => 'CharacterBody2D(${shape.name})';
+  String toString() => 'CharacterBody2DComponent(${shape.name})';
 }

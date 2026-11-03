@@ -10,15 +10,19 @@ import 'shape_paint_style.dart';
 import 'shape_renderable.dart';
 import 'shape_painting.dart';
 
-/// Circle shape component.
+/// Rectangle shape component.
 ///
-/// Describes a circle centered on the entity's [TransformComponent] position.
+/// Describes an axis-aligned rectangle centered on the entity's
+/// [TransformComponent] position. Set [cornerRadius] > 0 for rounded corners.
 /// Extends [RenderableComponent] — add it to an entity directly and it draws
-/// itself each frame, reading [radius], [fillStyle], [strokeStyle], [filled]
-/// and [strokeWidth] at draw-time so mutations are reflected immediately.
-class CircleComponent extends RenderableComponent {
-  /// Radius of the circle in world units.
-  double radius;
+/// itself each frame, reading all fields at draw-time so mutations are
+/// reflected immediately.
+class Rectangle2DComponent extends RenderableComponent {
+  /// Width of the rectangle in world units.
+  double width;
+
+  /// Height of the rectangle in world units.
+  double height;
 
   /// Fill style, combining color tint with optional gradient.
   ShapePaintStyle fillStyle;
@@ -26,79 +30,103 @@ class CircleComponent extends RenderableComponent {
   /// Stroke style, combining color tint with optional gradient.
   ShapePaintStyle strokeStyle;
 
-  /// Whether the circle is filled. Its outline ([strokeStyle]) is drawn
+  /// Whether the rectangle is filled. Its outline ([strokeStyle]) is drawn
   /// either way, unless fully transparent.
   bool filled;
 
   /// Width of the outline, in world units; drawn whether or not [filled].
   double strokeWidth;
 
-  /// A circle of [radius] filled white, with a translucent white outline 1
-  /// world unit wide.
-  factory CircleComponent({
-    required double radius,
+  /// Corner radius for rounded rectangles. `0` produces sharp corners.
+  double cornerRadius;
+
+  /// A [width] × [height] rectangle with sharp corners, filled white, with
+  /// a translucent white outline 1 world unit wide.
+  factory Rectangle2DComponent({
+    required double width,
+    required double height,
     ShapePaintStyle fillStyle = const ShapePaintStyle(color: Colors.white),
     ShapePaintStyle strokeStyle = const ShapePaintStyle(
       color: Color(0x73FFFFFF),
     ),
     bool filled = true,
     double strokeWidth = 1.0,
+    double cornerRadius = 0.0,
   }) {
-    late CircleComponent self;
+    late Rectangle2DComponent self;
     final shape = ShapeRenderable(
-      getBoundsCallback: () => Rect.fromCircle(
+      getBoundsCallback: () => Rect.fromCenter(
         center: Offset.zero,
-        radius: self.radius + self.strokeWidth,
+        width: self.width + self.strokeWidth * 2,
+        height: self.height + self.strokeWidth * 2,
       ),
       onRender: (canvas, _) => self._draw(canvas, null, 1.0),
       onRenderFaded: (canvas, _, tint, opacity) =>
           self._drawFaded(canvas, tint, opacity),
       onRenderMoved: (canvas, dx, dy) => self._drawMoved(canvas, dx, dy),
     );
-    self = CircleComponent._internal(
-      radius: radius,
+    self = Rectangle2DComponent._internal(
+      width: width,
+      height: height,
       fillStyle: fillStyle,
       strokeStyle: strokeStyle,
       filled: filled,
       strokeWidth: strokeWidth,
+      cornerRadius: cornerRadius,
       renderable: shape,
     ).._shape = shape;
     return self;
   }
 
-  CircleComponent._internal({
-    required this.radius,
+  Rectangle2DComponent._internal({
+    required this.width,
+    required this.height,
     required this.fillStyle,
     required this.strokeStyle,
     required this.filled,
     required this.strokeWidth,
+    required this.cornerRadius,
     required super.renderable,
   });
 
   // The renderable this component made, which draws from its fields.
   late final CustomRenderable _shape;
 
-  // Paints and the gradient rectangle, kept between frames.
+  // Paints and geometry kept between frames; see ShapePaintCache.
   final ShapePaintCache _paints = ShapePaintCache();
+  double _rectWidth = double.nan;
+  double _rectHeight = double.nan;
   double _rectRadius = double.nan;
   Rect _rect = Rect.zero;
+  RRect? _rrect;
 
   /// Whether [renderable] is still the one this component made, so what it
   /// draws is what the fields say — the question a shape batch asks.
   @internal
   bool get drawsOwnShape => identical(renderable, _shape);
 
-  void _draw(Canvas canvas, Color? tint, double opacity) {
-    if (radius != _rectRadius) {
-      _rectRadius = radius;
-      _rect = Rect.fromCircle(center: Offset.zero, radius: radius);
+  void _updateGeometry() {
+    if (width == _rectWidth &&
+        height == _rectHeight &&
+        cornerRadius == _rectRadius) {
+      return;
     }
-    ShapePainting.circleWith(
+    _rectWidth = width;
+    _rectHeight = height;
+    _rectRadius = cornerRadius;
+    _rect = Rect.fromCenter(center: Offset.zero, width: width, height: height);
+    _rrect = cornerRadius == 0
+        ? null
+        : RRect.fromRectAndRadius(_rect, Radius.circular(cornerRadius));
+  }
+
+  void _draw(Canvas canvas, Color? tint, double opacity) {
+    _updateGeometry();
+    ShapePainting.rectWith(
       canvas,
       _paints,
-      Offset.zero,
-      radius,
       _rect,
+      _rrect,
       fill: fillStyle,
       stroke: strokeStyle,
       strokeWidth: strokeWidth,
@@ -109,16 +137,20 @@ class CircleComponent extends RenderableComponent {
   }
 
   bool _drawMoved(Canvas canvas, double dx, double dy) {
-    // A gradient is laid out around the origin: drawn transformed.
-    if (fillStyle.gradient != null || strokeStyle.gradient != null) {
+    // Square corners and plain colours only: a rounded rectangle would need
+    // its own moved copy, and a gradient is laid out around the origin.
+    if (cornerRadius != 0 ||
+        fillStyle.gradient != null ||
+        strokeStyle.gradient != null) {
       return false;
     }
-    ShapePainting.circleWith(
+    _updateGeometry();
+    final r = _rect;
+    ShapePainting.rectWith(
       canvas,
       _paints,
-      Offset(dx, dy),
-      radius,
-      Rect.zero, // Only a gradient reads it.
+      Rect.fromLTRB(r.left + dx, r.top + dy, r.right + dx, r.bottom + dy),
+      null,
       fill: fillStyle,
       stroke: strokeStyle,
       strokeWidth: strokeWidth,
@@ -140,8 +172,12 @@ class CircleComponent extends RenderableComponent {
     return true;
   }
 
+  /// Convenience getter for the size as a [Size] object.
+  Size get size => Size(width, height);
+
   @override
   String toString() =>
-      'Circle(r=$radius, fillStyle=$fillStyle, strokeStyle=$strokeStyle, '
-      'filled=$filled, stroke=$strokeWidth)';
+      'Rectangle(${width}x$height, fillStyle=$fillStyle, '
+      'strokeStyle=$strokeStyle, filled=$filled, '
+      'stroke=$strokeWidth, radius=$cornerRadius)';
 }

@@ -31,8 +31,8 @@ const _frame = 1 / 60;
 Entity _ground(World world, {double x = 0, String name = 'Ground'}) =>
     world.createEntityWithComponents([
       TransformComponent(position: Vector3(x, 300, 0)),
-      RigidBody2D(bodyType: BodyType.static, restitution: 0),
-      Collider2D(size: Vector2(2000, 40)),
+      RigidBody2DComponent(bodyType: BodyType.static, restitution: 0),
+      Collider2DComponent(size: Vector2(2000, 40)),
     ], name: name);
 
 Entity _box(
@@ -45,13 +45,13 @@ Entity _box(
 }) => world.createEntityWithComponents([
   TransformComponent(position: Vector3(x, y, 0)),
   VelocityComponent(),
-  RigidBody2D(
+  RigidBody2DComponent(
     restitution: 0,
     linearDamping: 0,
     lockRotation: true,
     gravityScale: gravityScale,
   ),
-  Collider2D(size: Vector2(20, 20)),
+  Collider2DComponent(size: Vector2(20, 20)),
   ...extra,
 ], name: name);
 
@@ -106,7 +106,7 @@ void main() {
       final platform = _ground(world);
       final rider = _box(world, y: 260);
       _step(world, 60);
-      final comp = rider.getComponent<RigidBody2D>()!;
+      final comp = rider.getComponent<RigidBody2DComponent>()!;
       expect(comp.isGrounded, isTrue);
       expect(comp.groundEntity, same(platform));
 
@@ -160,8 +160,8 @@ void main() {
       final (:world, physics: _) = _setUp();
       final wall = world.createEntityWithComponents([
         TransformComponent(position: Vector3(0.1, 0.3, 0)),
-        RigidBody2D(bodyType: BodyType.static),
-        Collider2D(size: Vector2(10, 10)),
+        RigidBody2DComponent(bodyType: BodyType.static),
+        Collider2DComponent(size: Vector2(10, 10)),
       ]);
       _step(world);
       final transform = wall.getComponent<TransformComponent>()!;
@@ -249,7 +249,7 @@ void main() {
       _step(world, 60);
       expect(_bodyOf(box).isAwake, isFalse);
 
-      box.getComponent<RigidBody2D>()!.gravityScale = 1;
+      box.getComponent<RigidBody2DComponent>()!.gravityScale = 1;
       _step(world, 10);
       expect(_bodyOf(box).isAwake, isTrue);
       expect(
@@ -277,7 +277,7 @@ void main() {
       _step(world, 120);
       expect(_bodyOf(box).isAwake, isFalse);
       expect(
-        box.getComponent<RigidBody2D>()!.isGrounded,
+        box.getComponent<RigidBody2DComponent>()!.isGrounded,
         isTrue,
         reason: 'asleep, it still stands on the ground',
       );
@@ -314,7 +314,7 @@ void main() {
         engine: PhysicsEngine.pureDart(),
         joints: true,
       );
-      _box(world, extra: [FixedJoint2D(connectedBody: const EntityTarget.name('B'))]);
+      _box(world, extra: [FixedJoint2DComponent(connectedBody: const EntityTarget.name('B'))]);
       _box(world, x: 30, name: 'B');
       _step(world);
       final joint = physics.joints.single;
@@ -329,7 +329,7 @@ void main() {
         gravityY: 0,
         joints: true,
       );
-      final spring = DistanceJoint2D(connectedBody: const EntityTarget.name('B'), length: 40);
+      final spring = DistanceJoint2DComponent(connectedBody: const EntityTarget.name('B'), length: 40);
       _box(world, extra: [spring]);
       _box(world, x: 40, name: 'B');
       _step(world);
@@ -352,7 +352,7 @@ void main() {
       _box(
         world,
         extra: [
-          SliderJoint2D(
+          SliderJoint2DComponent(
             connectedBody: const EntityTarget.name('B'),
             useLimits: true,
             minPosition: -5,
@@ -377,7 +377,7 @@ void main() {
         gravityY: 0,
         joints: true,
       );
-      _box(world, extra: [DistanceJoint2D(connectedBody: const EntityTarget.name('B'))]);
+      _box(world, extra: [DistanceJoint2DComponent(connectedBody: const EntityTarget.name('B'))]);
       final b = _box(world, x: 40, name: 'B');
       _step(world);
       expect(physics.joints, hasLength(1));
@@ -393,7 +393,7 @@ void main() {
 
     test('on Box2D, a joint goes with its body, once', () {
       final (:world, :physics) = _setUp(gravityY: 0, joints: true);
-      _box(world, extra: [DistanceJoint2D(connectedBody: const EntityTarget.name('B'))]);
+      _box(world, extra: [DistanceJoint2DComponent(connectedBody: const EntityTarget.name('B'))]);
       final b = _box(world, x: 40, name: 'B');
       _step(world);
       final joint = physics.joints.single;
@@ -408,7 +408,7 @@ void main() {
 
     test('on Box2D, clearing the systems destroys the joints', () {
       final (:world, :physics) = _setUp(gravityY: 0, joints: true);
-      _box(world, extra: [FixedJoint2D(connectedBody: const EntityTarget.name('B'))]);
+      _box(world, extra: [FixedJoint2DComponent(connectedBody: const EntityTarget.name('B'))]);
       _box(world, x: 30, name: 'B');
       _step(world);
       final joint = physics.joints.single as Box2DJoint;
@@ -420,7 +420,7 @@ void main() {
 
     test('on Box2D, removing the physics system alone takes the joints', () {
       final (:world, :physics) = _setUp(gravityY: 0, joints: true);
-      _box(world, extra: [FixedJoint2D(connectedBody: const EntityTarget.name('B'))]);
+      _box(world, extra: [FixedJoint2DComponent(connectedBody: const EntityTarget.name('B'))]);
       _box(world, x: 30, name: 'B');
       _step(world);
       final joint = physics.joints.single as Box2DJoint;
@@ -433,7 +433,7 @@ void main() {
 
     test('on Box2D, removing the joint system alone destroys its joints', () {
       final (:world, :physics) = _setUp(gravityY: 0, joints: true);
-      _box(world, extra: [FixedJoint2D(connectedBody: const EntityTarget.name('B'))]);
+      _box(world, extra: [FixedJoint2DComponent(connectedBody: const EntityTarget.name('B'))]);
       _box(world, x: 30, name: 'B');
       _step(world);
       final joint = physics.joints.single as Box2DJoint;

@@ -177,11 +177,11 @@ abstract final class CoreDefinitions {
     ),
   ];
 
-  /// Definition of [RectangleComponent], saved as `RectangleComponent`; a
+  /// Definition of [Rectangle2DComponent], saved as `Rectangle2DComponent`; a
   /// new one is 64 × 64. 2-D only.
-  static ComponentDefinition<RectangleComponent> get rectangle =>
-      ComponentDefinition<RectangleComponent>(
-        type: 'RectangleComponent',
+  static ComponentDefinition<Rectangle2DComponent> get rectangle =>
+      ComponentDefinition<Rectangle2DComponent>(
+        type: 'Rectangle2DComponent',
         hints: const ComponentHints(
           dimensions: Dimensions.twoD,
           name: 'Rectangle',
@@ -209,21 +209,21 @@ abstract final class CoreDefinitions {
             ..._styleHints,
           },
         ),
-        create: () => RectangleComponent(width: 64, height: 64),
+        create: () => Rectangle2DComponent(width: 64, height: 64),
         fields: [
           _d(
             'width',
-            (c) => (c as RectangleComponent).width,
-            (c, v) => (c as RectangleComponent).width = v,
+            (c) => (c as Rectangle2DComponent).width,
+            (c, v) => (c as Rectangle2DComponent).width = v,
             min: 1,
           ),
           _d(
             'height',
-            (c) => (c as RectangleComponent).height,
-            (c, v) => (c as RectangleComponent).height = v,
+            (c) => (c as Rectangle2DComponent).height,
+            (c, v) => (c as Rectangle2DComponent).height = v,
             min: 1,
           ),
-          ..._styleFields<RectangleComponent>(
+          ..._styleFields<Rectangle2DComponent>(
             (c) => c.fillStyle,
             (c, v) => c.fillStyle = v,
             (c) => c.strokeStyle,
@@ -235,19 +235,19 @@ abstract final class CoreDefinitions {
           ),
           _d(
             'cornerRadius',
-            (c) => (c as RectangleComponent).cornerRadius,
-            (c, v) => (c as RectangleComponent).cornerRadius = v,
+            (c) => (c as Rectangle2DComponent).cornerRadius,
+            (c, v) => (c as Rectangle2DComponent).cornerRadius = v,
             min: 0,
           ),
         ],
         extent: const _RectangleExtent(),
       );
 
-  /// Definition of [CircleComponent], saved as `CircleComponent`; a new one
+  /// Definition of [Circle2DComponent], saved as `Circle2DComponent`; a new one
   /// has radius 32. 2-D only.
-  static ComponentDefinition<CircleComponent> get circle =>
-      ComponentDefinition<CircleComponent>(
-        type: 'CircleComponent',
+  static ComponentDefinition<Circle2DComponent> get circle =>
+      ComponentDefinition<Circle2DComponent>(
+        type: 'Circle2DComponent',
         hints: const ComponentHints(
           dimensions: Dimensions.twoD,
           name: 'Circle',
@@ -267,15 +267,15 @@ abstract final class CoreDefinitions {
             ..._styleHints,
           },
         ),
-        create: () => CircleComponent(radius: 32),
+        create: () => Circle2DComponent(radius: 32),
         fields: [
           _d(
             'radius',
-            (c) => (c as CircleComponent).radius,
-            (c, v) => (c as CircleComponent).radius = v,
+            (c) => (c as Circle2DComponent).radius,
+            (c, v) => (c as Circle2DComponent).radius = v,
             min: 1,
           ),
-          ..._styleFields<CircleComponent>(
+          ..._styleFields<Circle2DComponent>(
             (c) => c.fillStyle,
             (c, v) => c.fillStyle = v,
             (c) => c.strokeStyle,
@@ -289,11 +289,11 @@ abstract final class CoreDefinitions {
         extent: const _CircleExtent(),
       );
 
-  /// Definition of [CapsuleComponent], saved as `CapsuleComponent`; a new
+  /// Definition of [Capsule2DComponent], saved as `Capsule2DComponent`; a new
   /// one is 32 wide, 64 high. 2-D only.
-  static ComponentDefinition<CapsuleComponent> get capsule =>
-      ComponentDefinition<CapsuleComponent>(
-        type: 'CapsuleComponent',
+  static ComponentDefinition<Capsule2DComponent> get capsule =>
+      ComponentDefinition<Capsule2DComponent>(
+        type: 'Capsule2DComponent',
         hints: const ComponentHints(
           dimensions: Dimensions.twoD,
           name: 'Capsule',
@@ -317,21 +317,21 @@ abstract final class CoreDefinitions {
             ..._styleHints,
           },
         ),
-        create: () => CapsuleComponent(width: 32, height: 64),
+        create: () => Capsule2DComponent(width: 32, height: 64),
         fields: [
           _d(
             'width',
-            (c) => (c as CapsuleComponent).width,
-            (c, v) => (c as CapsuleComponent).width = v,
+            (c) => (c as Capsule2DComponent).width,
+            (c, v) => (c as Capsule2DComponent).width = v,
             min: 1,
           ),
           _d(
             'height',
-            (c) => (c as CapsuleComponent).height,
-            (c, v) => (c as CapsuleComponent).height = v,
+            (c) => (c as Capsule2DComponent).height,
+            (c, v) => (c as Capsule2DComponent).height = v,
             min: 1,
           ),
-          ..._styleFields<CapsuleComponent>(
+          ..._styleFields<Capsule2DComponent>(
             (c) => c.fillStyle,
             (c, v) => c.fillStyle = v,
             (c) => c.strokeStyle,
@@ -814,10 +814,11 @@ abstract final class CoreDefinitions {
 class _RectangleExtent extends ComponentExtent {
   const _RectangleExtent();
   @override
-  Size? sizeOf(Component c) => Size((c as RectangleComponent).width, c.height);
+  Size? sizeOf(Component c) =>
+      Size((c as Rectangle2DComponent).width, c.height);
   @override
   bool scale(Component c, double sx, double sy) {
-    (c as RectangleComponent)
+    (c as Rectangle2DComponent)
       ..width = (c.width * sx).abs().clamp(1, double.infinity)
       ..height = (c.height * sy).abs().clamp(1, double.infinity);
     return true;
@@ -827,11 +828,11 @@ class _RectangleExtent extends ComponentExtent {
 class _CircleExtent extends ComponentExtent {
   const _CircleExtent();
   @override
-  Size? sizeOf(Component c) => Size.square((c as CircleComponent).radius * 2);
+  Size? sizeOf(Component c) => Size.square((c as Circle2DComponent).radius * 2);
   @override
   bool scale(Component c, double sx, double sy) {
     final k = sx < sy ? sx : sy;
-    (c as CircleComponent).radius = (c.radius * k).abs().clamp(
+    (c as Circle2DComponent).radius = (c.radius * k).abs().clamp(
       0.5,
       double.infinity,
     );
@@ -842,10 +843,10 @@ class _CircleExtent extends ComponentExtent {
 class _CapsuleExtent extends ComponentExtent {
   const _CapsuleExtent();
   @override
-  Size? sizeOf(Component c) => Size((c as CapsuleComponent).width, c.height);
+  Size? sizeOf(Component c) => Size((c as Capsule2DComponent).width, c.height);
   @override
   bool scale(Component c, double sx, double sy) {
-    (c as CapsuleComponent)
+    (c as Capsule2DComponent)
       ..width = (c.width * sx).abs().clamp(1, double.infinity)
       ..height = (c.height * sy).abs().clamp(1, double.infinity);
     return true;

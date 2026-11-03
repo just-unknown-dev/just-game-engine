@@ -76,7 +76,7 @@ class CollisionExit3DEvent extends GameEvent {
   final Entity entityB;
 }
 
-/// Something entered a sensor (a [RigidBody3D] with `isSensor`): a body,
+/// Something entered a sensor (a [RigidBody3DComponent] with `isSensor`): a body,
 /// or a detectable character.
 class SensorEnter3DEvent extends GameEvent {
   /// [other] entered [sensor].

@@ -67,7 +67,7 @@ void main() {
         TransformComponent(),
         ParentComponent(parentId: parent.id),
         SocketComponent(node: node),
-        Cube3D(width: 0.1, height: 0.1, depth: 0.1),
+        Cube3DComponent(width: 0.1, height: 0.1, depth: 0.1),
       ], name: 'Hat');
 
   group('what fades out', () {

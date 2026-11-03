@@ -39,7 +39,7 @@ void main() {
       expect(model.visible, isFalse);
 
       final light = roundTrip(
-        LightComponent(
+        Light3DComponent(
           kind: LightKind.spot,
           color: const Color(0xFF336699),
           intensity: 42.5,
@@ -83,7 +83,7 @@ void main() {
     });
 
     test('they are 3-D components with a model-sized extent', () {
-      for (final c in [ModelComponent(), LightComponent(), EnvironmentComponent()]) {
+      for (final c in [ModelComponent(), Light3DComponent(), EnvironmentComponent()]) {
         final definition = context.definitions.definitionFor(c)!;
         expect(definition.hints.dimensions, Dimensions.threeD, reason: '${c.runtimeType}');
       }
@@ -145,7 +145,7 @@ void main() {
           ],
           'Lamp': [
             TransformComponent(position: Vector3(0, -2, 0)),
-            LightComponent(color: const Color(0xFFFF0000), intensity: 20, range: 5),
+            Light3DComponent(color: const Color(0xFFFF0000), intensity: 20, range: 5),
           ],
           'Sky': [EnvironmentComponent(exposure: 2)],
         }),
@@ -222,7 +222,7 @@ void main() {
         scene({
           'Sun': [
             TransformComponent(euler: Vector3(-1.5707963267948966, 0, 0)),
-            LightComponent(kind: LightKind.directional, intensity: 4),
+            Light3DComponent(kind: LightKind.directional, intensity: 4),
           ],
         }),
       );

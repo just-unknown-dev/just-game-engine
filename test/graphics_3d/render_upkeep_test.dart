@@ -57,7 +57,7 @@ void main() {
     ..addComponent(shape);
 
   Future<MeshInstance> texturedCube(GraphicsSceneRenderer renderer) async {
-    add('crate', Cube3D(texture: _gridPath));
+    add('crate', Cube3DComponent(texture: _gridPath));
     renderer.update(view);
     final instance = renderer.debugShapeInstances.single!;
     final untextured = instance.material;
@@ -81,7 +81,7 @@ void main() {
       expect(renderer.shapes.counts, (1, 1, 1));
 
       // One more like it shares what is held: textured from its first frame.
-      add('another', Cube3D(texture: _gridPath), at: Vector3(2, 0, 0));
+      add('another', Cube3DComponent(texture: _gridPath), at: Vector3(2, 0, 0));
       renderer.update(view);
       final second = renderer.debugShapeInstances.last!;
       expect(second.primitive, same(mesh));
@@ -96,11 +96,11 @@ void main() {
 
     test('what is no longer drawn is still let go', () {
       final renderer = service.sceneRenderer;
-      add('stays', Cube3D());
-      final gone = add('goes', Sphere3D());
+      add('stays', Cube3DComponent());
+      final gone = add('goes', Sphere3DComponent());
       renderer.update(view);
       expect(renderer.shapes.counts.$1, 2);
-      gone.removeComponent<Primitive3D>();
+      gone.removeComponent<Primitive3DComponent>();
       for (var i = 0; i < 480; i++) {
         renderer.update(view);
       }
@@ -109,8 +109,8 @@ void main() {
 
     test('a look or an outline changed in place is seen', () {
       final renderer = service.sceneRenderer;
-      final cube = Cube3D(texture: _gridPath);
-      final polygon = Polygon3D(points: [const ui.Offset(0, 0), const ui.Offset(1, 0), const ui.Offset(0, 1)]);
+      final cube = Cube3DComponent(texture: _gridPath);
+      final polygon = Polygon3DComponent(points: [const ui.Offset(0, 0), const ui.Offset(1, 0), const ui.Offset(0, 1)]);
       add('crate', cube);
       add('floor', polygon, at: Vector3(3, 0, 0));
       renderer.update(view);
@@ -138,13 +138,13 @@ void main() {
         ModelComponent(model: _barPath),
         AnimationPlayerComponent(clip: 'bend'),
       ], name: 'Bar');
-      add('box', Cube3D(), at: Vector3(-2, 0, 0));
+      add('box', Cube3DComponent(), at: Vector3(-2, 0, 0));
       renderer.update(view);
       final before = List.of(renderer.scene.instances);
       expect(before, hasLength(3));
       final palette = before.firstWhere((i) => i.skin != null).skin;
 
-      add('newcomer', Sphere3D(), at: Vector3(0, 0, 3));
+      add('newcomer', Sphere3DComponent(), at: Vector3(0, 0, 3));
       renderer.update(view);
       final after = renderer.scene.instances;
       expect(after, hasLength(4));
@@ -176,7 +176,7 @@ void main() {
 
   test('lights and the environment follow their colours', () {
     final renderer = service.sceneRenderer;
-    final light = LightComponent(kind: LightKind.point, color: const ui.Color(0xFFFFFFFF));
+    final light = Light3DComponent(kind: LightKind.point, color: const ui.Color(0xFFFFFFFF));
     final sky = EnvironmentComponent(zenith: const ui.Color(0xFFFFFFFF));
     add('lamp', light);
     add('sky', sky);

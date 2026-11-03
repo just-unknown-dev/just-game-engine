@@ -18,8 +18,8 @@ Scenes live in `assets/scenes/` as `<name>.scene.json`. `assets/scenes/scenes.js
       "name": "Ground",
       "components": [
         { "type": "TransformComponent", "fields": { "position": { "x": 0, "y": 300, "z": 0 } } },
-        { "type": "RectangleComponent", "fields": { "width": 1200, "height": 40 } },
-        { "type": "Collider2D", "fields": { "shape": "matchShape" } }
+        { "type": "Rectangle2DComponent", "fields": { "width": 1200, "height": 40 } },
+        { "type": "Collider2DComponent", "fields": { "shape": "matchShape" } }
       ]
     },
     {
@@ -143,7 +143,7 @@ final engine = Engine(
 
 ## Format versions and migrations
 
-Every scene carries a `version`. `SceneFormat.current` is the newest format the engine knows: 10 in 2.0.0-dev.2, which added prefab instances, and 9 in 2.0.0-dev.1. A file at an older version, such as the version 9 used on this page, is migrated in memory as it loads; the file on disk is never rewritten. Pass `onMigrated` to hear about it: the `MigrationResult` has `fromVersion` and `notes` worth showing a developer.
+Every scene carries a `version`. `SceneFormat.current` is the newest format the engine knows: 11, where every component's name ends in `Component`; 10 in 2.0.0-dev.2, which added prefab instances; and 9 in 2.0.0-dev.1. A file at an older version, such as the version 9 used on this page, is migrated in memory as it loads; the file on disk is never rewritten. Pass `onMigrated` to hear about it: the `MigrationResult` has `fromVersion` and `notes` worth showing a developer.
 
 A package adds its own rules to the engine's migration steps through `context.migrations` (a `MigrationHooks`), usually from its extension. Those rules run as part of the engine's steps, so they only apply to files saved at an older format.
 

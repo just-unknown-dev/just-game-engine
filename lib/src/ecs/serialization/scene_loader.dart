@@ -67,7 +67,7 @@ abstract final class SceneLoader {
   /// the prefab's entities, with the instance's changes
   /// ([PrefabExpander.expandScene]): its top one named and placed as the
   /// entry says, carrying a [PrefabInstanceComponent]; each one a
-  /// [PrefabLink]. The prefabs come from the engine's [PrefabLibrary] and
+  /// [PrefabLinkComponent]. The prefabs come from the engine's [PrefabLibrary] and
   /// must have been read — [loadAsset] reads a scene's; one that has not
   /// stands as an empty entity that keeps its instance, with a message.
   ///
@@ -174,7 +174,7 @@ abstract final class SceneLoader {
       final ref = entries[i]['prefabRef'];
       if (ref is! Map) continue;
       created[i].addComponent(
-        PrefabLink(
+        PrefabLinkComponent(
           instance: created[ref['instance'] as int].id,
           path: ref['path'] as String,
         ),

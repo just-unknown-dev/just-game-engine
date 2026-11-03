@@ -181,7 +181,7 @@ final class MyGameExtension implements ContextExtension {
     // An animator parameter can now be bound to "grounded".
     context.animatorBindings.register(
       'grounded',
-      (entity) => entity.getComponent<RigidBody2D>()?.isGrounded,
+      (entity) => entity.getComponent<RigidBody2DComponent>()?.isGrounded,
     );
   }
 }

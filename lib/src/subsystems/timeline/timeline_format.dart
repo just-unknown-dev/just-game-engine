@@ -4,4 +4,9 @@
 library;
 
 export 'package:just_game_engine_formats/just_game_engine_formats.dart'
-    show TimelineMigration, TrackMigration, TimelineFormat, TimelineV1ToV2;
+    show
+        TimelineMigration,
+        TrackMigration,
+        TimelineFormat,
+        TimelineV1ToV2,
+        TimelineV2ToV3;

@@ -29,8 +29,8 @@ class PrefabInstanceComponent extends Component {
 /// ([path], a path of the prefab's ids).
 ///
 /// Runtime only, never saved as a component.
-class PrefabLink extends Component {
-  PrefabLink({required this.instance, required this.path});
+class PrefabLinkComponent extends Component {
+  PrefabLinkComponent({required this.instance, required this.path});
 
   /// The top entity of the instance it belongs to.
   EntityId instance;

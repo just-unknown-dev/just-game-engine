@@ -4,9 +4,9 @@
 ///   Physics3D())`) and it saves, loads and simulates the components below
 ///   on Jolt Physics. A game without one is 2-D only and carries none of
 ///   this.
-/// - Components: [RigidBody3D], [Collider3D], [CharacterBody3D], and the
-///   joints [FixedJoint3D], [PointJoint3D], [HingeJoint3D],
-///   [SliderJoint3D], [DistanceJoint3D], [SixDofJoint3D].
+/// - Components: [RigidBody3DComponent], [Collider3DComponent], [CharacterBody3DComponent], and the
+///   joints [FixedJoint3DComponent], [PointJoint3DComponent], [HingeJoint3DComponent],
+///   [SliderJoint3DComponent], [DistanceJoint3DComponent], [SixDofJoint3DComponent].
 /// - [PhysicsSystem3D], which steps the world.
 /// - Events on the world's bus: [CollisionEnter3DEvent],
 ///   [CollisionStay3DEvent], [CollisionExit3DEvent], [SensorEnter3DEvent],

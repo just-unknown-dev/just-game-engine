@@ -4,24 +4,24 @@ import 'dart:ui' show Color;
 
 import '../../ecs.dart';
 
-/// What kind of light a [Light2D] is.
+/// What kind of light a [Light2DComponent] is.
 enum Light2DKind {
   /// Light all round its entity, fading to nothing at its radius.
   point,
 
   /// A cone of light from its entity along the entity's turn (0 points
-  /// right, +X), [Light2D.coneAngle] wide.
+  /// right, +X), [Light2DComponent.coneAngle] wide.
   spot,
 }
 
-/// Lights a 2-D scene that has [Lighting2D] on: sprites, shapes and tile
+/// Lights a 2-D scene that has [Lighting2DComponent] on: sprites, shapes and tile
 /// layers are shaded by it — by the bumps their materials' normal maps draw
 /// — and, where [castsShadows], darkened behind what casts shadows.
 ///
 /// Its place is its entity's; a spot shines along the entity's turn.
-class Light2D extends Component {
+class Light2DComponent extends Component {
   /// A light of [kind].
-  Light2D({
+  Light2DComponent({
     this.kind = Light2DKind.point,
     this.colour = const Color(0xFFFFFFFF),
     this.intensity = 1,
@@ -67,14 +67,14 @@ class Light2D extends Component {
 }
 
 /// Turns 2-D lighting on for the scene it is in: the frame is drawn, then
-/// lit by every [Light2D] near the view over [ambient] light. A scene without
+/// lit by every [Light2DComponent] near the view over [ambient] light. A scene without
 /// one — or with it off — is drawn as it is, and pays nothing for lighting.
 ///
 /// Put one on any entity — the camera, or a "Lighting" entity of its own.
 /// Of several on, the first found is used.
-class Lighting2D extends Component {
+class Lighting2DComponent extends Component {
   /// Lighting over [ambient].
-  Lighting2D({
+  Lighting2DComponent({
     this.enabled = true,
     this.ambient = const Color(0xFF383848),
     this.ambientIntensity = 1,
@@ -84,7 +84,7 @@ class Lighting2D extends Component {
   /// Whether the scene is lit.
   bool enabled;
 
-  /// The light everywhere, without a [Light2D]: black for a dark cave.
+  /// The light everywhere, without a [Light2DComponent]: black for a dark cave.
   Color ambient;
 
   /// How strong [ambient] is.

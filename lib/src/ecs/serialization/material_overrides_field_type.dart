@@ -6,8 +6,8 @@ import 'package:just_game_engine_formats/just_game_engine_formats.dart';
 
 import 'field_type_impls.dart';
 
-/// An entity's own values for its material — `Material2D.overrides`,
-/// `ScreenMaterial.overrides`, `MaterialOverrides3D.values` — saved as a map
+/// An entity's own values for its material — `Material2DComponent.overrides`,
+/// `ScreenMaterialComponent.overrides`, `MaterialOverrides3DComponent.values` — saved as a map
 /// by key, whose [channels] are the numbers in it a timeline can key: each
 /// animatable number, a pair as `key#0` and `key#1`. (A colour is changed
 /// from code: keyed as one number it would not blend as a colour.)

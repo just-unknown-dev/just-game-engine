@@ -104,11 +104,11 @@ void main() {
       expect(out['editor'], {'guides': []}, reason: 'left alone');
     });
 
-    test('inline timelines move to format 2', () {
+    test('inline timelines move to the current timeline format', () {
       final out = const V5ToV6().apply(_v5(), _run());
       final inline =
           _fields(out, 'Coin', 'TimelinePlayerComponent')['inline'] as Map;
-      expect(inline['formatVersion'], 2);
+      expect(inline['formatVersion'], TimelineFormat.current);
       final tracks = (inline['tracks'] as List).cast<Map>();
       expect(tracks[0]['field'], 'rotation');
       expect(tracks[0]['channel'], 'z');
@@ -149,7 +149,7 @@ void main() {
       final copy = jsonDecode(jsonEncode(v1));
       final out = TimelineFormat.migrate(v1);
       expect(v1, copy, reason: 'the input is never changed');
-      expect(out['formatVersion'], 2);
+      expect(out['formatVersion'], TimelineFormat.current);
       final tracks = (out['tracks'] as List).cast<Map>();
       expect(tracks, hasLength(3));
       expect([tracks[0]['field'], tracks[0]['channel']], ['rotation', 'x']);
@@ -158,8 +158,8 @@ void main() {
     });
 
     test('a current file is returned as it is', () {
-      final v2 = {'formatVersion': 2, 'tracks': []};
-      expect(identical(TimelineFormat.migrate(v2), v2), isTrue);
+      final now = {'formatVersion': TimelineFormat.current, 'tracks': []};
+      expect(identical(TimelineFormat.migrate(now), now), isTrue);
     });
   });
 
@@ -234,7 +234,7 @@ void main() {
         'TransformComponent.rotation.z',
       ]);
       final json = asset.toJson();
-      expect(json['formatVersion'], 2);
+      expect(json['formatVersion'], TimelineFormat.current);
       expect(
         jsonEncode(TimelineAsset.fromJson(json).toJson()),
         jsonEncode(json),

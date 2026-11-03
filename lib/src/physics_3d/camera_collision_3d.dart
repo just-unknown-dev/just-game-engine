@@ -14,9 +14,9 @@ import 'physics_system_3d.dart';
 /// `OrbitFollowComponent` (or any body stage), it pulls the camera in
 /// towards its target when something solid is between them, and eases it
 /// back out once the way is clear.
-class CameraCollision3D extends Component {
+class CameraCollision3DComponent extends Component {
   /// Collision for a camera.
-  CameraCollision3D({
+  CameraCollision3DComponent({
     this.radius = 0.2,
     this.minDistance = 0.3,
     this.recover = 0.35,
@@ -41,10 +41,10 @@ class CameraCollision3D extends Component {
   Vector3 offset;
 }
 
-/// Finalizes a [CameraCollision3D] camera: a sphere cast from the point
+/// Finalizes a [CameraCollision3DComponent] camera: a sphere cast from the point
 /// the camera circles to where the body stage put it, the target's own
 /// body ignored. Registered by `Physics3D`.
-class CameraCollisionStage extends CameraStage<CameraCollision3D> {
+class CameraCollisionStage extends CameraStage<CameraCollision3DComponent> {
   /// Stateless; one serves every camera.
   const CameraCollisionStage();
 
@@ -54,7 +54,7 @@ class CameraCollisionStage extends CameraStage<CameraCollision3D> {
   @override
   CameraState apply(
     CameraStageContext context,
-    CameraCollision3D collision,
+    CameraCollision3DComponent collision,
     CameraState state,
     double dt,
   ) {

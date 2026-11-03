@@ -215,7 +215,7 @@ void main() {
         'a size change is seen', () {
       // At x 200, far beyond the view's edge (10 at this distance) —
       // unless its rectangle reaches back into it.
-      final rect = RectangleComponent(width: 500, height: 4);
+      final rect = Rectangle2DComponent(width: 500, height: 4);
       final e = world.createEntityWithComponents([
         TransformComponent(position: Vector3(200, 0, 0)),
         CullStateComponent(),
@@ -227,7 +227,7 @@ void main() {
       expect(cull.isVisible, isTrue);
 
       // A smaller rectangle in its place: out of view.
-      e.addComponent(RectangleComponent(width: 2, height: 2));
+      e.addComponent(Rectangle2DComponent(width: 2, height: 2));
       world.update(1 / 60);
       expect(cull.isVisible, isFalse);
     });
@@ -236,12 +236,12 @@ void main() {
       final wide = world.createEntityWithComponents([
         TransformComponent(position: Vector3(200, 0, 0)),
         CullStateComponent(),
-        RectangleComponent(width: 500, height: 4),
+        Rectangle2DComponent(width: 500, height: 4),
       ]);
       final round = world.createEntityWithComponents([
         TransformComponent(position: Vector3(200, 0, 0)),
         CullStateComponent(),
-        CircleComponent(radius: 1),
+        Circle2DComponent(radius: 1),
       ]);
       world.update(1 / 60);
       expect(wide.getComponent<CullStateComponent>()!.isVisible, isTrue);

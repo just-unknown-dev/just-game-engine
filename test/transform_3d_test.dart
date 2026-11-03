@@ -216,8 +216,8 @@ void main() {
           euler: Vector3(0.25, -0.5, 0),
           scale: Vector3(1, 1, 3),
         ),
-        RigidBody2D(),
-        Collider2D(shape: ColliderShape2D.circle, radius: 4, showDebugOutline: false),
+        RigidBody2DComponent(),
+        Collider2DComponent(shape: ColliderShape2D.circle, radius: 4, showDebugOutline: false),
       ]);
       for (var i = 0; i < 30; i++) {
         world.update(1 / 60);

@@ -15,7 +15,7 @@ import 'shape_painting.dart';
 /// Extends [RenderableComponent] — add it to an entity directly and it draws
 /// itself each frame, reading all fields at draw-time so mutations are
 /// reflected immediately.
-class PolygonComponent extends RenderableComponent {
+class Polygon2DComponent extends RenderableComponent {
   /// Vertices of the polygon in local (entity-relative) space.
   ///
   /// The polygon is drawn by connecting consecutive vertices and closing
@@ -37,7 +37,7 @@ class PolygonComponent extends RenderableComponent {
 
   /// A polygon through [vertices] — that list, not a copy — filled white,
   /// with a translucent white outline 1 world unit wide.
-  factory PolygonComponent({
+  factory Polygon2DComponent({
     required List<Offset> vertices,
     ShapePaintStyle fillStyle = const ShapePaintStyle(color: Colors.white),
     ShapePaintStyle strokeStyle = const ShapePaintStyle(
@@ -46,8 +46,8 @@ class PolygonComponent extends RenderableComponent {
     bool filled = true,
     double strokeWidth = 1.0,
   }) {
-    late PolygonComponent self;
-    self = PolygonComponent._internal(
+    late Polygon2DComponent self;
+    self = Polygon2DComponent._internal(
       vertices: vertices,
       fillStyle: fillStyle,
       strokeStyle: strokeStyle,
@@ -79,7 +79,7 @@ class PolygonComponent extends RenderableComponent {
     return self;
   }
 
-  PolygonComponent._internal({
+  Polygon2DComponent._internal({
     required this.vertices,
     required this.fillStyle,
     required this.strokeStyle,

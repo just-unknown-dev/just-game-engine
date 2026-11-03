@@ -30,7 +30,7 @@ Future<void> main() async {
   final world = engine.world;
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(-150, 0, 0)),
-    CircleComponent(
+    Circle2DComponent(
       radius: 40,
       fillStyle: const ShapePaintStyle(color: Colors.lightBlue),
     ),
@@ -40,7 +40,7 @@ Future<void> main() async {
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(150, -100, 0), angle: 0.3),
     VelocityComponent(velocity: Vector3(0, 40, 0)),
-    RectangleComponent(
+    Rectangle2DComponent(
       width: 120,
       height: 60,
       cornerRadius: 8,
@@ -61,7 +61,7 @@ Future<void> main() async {
 
 - **`EngineConfig(defaultSystems: DefaultSystems.all)`** adds the standard systems while the engine initializes. Without it the world starts with no systems, and nothing moves or draws. `DefaultSystems.headless` is the same set without rendering and audio, for servers and tests.
 - **`await engine.initialize()`** comes before anything touches `engine.world`, `engine.physics`, `engine.input` or the other subsystems. Before that they throw `EngineNotReadyError`. If a stage fails, `initialize()` throws `EngineInitException` and undoes what it built.
-- **An entity** is an id with components. `createEntityWithComponents` adds them in one go. The shape components (`CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent`) draw themselves.
+- **An entity** is an id with components. `createEntityWithComponents` adds them in one go. The shape components (`Circle2DComponent`, `Rectangle2DComponent`, `Polygon2DComponent`, `Line2DComponent`, `Capsule2DComponent`) draw themselves.
 - **`engine.start()`** starts the game loop. `GameWidget` drives it from Flutter's frame ticker, draws the world, and sends keys and pointers to `engine.input`. It shows an FPS counter unless you pass `showFPS: false`.
 - **`Engine` is an ordinary object.** Make one per game session. When the game is one screen of a larger app, create it in a `State` and call `engine.dispose()` from `dispose()`. Disposal is final: to play again, make a new `Engine`.
 
@@ -93,7 +93,7 @@ Entity addTurret(World world, Entity tank) => world.createEntityWithComponents([
   // Where the turret sits in the tank's space. The next update places
   // it there, whatever its TransformComponent says now.
   ParentComponent(parentId: tank.id, localPosition: Vector3(0, -30, 0)),
-  RectangleComponent(width: 50, height: 12),
+  Rectangle2DComponent(width: 50, height: 12),
 ], name: 'Turret');
 ```
 
@@ -123,7 +123,7 @@ Systems run in priority order, not in the order you add them. Set a system's pri
 
 ### One component of each type per entity
 
-Adding a second component of a type replaces the first. Every shape and every sprite is stored as a `RenderableComponent`, so one entity draws one thing: put a second drawing on a child entity. Read a shape back with `entity.getComponent<RenderableComponent>()`; `getComponent<CircleComponent>()` finds nothing.
+Adding a second component of a type replaces the first. Every shape and every sprite is stored as a `RenderableComponent`, so one entity draws one thing: put a second drawing on a child entity. Read a shape back with `entity.getComponent<RenderableComponent>()`; `getComponent<Circle2DComponent>()` finds nothing.
 
 ## Load a level from scene JSON
 
@@ -139,8 +139,8 @@ Levels are scene files: `assets/scenes/<name>.scene.json`, listed in play order 
       "name": "Ground",
       "components": [
         { "type": "TransformComponent", "fields": { "position": { "x": 0, "y": 300, "z": 0 } } },
-        { "type": "RectangleComponent", "fields": { "width": 1200, "height": 40 } },
-        { "type": "Collider2D", "fields": { "shape": "matchShape" } }
+        { "type": "Rectangle2DComponent", "fields": { "width": 1200, "height": 40 } },
+        { "type": "Collider2DComponent", "fields": { "shape": "matchShape" } }
       ]
     },
     {
@@ -179,7 +179,7 @@ final spawners = [
       TransformComponent(
         position: point.getComponent<TransformComponent>()?.position,
       ),
-      RectangleComponent(
+      Rectangle2DComponent(
         width: 32,
         height: 48,
         fillStyle: const ShapePaintStyle(color: Colors.lightBlue),
@@ -203,7 +203,7 @@ Future<void> loadFirstLevel(Engine engine) async {
 
 - **A field left out** keeps the component's default. A child names its parent with `"parentName"`, and `"enabled": false` loads an entity switched off.
 - **Each component** is read through its `ComponentDefinition` in `engine.context`. The engine's own components always load. A package's components load once its `ContextExtension` is listed in `EngineConfig(extensions: [...])`; otherwise the load stops with an `UnknownComponentTypeException` naming the type and the entity.
-- **Versions.** The current scene format is 10 in 2.0.0-dev.2, and was 9 in 2.0.0-dev.1 (`SceneFormat.current`). Older files are migrated in memory as they load; a file from a newer engine throws `UnsupportedFormatVersionException`.
+- **Versions.** The current scene format is 11, where every component's name ends in `Component`; it was 10 in 2.0.0-dev.2 and 9 in 2.0.0-dev.1 (`SceneFormat.current`). Older files are migrated in memory as they load; a file from a newer engine throws `UnsupportedFormatVersionException`.
 - **Without the asset bundle**, `SceneLoader.loadString` and `SceneLoader.load` take JSON text or a decoded map, which is handy in tests.
 
 [Scenes](/docs/scenes) covers changing levels, your own components and migrations.

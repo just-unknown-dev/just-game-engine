@@ -83,7 +83,7 @@ abstract final class _OldRecipe {
     return paint;
   }
 
-  static void rect(Canvas canvas, RectangleComponent c) {
+  static void rect(Canvas canvas, Rectangle2DComponent c) {
     transformed(canvas, c.renderable, () {
       final rect = Rect.fromCenter(
         center: Offset.zero,
@@ -102,7 +102,7 @@ abstract final class _OldRecipe {
     });
   }
 
-  static void circle(Canvas canvas, CircleComponent c) {
+  static void circle(Canvas canvas, Circle2DComponent c) {
     transformed(canvas, c.renderable, () {
       final rect = Rect.fromCircle(center: Offset.zero, radius: c.radius);
       if (c.filled) {
@@ -116,7 +116,7 @@ abstract final class _OldRecipe {
     });
   }
 
-  static void polygon(Canvas canvas, PolygonComponent c) {
+  static void polygon(Canvas canvas, Polygon2DComponent c) {
     transformed(canvas, c.renderable, () {
       final points = c.vertices;
       final path = Path()..moveTo(points.first.dx, points.first.dy);
@@ -130,7 +130,7 @@ abstract final class _OldRecipe {
     });
   }
 
-  static void capsule(Canvas canvas, CapsuleComponent c) {
+  static void capsule(Canvas canvas, Capsule2DComponent c) {
     transformed(canvas, c.renderable, () {
       final rrect = RRect.fromRectAndRadius(
         Rect.fromCenter(center: Offset.zero, width: c.width, height: c.height),
@@ -145,7 +145,7 @@ abstract final class _OldRecipe {
     });
   }
 
-  static void line(Canvas canvas, LineComponent c) {
+  static void line(Canvas canvas, Line2DComponent c) {
     transformed(canvas, c.renderable, () {
       final rect = Rect.fromPoints(c.start, c.end).inflate(c.strokeWidth);
       final p = Paint();
@@ -208,13 +208,13 @@ void main() {
 
   group('the same pixels as before', () {
     test('a plain rectangle, with its default outline', () async {
-      final c = RectangleComponent(width: 20, height: 12);
+      final c = Rectangle2DComponent(width: 20, height: 12);
       place(c, x: 30.5, y: 31.25);
       await expectSame(c, (canvas) => _OldRecipe.rect(canvas, c));
     });
 
     test('a turned, scaled, rounded rectangle with a gradient', () async {
-      final c = RectangleComponent(
+      final c = Rectangle2DComponent(
         width: 24,
         height: 14,
         cornerRadius: 4,
@@ -226,7 +226,7 @@ void main() {
     });
 
     test('a circle whose outline is transparent', () async {
-      final c = CircleComponent(
+      final c = Circle2DComponent(
         radius: 13,
         strokeStyle: const ShapePaintStyle(color: Color(0x00FFFFFF)),
       );
@@ -235,15 +235,15 @@ void main() {
     });
 
     test('an outlined polygon, a capsule and a gradient line', () async {
-      final polygon = PolygonComponent(
+      final polygon = Polygon2DComponent(
         vertices: const [Offset(-10, -8), Offset(12, -4), Offset(2, 12)],
         filled: false,
         strokeWidth: 3,
       );
       place(polygon, x: 20, y: 20);
-      final capsule = CapsuleComponent(width: 30, height: 10);
+      final capsule = Capsule2DComponent(width: 30, height: 10);
       place(capsule, x: 32, y: 44, angle: -0.3);
-      final line = LineComponent(
+      final line = Line2DComponent(
         start: const Offset(-10, 0),
         end: const Offset(14, 6),
         strokeStyle: _gradient,
@@ -259,14 +259,14 @@ void main() {
     });
 
     test('faded with an outline: through a layer, as before', () async {
-      final c = RectangleComponent(width: 30, height: 20);
+      final c = Rectangle2DComponent(width: 30, height: 20);
       place(c);
       c.renderable.opacity = 0.5;
       await expectSame(c, (canvas) => _OldRecipe.rect(canvas, c));
     });
 
     test('faded and tinted with one draw: folded into the paint', () async {
-      final fill = CircleComponent(
+      final fill = Circle2DComponent(
         radius: 12,
         fillStyle: const ShapePaintStyle(color: Color(0xFF66CCFF)),
         strokeStyle: const ShapePaintStyle(color: Color(0x00000000)),
@@ -275,7 +275,7 @@ void main() {
       fill.renderable
         ..opacity = 0.6
         ..tint = const Color(0xCCFF8844);
-      final line = LineComponent(
+      final line = Line2DComponent(
         start: const Offset(-12, -6),
         end: const Offset(12, 6),
         strokeWidth: 3,
@@ -290,7 +290,7 @@ void main() {
     });
 
     test('a polygon edited in place is drawn as edited', () async {
-      final c = PolygonComponent(
+      final c = Polygon2DComponent(
         vertices: [const Offset(-10, -10), const Offset(10, -10), Offset.zero],
       );
       place(c);
@@ -303,7 +303,7 @@ void main() {
   group('fewer canvas calls', () {
     test('an unturned, unscaled, opaque rectangle is two plain draws, '
         'placed without the canvas transform', () {
-      place(RectangleComponent(width: 10, height: 10), x: 20, y: 30);
+      place(Rectangle2DComponent(width: 10, height: 10), x: 20, y: 30);
       final canvas = TestRecordingCanvas();
       world.render(canvas, const Size(64, 64));
       final calls = [for (final i in canvas.invocations) i.invocation];
@@ -316,7 +316,7 @@ void main() {
 
     test('turned, it is transformed — but not scaled by nothing', () {
       place(
-        PolygonComponent(
+        Polygon2DComponent(
           vertices: const [Offset.zero, Offset(4, 0), Offset(0, 4)],
         ),
         angle: 0.5,
@@ -337,9 +337,9 @@ void main() {
     });
 
     test('moved draws land on the same pixels', () async {
-      final rect = RectangleComponent(width: 13.3, height: 7.1);
+      final rect = Rectangle2DComponent(width: 13.3, height: 7.1);
       place(rect, x: 31.123456789, y: 17.987654321);
-      final circle = CircleComponent(radius: 6.4);
+      final circle = Circle2DComponent(radius: 6.4);
       place(circle, x: 12.3456, y: 44.4444);
       await expectSame(rect, (canvas) {
         _OldRecipe.rect(canvas, rect);
@@ -349,7 +349,7 @@ void main() {
 
     test('an invisible outline is not drawn', () {
       place(
-        CircleComponent(
+        Circle2DComponent(
           radius: 4,
           strokeStyle: const ShapePaintStyle(color: Color(0x00FFFFFF)),
         ),
@@ -363,7 +363,7 @@ void main() {
     });
 
     test('a zero-wide outline is still drawn: it is a hairline', () {
-      place(RectangleComponent(width: 10, height: 10, strokeWidth: 0));
+      place(Rectangle2DComponent(width: 10, height: 10, strokeWidth: 0));
       final canvas = TestRecordingCanvas();
       world.render(canvas, const Size(64, 64));
       expect(
@@ -397,26 +397,26 @@ void main() {
     }
 
     test('a run of plain shapes is one draw, in its place in the order', () {
-      add(RectangleComponent(width: 4, height: 4));
-      add(CircleComponent(radius: 3));
+      add(Rectangle2DComponent(width: 4, height: 4));
+      add(Circle2DComponent(radius: 3));
       add(RenderableComponent(renderable: _Plain(log)), layer: 1);
-      add(RectangleComponent(width: 4, height: 4), layer: 2);
-      add(RectangleComponent(width: 4, height: 4), layer: 2);
+      add(Rectangle2DComponent(width: 4, height: 4), layer: 2);
+      add(Rectangle2DComponent(width: 4, height: 4), layer: 2);
       expect(calls(), ['vertices', 'plain', 'vertices']);
     });
 
     test('what triangles cannot draw exactly is drawn by itself', () {
-      add(RectangleComponent(width: 4, height: 4, cornerRadius: 1));
-      add(RectangleComponent(width: 4, height: 4, fillStyle: _gradient));
-      add(RectangleComponent(width: 4, height: 4, strokeWidth: 0));
-      final faded = RectangleComponent(width: 4, height: 4);
+      add(Rectangle2DComponent(width: 4, height: 4, cornerRadius: 1));
+      add(Rectangle2DComponent(width: 4, height: 4, fillStyle: _gradient));
+      add(Rectangle2DComponent(width: 4, height: 4, strokeWidth: 0));
+      final faded = Rectangle2DComponent(width: 4, height: 4);
       add(faded);
       faded.renderable.opacity = 0.5;
       expect(calls().where((c) => c == 'vertices'), isEmpty);
     });
 
     test('a solid, square rectangle on whole pixels looks the same', () async {
-      final c = RectangleComponent(
+      final c = Rectangle2DComponent(
         width: 20,
         height: 10,
         fillStyle: const ShapePaintStyle(color: Color(0xFF3388FF)),
@@ -455,7 +455,7 @@ void main() {
     void rect(double x, double y, {double width = 10, double angle = 0}) {
       culled.createEntityWithComponents([
         TransformComponent(position: Vector3(x, y, 0), angle: angle),
-        RectangleComponent(
+        Rectangle2DComponent(
           width: width,
           height: 2,
           strokeStyle: const ShapePaintStyle(color: Color(0x00000000)),
@@ -477,7 +477,7 @@ void main() {
       world.addSystem(RenderSystem(passes: const []));
       world.createEntityWithComponents([
         TransformComponent(position: Vector3(5000, 0, 0)),
-        RectangleComponent(width: 1, height: 1),
+        Rectangle2DComponent(width: 1, height: 1),
       ]);
       final canvas = _Clipped(const Rect.fromLTWH(0, 0, 100, 100));
       world.render(canvas, const Size(100, 100));

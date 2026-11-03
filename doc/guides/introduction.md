@@ -28,15 +28,15 @@ Future<void> main() async {
   engine.world
     ..createEntityWithComponents([
       TransformComponent(position: Vector3(0, 200, 0)),
-      RectangleComponent(width: 600, height: 24),
+      Rectangle2DComponent(width: 600, height: 24),
       // A collider alone is a static body; this one is the drawn rectangle.
-      Collider2D(shape: ColliderShape2D.matchShape),
+      Collider2DComponent(shape: ColliderShape2D.matchShape),
     ], name: 'Floor')
     ..createEntityWithComponents([
       TransformComponent(position: Vector3(0, -150, 0)),
-      CircleComponent(radius: 24),
-      RigidBody2D(),
-      Collider2D(shape: ColliderShape2D.matchShape),
+      Circle2DComponent(radius: 24),
+      RigidBody2DComponent(),
+      Collider2DComponent(shape: ColliderShape2D.matchShape),
     ], name: 'Ball');
 
   engine.start();
@@ -87,7 +87,7 @@ Under the engine sit packages of the same family: `just_physics_engine` (Box2D v
 - [Cameras](/docs/cameras): virtual cameras, framing, confiners, impulses and blends.
 - [Particles and effects](/docs/particles): emitters, presets and deterministic, tick-based effects.
 - [3D graphics](/docs/graphics-3d): models, lights, environments and built-in shapes on Flutter GPU.
-- [2D physics](/docs/physics-2d): `RigidBody2D`, `Collider2D`, `CharacterBody2D`, joints, queries and events.
+- [2D physics](/docs/physics-2d): `RigidBody2DComponent`, `Collider2DComponent`, `CharacterBody2DComponent`, joints, queries and events.
 - [3D physics](/docs/physics-3d): the same model on Jolt Physics.
 - [Input](/docs/input): named actions from `just_inputs`, local multiplayer, rebinding and touch controls.
 - [Level maps](/docs/level-maps): tile maps, Tiled import and export, and tile collision.

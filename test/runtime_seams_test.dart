@@ -202,10 +202,10 @@ void main() {
   });
 
   test('a flat extent is a box with no depth', () {
-    final def = _coreDefinitions.definitionByType('RectangleComponent')!;
+    final def = _coreDefinitions.definitionByType('Rectangle2DComponent')!;
     final box = Aabb3();
     expect(
-      def.extent!.boundsInto(RectangleComponent(width: 40, height: 20), box),
+      def.extent!.boundsInto(Rectangle2DComponent(width: 40, height: 20), box),
       isTrue,
     );
     expect([box.min.x, box.max.x, box.min.y, box.max.y], [-20, 20, -10, 10]);

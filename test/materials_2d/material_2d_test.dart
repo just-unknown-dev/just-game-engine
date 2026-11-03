@@ -202,7 +202,7 @@ void main() {
       ),
       LayerComponent(zOrder: z),
       if (material != null)
-        Material2D(material: material, overrides: overrides),
+        Material2DComponent(material: material, overrides: overrides),
     ]);
 
     Future<ByteData> frame() async {
@@ -334,13 +334,13 @@ void main() {
     test('a shape is drawn into an image, then through its material', () async {
       final rect = world.createEntityWithComponents([
         TransformComponent(position: Vector3(16, 16, 0)),
-        RectangleComponent(width: 8, height: 8),
-        Material2D(material: _flash),
+        Rectangle2DComponent(width: 8, height: 8),
+        Material2DComponent(material: _flash),
       ]);
       var d = await frame();
       expect(at(d, 16, 16), const Color(0xFFFF0000));
       expect(at(d, 2, 2).a, 0);
-      rect.getComponent<Material2D>()!.material = _outline;
+      rect.getComponent<Material2DComponent>()!.material = _outline;
       d = await frame();
       expect(
         at(d, 21, 16),
@@ -394,10 +394,10 @@ void main() {
       final world = World()..initialize();
       addTearDown(world.dispose);
       final e = world.createEntityWithComponents([
-        Material2D(material: _flash),
+        Material2DComponent(material: _flash),
       ]);
       final field = world.context.definitions
-          .definitionByType('Material2D')!
+          .definitionByType('Material2DComponent')!
           .fields
           .firstWhere((f) => f.name == 'overrides');
       expect(PropertyAccess.canAnimate(field), isTrue);
@@ -413,24 +413,29 @@ void main() {
       );
       expect(channels, isNot(contains('flash.colour')));
 
-      final m = e.getComponent<Material2D>()!;
+      final m = e.getComponent<Material2DComponent>()!;
       final revision = m.revision;
       PropertyAccess.of(
         e,
-        'Material2D',
+        'Material2DComponent',
         'overrides',
         'flash.amount',
       )!.write(0.25);
       PropertyAccess.of(
         e,
-        'Material2D',
+        'Material2DComponent',
         'overrides',
         'scroll.speed#1',
       )!.write(-8);
       expect(m.overrides, {'flash.amount': 0.25, 'scroll.speed#1': -8});
       expect(m.revision, greaterThan(revision));
       expect(
-        PropertyAccess.of(e, 'Material2D', 'overrides', 'flash.amount')!.read(),
+        PropertyAccess.of(
+          e,
+          'Material2DComponent',
+          'overrides',
+          'flash.amount',
+        )!.read(),
         0.25,
       );
     });
@@ -459,9 +464,9 @@ void main() {
     });
   });
 
-  test('a Material2D is saved with its entity', () {
+  test('a Material2DComponent is saved with its entity', () {
     final definitions = EngineContext().definitions;
-    final component = Material2D(
+    final component = Material2DComponent(
       material: _flash,
       overrides: {'flash.amount': 0.5},
     );
@@ -470,7 +475,7 @@ void main() {
               jsonDecode(jsonEncode(definitions.encode(component)))
                   as Map<String, dynamic>,
             )!
-            as Material2D;
+            as Material2DComponent;
     expect(back.material, _flash);
     expect(back.overrides, {'flash.amount': 0.5});
     final revision = back.revision;

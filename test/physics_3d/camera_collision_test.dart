@@ -28,8 +28,8 @@ void main() {
     });
     world.createEntityWithComponents([
       TransformComponent(position: Vector3.zero()),
-      Collider3D(shape: ColliderShape3D.capsule, radius: 0.3, height: 1.8),
-      RigidBody3D(bodyType: BodyType3D.kinematic),
+      Collider3DComponent(shape: ColliderShape3D.capsule, radius: 0.3, height: 1.8),
+      RigidBody3DComponent(bodyType: BodyType3D.kinematic),
     ], name: 'Player');
     camera = world.createEntityWithComponents([
       TransformComponent(position: Vector3(0, -3, -8)),
@@ -38,7 +38,7 @@ void main() {
         projection: CameraProjection.perspective,
       ),
       OrbitFollowComponent(distance: 8, pitch: 0, yaw: 0, pivot: Vector3(0, -1.5, 0)),
-      CameraCollision3D(radius: 0.2, recover: 0.5),
+      CameraCollision3DComponent(radius: 0.2, recover: 0.5),
     ], name: 'Cam');
     brain = CameraBrain(Camera(position: Offset.zero, viewportSize: const Size(800, 600)));
     brain.stages.register(const CameraCollisionStage());
@@ -57,7 +57,7 @@ void main() {
   test('a wall between pulls it in front of the wall, and it eases back out', () {
     final wall = world.createEntityWithComponents([
       TransformComponent(position: Vector3(0, -1.5, -4)),
-      Collider3D(size: Vector3(6, 6, 0.5)),
+      Collider3DComponent(size: Vector3(6, 6, 0.5)),
     ], name: 'Wall');
     final z = cameraZ(snap: true);
     expect(z, greaterThan(-3.75), reason: 'in front of the wall face at -3.75');
@@ -83,7 +83,7 @@ void main() {
   test('registered for every brain of an engine by the extension', () {
     final context = EngineContext();
     Physics3D().install(context);
-    expect(CameraRegistries.of(context).stages.stageFor(CameraCollision3D()), isA<CameraCollisionStage>());
-    expect(context.definitions.definitionFor(CameraCollision3D()), isNotNull);
+    expect(CameraRegistries.of(context).stages.stageFor(CameraCollision3DComponent()), isA<CameraCollisionStage>());
+    expect(context.definitions.definitionFor(CameraCollision3DComponent()), isNotNull);
   });
 }

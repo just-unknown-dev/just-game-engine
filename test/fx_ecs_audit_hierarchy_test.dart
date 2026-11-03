@@ -140,7 +140,7 @@ void main() {
         final child = world.createEntityWithComponents([
           TransformComponent(),
           VelocityComponent(velocity: Vector3(10, 0, 0)),
-          RectangleComponent(width: 2, height: 2),
+          Rectangle2DComponent(width: 2, height: 2),
           ParentComponent(parentId: parent.id),
         ]);
         world.update(1.0);
@@ -283,7 +283,7 @@ void main() {
       final parent = make();
       final child = world.createEntityWithComponents([
         TransformComponent(position: Vector3(10, 0, 0)),
-        RectangleComponent(width: 2, height: 2),
+        Rectangle2DComponent(width: 2, height: 2),
         ParentComponent(parentId: parent.id),
       ]);
       final render = RenderSystem()..interpolation = 0.5;
@@ -314,7 +314,7 @@ void main() {
     test('an entity not captured is drawn where it is', () {
       final still = world.createEntityWithComponents([
         TransformComponent(position: Vector3(5, 0, 0)),
-        RectangleComponent(width: 2, height: 2),
+        Rectangle2DComponent(width: 2, height: 2),
       ]);
       final render = RenderSystem()..interpolation = 0.5;
       world.addSystem(render);

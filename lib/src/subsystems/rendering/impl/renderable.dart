@@ -53,8 +53,8 @@ abstract class Renderable {
   /// relative to the entity's own origin.
   ///
   /// Defaults to `false`, matching [CustomRenderable]-based shapes
-  /// (`RectangleComponent`, `CircleComponent`, `LineComponent`,
-  /// `PolygonComponent`, `CapsuleComponent`) — their `getBoundsCallback`s
+  /// (`Rectangle2DComponent`, `Circle2DComponent`, `Line2DComponent`,
+  /// `Polygon2DComponent`, `Capsule2DComponent`) — their `getBoundsCallback`s
   /// return bounds centered on `Offset.zero`, so callers needing world-space
   /// bounds (e.g. `ViewCullingSystem`) must shift by the entity's
   /// [TransformComponent] position themselves. Every other built-in

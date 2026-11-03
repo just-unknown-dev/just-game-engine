@@ -11,7 +11,7 @@ import '../../foundation/unsupported_format_version.dart';
 /// What collides with what, by layer: up to [count] layers, each with a
 /// name, and a grid saying which pairs of them collide.
 ///
-/// A `RigidBody2D` (or a `RigidBody3D`) is on one layer (`layer`, 0 by
+/// A `RigidBody2DComponent` (or a `RigidBody3DComponent`) is on one layer (`layer`, 0 by
 /// default). Two bodies collide when the grid says their layers do, unless a body names
 /// the layers it collides with itself (`collidesWith`). Layer 0 is called
 /// `Default`; until a project names more, everything is on it and

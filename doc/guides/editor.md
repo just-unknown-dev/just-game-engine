@@ -168,7 +168,7 @@ class MyGameModule extends EditorModule {
       defaultSize: const Size(32, 32),
       build: (position, size) => [
         TransformComponent(position: Vector3(position.dx, position.dy, 0)),
-        RectangleComponent(width: size.width, height: size.height),
+        Rectangle2DComponent(width: size.width, height: size.height),
         MyHealthComponent(),
       ],
     ),

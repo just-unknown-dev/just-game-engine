@@ -16,252 +16,348 @@ import 'shape_components.dart';
 /// component (`Dimensions.threeD`) in the `3D Shapes` group: its sizes, its
 /// detail, then its material.
 abstract final class ShapeSchemas {
-  /// [Cube3D].
-  static ComponentSchema<Cube3D> get cube => _schema<Cube3D>(
-    type: 'Cube3D',
+  /// [Cube3DComponent].
+  static ComponentSchema<Cube3DComponent> get cube => _schema<Cube3DComponent>(
+    type: 'Cube3DComponent',
     id: 'cube_3d_7e8d7b54',
-    create: Cube3D.new,
+    create: Cube3DComponent.new,
     name: 'Cube',
     description: 'A box: width, height and depth.',
     icon: Icons.view_in_ar_outlined,
     size: [
-      _size<Cube3D>('width', (c) => c.width, (c, v) => c.width = v),
-      _size<Cube3D>('height', (c) => c.height, (c, v) => c.height = v),
-      _size<Cube3D>('depth', (c) => c.depth, (c, v) => c.depth = v),
+      _size<Cube3DComponent>('width', (c) => c.width, (c, v) => c.width = v),
+      _size<Cube3DComponent>('height', (c) => c.height, (c, v) => c.height = v),
+      _size<Cube3DComponent>('depth', (c) => c.depth, (c, v) => c.depth = v),
     ],
     rows: const [
       FieldRowHint('Size', {'width': 'W', 'height': 'H', 'depth': 'D'}),
     ],
   );
 
-  /// [Sphere3D].
-  static ComponentSchema<Sphere3D> get sphere => _schema<Sphere3D>(
-    type: 'Sphere3D',
-    id: 'sphere_3d_89734a64',
-    create: Sphere3D.new,
-    name: 'Sphere',
-    description: 'A ball.',
-    icon: Icons.circle_outlined,
-    size: [_size<Sphere3D>('radius', (c) => c.radius, (c, v) => c.radius = v)],
-    detail: [
-      _count<Sphere3D>(
-        'segments',
-        (c) => c.segments,
-        (c, v) => c.segments = v,
-        3,
-        128,
-      ),
-      _count<Sphere3D>('rings', (c) => c.rings, (c, v) => c.rings = v, 2, 64),
-      _flag<Sphere3D>('smooth', (c) => c.smooth, (c, v) => c.smooth = v),
-    ],
-  );
+  /// [Sphere3DComponent].
+  static ComponentSchema<Sphere3DComponent> get sphere =>
+      _schema<Sphere3DComponent>(
+        type: 'Sphere3DComponent',
+        id: 'sphere_3d_89734a64',
+        create: Sphere3DComponent.new,
+        name: 'Sphere',
+        description: 'A ball.',
+        icon: Icons.circle_outlined,
+        size: [
+          _size<Sphere3DComponent>(
+            'radius',
+            (c) => c.radius,
+            (c, v) => c.radius = v,
+          ),
+        ],
+        detail: [
+          _count<Sphere3DComponent>(
+            'segments',
+            (c) => c.segments,
+            (c, v) => c.segments = v,
+            3,
+            128,
+          ),
+          _count<Sphere3DComponent>(
+            'rings',
+            (c) => c.rings,
+            (c, v) => c.rings = v,
+            2,
+            64,
+          ),
+          _flag<Sphere3DComponent>(
+            'smooth',
+            (c) => c.smooth,
+            (c, v) => c.smooth = v,
+          ),
+        ],
+      );
 
-  /// [Plane3D].
-  static ComponentSchema<Plane3D> get plane => _schema<Plane3D>(
-    type: 'Plane3D',
-    id: 'plane_3d_565609c7',
-    create: Plane3D.new,
-    name: 'Plane',
-    description: 'A flat rectangle on the ground, seen from both sides.',
-    icon: Icons.crop_landscape_outlined,
-    size: [
-      _size<Plane3D>('width', (c) => c.width, (c, v) => c.width = v),
-      _size<Plane3D>('depth', (c) => c.depth, (c, v) => c.depth = v),
-    ],
-    rows: const [
-      FieldRowHint('Size', {'width': 'W', 'depth': 'D'}),
-    ],
-  );
+  /// [Plane3DComponent].
+  static ComponentSchema<Plane3DComponent> get plane =>
+      _schema<Plane3DComponent>(
+        type: 'Plane3DComponent',
+        id: 'plane_3d_565609c7',
+        create: Plane3DComponent.new,
+        name: 'Plane',
+        description: 'A flat rectangle on the ground, seen from both sides.',
+        icon: Icons.crop_landscape_outlined,
+        size: [
+          _size<Plane3DComponent>(
+            'width',
+            (c) => c.width,
+            (c, v) => c.width = v,
+          ),
+          _size<Plane3DComponent>(
+            'depth',
+            (c) => c.depth,
+            (c, v) => c.depth = v,
+          ),
+        ],
+        rows: const [
+          FieldRowHint('Size', {'width': 'W', 'depth': 'D'}),
+        ],
+      );
 
-  /// [Cylinder3D].
-  static ComponentSchema<Cylinder3D> get cylinder => _schema<Cylinder3D>(
-    type: 'Cylinder3D',
-    id: 'cylinder_3d_0b49d83d',
-    create: Cylinder3D.new,
-    name: 'Cylinder',
-    description: 'An upright cylinder.',
-    icon: Icons.storage_outlined,
-    size: [
-      _size<Cylinder3D>('radius', (c) => c.radius, (c, v) => c.radius = v),
-      _size<Cylinder3D>('height', (c) => c.height, (c, v) => c.height = v),
-    ],
-    detail: [
-      _count<Cylinder3D>(
-        'segments',
-        (c) => c.segments,
-        (c, v) => c.segments = v,
-        3,
-        128,
-      ),
-      _flag<Cylinder3D>('smooth', (c) => c.smooth, (c, v) => c.smooth = v),
-    ],
-  );
+  /// [Cylinder3DComponent].
+  static ComponentSchema<Cylinder3DComponent> get cylinder =>
+      _schema<Cylinder3DComponent>(
+        type: 'Cylinder3DComponent',
+        id: 'cylinder_3d_0b49d83d',
+        create: Cylinder3DComponent.new,
+        name: 'Cylinder',
+        description: 'An upright cylinder.',
+        icon: Icons.storage_outlined,
+        size: [
+          _size<Cylinder3DComponent>(
+            'radius',
+            (c) => c.radius,
+            (c, v) => c.radius = v,
+          ),
+          _size<Cylinder3DComponent>(
+            'height',
+            (c) => c.height,
+            (c, v) => c.height = v,
+          ),
+        ],
+        detail: [
+          _count<Cylinder3DComponent>(
+            'segments',
+            (c) => c.segments,
+            (c, v) => c.segments = v,
+            3,
+            128,
+          ),
+          _flag<Cylinder3DComponent>(
+            'smooth',
+            (c) => c.smooth,
+            (c, v) => c.smooth = v,
+          ),
+        ],
+      );
 
-  /// [Capsule3D].
-  static ComponentSchema<Capsule3D> get capsule => _schema<Capsule3D>(
-    type: 'Capsule3D',
-    id: 'capsule_3d_e6fcb787',
-    create: Capsule3D.new,
-    name: 'Capsule',
-    description: 'An upright capsule: a cylinder with round ends.',
-    icon: Icons.medication_outlined,
-    size: [
-      _size<Capsule3D>('radius', (c) => c.radius, (c, v) => c.radius = v),
-      _size<Capsule3D>('height', (c) => c.height, (c, v) => c.height = v),
-    ],
-    detail: [
-      _count<Capsule3D>(
-        'segments',
-        (c) => c.segments,
-        (c, v) => c.segments = v,
-        3,
-        128,
-      ),
-      _count<Capsule3D>('rings', (c) => c.rings, (c, v) => c.rings = v, 1, 32),
-      _flag<Capsule3D>('smooth', (c) => c.smooth, (c, v) => c.smooth = v),
-    ],
-    hints: const {
-      'height': FieldHint(
-        label: 'Height',
-        description: 'Its whole height, ends included.',
-      ),
-    },
-  );
+  /// [Capsule3DComponent].
+  static ComponentSchema<Capsule3DComponent> get capsule =>
+      _schema<Capsule3DComponent>(
+        type: 'Capsule3DComponent',
+        id: 'capsule_3d_e6fcb787',
+        create: Capsule3DComponent.new,
+        name: 'Capsule',
+        description: 'An upright capsule: a cylinder with round ends.',
+        icon: Icons.medication_outlined,
+        size: [
+          _size<Capsule3DComponent>(
+            'radius',
+            (c) => c.radius,
+            (c, v) => c.radius = v,
+          ),
+          _size<Capsule3DComponent>(
+            'height',
+            (c) => c.height,
+            (c, v) => c.height = v,
+          ),
+        ],
+        detail: [
+          _count<Capsule3DComponent>(
+            'segments',
+            (c) => c.segments,
+            (c, v) => c.segments = v,
+            3,
+            128,
+          ),
+          _count<Capsule3DComponent>(
+            'rings',
+            (c) => c.rings,
+            (c, v) => c.rings = v,
+            1,
+            32,
+          ),
+          _flag<Capsule3DComponent>(
+            'smooth',
+            (c) => c.smooth,
+            (c, v) => c.smooth = v,
+          ),
+        ],
+        hints: const {
+          'height': FieldHint(
+            label: 'Height',
+            description: 'Its whole height, ends included.',
+          ),
+        },
+      );
 
-  /// [Cone3D].
-  static ComponentSchema<Cone3D> get cone => _schema<Cone3D>(
-    type: 'Cone3D',
+  /// [Cone3DComponent].
+  static ComponentSchema<Cone3DComponent> get cone => _schema<Cone3DComponent>(
+    type: 'Cone3DComponent',
     id: 'cone_3d_562bc28a',
-    create: Cone3D.new,
+    create: Cone3DComponent.new,
     name: 'Cone',
     description: 'A cone, its tip up.',
     icon: Icons.change_history,
     size: [
-      _size<Cone3D>('radius', (c) => c.radius, (c, v) => c.radius = v),
-      _size<Cone3D>('height', (c) => c.height, (c, v) => c.height = v),
+      _size<Cone3DComponent>('radius', (c) => c.radius, (c, v) => c.radius = v),
+      _size<Cone3DComponent>('height', (c) => c.height, (c, v) => c.height = v),
     ],
     detail: [
-      _count<Cone3D>(
+      _count<Cone3DComponent>(
         'segments',
         (c) => c.segments,
         (c, v) => c.segments = v,
         3,
         128,
       ),
-      _flag<Cone3D>('smooth', (c) => c.smooth, (c, v) => c.smooth = v),
+      _flag<Cone3DComponent>('smooth', (c) => c.smooth, (c, v) => c.smooth = v),
     ],
   );
 
-  /// [Torus3D].
-  static ComponentSchema<Torus3D> get torus => _schema<Torus3D>(
-    type: 'Torus3D',
-    id: 'torus_3d_8fcf8d1e',
-    create: Torus3D.new,
-    name: 'Torus',
-    description: 'A ring lying flat.',
-    icon: Icons.donut_large,
-    size: [
-      _size<Torus3D>('radius', (c) => c.radius, (c, v) => c.radius = v),
-      _size<Torus3D>(
-        'tubeRadius',
-        (c) => c.tubeRadius,
-        (c, v) => c.tubeRadius = v,
-      ),
-    ],
-    detail: [
-      _count<Torus3D>(
-        'segments',
-        (c) => c.segments,
-        (c, v) => c.segments = v,
-        3,
-        128,
-      ),
-      _count<Torus3D>('sides', (c) => c.sides, (c, v) => c.sides = v, 3, 64),
-      _flag<Torus3D>('smooth', (c) => c.smooth, (c, v) => c.smooth = v),
-    ],
-    hints: const {
-      'radius': FieldHint(
-        label: 'Radius',
-        description: 'To the middle of the tube.',
-        scrub: ScrubHint(step: 0.05, fractionDigits: 2, suffix: 'm'),
-      ),
-      'tubeRadius': FieldHint(
-        label: 'Tube',
-        scrub: ScrubHint(step: 0.01, fractionDigits: 2, suffix: 'm'),
-      ),
-    },
-  );
+  /// [Torus3DComponent].
+  static ComponentSchema<Torus3DComponent> get torus =>
+      _schema<Torus3DComponent>(
+        type: 'Torus3DComponent',
+        id: 'torus_3d_8fcf8d1e',
+        create: Torus3DComponent.new,
+        name: 'Torus',
+        description: 'A ring lying flat.',
+        icon: Icons.donut_large,
+        size: [
+          _size<Torus3DComponent>(
+            'radius',
+            (c) => c.radius,
+            (c, v) => c.radius = v,
+          ),
+          _size<Torus3DComponent>(
+            'tubeRadius',
+            (c) => c.tubeRadius,
+            (c, v) => c.tubeRadius = v,
+          ),
+        ],
+        detail: [
+          _count<Torus3DComponent>(
+            'segments',
+            (c) => c.segments,
+            (c, v) => c.segments = v,
+            3,
+            128,
+          ),
+          _count<Torus3DComponent>(
+            'sides',
+            (c) => c.sides,
+            (c, v) => c.sides = v,
+            3,
+            64,
+          ),
+          _flag<Torus3DComponent>(
+            'smooth',
+            (c) => c.smooth,
+            (c, v) => c.smooth = v,
+          ),
+        ],
+        hints: const {
+          'radius': FieldHint(
+            label: 'Radius',
+            description: 'To the middle of the tube.',
+            scrub: ScrubHint(step: 0.05, fractionDigits: 2, suffix: 'm'),
+          ),
+          'tubeRadius': FieldHint(
+            label: 'Tube',
+            scrub: ScrubHint(step: 0.01, fractionDigits: 2, suffix: 'm'),
+          ),
+        },
+      );
 
-  /// [Ramp3D].
-  static ComponentSchema<Ramp3D> get ramp => _schema<Ramp3D>(
-    type: 'Ramp3D',
+  /// [Ramp3DComponent].
+  static ComponentSchema<Ramp3DComponent> get ramp => _schema<Ramp3DComponent>(
+    type: 'Ramp3DComponent',
     id: 'ramp_3d_7923bada',
-    create: Ramp3D.new,
+    create: Ramp3DComponent.new,
     name: 'Ramp',
     description: 'A wedge rising towards +Z, to walk up.',
     icon: Icons.trending_up,
     size: [
-      _size<Ramp3D>('width', (c) => c.width, (c, v) => c.width = v),
-      _size<Ramp3D>('height', (c) => c.height, (c, v) => c.height = v),
-      _size<Ramp3D>('depth', (c) => c.depth, (c, v) => c.depth = v),
+      _size<Ramp3DComponent>('width', (c) => c.width, (c, v) => c.width = v),
+      _size<Ramp3DComponent>('height', (c) => c.height, (c, v) => c.height = v),
+      _size<Ramp3DComponent>('depth', (c) => c.depth, (c, v) => c.depth = v),
     ],
     rows: const [
       FieldRowHint('Size', {'width': 'W', 'height': 'H', 'depth': 'D'}),
     ],
   );
 
-  /// [Stairs3D].
-  static ComponentSchema<Stairs3D> get stairs => _schema<Stairs3D>(
-    type: 'Stairs3D',
-    id: 'stairs_3d_bc0b192f',
-    create: Stairs3D.new,
-    name: 'Stairs',
-    description: 'A flight of solid steps rising towards +Z.',
-    icon: Icons.stairs_outlined,
-    size: [
-      _size<Stairs3D>('width', (c) => c.width, (c, v) => c.width = v),
-      _size<Stairs3D>('height', (c) => c.height, (c, v) => c.height = v),
-      _size<Stairs3D>('depth', (c) => c.depth, (c, v) => c.depth = v),
-    ],
-    detail: [
-      _count<Stairs3D>('steps', (c) => c.steps, (c, v) => c.steps = v, 1, 64),
-    ],
-    rows: const [
-      FieldRowHint('Size', {'width': 'W', 'height': 'H', 'depth': 'D'}),
-    ],
-  );
+  /// [Stairs3DComponent].
+  static ComponentSchema<Stairs3DComponent> get stairs =>
+      _schema<Stairs3DComponent>(
+        type: 'Stairs3DComponent',
+        id: 'stairs_3d_bc0b192f',
+        create: Stairs3DComponent.new,
+        name: 'Stairs',
+        description: 'A flight of solid steps rising towards +Z.',
+        icon: Icons.stairs_outlined,
+        size: [
+          _size<Stairs3DComponent>(
+            'width',
+            (c) => c.width,
+            (c, v) => c.width = v,
+          ),
+          _size<Stairs3DComponent>(
+            'height',
+            (c) => c.height,
+            (c, v) => c.height = v,
+          ),
+          _size<Stairs3DComponent>(
+            'depth',
+            (c) => c.depth,
+            (c, v) => c.depth = v,
+          ),
+        ],
+        detail: [
+          _count<Stairs3DComponent>(
+            'steps',
+            (c) => c.steps,
+            (c, v) => c.steps = v,
+            1,
+            64,
+          ),
+        ],
+        rows: const [
+          FieldRowHint('Size', {'width': 'W', 'height': 'H', 'depth': 'D'}),
+        ],
+      );
 
-  /// [Arch3D].
-  static ComponentSchema<Arch3D> get arch => _schema<Arch3D>(
-    type: 'Arch3D',
+  /// [Arch3DComponent].
+  static ComponentSchema<Arch3DComponent> get arch => _schema<Arch3DComponent>(
+    type: 'Arch3DComponent',
     id: 'arch_3d_a19df39b',
-    create: Arch3D.new,
+    create: Arch3DComponent.new,
     name: 'Arch',
     description:
         'A curved band standing up: an arch, a bridge, part of a ring.',
     icon: Icons.architecture,
     size: [
-      _size<Arch3D>('radius', (c) => c.radius, (c, v) => c.radius = v),
-      _size<Arch3D>('thickness', (c) => c.thickness, (c, v) => c.thickness = v),
-      _size<Arch3D>('depth', (c) => c.depth, (c, v) => c.depth = v),
+      _size<Arch3DComponent>('radius', (c) => c.radius, (c, v) => c.radius = v),
+      _size<Arch3DComponent>(
+        'thickness',
+        (c) => c.thickness,
+        (c, v) => c.thickness = v,
+      ),
+      _size<Arch3DComponent>('depth', (c) => c.depth, (c, v) => c.depth = v),
       SchemaField(
         name: 'angle',
         kind: FieldTypes.decimal,
-        read: (c) => (c as Arch3D).angle,
-        write: (c, v) => (c as Arch3D).angle = (v as num).toDouble(),
+        read: (c) => (c as Arch3DComponent).angle,
+        write: (c, v) => (c as Arch3DComponent).angle = (v as num).toDouble(),
         min: 0.01,
         max: 2 * math.pi,
       ),
     ],
     detail: [
-      _count<Arch3D>(
+      _count<Arch3DComponent>(
         'segments',
         (c) => c.segments,
         (c, v) => c.segments = v,
         1,
         128,
       ),
-      _flag<Arch3D>('smooth', (c) => c.smooth, (c, v) => c.smooth = v),
+      _flag<Arch3DComponent>('smooth', (c) => c.smooth, (c, v) => c.smooth = v),
     ],
     hints: const {
       'radius': FieldHint(
@@ -278,31 +374,38 @@ abstract final class ShapeSchemas {
     },
   );
 
-  /// [Polygon3D].
-  static ComponentSchema<Polygon3D> get polygon => _schema<Polygon3D>(
-    type: 'Polygon3D',
-    id: 'polygon_3d_54238989',
-    create: Polygon3D.new,
-    name: 'Polygon',
-    description: 'An outline on the ground, raised to a height.',
-    icon: Icons.hexagon_outlined,
-    size: [
-      SchemaField(
-        name: 'points',
-        kind: FieldTypes.offsetList,
-        read: (c) => (c as Polygon3D).points,
-        write: (c, v) =>
-            (c as Polygon3D).points = (v as List).cast<Offset>().toList(),
-      ),
-      _size<Polygon3D>('height', (c) => c.height, (c, v) => c.height = v),
-    ],
-    hints: const {
-      'points': FieldHint(
-        label: 'Points',
-        description: 'Its corners, in order round it: x and z on the ground.',
-      ),
-    },
-  );
+  /// [Polygon3DComponent].
+  static ComponentSchema<Polygon3DComponent> get polygon =>
+      _schema<Polygon3DComponent>(
+        type: 'Polygon3DComponent',
+        id: 'polygon_3d_54238989',
+        create: Polygon3DComponent.new,
+        name: 'Polygon',
+        description: 'An outline on the ground, raised to a height.',
+        icon: Icons.hexagon_outlined,
+        size: [
+          SchemaField(
+            name: 'points',
+            kind: FieldTypes.offsetList,
+            read: (c) => (c as Polygon3DComponent).points,
+            write: (c, v) => (c as Polygon3DComponent).points = (v as List)
+                .cast<Offset>()
+                .toList(),
+          ),
+          _size<Polygon3DComponent>(
+            'height',
+            (c) => c.height,
+            (c, v) => c.height = v,
+          ),
+        ],
+        hints: const {
+          'points': FieldHint(
+            label: 'Points',
+            description:
+                'Its corners, in order round it: x and z on the ground.',
+          ),
+        },
+      );
 
   /// Every 3-D shape.
   static List<ComponentSchema> get all => [
@@ -334,7 +437,7 @@ abstract final class ShapeSchemas {
     'tileInMetres',
   ];
 
-  static ComponentSchema<T> _schema<T extends Primitive3D>({
+  static ComponentSchema<T> _schema<T extends Primitive3DComponent>({
     required String type,
     required String id,
     required T Function() create,
@@ -413,10 +516,11 @@ abstract final class ShapeSchemas {
   };
 
   // Its own look: shown while it has no material file.
-  static bool _ownLook(Component c) => (c as Primitive3D).material.isEmpty;
+  static bool _ownLook(Component c) =>
+      (c as Primitive3DComponent).material.isEmpty;
 
   static bool _textured(Component c) =>
-      _ownLook(c) && (c as Primitive3D).texture.isNotEmpty;
+      _ownLook(c) && (c as Primitive3DComponent).texture.isNotEmpty;
 
   static Map<String, FieldHint> get _materialHints => {
     'material': const FieldHint(
@@ -448,7 +552,8 @@ abstract final class ShapeSchemas {
       label: 'Glow strength',
       scrub: const ScrubHint(step: 0.1, fractionDigits: 1),
       visibleWhen: (c) =>
-          _ownLook(c) && (c as Primitive3D).emission.toARGB32() & 0xFFFFFF != 0,
+          _ownLook(c) &&
+          (c as Primitive3DComponent).emission.toARGB32() & 0xFFFFFF != 0,
     ),
     'opacity': const FieldHint(
       label: 'Opacity',
@@ -481,61 +586,66 @@ abstract final class ShapeSchemas {
     SchemaField(
       name: 'material',
       kind: FieldTypes.assetRef,
-      read: (c) => (c as Primitive3D).material,
-      write: (c, v) => (c as Primitive3D).material = v as String? ?? '',
+      read: (c) => (c as Primitive3DComponent).material,
+      write: (c, v) =>
+          (c as Primitive3DComponent).material = v as String? ?? '',
     ),
     SchemaField(
       name: 'color',
       kind: FieldTypes.color,
-      read: (c) => (c as Primitive3D).color,
-      write: (c, v) => (c as Primitive3D).color = v as Color,
+      read: (c) => (c as Primitive3DComponent).color,
+      write: (c, v) => (c as Primitive3DComponent).color = v as Color,
     ),
     _unit('metallic', (c) => c.metallic, (c, v) => c.metallic = v),
     _unit('roughness', (c) => c.roughness, (c, v) => c.roughness = v),
     SchemaField(
       name: 'emission',
       kind: FieldTypes.color,
-      read: (c) => (c as Primitive3D).emission,
-      write: (c, v) => (c as Primitive3D).emission = v as Color,
+      read: (c) => (c as Primitive3DComponent).emission,
+      write: (c, v) => (c as Primitive3DComponent).emission = v as Color,
     ),
     SchemaField(
       name: 'emissionStrength',
       kind: FieldTypes.decimal,
-      read: (c) => (c as Primitive3D).emissionStrength,
+      read: (c) => (c as Primitive3DComponent).emissionStrength,
       write: (c, v) =>
-          (c as Primitive3D).emissionStrength = (v as num).toDouble(),
+          (c as Primitive3DComponent).emissionStrength = (v as num).toDouble(),
       min: 0,
     ),
     _unit('opacity', (c) => c.opacity, (c, v) => c.opacity = v),
-    _flag<Primitive3D>('unlit', (c) => c.unlit, (c, v) => c.unlit = v),
+    _flag<Primitive3DComponent>('unlit', (c) => c.unlit, (c, v) => c.unlit = v),
     SchemaField(
       name: 'texture',
       kind: FieldTypes.assetRef,
-      read: (c) => (c as Primitive3D).texture,
-      write: (c, v) => (c as Primitive3D).texture = v as String? ?? '',
+      read: (c) => (c as Primitive3DComponent).texture,
+      write: (c, v) => (c as Primitive3DComponent).texture = v as String? ?? '',
     ),
     SchemaField(
       name: 'tiling',
       kind: FieldTypes.vector2,
-      read: (c) => (c as Primitive3D).tiling,
-      write: (c, v) => (c as Primitive3D).tiling = v is Vector2
+      read: (c) => (c as Primitive3DComponent).tiling,
+      write: (c, v) => (c as Primitive3DComponent).tiling = v is Vector2
           ? Vector2.copy(v)
           : Vector2(1, 1),
     ),
-    _flag<Primitive3D>(
+    _flag<Primitive3DComponent>(
       'tileInMetres',
       (c) => c.tileInMetres,
       (c, v) => c.tileInMetres = v,
     ),
-    _flag<Primitive3D>(
+    _flag<Primitive3DComponent>(
       'castShadows',
       (c) => c.castShadows,
       (c, v) => c.castShadows = v,
     ),
-    _flag<Primitive3D>('visible', (c) => c.visible, (c, v) => c.visible = v),
+    _flag<Primitive3DComponent>(
+      'visible',
+      (c) => c.visible,
+      (c, v) => c.visible = v,
+    ),
   ];
 
-  static SchemaField _size<T extends Primitive3D>(
+  static SchemaField _size<T extends Primitive3DComponent>(
     String name,
     double Function(T c) read,
     void Function(T c, double v) write,
@@ -549,19 +659,19 @@ abstract final class ShapeSchemas {
 
   static SchemaField _unit(
     String name,
-    double Function(Primitive3D c) read,
-    void Function(Primitive3D c, double v) write,
+    double Function(Primitive3DComponent c) read,
+    void Function(Primitive3DComponent c, double v) write,
   ) => SchemaField(
     name: name,
     kind: FieldTypes.decimal,
-    read: (c) => read(c as Primitive3D),
+    read: (c) => read(c as Primitive3DComponent),
     write: (c, v) =>
-        write(c as Primitive3D, (v as num).toDouble().clamp(0.0, 1.0)),
+        write(c as Primitive3DComponent, (v as num).toDouble().clamp(0.0, 1.0)),
     min: 0,
     max: 1,
   );
 
-  static SchemaField _count<T extends Primitive3D>(
+  static SchemaField _count<T extends Primitive3DComponent>(
     String name,
     int Function(T c) read,
     void Function(T c, int v) write,
@@ -576,7 +686,7 @@ abstract final class ShapeSchemas {
     max: max.toDouble(),
   );
 
-  static SchemaField _flag<T extends Primitive3D>(
+  static SchemaField _flag<T extends Primitive3DComponent>(
     String name,
     bool Function(T c) read,
     void Function(T c, bool v) write,
@@ -595,13 +705,13 @@ final class _PrimitiveExtent extends ComponentExtent {
   @override
   Size? sizeOf(Component component) {
     final b = Aabb3();
-    (component as Primitive3D).boundsInto(b);
+    (component as Primitive3DComponent).boundsInto(b);
     return Size(b.max.x - b.min.x, b.max.y - b.min.y);
   }
 
   @override
   bool boundsInto(Component component, Aabb3 out) {
-    (component as Primitive3D).boundsInto(out);
+    (component as Primitive3DComponent).boundsInto(out);
     return true;
   }
 }

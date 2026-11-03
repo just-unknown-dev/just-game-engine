@@ -11,7 +11,7 @@ import '../../ecs/base/engine_context.dart';
 import 'material_2d_shader.dart';
 
 /// The 2-D material files (`*.material2d.json`) an engine's entities are
-/// drawn with ([Material2D]), and the shader that draws them.
+/// drawn with ([Material2DComponent]), and the shader that draws them.
 ///
 /// Files are read in the background through the context's
 /// `material2DText` seam (the bundle, or an editor's project files): [fileOf]
@@ -155,7 +155,7 @@ final class Material2DLibrary {
   /// The shader a 2-D material's normals are drawn through, for lighting.
   ui.FragmentProgram? get normalsProgram => _normals.get(this);
 
-  /// The shader a lit frame is drawn through ([Lighting2D]).
+  /// The shader a lit frame is drawn through ([Lighting2DComponent]).
   ui.FragmentProgram? get lightingProgram => _lighting.get(this);
 
   /// The shader 2-D shadows are found with.

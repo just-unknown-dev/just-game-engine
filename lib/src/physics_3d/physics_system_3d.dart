@@ -17,11 +17,11 @@ import 'physics_events_3d.dart';
 /// one out).
 ///
 /// Each update it
-/// 1. makes, rebuilds and removes bodies for entities with a [Collider3D]
-///    (a [RigidBody3D] says how they move; without one they are static),
-///    characters for [CharacterBody3D]s and joints for [Joint3D]s;
+/// 1. makes, rebuilds and removes bodies for entities with a [Collider3DComponent]
+///    (a [RigidBody3DComponent] says how they move; without one they are static),
+///    characters for [CharacterBody3DComponent]s and joints for [Joint3DComponent]s;
 /// 2. sends what gameplay did: forces, impulses and velocities queued on a
-///    [RigidBody3D], and transforms written by hand — a teleport, or for a
+///    [RigidBody3DComponent], and transforms written by hand — a teleport, or for a
 ///    kinematic body a move the physics carries what it touches along;
 /// 3. moves each character, then steps the world;
 /// 4. writes the moved bodies' poses back into their [TransformComponent]s,
@@ -87,7 +87,7 @@ class PhysicsSystem3D extends System {
 
   final Map<Entity, _BodyLink> _bodies = {};
   final Map<Entity, _CharacterLink> _characters = {};
-  final Map<Joint3D, _JointLink> _joints = Map.identity();
+  final Map<Joint3DComponent, _JointLink> _joints = Map.identity();
   final Map<int, Entity> _entityByBody = {};
   final Map<int, _BodyLink> _linkByBody = {};
   final ContactPairs<int> _contacts = ContactPairs();
@@ -159,25 +159,25 @@ class PhysicsSystem3D extends System {
   // ── Links ─────────────────────────────────────────────────────────────
 
   static const List<Type> _jointTypes = [
-    FixedJoint3D,
-    PointJoint3D,
-    HingeJoint3D,
-    SliderJoint3D,
-    DistanceJoint3D,
-    SixDofJoint3D,
+    FixedJoint3DComponent,
+    PointJoint3DComponent,
+    HingeJoint3DComponent,
+    SliderJoint3DComponent,
+    DistanceJoint3DComponent,
+    SixDofJoint3DComponent,
   ];
 
   /// What [_refresh] reads: a change to what any of them matches is a
   /// change to the links.
   static const List<List<Type>> _linkQueries = [
-    [TransformComponent, Collider3D],
-    [TransformComponent, CharacterBody3D],
-    [TransformComponent, FixedJoint3D],
-    [TransformComponent, PointJoint3D],
-    [TransformComponent, HingeJoint3D],
-    [TransformComponent, SliderJoint3D],
-    [TransformComponent, DistanceJoint3D],
-    [TransformComponent, SixDofJoint3D],
+    [TransformComponent, Collider3DComponent],
+    [TransformComponent, CharacterBody3DComponent],
+    [TransformComponent, FixedJoint3DComponent],
+    [TransformComponent, PointJoint3DComponent],
+    [TransformComponent, HingeJoint3DComponent],
+    [TransformComponent, SliderJoint3DComponent],
+    [TransformComponent, DistanceJoint3DComponent],
+    [TransformComponent, SixDofJoint3DComponent],
   ];
 
   /// The largest of [_linkQueries]' versions ([World.queryVersion]).
@@ -198,35 +198,35 @@ class PhysicsSystem3D extends System {
 
     for (final archetype in world.queryArchetypes(const [
       TransformComponent,
-      Collider3D,
+      Collider3DComponent,
     ])) {
       final ids = archetype.entityIds;
       final transforms = archetype.getColumn(TransformComponent)!;
-      final colliders = archetype.getColumn(Collider3D)!;
-      final rigids = archetype.getColumn(RigidBody3D);
+      final colliders = archetype.getColumn(Collider3DComponent)!;
+      final rigids = archetype.getColumn(RigidBody3DComponent);
       for (var row = 0; row < ids.length; row++) {
         final entity = archetype.entityAt(row);
         final link = _bodies[entity] ??= _BodyLink(entity);
         link
           ..transform = transforms[row] as TransformComponent
-          ..collider = colliders[row] as Collider3D
-          ..rigid = rigids?[row] as RigidBody3D?
+          ..collider = colliders[row] as Collider3DComponent
+          ..rigid = rigids?[row] as RigidBody3DComponent?
           ..version = version;
       }
     }
     for (final archetype in world.queryArchetypes(const [
       TransformComponent,
-      CharacterBody3D,
+      CharacterBody3DComponent,
     ])) {
       final ids = archetype.entityIds;
       final transforms = archetype.getColumn(TransformComponent)!;
-      final comps = archetype.getColumn(CharacterBody3D)!;
+      final comps = archetype.getColumn(CharacterBody3DComponent)!;
       for (var row = 0; row < ids.length; row++) {
         final entity = archetype.entityAt(row);
         final link = _characters[entity] ??= _CharacterLink(entity);
         link
           ..transform = transforms[row] as TransformComponent
-          ..comp = comps[row] as CharacterBody3D
+          ..comp = comps[row] as CharacterBody3DComponent
           ..version = version;
       }
     }
@@ -239,7 +239,7 @@ class PhysicsSystem3D extends System {
         final comps = archetype.getColumn(type)!;
         for (var row = 0; row < ids.length; row++) {
           final entity = archetype.entityAt(row);
-          final comp = comps[row] as Joint3D;
+          final comp = comps[row] as Joint3DComponent;
           final link = _joints[comp] ??= _JointLink(entity, comp);
           link.version = version;
         }
@@ -328,7 +328,7 @@ class PhysicsSystem3D extends System {
   /// The shape [entity] is drawn as, for a collider matching it.
   /// [rigid]'s motion quality as the physics engine takes it: continuous
   /// collision is a linear cast.
-  static MotionQuality3D _quality(RigidBody3D? rigid) =>
+  static MotionQuality3D _quality(RigidBody3DComponent? rigid) =>
       (rigid?.continuousCollision ?? false)
       ? MotionQuality3D.linearCast
       : MotionQuality3D.discrete;
@@ -437,7 +437,7 @@ class PhysicsSystem3D extends System {
     link.rememberPose();
   }
 
-  void _flushCommands(int body, RigidBody3D rigid) {
+  void _flushCommands(int body, RigidBody3DComponent rigid) {
     final velocity = rigid.pendingVelocity;
     if (velocity != null) {
       physics.setLinearVelocity(body, velocity);
@@ -543,10 +543,10 @@ class PhysicsSystem3D extends System {
       }
       var motor = MotorState3D.off;
       var target = 0.0;
-      if (comp is HingeJoint3D) {
+      if (comp is HingeJoint3DComponent) {
         motor = comp.motor;
         target = comp.motorTarget;
-      } else if (comp is SliderJoint3D) {
+      } else if (comp is SliderJoint3DComponent) {
         motor = comp.motor;
         target = comp.motorTarget;
       }
@@ -566,14 +566,14 @@ class PhysicsSystem3D extends System {
   /// next time.
   JointSettings3D _jointSettings(
     Entity entity,
-    Joint3D comp,
+    Joint3DComponent comp,
     int bodyB,
     _JointLink link,
     Entity? other,
   ) {
     final transform = entity.getComponent<TransformComponent>()!;
     final pointA = _worldPoint(transform, comp.anchor);
-    final pointB = comp is DistanceJoint3D
+    final pointB = comp is DistanceJoint3DComponent
         ? null
         : _heldPoint(link, pointA, bodyB == 0 ? null : other);
     Vector3 axisOf(Vector3 local) {
@@ -586,7 +586,7 @@ class PhysicsSystem3D extends System {
     }
 
     switch (comp) {
-      case HingeJoint3D h:
+      case HingeJoint3DComponent h:
         final axis = axisOf(h.axis);
         return JointSettings3D(
           kind: JointKind3D.hinge,
@@ -602,7 +602,7 @@ class PhysicsSystem3D extends System {
           motorTarget: h.motorTarget,
           motorMaxForce: h.motorMaxTorque,
         );
-      case SliderJoint3D s:
+      case SliderJoint3DComponent s:
         final axis = axisOf(s.axis);
         return JointSettings3D(
           kind: JointKind3D.slider,
@@ -618,7 +618,7 @@ class PhysicsSystem3D extends System {
           motorTarget: s.motorTarget,
           motorMaxForce: s.motorMaxForce,
         );
-      case DistanceJoint3D d:
+      case DistanceJoint3DComponent d:
         final other = d.connectedBody.isNone
             ? null
             : d.connectedBody.resolve(world, entity);
@@ -636,7 +636,7 @@ class PhysicsSystem3D extends System {
           springFrequency: d.springFrequency,
           springDamping: d.springDamping,
         );
-      case SixDofJoint3D x:
+      case SixDofJoint3DComponent x:
         return JointSettings3D(
           kind: JointKind3D.sixDof,
           pointA: pointA,
@@ -896,9 +896,9 @@ class PhysicsSystem3D extends System {
     for (final link in _joints.values) {
       if (link.joint == 0) continue;
       switch (link.comp) {
-        case HingeJoint3D h:
+        case HingeJoint3DComponent h:
           h.angle = physics.jointValue(link.joint);
-        case SliderJoint3D s:
+        case SliderJoint3DComponent s:
           s.position = physics.jointValue(link.joint);
         default:
       }
@@ -1036,8 +1036,8 @@ final class _BodyLink {
 
   final Entity entity;
   late TransformComponent transform;
-  late Collider3D collider;
-  RigidBody3D? rigid;
+  late Collider3DComponent collider;
+  RigidBody3DComponent? rigid;
   int version = -1;
 
   // The component whose shape a collider matching it takes, found when
@@ -1102,7 +1102,7 @@ final class _BodyLink {
   List<double>? _heights;
   int _heightCount = 0, _fieldSize = 0;
 
-  void rememberCollider(Collider3D c, Vector3 scale, Object? solid) {
+  void rememberCollider(Collider3DComponent c, Vector3 scale, Object? solid) {
     _solid = solid;
     _kind = c.shape;
     _sx = c.size.x;
@@ -1130,7 +1130,7 @@ final class _BodyLink {
     _fieldSize = c.heightFieldSize;
   }
 
-  bool colliderMatches(Collider3D c, Vector3 scale, Object? solid) =>
+  bool colliderMatches(Collider3DComponent c, Vector3 scale, Object? solid) =>
       _kind == c.shape &&
       _solid == solid &&
       _sx == c.size.x &&
@@ -1173,7 +1173,7 @@ final class _BodyLink {
     _pqw = _qw;
   }
 
-  void remember(RigidBody3D? r) {
+  void remember(RigidBody3DComponent? r) {
     _hasRigid = r != null;
     _type = r?.bodyType ?? BodyType3D.static;
     _sensor = r?.isSensor ?? false;
@@ -1189,7 +1189,7 @@ final class _BodyLink {
     motionQuality = PhysicsSystem3D._quality(r);
   }
 
-  bool matches(RigidBody3D? r) =>
+  bool matches(RigidBody3DComponent? r) =>
       _hasRigid == (r != null) &&
       _type == (r?.bodyType ?? BodyType3D.static) &&
       _sensor == (r?.isSensor ?? false) &&
@@ -1202,7 +1202,7 @@ final class _BodyLink {
   /// Whether [r] asks for the body exactly as the one that could not be
   /// made: its layer too (one outside 0-15 is refused, and tried again once
   /// it is fixed).
-  bool failedWith(RigidBody3D? r) =>
+  bool failedWith(RigidBody3DComponent? r) =>
       matches(r) &&
       layer == (r?.layer ?? 0) &&
       motionQuality == PhysicsSystem3D._quality(r);
@@ -1255,7 +1255,7 @@ final class _CharacterLink {
 
   final Entity entity;
   late TransformComponent transform;
-  late CharacterBody3D comp;
+  late CharacterBody3DComponent comp;
   int version = -1;
   int character = 0;
   int innerBody = 0;
@@ -1269,7 +1269,7 @@ final class _CharacterLink {
   bool _detectable = true;
   double _x = 0, _y = 0, _z = 0;
 
-  void remember(CharacterBody3D c) {
+  void remember(CharacterBody3DComponent c) {
     _radius = c.radius;
     _height = c.height;
     _slope = c.maxSlopeAngle;
@@ -1279,7 +1279,7 @@ final class _CharacterLink {
     _detectable = c.detectable;
   }
 
-  bool matches(CharacterBody3D c) =>
+  bool matches(CharacterBody3DComponent c) =>
       _radius == c.radius &&
       _height == c.height &&
       _slope == c.maxSlopeAngle &&
@@ -1307,7 +1307,7 @@ final class _JointLink {
   _JointLink(this.entity, this.comp);
 
   final Entity entity;
-  final Joint3D comp;
+  final Joint3DComponent comp;
   int version = -1;
   int joint = 0;
 
@@ -1335,7 +1335,7 @@ final class _JointLink {
 
   /// Whether [c] asks for the joint as it was made; [now] is scratch room
   /// for its settings.
-  bool madeFrom(Joint3D c, Float64List now) {
+  bool madeFrom(Joint3DComponent c, Float64List now) {
     if (_kind != c.kind || _target != c.connectedBody) return false;
     final n = _write(c, now);
     if (n != _count) return false;
@@ -1346,7 +1346,7 @@ final class _JointLink {
     return true;
   }
 
-  void remember(Joint3D c) {
+  void remember(Joint3DComponent c) {
     _kind = c.kind;
     _target = c.connectedBody;
     _count = _write(c, _made);
@@ -1354,30 +1354,30 @@ final class _JointLink {
 
   /// [c]'s settings as numbers into [out]; how many. Written out in full,
   /// with no closure: it runs for every joint every step.
-  static int _write(Joint3D c, Float64List out) {
+  static int _write(Joint3DComponent c, Float64List out) {
     var n = _put3(out, 0, c.anchor);
     switch (c) {
-      case HingeJoint3D h:
+      case HingeJoint3DComponent h:
         n = _put3(out, n, h.axis);
         out[n++] = h.useLimits ? 1 : 0;
         out[n++] = h.minAngle;
         out[n++] = h.maxAngle;
         out[n++] = h.friction;
         out[n++] = h.motorMaxTorque;
-      case SliderJoint3D s:
+      case SliderJoint3DComponent s:
         n = _put3(out, n, s.axis);
         out[n++] = s.useLimits ? 1 : 0;
         out[n++] = s.minPosition;
         out[n++] = s.maxPosition;
         out[n++] = s.friction;
         out[n++] = s.motorMaxForce;
-      case DistanceJoint3D d:
+      case DistanceJoint3DComponent d:
         n = _put3(out, n, d.connectedAnchor);
         out[n++] = d.minDistance;
         out[n++] = d.maxDistance;
         out[n++] = d.springFrequency;
         out[n++] = d.springDamping;
-      case SixDofJoint3D x:
+      case SixDofJoint3DComponent x:
         n = _put3(out, n, x.axis);
         n = _put3(out, n, x.normal);
         final modes = x.modes;

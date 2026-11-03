@@ -49,7 +49,7 @@ void main() {
     return scene;
   }
 
-  MeshInstance place(RenderScene scene, Primitive3D shape, {Vector3? at}) {
+  MeshInstance place(RenderScene scene, Primitive3DComponent shape, {Vector3? at}) {
     final instance = MeshInstance(
       shapes.meshFor(shape, Vector3(1, 1, 1))!,
       shapes.materialFor(shape),
@@ -68,7 +68,7 @@ void main() {
   test('a cube faces out: the face towards the camera takes the light from in front', () async {
     Future<int> red(Vector3 sun) async {
       final scene = dark(sun: sun);
-      place(scene, Cube3D(color: const ui.Color(0xFFFF0000), roughness: 1));
+      place(scene, Cube3DComponent(color: const ui.Color(0xFFFF0000), roughness: 1));
       return (await draw(scene, camera())).atFraction(0.5, 0.5)[0];
     }
 
@@ -85,7 +85,7 @@ void main() {
     ui.Canvas(recorder).drawRect(const ui.Rect.fromLTWH(0, 0, 4, 4), ui.Paint()..color = const ui.Color(0xFF00C800));
     final image = await recorder.endRecording().toImage(4, 4);
     files['green.png'] = (await image.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
-    final cube = Cube3D(color: const ui.Color(0xFFFFFFFF), unlit: true, texture: 'green.png', tiling: Vector2(3, 3));
+    final cube = Cube3DComponent(color: const ui.Color(0xFFFFFFFF), unlit: true, texture: 'green.png', tiling: Vector2(3, 3));
     shapes.materialFor(cube); // starts the load
     for (var i = 0; i < 100 && shapes.counts.$3 == 1 && shapes.revision == 0; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -98,18 +98,18 @@ void main() {
   }, skip: skip);
 
   test('every shape draws, and fifty equal cubes are one draw', () async {
-    for (final shape in <Primitive3D>[
-      Cube3D(),
-      Sphere3D(),
-      Plane3D(width: 1, depth: 1),
-      Cylinder3D(),
-      Capsule3D(height: 1.5),
-      Cone3D(),
-      Torus3D(),
-      Ramp3D(depth: 1),
-      Stairs3D(depth: 1),
-      Arch3D(radius: 1),
-      Polygon3D(),
+    for (final shape in <Primitive3DComponent>[
+      Cube3DComponent(),
+      Sphere3DComponent(),
+      Plane3DComponent(width: 1, depth: 1),
+      Cylinder3DComponent(),
+      Capsule3DComponent(height: 1.5),
+      Cone3DComponent(),
+      Torus3DComponent(),
+      Ramp3DComponent(depth: 1),
+      Stairs3DComponent(depth: 1),
+      Arch3DComponent(radius: 1),
+      Polygon3DComponent(),
     ]) {
       shape
         ..color = const ui.Color(0xFFFFFFFF)
@@ -130,7 +130,7 @@ void main() {
     renderer.shadows.cascades = 1;
     final scene = dark(sun: Vector3(0.3, 1, 0.5));
     for (var i = 0; i < 50; i++) {
-      place(scene, Cube3D(width: 0.2, height: 0.2, depth: 0.2), at: Vector3((i % 10 - 4.5) * 0.3, 0, (i ~/ 10) * 0.3));
+      place(scene, Cube3DComponent(width: 0.2, height: 0.2, depth: 0.2), at: Vector3((i % 10 - 4.5) * 0.3, 0, (i ~/ 10) * 0.3));
     }
     await draw(scene, camera(eye: Vector3(0, -2, -3)));
     expect(renderer.stats.instances, 50);

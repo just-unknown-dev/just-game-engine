@@ -101,9 +101,9 @@ void main() {
     final instance = crate.getComponent<PrefabInstanceComponent>()!;
     expect(instance.path, _crate);
     expect(instance.block.names, {'lid': 'Open lid'});
-    expect(lid.getComponent<PrefabLink>()!.instance, crate.id);
-    expect(lid.getComponent<PrefabLink>()!.path, 'lid');
-    expect(coin.getComponent<PrefabLink>(), isNull, reason: 'the scene\'s own');
+    expect(lid.getComponent<PrefabLinkComponent>()!.instance, crate.id);
+    expect(lid.getComponent<PrefabLinkComponent>()!.path, 'lid');
+    expect(coin.getComponent<PrefabLinkComponent>(), isNull, reason: 'the scene\'s own');
   });
 
   test('an instance moved in the scene carries what is inside it', () {
@@ -195,7 +195,7 @@ void main() {
     world = worldWith({'assets/prefabs/old.prefab.json': old.encode()});
     final file = await PrefabLibrary.of(world.context).load('assets/prefabs/old.prefab.json');
     final types = file.root.components.map((c) => c['type']);
-    expect(types, containsAll(['RigidBody2D', 'Collider2D']));
+    expect(types, containsAll(['RigidBody2DComponent', 'Collider2DComponent']));
     expect(types, isNot(contains('PhysicsBodyComponent')));
   });
 }

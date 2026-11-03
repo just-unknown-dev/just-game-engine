@@ -13,7 +13,7 @@ import '../../components/shapes/shapes.dart';
 import '../../ecs.dart';
 import '../../serialization/component_definition_registry.dart';
 
-/// The collider a [Collider2D] stands for, in its body's own space: what
+/// The collider a [Collider2DComponent] stands for, in its body's own space: what
 /// `PhysicsSystem` gives the simulation, what the debug outline draws, what
 /// an editor puts handles on.
 ///
@@ -93,7 +93,7 @@ abstract final class ColliderGeometry {
   /// none. A collider matching its entity's shape needs the [entity] (and
   /// the [definitions] to size a sprite or anything else by).
   static CollisionShape? shapeOf(
-    Collider2D collider, {
+    Collider2DComponent collider, {
     Entity? entity,
     ComponentDefinitionRegistry? definitions,
   }) {
@@ -157,7 +157,7 @@ abstract final class ColliderGeometry {
   /// [collider]'s collider for an entity with [transform] (none: unscaled):
   /// what the simulation gets. Null when it has no shape (see [shapeOf]).
   static CollisionShape? of(
-    Collider2D collider, [
+    Collider2DComponent collider, [
     TransformComponent? transform,
     Entity? entity,
     ComponentDefinitionRegistry? definitions,
@@ -185,9 +185,9 @@ abstract final class ColliderGeometry {
   }) {
     for (final c in entity.components) {
       switch (c) {
-        case CircleComponent v:
+        case Circle2DComponent v:
           return CircleShape(math.max(v.radius, 1e-3));
-        case CapsuleComponent v:
+        case Capsule2DComponent v:
           final r = math.max(math.min(v.width, v.height) / 2, 1e-3);
           final half = math.max(math.max(v.width, v.height) / 2 - r, 0.0);
           return v.height >= v.width
@@ -201,7 +201,7 @@ abstract final class ColliderGeometry {
                   center2: Offset(half, 0),
                   radius: r,
                 );
-        case RectangleComponent v:
+        case Rectangle2DComponent v:
           final w = math.max(v.width, 1e-3), h = math.max(v.height, 1e-3);
           final r = math.min(v.cornerRadius, math.min(w, h) / 2 - 1e-3);
           return r > 0
@@ -211,9 +211,9 @@ abstract final class ColliderGeometry {
                   cornerRadius: r,
                 )
               : RectangleShape(w, h);
-        case PolygonComponent v when v.vertices.length >= 3:
+        case Polygon2DComponent v when v.vertices.length >= 3:
           return PolygonShape([...v.vertices]);
-        case LineComponent v:
+        case Line2DComponent v:
           return SegmentShape(
             v.start,
             v.end,
@@ -233,15 +233,15 @@ abstract final class ColliderGeometry {
   }) {
     for (final c in entity.components) {
       switch (c) {
-        case CircleComponent v:
+        case Circle2DComponent v:
           return ('circle', v.radius);
-        case CapsuleComponent v:
+        case Capsule2DComponent v:
           return ('capsule', v.width, v.height);
-        case RectangleComponent v:
+        case Rectangle2DComponent v:
           return ('box', v.width, v.height, v.cornerRadius);
-        case PolygonComponent v when v.vertices.length >= 3:
+        case Polygon2DComponent v when v.vertices.length >= 3:
           return ('polygon', Object.hashAll(v.vertices), v.vertices.length);
-        case LineComponent v:
+        case Line2DComponent v:
           return ('line', v.start, v.end, v.strokeWidth);
       }
     }
@@ -256,7 +256,7 @@ abstract final class ColliderGeometry {
     if (definitions == null) return null;
     Size? best;
     for (final c in entity.components) {
-      if (c is Collider2D || c is RigidBody2D) continue;
+      if (c is Collider2DComponent || c is RigidBody2DComponent) continue;
       final size = definitions.definitionFor(c)?.extent?.sizeOf(c);
       if (size == null || size.width <= 0 || size.height <= 0) continue;
       if (best == null || size.width * size.height > best.width * best.height) {

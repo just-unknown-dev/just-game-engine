@@ -12,7 +12,7 @@ import 'physics_components_3d.dart';
 /// How the 3-D physics components are saved and shown in an editor. Every
 /// one is a 3-D component (`Dimensions.threeD`), in the `Physics` group the
 /// 2-D ones are in — a body and a collider grouped, labelled and described
-/// as `RigidBody2D` and `Collider2D` are.
+/// as `RigidBody2DComponent` and `Collider2DComponent` are.
 abstract final class Physics3DSchemas {
   static const String _group = 'Physics';
 
@@ -40,12 +40,12 @@ abstract final class Physics3DSchemas {
   static const _metres = ScrubHint(step: 0.05, fractionDigits: 2, suffix: 'm');
   static const _plain = ScrubHint(step: 0.05, fractionDigits: 2);
 
-  /// [RigidBody3D]: grouped, labelled and described as `RigidBody2D` is.
-  static ComponentSchema<RigidBody3D>
-  get rigidBody => ComponentSchema<RigidBody3D>(
-    type: 'RigidBody3D',
+  /// [RigidBody3DComponent]: grouped, labelled and described as `RigidBody2DComponent` is.
+  static ComponentSchema<RigidBody3DComponent>
+  get rigidBody => ComponentSchema<RigidBody3DComponent>(
+    type: 'RigidBody3DComponent',
     id: 'rigid_body_3d_d3ff8994',
-    create: RigidBody3D.new,
+    create: RigidBody3DComponent.new,
     hints: ComponentHints(
       dimensions: Dimensions.threeD,
       name: 'Rigid Body 3D',
@@ -78,7 +78,8 @@ abstract final class Physics3DSchemas {
           description:
               'How heavy it is, in kg; 0 works it out from the collider.',
           scrub: const ScrubHint(step: 0.5, fractionDigits: 1, suffix: 'kg'),
-          visibleWhen: (c) => (c as RigidBody3D).bodyType == BodyType3D.dynamic,
+          visibleWhen: (c) =>
+              (c as RigidBody3DComponent).bodyType == BodyType3D.dynamic,
         ),
         'layer': const FieldHint(
           label: 'Layer',
@@ -93,59 +94,67 @@ abstract final class Physics3DSchemas {
           description: PhysicsDefinitions2D.frictionDescription,
           slider: true,
           scrub: _plain,
-          visibleWhen: (c) => !(c as RigidBody3D).isSensor,
+          visibleWhen: (c) => !(c as RigidBody3DComponent).isSensor,
         ),
         'restitution': FieldHint(
           label: 'Bounciness',
           description: PhysicsDefinitions2D.restitutionDescription,
           slider: true,
           scrub: _plain,
-          visibleWhen: (c) => !(c as RigidBody3D).isSensor,
+          visibleWhen: (c) => !(c as RigidBody3DComponent).isSensor,
         ),
         'gravityScale': FieldHint(
           label: 'Gravity scale',
           description: PhysicsDefinitions2D.gravityScaleDescription,
           scrub: const ScrubHint(step: 0.05, fractionDigits: 2, suffix: '×'),
-          visibleWhen: (c) => (c as RigidBody3D).bodyType == BodyType3D.dynamic,
+          visibleWhen: (c) =>
+              (c as RigidBody3DComponent).bodyType == BodyType3D.dynamic,
         ),
         'linearDamping': FieldHint(
           label: 'Linear damping',
           description: PhysicsDefinitions2D.linearDampingDescription,
           scrub: const ScrubHint(step: 0.05, fractionDigits: 2, suffix: '/s'),
-          visibleWhen: (c) => (c as RigidBody3D).bodyType == BodyType3D.dynamic,
+          visibleWhen: (c) =>
+              (c as RigidBody3DComponent).bodyType == BodyType3D.dynamic,
         ),
         'angularDamping': FieldHint(
           label: 'Angular damping',
           description: 'As linear damping, for its spin.',
           scrub: const ScrubHint(step: 0.05, fractionDigits: 2, suffix: '/s'),
-          visibleWhen: (c) => (c as RigidBody3D).bodyType == BodyType3D.dynamic,
+          visibleWhen: (c) =>
+              (c as RigidBody3DComponent).bodyType == BodyType3D.dynamic,
         ),
         'continuousCollision': FieldHint(
           label: 'Continuous',
           description: PhysicsDefinitions2D.continuousDescription,
-          visibleWhen: (c) => (c as RigidBody3D).bodyType == BodyType3D.dynamic,
+          visibleWhen: (c) =>
+              (c as RigidBody3DComponent).bodyType == BodyType3D.dynamic,
         ),
         'canSleep': FieldHint(
           label: 'Can sleep',
           description: PhysicsDefinitions2D.canSleepDescription,
-          visibleWhen: (c) => (c as RigidBody3D).bodyType != BodyType3D.static,
+          visibleWhen: (c) =>
+              (c as RigidBody3DComponent).bodyType != BodyType3D.static,
         ),
         'lockRotation': FieldHint(
           label: 'Lock rotation',
           description: PhysicsDefinitions2D.lockRotationDescription,
-          visibleWhen: (c) => (c as RigidBody3D).bodyType != BodyType3D.static,
+          visibleWhen: (c) =>
+              (c as RigidBody3DComponent).bodyType != BodyType3D.static,
         ),
         'initialVelocity': FieldHint(
           label: 'Start velocity',
           description:
               'The velocity it starts with, in m/s: a thrown crate, a platform already on its way.',
-          visibleWhen: (c) => (c as RigidBody3D).bodyType != BodyType3D.static,
+          visibleWhen: (c) =>
+              (c as RigidBody3DComponent).bodyType != BodyType3D.static,
         ),
         'initialAngularVelocity': FieldHint(
           label: 'Start spin',
           description:
               'The spin it starts with, in radians per second about each axis.',
-          visibleWhen: (c) => (c as RigidBody3D).bodyType != BodyType3D.static,
+          visibleWhen: (c) =>
+              (c as RigidBody3DComponent).bodyType != BodyType3D.static,
         ),
       },
     ),
@@ -153,10 +162,10 @@ abstract final class Physics3DSchemas {
       SchemaField(
         name: 'bodyType',
         kind: _bodyType,
-        read: (c) => (c as RigidBody3D).bodyType,
-        write: (c, v) => (c as RigidBody3D).bodyType = v as BodyType3D,
+        read: (c) => (c as RigidBody3DComponent).bodyType,
+        write: (c, v) => (c as RigidBody3DComponent).bodyType = v as BodyType3D,
       ),
-      _decimal<RigidBody3D>(
+      _decimal<RigidBody3DComponent>(
         'mass',
         (c) => c.mass,
         (c, v) => c.mass = v,
@@ -165,65 +174,65 @@ abstract final class Physics3DSchemas {
       SchemaField(
         name: 'layer',
         kind: FieldTypes.physicsLayer,
-        read: (c) => (c as RigidBody3D).layer,
-        write: (c, v) => (c as RigidBody3D).layer = (v as num).toInt(),
+        read: (c) => (c as RigidBody3DComponent).layer,
+        write: (c, v) => (c as RigidBody3DComponent).layer = (v as num).toInt(),
       ),
-      _bool<RigidBody3D>(
+      _bool<RigidBody3DComponent>(
         'isSensor',
         (c) => c.isSensor,
         (c, v) => c.isSensor = v,
       ),
-      _decimal<RigidBody3D>(
+      _decimal<RigidBody3DComponent>(
         'friction',
         (c) => c.friction,
         (c, v) => c.friction = v,
         min: 0,
       ),
-      _decimal<RigidBody3D>(
+      _decimal<RigidBody3DComponent>(
         'restitution',
         (c) => c.restitution,
         (c, v) => c.restitution = v,
         min: 0,
         max: 1,
       ),
-      _decimal<RigidBody3D>(
+      _decimal<RigidBody3DComponent>(
         'gravityScale',
         (c) => c.gravityScale,
         (c, v) => c.gravityScale = v,
       ),
-      _decimal<RigidBody3D>(
+      _decimal<RigidBody3DComponent>(
         'linearDamping',
         (c) => c.linearDamping,
         (c, v) => c.linearDamping = v,
         min: 0,
       ),
-      _decimal<RigidBody3D>(
+      _decimal<RigidBody3DComponent>(
         'angularDamping',
         (c) => c.angularDamping,
         (c, v) => c.angularDamping = v,
         min: 0,
       ),
-      _bool<RigidBody3D>(
+      _bool<RigidBody3DComponent>(
         'continuousCollision',
         (c) => c.continuousCollision,
         (c, v) => c.continuousCollision = v,
       ),
-      _bool<RigidBody3D>(
+      _bool<RigidBody3DComponent>(
         'canSleep',
         (c) => c.canSleep,
         (c, v) => c.canSleep = v,
       ),
-      _bool<RigidBody3D>(
+      _bool<RigidBody3DComponent>(
         'lockRotation',
         (c) => c.lockRotation,
         (c, v) => c.lockRotation = v,
       ),
-      _vector<RigidBody3D>(
+      _vector<RigidBody3DComponent>(
         'initialVelocity',
         (c) => c.initialVelocity,
         (c, v) => c.initialVelocity = v,
       ),
-      _vector<RigidBody3D>(
+      _vector<RigidBody3DComponent>(
         'initialAngularVelocity',
         (c) => c.initialAngularVelocity,
         (c, v) => c.initialAngularVelocity = v,
@@ -231,14 +240,14 @@ abstract final class Physics3DSchemas {
     ],
   );
 
-  /// [Collider3D].
-  static ComponentSchema<Collider3D> get collider {
+  /// [Collider3DComponent].
+  static ComponentSchema<Collider3DComponent> get collider {
     bool shapeIs(Component c, Set<ColliderShape3D> shapes) =>
-        shapes.contains((c as Collider3D).shape);
-    return ComponentSchema<Collider3D>(
-      type: 'Collider3D',
+        shapes.contains((c as Collider3DComponent).shape);
+    return ComponentSchema<Collider3DComponent>(
+      type: 'Collider3DComponent',
       id: 'collider_3d_1bf4c502',
-      create: Collider3D.new,
+      create: Collider3DComponent.new,
       extent: const _ColliderExtent(),
       hints: ComponentHints(
         dimensions: Dimensions.threeD,
@@ -315,17 +324,22 @@ abstract final class Physics3DSchemas {
         SchemaField(
           name: 'shape',
           kind: _colliderShape,
-          read: (c) => (c as Collider3D).shape,
-          write: (c, v) => (c as Collider3D).shape = v as ColliderShape3D,
+          read: (c) => (c as Collider3DComponent).shape,
+          write: (c, v) =>
+              (c as Collider3DComponent).shape = v as ColliderShape3D,
         ),
-        _vector<Collider3D>('size', (c) => c.size, (c, v) => c.size = v),
-        _decimal<Collider3D>(
+        _vector<Collider3DComponent>(
+          'size',
+          (c) => c.size,
+          (c, v) => c.size = v,
+        ),
+        _decimal<Collider3DComponent>(
           'radius',
           (c) => c.radius,
           (c, v) => c.radius = v,
           min: 0,
         ),
-        _decimal<Collider3D>(
+        _decimal<Collider3DComponent>(
           'height',
           (c) => c.height,
           (c, v) => c.height = v,
@@ -334,20 +348,22 @@ abstract final class Physics3DSchemas {
         SchemaField(
           name: 'model',
           kind: FieldTypes.assetRef,
-          read: (c) => (c as Collider3D).model,
-          write: (c, v) => (c as Collider3D).model = v as String? ?? '',
+          read: (c) => (c as Collider3DComponent).model,
+          write: (c, v) =>
+              (c as Collider3DComponent).model = v as String? ?? '',
         ),
         SchemaField(
           name: 'meshName',
           kind: FieldTypes.text,
-          read: (c) => (c as Collider3D).meshName,
-          write: (c, v) => (c as Collider3D).meshName = v as String? ?? '',
+          read: (c) => (c as Collider3DComponent).meshName,
+          write: (c, v) =>
+              (c as Collider3DComponent).meshName = v as String? ?? '',
         ),
         SchemaField(
           name: 'heights',
           kind: FieldTypes.list,
-          read: (c) => (c as Collider3D).heights,
-          write: (c, v) => (c as Collider3D).heights = [
+          read: (c) => (c as Collider3DComponent).heights,
+          write: (c, v) => (c as Collider3DComponent).heights = [
             if (v is List)
               for (final h in v) h is num ? h.toDouble() : 0.0,
           ],
@@ -355,35 +371,43 @@ abstract final class Physics3DSchemas {
         SchemaField(
           name: 'heightFieldSize',
           kind: FieldTypes.integer,
-          read: (c) => (c as Collider3D).heightFieldSize,
+          read: (c) => (c as Collider3DComponent).heightFieldSize,
           write: (c, v) =>
-              (c as Collider3D).heightFieldSize = (v as num).toInt(),
+              (c as Collider3DComponent).heightFieldSize = (v as num).toInt(),
           min: 0,
         ),
-        _decimal<Collider3D>(
+        _decimal<Collider3DComponent>(
           'cellSize',
           (c) => c.cellSize,
           (c, v) => c.cellSize = v,
           min: 0,
         ),
-        _vector<Collider3D>('offset', (c) => c.offset, (c, v) => c.offset = v),
+        _vector<Collider3DComponent>(
+          'offset',
+          (c) => c.offset,
+          (c, v) => c.offset = v,
+        ),
         SchemaField(
           name: 'rotation',
           kind: FieldTypes.euler,
-          read: (c) => (c as Collider3D).rotation,
-          write: (c, v) => (c as Collider3D).rotation = v as Vector3,
+          read: (c) => (c as Collider3DComponent).rotation,
+          write: (c, v) => (c as Collider3DComponent).rotation = v as Vector3,
         ),
-        _vector<Collider3D>('scale', (c) => c.scale, (c, v) => c.scale = v),
+        _vector<Collider3DComponent>(
+          'scale',
+          (c) => c.scale,
+          (c, v) => c.scale = v,
+        ),
       ],
     );
   }
 
-  /// [CharacterBody3D].
-  static ComponentSchema<CharacterBody3D>
-  get characterBody => ComponentSchema<CharacterBody3D>(
-    type: 'CharacterBody3D',
+  /// [CharacterBody3DComponent].
+  static ComponentSchema<CharacterBody3DComponent>
+  get characterBody => ComponentSchema<CharacterBody3DComponent>(
+    type: 'CharacterBody3DComponent',
     id: 'character_body_3d_f8ddd4a9',
-    create: CharacterBody3D.new,
+    create: CharacterBody3DComponent.new,
     hints: ComponentHints(
       dimensions: Dimensions.threeD,
       name: 'Character Body 3D',
@@ -423,7 +447,7 @@ abstract final class Physics3DSchemas {
           label: 'Gravity scale',
           description: PhysicsDefinitions2D.gravityScaleDescription,
           scrub: const ScrubHint(step: 0.05, fractionDigits: 2, suffix: '×'),
-          visibleWhen: (c) => (c as CharacterBody3D).useGravity,
+          visibleWhen: (c) => (c as CharacterBody3DComponent).useGravity,
         ),
         'mass': const FieldHint(
           label: 'Mass',
@@ -436,54 +460,54 @@ abstract final class Physics3DSchemas {
       },
     ),
     fields: [
-      _decimal<CharacterBody3D>(
+      _decimal<CharacterBody3DComponent>(
         'radius',
         (c) => c.radius,
         (c, v) => c.radius = v,
         min: 0.01,
       ),
-      _decimal<CharacterBody3D>(
+      _decimal<CharacterBody3DComponent>(
         'height',
         (c) => c.height,
         (c, v) => c.height = v,
         min: 0.02,
       ),
-      _decimal<CharacterBody3D>(
+      _decimal<CharacterBody3DComponent>(
         'maxSlopeAngle',
         (c) => c.maxSlopeAngle,
         (c, v) => c.maxSlopeAngle = v,
         min: 0,
       ),
-      _decimal<CharacterBody3D>(
+      _decimal<CharacterBody3DComponent>(
         'stepHeight',
         (c) => c.stepHeight,
         (c, v) => c.stepHeight = v,
         min: 0,
       ),
-      _decimal<CharacterBody3D>(
+      _decimal<CharacterBody3DComponent>(
         'stickToFloor',
         (c) => c.stickToFloor,
         (c, v) => c.stickToFloor = v,
         min: 0,
       ),
-      _decimal<CharacterBody3D>(
+      _decimal<CharacterBody3DComponent>(
         'mass',
         (c) => c.mass,
         (c, v) => c.mass = v,
         min: 0,
       ),
-      _decimal<CharacterBody3D>(
+      _decimal<CharacterBody3DComponent>(
         'pushStrength',
         (c) => c.pushStrength,
         (c, v) => c.pushStrength = v,
         min: 0,
       ),
-      _decimal<CharacterBody3D>(
+      _decimal<CharacterBody3DComponent>(
         'gravityScale',
         (c) => c.gravityScale,
         (c, v) => c.gravityScale = v,
       ),
-      _bool<CharacterBody3D>(
+      _bool<CharacterBody3DComponent>(
         'useGravity',
         (c) => c.useGravity,
         (c, v) => c.useGravity = v,
@@ -491,10 +515,11 @@ abstract final class Physics3DSchemas {
       SchemaField(
         name: 'layer',
         kind: FieldTypes.physicsLayer,
-        read: (c) => (c as CharacterBody3D).layer,
-        write: (c, v) => (c as CharacterBody3D).layer = (v as num).toInt(),
+        read: (c) => (c as CharacterBody3DComponent).layer,
+        write: (c, v) =>
+            (c as CharacterBody3DComponent).layer = (v as num).toInt(),
       ),
-      _bool<CharacterBody3D>(
+      _bool<CharacterBody3DComponent>(
         'detectable',
         (c) => c.detectable,
         (c, v) => c.detectable = v,
@@ -512,7 +537,7 @@ abstract final class Physics3DSchemas {
     'enabled': FieldHint(label: 'Enabled'),
   };
 
-  static List<SchemaField> _jointFields<T extends Joint3D>() => [
+  static List<SchemaField> _jointFields<T extends Joint3DComponent>() => [
     SchemaField(
       name: 'connectedBody',
       kind: FieldTypes.target,
@@ -541,32 +566,32 @@ abstract final class Physics3DSchemas {
     fields: {..._jointHints, ...fields},
   );
 
-  /// [FixedJoint3D].
-  static ComponentSchema<FixedJoint3D> get fixedJoint =>
-      ComponentSchema<FixedJoint3D>(
-        type: 'FixedJoint3D',
+  /// [FixedJoint3DComponent].
+  static ComponentSchema<FixedJoint3DComponent> get fixedJoint =>
+      ComponentSchema<FixedJoint3DComponent>(
+        type: 'FixedJoint3DComponent',
         id: 'fixed_joint_3d_6a931232',
-        create: FixedJoint3D.new,
+        create: FixedJoint3DComponent.new,
         hints: _jointHintsFor(
           'Fixed Joint 3D',
           'Holds two bodies rigidly together.',
           Icons.lock_outline,
         ),
-        fields: _jointFields<FixedJoint3D>(),
+        fields: _jointFields<FixedJoint3DComponent>(),
       );
 
-  /// [PointJoint3D].
-  static ComponentSchema<PointJoint3D> get pointJoint =>
-      ComponentSchema<PointJoint3D>(
-        type: 'PointJoint3D',
+  /// [PointJoint3DComponent].
+  static ComponentSchema<PointJoint3DComponent> get pointJoint =>
+      ComponentSchema<PointJoint3DComponent>(
+        type: 'PointJoint3DComponent',
         id: 'point_joint_3d_40e90e6c',
-        create: PointJoint3D.new,
+        create: PointJoint3DComponent.new,
         hints: _jointHintsFor(
           'Point Joint 3D',
           'Holds two bodies at one point, free to turn about it.',
           Icons.all_out,
         ),
-        fields: _jointFields<PointJoint3D>(),
+        fields: _jointFields<PointJoint3DComponent>(),
       );
 
   static Map<String, FieldHint> _motorHints(
@@ -587,17 +612,17 @@ abstract final class Physics3DSchemas {
   };
 
   static MotorState3D _motorOf(Component c) => switch (c) {
-    HingeJoint3D h => h.motor,
-    SliderJoint3D s => s.motor,
+    HingeJoint3DComponent h => h.motor,
+    SliderJoint3DComponent s => s.motor,
     _ => MotorState3D.off,
   };
 
-  /// [HingeJoint3D].
-  static ComponentSchema<HingeJoint3D> get hingeJoint =>
-      ComponentSchema<HingeJoint3D>(
-        type: 'HingeJoint3D',
+  /// [HingeJoint3DComponent].
+  static ComponentSchema<HingeJoint3DComponent> get hingeJoint =>
+      ComponentSchema<HingeJoint3DComponent>(
+        type: 'HingeJoint3DComponent',
         id: 'hinge_joint_3d_d261402b',
-        create: HingeJoint3D.new,
+        create: HingeJoint3DComponent.new,
         hints: _jointHintsFor(
           'Hinge Joint 3D',
           'Lets two bodies turn about one axis: a door, a wheel.',
@@ -613,12 +638,12 @@ abstract final class Physics3DSchemas {
             'minAngle': FieldHint(
               label: 'Min angle',
               unit: AngleUnit.degrees,
-              visibleWhen: (c) => (c as HingeJoint3D).useLimits,
+              visibleWhen: (c) => (c as HingeJoint3DComponent).useLimits,
             ),
             'maxAngle': FieldHint(
               label: 'Max angle',
               unit: AngleUnit.degrees,
-              visibleWhen: (c) => (c as HingeJoint3D).useLimits,
+              visibleWhen: (c) => (c as HingeJoint3DComponent).useLimits,
             ),
             'friction': const FieldHint(label: 'Friction torque'),
             ..._motorHints('angle', 'Max torque').map(
@@ -627,24 +652,28 @@ abstract final class Physics3DSchemas {
           },
         ),
         fields: [
-          ..._jointFields<HingeJoint3D>(),
-          _vector<HingeJoint3D>('axis', (c) => c.axis, (c, v) => c.axis = v),
-          _bool<HingeJoint3D>(
+          ..._jointFields<HingeJoint3DComponent>(),
+          _vector<HingeJoint3DComponent>(
+            'axis',
+            (c) => c.axis,
+            (c, v) => c.axis = v,
+          ),
+          _bool<HingeJoint3DComponent>(
             'useLimits',
             (c) => c.useLimits,
             (c, v) => c.useLimits = v,
           ),
-          _decimal<HingeJoint3D>(
+          _decimal<HingeJoint3DComponent>(
             'minAngle',
             (c) => c.minAngle,
             (c, v) => c.minAngle = v,
           ),
-          _decimal<HingeJoint3D>(
+          _decimal<HingeJoint3DComponent>(
             'maxAngle',
             (c) => c.maxAngle,
             (c, v) => c.maxAngle = v,
           ),
-          _decimal<HingeJoint3D>(
+          _decimal<HingeJoint3DComponent>(
             'friction',
             (c) => c.friction,
             (c, v) => c.friction = v,
@@ -653,15 +682,16 @@ abstract final class Physics3DSchemas {
           SchemaField(
             name: 'motor',
             kind: _motor,
-            read: (c) => (c as HingeJoint3D).motor,
-            write: (c, v) => (c as HingeJoint3D).motor = v as MotorState3D,
+            read: (c) => (c as HingeJoint3DComponent).motor,
+            write: (c, v) =>
+                (c as HingeJoint3DComponent).motor = v as MotorState3D,
           ),
-          _decimal<HingeJoint3D>(
+          _decimal<HingeJoint3DComponent>(
             'motorTarget',
             (c) => c.motorTarget,
             (c, v) => c.motorTarget = v,
           ),
-          _decimal<HingeJoint3D>(
+          _decimal<HingeJoint3DComponent>(
             'motorMaxTorque',
             (c) => c.motorMaxTorque,
             (c, v) => c.motorMaxTorque = v,
@@ -670,12 +700,12 @@ abstract final class Physics3DSchemas {
         ],
       );
 
-  /// [SliderJoint3D].
-  static ComponentSchema<SliderJoint3D> get sliderJoint =>
-      ComponentSchema<SliderJoint3D>(
-        type: 'SliderJoint3D',
+  /// [SliderJoint3DComponent].
+  static ComponentSchema<SliderJoint3DComponent> get sliderJoint =>
+      ComponentSchema<SliderJoint3DComponent>(
+        type: 'SliderJoint3DComponent',
         id: 'slider_joint_3d_4fe767d0',
-        create: SliderJoint3D.new,
+        create: SliderJoint3DComponent.new,
         hints: _jointHintsFor(
           'Slider Joint 3D',
           'Lets two bodies slide along one axis: a drawer, a lift.',
@@ -691,12 +721,12 @@ abstract final class Physics3DSchemas {
             'minPosition': FieldHint(
               label: 'Min position',
               scrub: _metres,
-              visibleWhen: (c) => (c as SliderJoint3D).useLimits,
+              visibleWhen: (c) => (c as SliderJoint3DComponent).useLimits,
             ),
             'maxPosition': FieldHint(
               label: 'Max position',
               scrub: _metres,
-              visibleWhen: (c) => (c as SliderJoint3D).useLimits,
+              visibleWhen: (c) => (c as SliderJoint3DComponent).useLimits,
             ),
             'friction': const FieldHint(label: 'Friction force'),
             ..._motorHints(
@@ -706,24 +736,28 @@ abstract final class Physics3DSchemas {
           },
         ),
         fields: [
-          ..._jointFields<SliderJoint3D>(),
-          _vector<SliderJoint3D>('axis', (c) => c.axis, (c, v) => c.axis = v),
-          _bool<SliderJoint3D>(
+          ..._jointFields<SliderJoint3DComponent>(),
+          _vector<SliderJoint3DComponent>(
+            'axis',
+            (c) => c.axis,
+            (c, v) => c.axis = v,
+          ),
+          _bool<SliderJoint3DComponent>(
             'useLimits',
             (c) => c.useLimits,
             (c, v) => c.useLimits = v,
           ),
-          _decimal<SliderJoint3D>(
+          _decimal<SliderJoint3DComponent>(
             'minPosition',
             (c) => c.minPosition,
             (c, v) => c.minPosition = v,
           ),
-          _decimal<SliderJoint3D>(
+          _decimal<SliderJoint3DComponent>(
             'maxPosition',
             (c) => c.maxPosition,
             (c, v) => c.maxPosition = v,
           ),
-          _decimal<SliderJoint3D>(
+          _decimal<SliderJoint3DComponent>(
             'friction',
             (c) => c.friction,
             (c, v) => c.friction = v,
@@ -732,15 +766,16 @@ abstract final class Physics3DSchemas {
           SchemaField(
             name: 'motor',
             kind: _motor,
-            read: (c) => (c as SliderJoint3D).motor,
-            write: (c, v) => (c as SliderJoint3D).motor = v as MotorState3D,
+            read: (c) => (c as SliderJoint3DComponent).motor,
+            write: (c, v) =>
+                (c as SliderJoint3DComponent).motor = v as MotorState3D,
           ),
-          _decimal<SliderJoint3D>(
+          _decimal<SliderJoint3DComponent>(
             'motorTarget',
             (c) => c.motorTarget,
             (c, v) => c.motorTarget = v,
           ),
-          _decimal<SliderJoint3D>(
+          _decimal<SliderJoint3DComponent>(
             'motorMaxForce',
             (c) => c.motorMaxForce,
             (c, v) => c.motorMaxForce = v,
@@ -749,12 +784,12 @@ abstract final class Physics3DSchemas {
         ],
       );
 
-  /// [DistanceJoint3D].
-  static ComponentSchema<DistanceJoint3D> get distanceJoint =>
-      ComponentSchema<DistanceJoint3D>(
-        type: 'DistanceJoint3D',
+  /// [DistanceJoint3DComponent].
+  static ComponentSchema<DistanceJoint3DComponent> get distanceJoint =>
+      ComponentSchema<DistanceJoint3DComponent>(
+        type: 'DistanceJoint3DComponent',
         id: 'distance_joint_3d_4db642db',
-        create: DistanceJoint3D.new,
+        create: DistanceJoint3DComponent.new,
         hints: _jointHintsFor(
           'Distance Joint 3D',
           'Keeps two anchors within a distance range: a rope, a spring.',
@@ -785,29 +820,29 @@ abstract final class Physics3DSchemas {
           },
         ),
         fields: [
-          ..._jointFields<DistanceJoint3D>(),
-          _vector<DistanceJoint3D>(
+          ..._jointFields<DistanceJoint3DComponent>(),
+          _vector<DistanceJoint3DComponent>(
             'connectedAnchor',
             (c) => c.connectedAnchor,
             (c, v) => c.connectedAnchor = v,
           ),
-          _decimal<DistanceJoint3D>(
+          _decimal<DistanceJoint3DComponent>(
             'minDistance',
             (c) => c.minDistance,
             (c, v) => c.minDistance = v,
           ),
-          _decimal<DistanceJoint3D>(
+          _decimal<DistanceJoint3DComponent>(
             'maxDistance',
             (c) => c.maxDistance,
             (c, v) => c.maxDistance = v,
           ),
-          _decimal<DistanceJoint3D>(
+          _decimal<DistanceJoint3DComponent>(
             'springFrequency',
             (c) => c.springFrequency,
             (c, v) => c.springFrequency = v,
             min: 0,
           ),
-          _decimal<DistanceJoint3D>(
+          _decimal<DistanceJoint3DComponent>(
             'springDamping',
             (c) => c.springDamping,
             (c, v) => c.springDamping = v,
@@ -816,22 +851,23 @@ abstract final class Physics3DSchemas {
         ],
       );
 
-  /// [SixDofJoint3D].
-  static ComponentSchema<SixDofJoint3D> get sixDofJoint {
+  /// [SixDofJoint3DComponent].
+  static ComponentSchema<SixDofJoint3DComponent> get sixDofJoint {
     SchemaField mode(
       String name,
-      SixDofAxisMode3D Function(SixDofJoint3D) read,
-      void Function(SixDofJoint3D, SixDofAxisMode3D) write,
+      SixDofAxisMode3D Function(SixDofJoint3DComponent) read,
+      void Function(SixDofJoint3DComponent, SixDofAxisMode3D) write,
     ) => SchemaField(
       name: name,
       kind: _axisMode,
-      read: (c) => read(c as SixDofJoint3D),
-      write: (c, v) => write(c as SixDofJoint3D, v as SixDofAxisMode3D),
+      read: (c) => read(c as SixDofJoint3DComponent),
+      write: (c, v) =>
+          write(c as SixDofJoint3DComponent, v as SixDofAxisMode3D),
     );
-    return ComponentSchema<SixDofJoint3D>(
-      type: 'SixDofJoint3D',
+    return ComponentSchema<SixDofJoint3DComponent>(
+      type: 'SixDofJoint3DComponent',
       id: 'six_dof_joint_3d_7cb33ceb',
-      create: SixDofJoint3D.new,
+      create: SixDofJoint3DComponent.new,
       hints: _jointHintsFor(
         'Six DOF Joint 3D',
         'Each of the six axes free, limited or fixed.',
@@ -863,9 +899,13 @@ abstract final class Physics3DSchemas {
         },
       ),
       fields: [
-        ..._jointFields<SixDofJoint3D>(),
-        _vector<SixDofJoint3D>('axis', (c) => c.axis, (c, v) => c.axis = v),
-        _vector<SixDofJoint3D>(
+        ..._jointFields<SixDofJoint3DComponent>(),
+        _vector<SixDofJoint3DComponent>(
+          'axis',
+          (c) => c.axis,
+          (c, v) => c.axis = v,
+        ),
+        _vector<SixDofJoint3DComponent>(
           'normal',
           (c) => c.normal,
           (c, v) => c.normal = v,
@@ -888,22 +928,22 @@ abstract final class Physics3DSchemas {
         mode('rotationX', (c) => c.rotationX, (c, v) => c.rotationX = v),
         mode('rotationY', (c) => c.rotationY, (c, v) => c.rotationY = v),
         mode('rotationZ', (c) => c.rotationZ, (c, v) => c.rotationZ = v),
-        _vector<SixDofJoint3D>(
+        _vector<SixDofJoint3DComponent>(
           'translationMin',
           (c) => c.translationMin,
           (c, v) => c.translationMin = v,
         ),
-        _vector<SixDofJoint3D>(
+        _vector<SixDofJoint3DComponent>(
           'translationMax',
           (c) => c.translationMax,
           (c, v) => c.translationMax = v,
         ),
-        _vector<SixDofJoint3D>(
+        _vector<SixDofJoint3DComponent>(
           'rotationMin',
           (c) => c.rotationMin,
           (c, v) => c.rotationMin = v,
         ),
-        _vector<SixDofJoint3D>(
+        _vector<SixDofJoint3DComponent>(
           'rotationMax',
           (c) => c.rotationMax,
           (c, v) => c.rotationMax = v,
@@ -926,12 +966,12 @@ abstract final class Physics3DSchemas {
     cameraCollision,
   ];
 
-  /// [CameraCollision3D].
-  static ComponentSchema<CameraCollision3D>
-  get cameraCollision => ComponentSchema<CameraCollision3D>(
-    type: 'CameraCollision3D',
+  /// [CameraCollision3DComponent].
+  static ComponentSchema<CameraCollision3DComponent>
+  get cameraCollision => ComponentSchema<CameraCollision3DComponent>(
+    type: 'CameraCollision3DComponent',
     id: 'camera_collision_3d_5d27c0e1',
-    create: CameraCollision3D.new,
+    create: CameraCollision3DComponent.new,
     hints: ComponentHints(
       dimensions: Dimensions.threeD,
       name: 'Camera Collision 3D',
@@ -962,19 +1002,19 @@ abstract final class Physics3DSchemas {
       },
     ),
     fields: [
-      _decimal<CameraCollision3D>(
+      _decimal<CameraCollision3DComponent>(
         'radius',
         (c) => c.radius,
         (c, v) => c.radius = v,
         min: 0,
       ),
-      _decimal<CameraCollision3D>(
+      _decimal<CameraCollision3DComponent>(
         'minDistance',
         (c) => c.minDistance,
         (c, v) => c.minDistance = v,
         min: 0,
       ),
-      _decimal<CameraCollision3D>(
+      _decimal<CameraCollision3DComponent>(
         'recover',
         (c) => c.recover,
         (c, v) => c.recover = v,
@@ -983,11 +1023,11 @@ abstract final class Physics3DSchemas {
       SchemaField(
         name: 'layerMask',
         kind: FieldTypes.physicsLayerMask,
-        read: (c) => (c as CameraCollision3D).layerMask,
+        read: (c) => (c as CameraCollision3DComponent).layerMask,
         write: (c, v) =>
-            (c as CameraCollision3D).layerMask = (v as num).toInt(),
+            (c as CameraCollision3DComponent).layerMask = (v as num).toInt(),
       ),
-      _vector<CameraCollision3D>(
+      _vector<CameraCollision3DComponent>(
         'offset',
         (c) => c.offset,
         (c, v) => c.offset = Vector3.copy(v),
@@ -1040,7 +1080,7 @@ final class _ColliderExtent extends ComponentExtent {
   // Matching its entity's shape, it adds nothing to the shape's own extent.
   @override
   Size? sizeOf(Component component) {
-    final c = component as Collider3D;
+    final c = component as Collider3DComponent;
     if (c.shape == ColliderShape3D.matchShape) return null;
     final s = c.naturalSize;
     return Size(s.x * c.scale.x.abs(), s.y * c.scale.y.abs());
@@ -1048,7 +1088,7 @@ final class _ColliderExtent extends ComponentExtent {
 
   @override
   bool boundsInto(Component component, Aabb3 out) {
-    final c = component as Collider3D;
+    final c = component as Collider3DComponent;
     if (c.shape == ColliderShape3D.matchShape) return false;
     final s = c.naturalSize;
     final hx = s.x * c.scale.x.abs() / 2,

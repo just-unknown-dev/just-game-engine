@@ -419,11 +419,11 @@ void main() {
       });
 
       test('the built-in shapes are on layer 0, where they always drew', () {
-        expect(RectangleComponent(width: 1, height: 1).renderable.layer, 0);
-        expect(CircleComponent(radius: 1).renderable.layer, 0);
+        expect(Rectangle2DComponent(width: 1, height: 1).renderable.layer, 0);
+        expect(Circle2DComponent(radius: 1).renderable.layer, 0);
         final shape = world.createEntityWithComponents([
           TransformComponent(),
-          RectangleComponent(width: 1, height: 1),
+          Rectangle2DComponent(width: 1, height: 1),
         ]);
         final after = world.createEntityWithComponents([
           TransformComponent(),

@@ -16,9 +16,9 @@ import 'skeletal_animation_target.dart';
 import 'skeletal_clip_track.dart';
 
 /// 3-D graphics for an engine. Give one to the engine and its 3-D
-/// components — [ModelComponent], [LightComponent],
+/// components — [ModelComponent], [Light3DComponent],
 /// [EnvironmentComponent], [AnimationPlayerComponent], [SocketComponent]
-/// and the shapes from [Cube3D] to [Polygon3D] — are saved, loaded,
+/// and the shapes from [Cube3DComponent] to [Polygon3DComponent] — are saved, loaded,
 /// offered in the editor's 3-D scenes and drawn:
 ///
 /// ```dart

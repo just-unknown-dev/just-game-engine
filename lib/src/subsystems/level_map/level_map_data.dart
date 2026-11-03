@@ -174,7 +174,7 @@ class MapLayerData {
   /// none.
   String material;
 
-  /// Whether its tiles block 2-D lights (`Light2D`), casting shadows.
+  /// Whether its tiles block 2-D lights (`Light2DComponent`), casting shadows.
   bool castsShadows;
 
   /// How far into its tiles a light reaches before their own shadow, in

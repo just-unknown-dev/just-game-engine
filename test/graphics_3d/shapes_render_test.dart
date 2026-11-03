@@ -42,12 +42,12 @@ void main() {
 
   final view = frameView(eye: Vector3(0, -3, -8));
 
-  Entity add(String name, Primitive3D shape, {Vector3? at, Vector3? scale}) => engine.world.createEntity(name: name)
+  Entity add(String name, Primitive3DComponent shape, {Vector3? at, Vector3? scale}) => engine.world.createEntity(name: name)
     ..addComponent(TransformComponent(position: at ?? Vector3.zero(), scale: scale))
     ..addComponent(shape);
 
   test('a shape becomes an instance where its entity is', () {
-    add('box', Cube3D(width: 2, height: 1, depth: 1), at: Vector3(3, -0.5, 1));
+    add('box', Cube3DComponent(width: 2, height: 1, depth: 1), at: Vector3(3, -0.5, 1));
     final renderer = service.sceneRenderer..update(view);
     final instance = renderer.debugShapeInstances.single!;
     expect(renderer.scene.instances, contains(instance));
@@ -60,9 +60,9 @@ void main() {
 
   test('equal shapes share one mesh and one material, so they draw as one', () {
     for (var i = 0; i < 5; i++) {
-      add('crate $i', Cube3D(), at: Vector3(i * 2.0, 0, 0));
+      add('crate $i', Cube3DComponent(), at: Vector3(i * 2.0, 0, 0));
     }
-    add('other', Cube3D(width: 3));
+    add('other', Cube3DComponent(width: 3));
     final renderer = service.sceneRenderer..update(view);
     final instances = renderer.debugShapeInstances.cast<MeshInstance>();
     expect(instances.take(5).map((i) => i.primitive).toSet(), hasLength(1));
@@ -73,7 +73,7 @@ void main() {
   });
 
   test('a change of size swaps the mesh, a change of look the material', () {
-    final cube = Cube3D();
+    final cube = Cube3DComponent();
     add('box', cube);
     final renderer = service.sceneRenderer..update(view);
     final instance = renderer.debugShapeInstances.single!;
@@ -101,7 +101,7 @@ void main() {
   });
 
   test('a plane is drawn from both sides; glow and unlit carry over', () {
-    add('floor', Plane3D(emission: const ui.Color(0xFFFFFFFF), emissionStrength: 2, unlit: true));
+    add('floor', Plane3DComponent(emission: const ui.Color(0xFFFFFFFF), emissionStrength: 2, unlit: true));
     final data = (service.sceneRenderer..update(view)).debugShapeInstances.single!.material.data;
     expect(data.doubleSided, isTrue);
     expect(data.unlit, isTrue);
@@ -110,7 +110,7 @@ void main() {
   });
 
   test('a texture arrives after its shape and is tiled', () async {
-    final cube = Cube3D(texture: gridPath, tiling: Vector2(4, 2));
+    final cube = Cube3DComponent(texture: gridPath, tiling: Vector2(4, 2));
     add('box', cube);
     final renderer = service.sceneRenderer..update(view);
     final instance = renderer.debugShapeInstances.single!;
@@ -127,8 +127,8 @@ void main() {
   });
 
   test('a texture tiled per metre follows the entity\'s scale; otherwise scale needs no new mesh', () {
-    final plain = Cube3D();
-    final tiled = Cube3D(texture: gridPath, tileInMetres: true);
+    final plain = Cube3DComponent();
+    final tiled = Cube3DComponent(texture: gridPath, tileInMetres: true);
     final a = add('plain', plain);
     final b = add('tiled', tiled);
     final renderer = service.sceneRenderer..update(view);
@@ -142,7 +142,7 @@ void main() {
   });
 
   test('an outline of fewer than three points draws nothing, until it has three', () {
-    final polygon = Polygon3D(points: const [ui.Offset(0, 0), ui.Offset(1, 0)]);
+    final polygon = Polygon3DComponent(points: const [ui.Offset(0, 0), ui.Offset(1, 0)]);
     add('line', polygon);
     final renderer = service.sceneRenderer..update(view);
     expect(renderer.debugShapeInstances.single, isNull);
@@ -156,10 +156,10 @@ void main() {
   });
 
   test('disabled entities and removed shapes leave the scene', () {
-    final e = add('box', Sphere3D());
+    final e = add('box', Sphere3DComponent());
     final renderer = service.sceneRenderer..update(view);
     expect(renderer.debugShapeInstances, hasLength(1));
-    e.removeComponent<Primitive3D>();
+    e.removeComponent<Primitive3DComponent>();
     renderer.update(view);
     expect(renderer.debugShapeInstances, isEmpty);
     expect(renderer.scene.instances, isEmpty);
@@ -167,9 +167,9 @@ void main() {
 
   test('a scene saved with shapes loads and draws them', () {
     final json = sceneJson(engine.context, {
-      'Floor': [TransformComponent(), Plane3D(width: 20, depth: 20)],
-      'Steps': [TransformComponent(position: Vector3(0, -0.5, 4)), Stairs3D(steps: 3)],
-      'Pillar': [TransformComponent(position: Vector3(3, -1, 0)), Cylinder3D(height: 2)],
+      'Floor': [TransformComponent(), Plane3DComponent(width: 20, depth: 20)],
+      'Steps': [TransformComponent(position: Vector3(0, -0.5, 4)), Stairs3DComponent(steps: 3)],
+      'Pillar': [TransformComponent(position: Vector3(3, -1, 0)), Cylinder3DComponent(height: 2)],
     });
     SceneLoader.load(engine.world, json);
     final renderer = service.sceneRenderer..update(view);

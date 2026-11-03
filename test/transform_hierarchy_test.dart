@@ -289,9 +289,9 @@ void main() {
       );
       addTearDown(world.dispose);
       child
-        ..addComponent(RigidBody2D())
+        ..addComponent(RigidBody2DComponent())
         ..addComponent(
-          Collider2D(shape: ColliderShape2D.circle, radius: 2, showDebugOutline: false),
+          Collider2DComponent(shape: ColliderShape2D.circle, radius: 2, showDebugOutline: false),
         );
       world.addSystem(PhysicsSystem(physics));
       for (var i = 0; i < 30; i++) {

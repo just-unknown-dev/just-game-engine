@@ -40,7 +40,7 @@ void addSpinner(World world) {
   world.addSystem(SpinSystem());
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(0, 0, 0)),
-    RectangleComponent(width: 80, height: 80),
+    Rectangle2DComponent(width: 80, height: 80),
     SpinComponent(speed: 2),
   ], name: 'Spinner');
 }
@@ -136,7 +136,7 @@ final bullet = EntityPrefab(
   factories: [
     () => TransformComponent(),
     () => VelocityComponent(velocity: Vector3(500, 0, 0)),
-    () => CircleComponent(radius: 4),
+    () => Circle2DComponent(radius: 4),
   ],
 );
 
@@ -159,7 +159,7 @@ Prefabs made in the editor are saved as `.prefab.json` files instead; those are 
 Entity addTurret(World world, Entity tank) => world.createEntityWithComponents([
   TransformComponent(),
   ParentComponent(parentId: tank.id, localPosition: Vector3(0, -30, 0)),
-  RectangleComponent(width: 50, height: 12),
+  Rectangle2DComponent(width: 50, height: 12),
 ], name: 'Turret');
 ```
 

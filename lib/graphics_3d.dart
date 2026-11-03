@@ -4,9 +4,9 @@
 /// - [Graphics3D]: give one to the engine (`EngineConfig(graphics3D:
 ///   Graphics3D())`) and it saves, loads and draws the components below. A
 ///   game without one is 2-D only: no GPU device, no shaders loaded.
-/// - Components: [ModelComponent], [LightComponent], [EnvironmentComponent],
+/// - Components: [ModelComponent], [Light3DComponent], [EnvironmentComponent],
 ///   [AnimationPlayerComponent] and [SocketComponent], and the shapes
-///   ([Primitive3D]: [Cube3D] to [Polygon3D]). Plain data, so scenes
+///   ([Primitive3DComponent]: [Cube3DComponent] to [Polygon3DComponent]). Plain data, so scenes
 ///   holding them load everywhere, the web included.
 /// - [GraphicsSceneRenderer], which draws the world from the engine's
 ///   camera; [GraphicsModels], the loaded models; [AnimationSystem3D],

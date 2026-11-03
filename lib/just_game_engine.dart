@@ -17,7 +17,7 @@
 ///   await engine.initialize(); // before the first frame
 ///   engine.world.createEntityWithComponents([
 ///     TransformComponent(),
-///     CircleComponent(radius: 32),
+///     Circle2DComponent(radius: 32),
 ///   ]);
 ///   engine.start();
 ///   runApp(MaterialApp(home: GameWidget(engine: engine)));

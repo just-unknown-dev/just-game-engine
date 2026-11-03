@@ -55,8 +55,8 @@ TilesetData _tileset() =>
 Entity _body(World world, Offset at, {Vector3? velocity}) {
   final e = world.createEntityWithComponents([
     TransformComponent(position: Vector3(at.dx, at.dy, 0)),
-    RigidBody2D(restitution: 0, lockRotation: true),
-    Collider2D(size: Vector2(12, 12)),
+    RigidBody2DComponent(restitution: 0, lockRotation: true),
+    Collider2DComponent(size: Vector2(12, 12)),
     VelocityComponent(velocity: velocity ?? Vector3.zero()),
   ]);
   return e;
@@ -78,7 +78,7 @@ void main() {
 
     _run(world);
 
-    final comp = body.getComponent<RigidBody2D>()!;
+    final comp = body.getComponent<RigidBody2DComponent>()!;
     expect(comp.isGrounded, isTrue);
     expect(comp.groundNormal.dy, closeTo(-1, 0.01));
     final y = body.getComponent<TransformComponent>()!.position.y;
@@ -99,9 +99,9 @@ void main() {
     expect(b.hasComponent<GeneratedEntityComponent>(), isTrue);
     expect(b.getComponent<MapBodyComponent>()!.mapEntityId, map.id);
     expect(b.getComponent<MapBodyComponent>()!.cells, hasLength(16));
-    final body = b.getComponent<RigidBody2D>()!;
+    final body = b.getComponent<RigidBody2DComponent>()!;
     expect(body.restitution, 0);
-    expect(b.getComponent<Collider2D>()!.showDebugOutline, isFalse);
+    expect(b.getComponent<Collider2DComponent>()!.showDebugOutline, isFalse);
     expect(body.isStatic, isTrue);
   });
 
@@ -126,7 +126,7 @@ void main() {
     );
     _run(world, frames: 120);
 
-    final comp = body.getComponent<RigidBody2D>()!;
+    final comp = body.getComponent<RigidBody2DComponent>()!;
     expect(comp.isGrounded, isTrue);
     expect(body.getComponent<TransformComponent>()!.position.y, lessThan(64));
   });
@@ -140,7 +140,7 @@ void main() {
     final body = _body(world, const Offset(40, 30));
     _run(world, frames: 30);
 
-    final comp = body.getComponent<RigidBody2D>()!;
+    final comp = body.getComponent<RigidBody2DComponent>()!;
     expect(comp.isGrounded, isTrue);
     expect(comp.groundNormal.dx.abs(), greaterThan(0.3), reason: 'a 45° slope');
     expect(comp.groundNormal.dy, lessThan(-0.3));
@@ -153,7 +153,7 @@ void main() {
     }
     final body = _body(world, const Offset(40, 20));
     _run(world);
-    expect(body.getComponent<RigidBody2D>()!.isGrounded, isTrue);
+    expect(body.getComponent<RigidBody2DComponent>()!.isGrounded, isTrue);
 
     final handle = LevelMaps.of(world, map)!;
     final changed = <TileChangedEvent>[];
@@ -216,6 +216,6 @@ void main() {
       'lava:9',
       reason: 'the property of the tile it was built from',
     );
-    expect(lava.getComponent<RigidBody2D>()!.isSensor, isTrue);
+    expect(lava.getComponent<RigidBody2DComponent>()!.isSensor, isTrue);
   });
 }

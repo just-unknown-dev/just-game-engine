@@ -15,7 +15,7 @@ import 'shape_paint_style.dart';
 /// Extends [RenderableComponent] — add it to an entity directly and it draws
 /// itself each frame, reading all fields at draw-time so mutations are
 /// reflected immediately.
-class LineComponent extends RenderableComponent {
+class Line2DComponent extends RenderableComponent {
   /// Start point of the line in local space.
   Offset start;
 
@@ -33,15 +33,15 @@ class LineComponent extends RenderableComponent {
 
   /// A white line 1 world unit wide, with butt caps, from [start] (the
   /// entity's position by default) to [end].
-  factory LineComponent({
+  factory Line2DComponent({
     Offset start = Offset.zero,
     required Offset end,
     ShapePaintStyle strokeStyle = const ShapePaintStyle(color: Colors.white),
     double strokeWidth = 1.0,
     bool roundCaps = false,
   }) {
-    late LineComponent self;
-    self = LineComponent._internal(
+    late Line2DComponent self;
+    self = Line2DComponent._internal(
       start: start,
       end: end,
       strokeStyle: strokeStyle,
@@ -60,7 +60,7 @@ class LineComponent extends RenderableComponent {
     return self;
   }
 
-  LineComponent._internal({
+  Line2DComponent._internal({
     required this.start,
     required this.end,
     required this.strokeStyle,

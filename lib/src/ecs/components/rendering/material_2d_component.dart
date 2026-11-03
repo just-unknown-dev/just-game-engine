@@ -16,9 +16,9 @@ import '../../ecs.dart';
 /// Only values a game may change are used (`Material2DParam.animatable`);
 /// change them with [set] and [remove] (or give [overrides] a new map), so
 /// the renderer sees the change.
-class Material2D extends Component {
+class Material2DComponent extends Component {
   /// A material from the file at [material], with [overrides].
-  Material2D({this.material = '', Map<String, Object>? overrides})
+  Material2DComponent({this.material = '', Map<String, Object>? overrides})
     : _overrides = {...?overrides};
 
   /// The 2-D material file, by project path. Empty draws without one.

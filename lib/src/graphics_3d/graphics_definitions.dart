@@ -70,12 +70,12 @@ abstract final class GraphicsSchemas {
         ],
       );
 
-  /// [MaterialOverrides3D].
-  static ComponentSchema<MaterialOverrides3D> get materialOverrides =>
-      ComponentSchema<MaterialOverrides3D>(
-        type: 'MaterialOverrides3D',
+  /// [MaterialOverrides3DComponent].
+  static ComponentSchema<MaterialOverrides3DComponent> get materialOverrides =>
+      ComponentSchema<MaterialOverrides3DComponent>(
+        type: 'MaterialOverrides3DComponent',
         id: 'material_overrides_3d_9a4f2c61',
-        create: MaterialOverrides3D.new,
+        create: MaterialOverrides3DComponent.new,
         hints: const ComponentHints(
           dimensions: Dimensions.threeD,
           name: 'Material Overrides',
@@ -91,8 +91,8 @@ abstract final class GraphicsSchemas {
           SchemaField(
             name: 'values',
             kind: MaterialOverridesFieldType.material3D,
-            read: (c) => Map<Object?, Object?>.of((c as MaterialOverrides3D).values),
-            write: (c, v) => (c as MaterialOverrides3D).values = {
+            read: (c) => Map<Object?, Object?>.of((c as MaterialOverrides3DComponent).values),
+            write: (c, v) => (c as MaterialOverrides3DComponent).values = {
               if (v is Map)
                 for (final e in v.entries)
                   if (e.value != null) '${e.key}': e.value as Object,
@@ -101,12 +101,12 @@ abstract final class GraphicsSchemas {
         ],
       );
 
-  /// [LightComponent].
-  static ComponentSchema<LightComponent> get light =>
-      ComponentSchema<LightComponent>(
-        type: 'LightComponent',
+  /// [Light3DComponent].
+  static ComponentSchema<Light3DComponent> get light =>
+      ComponentSchema<Light3DComponent>(
+        type: 'Light3DComponent',
         id: 'light_3d_4f9a12d0',
-        create: LightComponent.new,
+        create: Light3DComponent.new,
         hints: ComponentHints(
           dimensions: Dimensions.threeD,
           name: 'Light',
@@ -125,19 +125,19 @@ abstract final class GraphicsSchemas {
               label: 'Range',
               scrub: const ScrubHint(step: 0.5, fractionDigits: 1, suffix: 'm'),
               visibleWhen: (c) =>
-                  (c as LightComponent).kind != LightKind.directional,
+                  (c as Light3DComponent).kind != LightKind.directional,
             ),
             'innerConeAngle': FieldHint(
               label: 'Inner cone',
               unit: AngleUnit.degrees,
               scrub: const ScrubHint(step: 1, fractionDigits: 0, suffix: '°'),
-              visibleWhen: (c) => (c as LightComponent).kind == LightKind.spot,
+              visibleWhen: (c) => (c as Light3DComponent).kind == LightKind.spot,
             ),
             'outerConeAngle': FieldHint(
               label: 'Outer cone',
               unit: AngleUnit.degrees,
               scrub: const ScrubHint(step: 1, fractionDigits: 0, suffix: '°'),
-              visibleWhen: (c) => (c as LightComponent).kind == LightKind.spot,
+              visibleWhen: (c) => (c as Light3DComponent).kind == LightKind.spot,
             ),
           },
         ),
@@ -149,37 +149,37 @@ abstract final class GraphicsSchemas {
               fallback: LightKind.point,
               id: 'graphics.lightKind',
             ),
-            read: (c) => (c as LightComponent).kind,
-            write: (c, v) => (c as LightComponent).kind = v as LightKind,
+            read: (c) => (c as Light3DComponent).kind,
+            write: (c, v) => (c as Light3DComponent).kind = v as LightKind,
           ),
           SchemaField(
             name: 'color',
             kind: FieldTypes.color,
-            read: (c) => (c as LightComponent).color,
-            write: (c, v) => (c as LightComponent).color = v as Color,
+            read: (c) => (c as Light3DComponent).color,
+            write: (c, v) => (c as Light3DComponent).color = v as Color,
           ),
           _decimal(
             'intensity',
-            (c) => (c as LightComponent).intensity,
-            (c, v) => (c as LightComponent).intensity = v,
+            (c) => (c as Light3DComponent).intensity,
+            (c, v) => (c as Light3DComponent).intensity = v,
             min: 0,
           ),
           _decimal(
             'range',
-            (c) => (c as LightComponent).range,
-            (c, v) => (c as LightComponent).range = v,
+            (c) => (c as Light3DComponent).range,
+            (c, v) => (c as Light3DComponent).range = v,
             min: 0,
           ),
           _decimal(
             'innerConeAngle',
-            (c) => (c as LightComponent).innerConeAngle,
-            (c, v) => (c as LightComponent).innerConeAngle = v,
+            (c) => (c as Light3DComponent).innerConeAngle,
+            (c, v) => (c as Light3DComponent).innerConeAngle = v,
             min: 0,
           ),
           _decimal(
             'outerConeAngle',
-            (c) => (c as LightComponent).outerConeAngle,
-            (c, v) => (c as LightComponent).outerConeAngle = v,
+            (c) => (c as Light3DComponent).outerConeAngle,
+            (c, v) => (c as Light3DComponent).outerConeAngle = v,
             min: 0,
           ),
         ],

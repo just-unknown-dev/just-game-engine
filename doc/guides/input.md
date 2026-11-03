@@ -155,7 +155,7 @@ void startCoop(Engine engine) {
       TransformComponent(),
       VelocityComponent(),
       InputComponent(playerIndex: player.index),
-      RectangleComponent(width: 32, height: 48),
+      Rectangle2DComponent(width: 32, height: 48),
     ], name: 'Player ${player.index + 1}');
   });
   players.start();

@@ -17,7 +17,7 @@ import 'shape_painting.dart';
 /// Extends [RenderableComponent] — add it to an entity directly and it draws
 /// itself each frame, reading all fields at draw-time so mutations are
 /// reflected immediately.
-class CapsuleComponent extends RenderableComponent {
+class Capsule2DComponent extends RenderableComponent {
   /// Width of the bounding box in world units.
   double width;
 
@@ -39,7 +39,7 @@ class CapsuleComponent extends RenderableComponent {
 
   /// A [width] × [height] capsule filled white, with a translucent white
   /// outline 1 world unit wide.
-  factory CapsuleComponent({
+  factory Capsule2DComponent({
     required double width,
     required double height,
     ShapePaintStyle fillStyle = const ShapePaintStyle(color: Colors.white),
@@ -49,8 +49,8 @@ class CapsuleComponent extends RenderableComponent {
     bool filled = true,
     double strokeWidth = 1.0,
   }) {
-    late CapsuleComponent self;
-    self = CapsuleComponent._internal(
+    late Capsule2DComponent self;
+    self = Capsule2DComponent._internal(
       width: width,
       height: height,
       fillStyle: fillStyle,
@@ -71,7 +71,7 @@ class CapsuleComponent extends RenderableComponent {
     return self;
   }
 
-  CapsuleComponent._internal({
+  Capsule2DComponent._internal({
     required this.width,
     required this.height,
     required this.fillStyle,

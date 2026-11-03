@@ -44,7 +44,10 @@ void main() {
       engine.context.definitions.definitionByType('ModelComponent'),
       isNull,
     );
-    expect(engine.context.definitions.definitionByType('Cube3D'), isNull);
+    expect(
+      engine.context.definitions.definitionByType('Cube3DComponent'),
+      isNull,
+    );
   });
 
   test('a 3-D component without Graphics3D says how to turn it on', () {
@@ -52,7 +55,7 @@ void main() {
     final error = _loadError(world, {'type': 'ModelComponent'});
     expect(error, isA<UnknownComponentTypeException>());
     expect('$error', contains('EngineConfig(graphics3D: Graphics3D())'));
-    final physics = _loadError(world, {'type': 'RigidBody3D'});
+    final physics = _loadError(world, {'type': 'RigidBody3DComponent'});
     expect('$physics', contains('EngineConfig(physics3D: Physics3D())'));
     final other = _loadError(world, {'type': 'NoSuchThing'});
     expect('$other', contains("Install the owning package's extension"));

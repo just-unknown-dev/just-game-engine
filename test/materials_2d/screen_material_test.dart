@@ -1,7 +1,7 @@
 // Screen materials: the whole view drawn into an image and painted back
 // through a 2-D material of the `screen` kind — the game's drawing under
 // it, an editor's (overlay hooks of order 100) over it — chosen from the
-// world's ScreenMaterial components.
+// world's ScreenMaterialComponent components.
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -96,7 +96,7 @@ void main() {
       );
 
       final holder = engine.world.createEntityWithComponents([
-        ScreenMaterial(material: _grey),
+        ScreenMaterialComponent(material: _grey),
       ]);
       d = await frame();
       final grey = at(d, 20, 15);
@@ -108,7 +108,7 @@ void main() {
         reason: 'the overlay at order 100 is over it, untouched',
       );
 
-      holder.getComponent<ScreenMaterial>()!.enabled = false;
+      holder.getComponent<ScreenMaterialComponent>()!.enabled = false;
       d = await frame();
       expect(at(d, 20, 15), const Color(0xFFFF0000), reason: 'switched off');
     },
@@ -116,9 +116,9 @@ void main() {
 
   test('the highest order wins; its overrides count', () async {
     engine.world.createEntityWithComponents([
-      ScreenMaterial(material: _grey, order: 1),
+      ScreenMaterialComponent(material: _grey, order: 1),
     ]);
-    final vignette = ScreenMaterial(material: _vignette, order: 2);
+    final vignette = ScreenMaterialComponent(material: _vignette, order: 2);
     engine.world.createEntityWithComponents([vignette]);
     var d = await frame();
     expect(at(d, 0, 0).r, lessThan(0.2), reason: 'a dark corner');
@@ -139,7 +139,9 @@ void main() {
   // an early return with its gradient loop crashed Impeller's OpenGL ES
   // compile on Windows.
   test("past a CRT's curved edge, black; inside, the frame", () async {
-    engine.world.createEntityWithComponents([ScreenMaterial(material: _crt)]);
+    engine.world.createEntityWithComponents([
+      ScreenMaterialComponent(material: _crt),
+    ]);
     final d = await frame();
     expect(
       at(d, 0, 0),
@@ -149,9 +151,9 @@ void main() {
     expect(at(d, 20, 15), const Color(0xFFFF0000), reason: 'the middle');
   });
 
-  test('a ScreenMaterial is saved with its entity', () {
+  test('a ScreenMaterialComponent is saved with its entity', () {
     final definitions = engine.context.definitions;
-    final c = ScreenMaterial(
+    final c = ScreenMaterialComponent(
       material: _grey,
       order: 3,
       enabled: false,
@@ -162,7 +164,7 @@ void main() {
               jsonDecode(jsonEncode(definitions.encode(c)))
                   as Map<String, dynamic>,
             )!
-            as ScreenMaterial;
+            as ScreenMaterialComponent;
     expect(
       [back.material, back.order, back.enabled, back.overrides],
       [

@@ -85,7 +85,7 @@ final class AssetColliderGeometry3D implements ColliderGeometry3D {
   }
 }
 
-/// Turns [Collider3D]s into physics-engine [Shape3D]s, following the entity's
+/// Turns [Collider3DComponent]s into physics-engine [Shape3D]s, following the entity's
 /// scale. Mesh and hull shapes are kept by model, mesh and scale, height
 /// fields by their heights and scale, and shapes matching an entity's look
 /// by that look's key and scale, so every body asking for the same one gets
@@ -129,7 +129,7 @@ final class ColliderShapes3D {
   /// there yet, or when it cannot make one — a collider matching the shape
   /// of an entity with none ([source] null).
   Shape3D? build(
-    Collider3D collider,
+    Collider3DComponent collider,
     Vector3 entityScale, {
     SolidShapeSource? source,
   }) {
@@ -161,7 +161,12 @@ final class ColliderShapes3D {
     return _place(shape, collider, entityScale);
   }
 
-  static Shape3D _capsule(Collider3D c, double ax, double ay, double az) {
+  static Shape3D _capsule(
+    Collider3DComponent c,
+    double ax,
+    double ay,
+    double az,
+  ) {
     final radius = math.max(c.radius * math.max(ax, az), minExtent);
     final halfHeight = c.height * ay / 2 - radius;
     // Too short for a straight part: a ball.
@@ -170,7 +175,7 @@ final class ColliderShapes3D {
         : CapsuleShape3D(halfHeight, radius);
   }
 
-  Shape3D? _model(Collider3D c, double sx, double sy, double sz) {
+  Shape3D? _model(Collider3DComponent c, double sx, double sy, double sz) {
     final key = (c.shape, c.model, c.meshName, sx, sy, sz);
     final known = _used(_models, key);
     if (known != null) return known;
@@ -337,7 +342,7 @@ final class ColliderShapes3D {
     }
   }
 
-  Shape3D? _heightField(Collider3D c, double ax, double ay) {
+  Shape3D? _heightField(Collider3DComponent c, double ax, double ay) {
     final n = c.heightFieldSize;
     if (n < 4 || c.heights.length < n * n) return null;
     final key = (c.heights, n, c.cellSize, ax, ay);
@@ -374,7 +379,11 @@ final class ColliderShapes3D {
     return value;
   }
 
-  static Shape3D _place(Shape3D shape, Collider3D c, Vector3 entityScale) {
+  static Shape3D _place(
+    Shape3D shape,
+    Collider3DComponent c,
+    Vector3 entityScale,
+  ) {
     final o = c.offset;
     final r = c.rotation;
     if (o.x == 0 && o.y == 0 && o.z == 0 && r.x == 0 && r.y == 0 && r.z == 0) {

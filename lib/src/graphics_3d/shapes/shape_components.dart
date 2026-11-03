@@ -14,9 +14,9 @@ import 'primitive_3d.dart';
 // shape is centred on its entity, +Y is down (up is −Y).
 
 /// A box [width] × [height] × [depth]: a cube when they are equal.
-class Cube3D extends Primitive3D {
+class Cube3DComponent extends Primitive3DComponent {
   /// A box, 1 m each way by default.
-  Cube3D({
+  Cube3DComponent({
     this.width = 1.0,
     this.height = 1.0,
     this.depth = 1.0,
@@ -58,9 +58,9 @@ class Cube3D extends Primitive3D {
 
   @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
-    final hx = Primitive3D.size(width) / 2,
-        hy = Primitive3D.size(height) / 2,
-        hz = Primitive3D.size(depth) / 2;
+    final hx = Primitive3DComponent.size(width) / 2,
+        hy = Primitive3DComponent.size(height) / 2,
+        hz = Primitive3DComponent.size(depth) / 2;
     return (MeshBuilder(
       uv,
     )..box(-hx, -hy, -hz, hx, hy, hz, stretch: true)).build();
@@ -68,27 +68,27 @@ class Cube3D extends Primitive3D {
 
   @override
   void boundsInto(Aabb3 out) {
-    final hx = Primitive3D.size(width) / 2,
-        hy = Primitive3D.size(height) / 2,
-        hz = Primitive3D.size(depth) / 2;
+    final hx = Primitive3DComponent.size(width) / 2,
+        hy = Primitive3DComponent.size(height) / 2,
+        hz = Primitive3DComponent.size(depth) / 2;
     out.setValues(-hx, -hy, -hz, hx, hy, hz);
   }
 
   @override
   List<SolidPart> get solidParts => [
     SolidBox(
-      Primitive3D.size(width) / 2,
-      Primitive3D.size(height) / 2,
-      Primitive3D.size(depth) / 2,
+      Primitive3DComponent.size(width) / 2,
+      Primitive3DComponent.size(height) / 2,
+      Primitive3DComponent.size(depth) / 2,
     ),
   ];
 }
 
 /// A flat rectangle [width] × [depth] lying on its entity's ground plane,
 /// seen from both sides. Its collider is a slab 0.1 m thick just under it.
-class Plane3D extends Primitive3D {
+class Plane3DComponent extends Primitive3DComponent {
   /// A plane, 10 m each way by default.
-  Plane3D({
+  Plane3DComponent({
     this.width = 10.0,
     this.depth = 10.0,
     super.material,
@@ -131,7 +131,8 @@ class Plane3D extends Primitive3D {
 
   @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
-    final hx = Primitive3D.size(width) / 2, hz = Primitive3D.size(depth) / 2;
+    final hx = Primitive3DComponent.size(width) / 2,
+        hz = Primitive3DComponent.size(depth) / 2;
     return (MeshBuilder(uv)..face(
           [(-hx, 0, -hz), (hx, 0, -hz), (hx, 0, hz), (-hx, 0, hz)],
           0,
@@ -144,25 +145,26 @@ class Plane3D extends Primitive3D {
 
   @override
   void boundsInto(Aabb3 out) {
-    final hx = Primitive3D.size(width) / 2, hz = Primitive3D.size(depth) / 2;
+    final hx = Primitive3DComponent.size(width) / 2,
+        hz = Primitive3DComponent.size(depth) / 2;
     out.setValues(-hx, 0, -hz, hx, 0, hz);
   }
 
   @override
   List<SolidPart> get solidParts => [
     SolidBox(
-      Primitive3D.size(width) / 2,
+      Primitive3DComponent.size(width) / 2,
       colliderThickness / 2,
-      Primitive3D.size(depth) / 2,
+      Primitive3DComponent.size(depth) / 2,
       y: colliderThickness / 2,
     ),
   ];
 }
 
 /// A ball of [radius], [segments] round and [rings] from pole to pole.
-class Sphere3D extends Primitive3D {
+class Sphere3DComponent extends Primitive3DComponent {
   /// A ball 1 m across by default.
-  Sphere3D({
+  Sphere3DComponent({
     this.radius = 0.5,
     this.segments = 32,
     this.rings = 16,
@@ -209,8 +211,8 @@ class Sphere3D extends Primitive3D {
 
   @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
-    final r = Primitive3D.size(radius);
-    final n = Primitive3D.count(rings, 2, 64);
+    final r = Primitive3DComponent.size(radius);
+    final n = Primitive3DComponent.count(rings, 2, 64);
     final b = MeshBuilder(uv)
       ..lathe(
         [
@@ -223,7 +225,7 @@ class Sphere3D extends Primitive3D {
               uv.anyway(r * math.pi * j / n),
             ),
         ],
-        Primitive3D.count(segments, 3, 128),
+        Primitive3DComponent.count(segments, 3, 128),
         aroundLength: uv.around(r),
         profileLength: uv.anyway(r * math.pi),
       );
@@ -233,18 +235,20 @@ class Sphere3D extends Primitive3D {
 
   @override
   void boundsInto(Aabb3 out) {
-    final r = Primitive3D.size(radius);
+    final r = Primitive3DComponent.size(radius);
     out.setValues(-r, -r, -r, r, r, r);
   }
 
   @override
-  List<SolidPart> get solidParts => [SolidSphere(Primitive3D.size(radius))];
+  List<SolidPart> get solidParts => [
+    SolidSphere(Primitive3DComponent.size(radius)),
+  ];
 }
 
 /// An upright cylinder of [radius] and [height], [segments] round.
-class Cylinder3D extends Primitive3D {
+class Cylinder3DComponent extends Primitive3DComponent {
   /// A cylinder 1 m across and 1 m tall by default.
-  Cylinder3D({
+  Cylinder3DComponent({
     this.radius = 0.5,
     this.height = 1.0,
     this.segments = 24,
@@ -291,8 +295,9 @@ class Cylinder3D extends Primitive3D {
 
   @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
-    final r = Primitive3D.size(radius), hy = Primitive3D.size(height) / 2;
-    final s = Primitive3D.count(segments, 3, 128);
+    final r = Primitive3DComponent.size(radius),
+        hy = Primitive3DComponent.size(height) / 2;
+    final s = Primitive3DComponent.count(segments, 3, 128);
     final side = uv.alongY(hy * 2);
     final b = MeshBuilder(uv)
       ..lathe(
@@ -309,21 +314,25 @@ class Cylinder3D extends Primitive3D {
 
   @override
   void boundsInto(Aabb3 out) {
-    final r = Primitive3D.size(radius), hy = Primitive3D.size(height) / 2;
+    final r = Primitive3DComponent.size(radius),
+        hy = Primitive3DComponent.size(height) / 2;
     out.setValues(-r, -hy, -r, r, hy, r);
   }
 
   @override
   List<SolidPart> get solidParts => [
-    SolidCylinder(Primitive3D.size(height) / 2, Primitive3D.size(radius)),
+    SolidCylinder(
+      Primitive3DComponent.size(height) / 2,
+      Primitive3DComponent.size(radius),
+    ),
   ];
 }
 
 /// An upright capsule: a cylinder with a half ball on each end, [height]
 /// tall overall (never less than its width) and of [radius].
-class Capsule3D extends Primitive3D {
+class Capsule3DComponent extends Primitive3DComponent {
   /// A capsule 1 m across and 2 m tall by default.
-  Capsule3D({
+  Capsule3DComponent({
     this.radius = 0.5,
     this.height = 2.0,
     this.segments = 24,
@@ -374,13 +383,15 @@ class Capsule3D extends Primitive3D {
     ..addBool(smooth);
 
   /// Half the length of its straight part.
-  double get _half =>
-      math.max(Primitive3D.size(height) / 2 - Primitive3D.size(radius), 0.0);
+  double get _half => math.max(
+    Primitive3DComponent.size(height) / 2 - Primitive3DComponent.size(radius),
+    0.0,
+  );
 
   @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
-    final r = Primitive3D.size(radius), c = _half;
-    final n = Primitive3D.count(rings, 1, 32);
+    final r = Primitive3DComponent.size(radius), c = _half;
+    final n = Primitive3DComponent.count(rings, 1, 32);
     final cap = uv.anyway(r * math.pi / 2);
     final straight = uv.alongY(c * 2);
     final profile = <(double, double, double, double, double)>[];
@@ -407,7 +418,7 @@ class Capsule3D extends Primitive3D {
     final b = MeshBuilder(uv)
       ..lathe(
         profile,
-        Primitive3D.count(segments, 3, 128),
+        Primitive3DComponent.count(segments, 3, 128),
         aroundLength: uv.around(r),
         profileLength: cap * 2 + straight,
       );
@@ -417,21 +428,21 @@ class Capsule3D extends Primitive3D {
 
   @override
   void boundsInto(Aabb3 out) {
-    final r = Primitive3D.size(radius), h = _half + r;
+    final r = Primitive3DComponent.size(radius), h = _half + r;
     out.setValues(-r, -h, -r, r, h, r);
   }
 
   @override
   List<SolidPart> get solidParts {
-    final r = Primitive3D.size(radius), c = _half;
+    final r = Primitive3DComponent.size(radius), c = _half;
     return [c > 0 ? SolidCapsule(c, r) : SolidSphere(r)];
   }
 }
 
 /// A cone of [radius] at its base and [height], its tip up.
-class Cone3D extends Primitive3D {
+class Cone3DComponent extends Primitive3DComponent {
   /// A cone 1 m across and 1 m tall by default.
-  Cone3D({
+  Cone3DComponent({
     this.radius = 0.5,
     this.height = 1.0,
     this.segments = 24,
@@ -478,10 +489,10 @@ class Cone3D extends Primitive3D {
 
   @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
-    final r = Primitive3D.size(radius),
-        h = Primitive3D.size(height),
+    final r = Primitive3DComponent.size(radius),
+        h = Primitive3DComponent.size(height),
         hy = h / 2;
-    final s = Primitive3D.count(segments, 3, 128);
+    final s = Primitive3DComponent.count(segments, 3, 128);
     final slant = math.sqrt(r * r + h * h);
     final nr = h / slant, ny = -r / slant;
     final along = uv.anyway(slant);
@@ -499,14 +510,16 @@ class Cone3D extends Primitive3D {
 
   @override
   void boundsInto(Aabb3 out) {
-    final r = Primitive3D.size(radius), hy = Primitive3D.size(height) / 2;
+    final r = Primitive3DComponent.size(radius),
+        hy = Primitive3DComponent.size(height) / 2;
     out.setValues(-r, -hy, -r, r, hy, r);
   }
 
   @override
   List<SolidPart> get solidParts {
-    final r = Primitive3D.size(radius), hy = Primitive3D.size(height) / 2;
-    final s = Primitive3D.count(segments, 3, 32);
+    final r = Primitive3DComponent.size(radius),
+        hy = Primitive3DComponent.size(height) / 2;
+    final s = Primitive3DComponent.count(segments, 3, 32);
     final points = Float32List((s + 1) * 3);
     for (var i = 0; i < s; i++) {
       final a = 2 * math.pi * i / s;
@@ -522,9 +535,9 @@ class Cone3D extends Primitive3D {
 
 /// A ring lying flat: a tube of [tubeRadius] bent round a circle of
 /// [radius] (to the middle of the tube).
-class Torus3D extends Primitive3D {
+class Torus3DComponent extends Primitive3DComponent {
   /// A ring 1.4 m across by default.
-  Torus3D({
+  Torus3DComponent({
     this.radius = 0.5,
     this.tubeRadius = 0.2,
     this.segments = 32,
@@ -576,8 +589,9 @@ class Torus3D extends Primitive3D {
 
   @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
-    final big = Primitive3D.size(radius), r = Primitive3D.size(tubeRadius);
-    final t = Primitive3D.count(sides, 3, 64);
+    final big = Primitive3DComponent.size(radius),
+        r = Primitive3DComponent.size(tubeRadius);
+    final t = Primitive3DComponent.count(sides, 3, 64);
     final b = MeshBuilder(uv)
       ..lathe(
         [
@@ -590,7 +604,7 @@ class Torus3D extends Primitive3D {
               uv.anyway(r * 2 * math.pi * k / t),
             ),
         ],
-        Primitive3D.count(segments, 3, 128),
+        Primitive3DComponent.count(segments, 3, 128),
         aroundLength: uv.around(big),
         profileLength: uv.anyway(r * 2 * math.pi),
       );
@@ -600,7 +614,8 @@ class Torus3D extends Primitive3D {
 
   @override
   void boundsInto(Aabb3 out) {
-    final big = Primitive3D.size(radius), r = Primitive3D.size(tubeRadius);
+    final big = Primitive3DComponent.size(radius),
+        r = Primitive3DComponent.size(tubeRadius);
     out.setValues(-(big + r), -r, -(big + r), big + r, r, big + r);
   }
 
@@ -608,9 +623,10 @@ class Torus3D extends Primitive3D {
   /// where the step begins and ends.
   @override
   List<SolidPart> get solidParts {
-    final big = Primitive3D.size(radius), r = Primitive3D.size(tubeRadius);
-    final s = Primitive3D.count(segments, 3, 24);
-    final t = Primitive3D.count(sides, 3, 12);
+    final big = Primitive3DComponent.size(radius),
+        r = Primitive3DComponent.size(tubeRadius);
+    final s = Primitive3DComponent.count(segments, 3, 24);
+    final t = Primitive3DComponent.count(sides, 3, 12);
     SolidHull piece(int i) {
       final points = Float32List(t * 6);
       var o = 0;
@@ -634,9 +650,9 @@ class Torus3D extends Primitive3D {
 
 /// A wedge rising towards +Z: flat underneath, [height] tall at its back,
 /// nothing at its front — something to walk up.
-class Ramp3D extends Primitive3D {
+class Ramp3DComponent extends Primitive3DComponent {
   /// A ramp 1 m wide, 1 m tall and 2 m long by default.
-  Ramp3D({
+  Ramp3DComponent({
     this.width = 1.0,
     this.height = 1.0,
     this.depth = 2.0,
@@ -677,9 +693,9 @@ class Ramp3D extends Primitive3D {
     ..add(depth);
 
   List<(double, double, double)> get _corners {
-    final hx = Primitive3D.size(width) / 2,
-        hy = Primitive3D.size(height) / 2,
-        hz = Primitive3D.size(depth) / 2;
+    final hx = Primitive3DComponent.size(width) / 2,
+        hy = Primitive3DComponent.size(height) / 2,
+        hz = Primitive3DComponent.size(depth) / 2;
     return [
       (-hx, hy, -hz), // front left, on the ground
       (hx, hy, -hz), // front right
@@ -693,7 +709,8 @@ class Ramp3D extends Primitive3D {
   @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
     final c = _corners;
-    final h = Primitive3D.size(height), d = Primitive3D.size(depth);
+    final h = Primitive3DComponent.size(height),
+        d = Primitive3DComponent.size(depth);
     final len = math.sqrt(h * h + d * d);
     final b = MeshBuilder(uv)
       ..face([c[0], c[1], c[2], c[3]], 0, 1, 0) // underneath
@@ -706,9 +723,9 @@ class Ramp3D extends Primitive3D {
 
   @override
   void boundsInto(Aabb3 out) {
-    final hx = Primitive3D.size(width) / 2,
-        hy = Primitive3D.size(height) / 2,
-        hz = Primitive3D.size(depth) / 2;
+    final hx = Primitive3DComponent.size(width) / 2,
+        hy = Primitive3DComponent.size(height) / 2,
+        hz = Primitive3DComponent.size(depth) / 2;
     out.setValues(-hx, -hy, -hz, hx, hy, hz);
   }
 
@@ -724,9 +741,9 @@ class Ramp3D extends Primitive3D {
 
 /// A flight of [steps] solid steps rising towards +Z, [width] wide, [height]
 /// tall and [depth] long overall.
-class Stairs3D extends Primitive3D {
+class Stairs3DComponent extends Primitive3DComponent {
   /// Five steps, 1 m wide, 1 m tall and 2 m long by default.
-  Stairs3D({
+  Stairs3DComponent({
     this.width = 1.0,
     this.height = 1.0,
     this.depth = 2.0,
@@ -773,10 +790,10 @@ class Stairs3D extends Primitive3D {
 
   @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
-    final hx = Primitive3D.size(width) / 2,
-        hy = Primitive3D.size(height) / 2,
-        hz = Primitive3D.size(depth) / 2;
-    final n = Primitive3D.count(steps, 1, 64);
+    final hx = Primitive3DComponent.size(width) / 2,
+        hy = Primitive3DComponent.size(height) / 2,
+        hz = Primitive3DComponent.size(depth) / 2;
+    final n = Primitive3DComponent.count(steps, 1, 64);
     final run = hz * 2 / n, rise = hy * 2 / n;
     final b = MeshBuilder(uv)
       ..face(
@@ -826,19 +843,19 @@ class Stairs3D extends Primitive3D {
 
   @override
   void boundsInto(Aabb3 out) {
-    final hx = Primitive3D.size(width) / 2,
-        hy = Primitive3D.size(height) / 2,
-        hz = Primitive3D.size(depth) / 2;
+    final hx = Primitive3DComponent.size(width) / 2,
+        hy = Primitive3DComponent.size(height) / 2,
+        hz = Primitive3DComponent.size(depth) / 2;
     out.setValues(-hx, -hy, -hz, hx, hy, hz);
   }
 
   /// One box per step, from the ground to its tread.
   @override
   List<SolidPart> get solidParts {
-    final hx = Primitive3D.size(width) / 2,
-        hy = Primitive3D.size(height) / 2,
-        hz = Primitive3D.size(depth) / 2;
-    final n = Primitive3D.count(steps, 1, 64);
+    final hx = Primitive3DComponent.size(width) / 2,
+        hy = Primitive3DComponent.size(height) / 2,
+        hz = Primitive3DComponent.size(depth) / 2;
+    final n = Primitive3DComponent.count(steps, 1, 64);
     final run = hz * 2 / n, rise = hy * 2 / n;
     return [
       for (var i = 0; i < n; i++)
@@ -856,9 +873,9 @@ class Stairs3D extends Primitive3D {
 /// A curved band standing up in its entity's XY plane: [angle] of a ring of
 /// [radius] (outside) and [thickness], [depth] deep. Half a turn, the
 /// default, is an arch with its feet on the ground.
-class Arch3D extends Primitive3D {
+class Arch3DComponent extends Primitive3DComponent {
   /// A half-round arch 3 m across by default.
-  Arch3D({
+  Arch3DComponent({
     this.radius = 1.5,
     this.thickness = 0.3,
     this.depth = 0.5,
@@ -917,9 +934,10 @@ class Arch3D extends Primitive3D {
 
   double get _angle => angle.abs().clamp(0.01, 2 * math.pi);
   bool get _closed => _angle >= 2 * math.pi - 1e-6;
-  double get _outer => Primitive3D.size(radius);
-  double get _inner => math.max(_outer - Primitive3D.size(thickness), 0.0);
-  int get _steps => Primitive3D.count(segments, 1, 128);
+  double get _outer => Primitive3DComponent.size(radius);
+  double get _inner =>
+      math.max(_outer - Primitive3DComponent.size(thickness), 0.0);
+  int get _steps => Primitive3DComponent.count(segments, 1, 128);
 
   /// Where along the ring step [i] is, radians from +X towards up.
   double _at(int i) => math.pi / 2 - _angle / 2 + _angle * i / _steps;
@@ -946,7 +964,7 @@ class Arch3D extends Primitive3D {
   @override
   ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
     final (cx, cy) = _centre;
-    final hz = Primitive3D.size(depth) / 2;
+    final hz = Primitive3DComponent.size(depth) / 2;
     final n = _steps;
     final b = MeshBuilder(uv);
     (double, double, double) at(int i, double r, double z) {
@@ -1014,7 +1032,7 @@ class Arch3D extends Primitive3D {
   @override
   void boundsInto(Aabb3 out) {
     final (cx, cy) = _centre;
-    final hz = Primitive3D.size(depth) / 2;
+    final hz = Primitive3DComponent.size(depth) / 2;
     out.setEmpty();
     for (var i = 0; i <= _steps; i++) {
       final a = _at(i);
@@ -1029,7 +1047,7 @@ class Arch3D extends Primitive3D {
   @override
   List<SolidPart> get solidParts {
     final (cx, cy) = _centre;
-    final hz = Primitive3D.size(depth) / 2;
+    final hz = Primitive3DComponent.size(depth) / 2;
     return [
       for (var i = 0; i < _steps; i++)
         SolidHull(
@@ -1050,10 +1068,10 @@ class Arch3D extends Primitive3D {
 /// An outline drawn on the ground, raised [height]: a floor, a wall or a
 /// platform of any shape. Each of its [points] is (x, z) in its entity's
 /// space — `Offset.dx` is x, `Offset.dy` is z.
-class Polygon3D extends Primitive3D {
+class Polygon3DComponent extends Primitive3DComponent {
   /// A prism through [points] (a hexagon 1 m across when none are given),
   /// 1 m tall by default.
-  Polygon3D({
+  Polygon3DComponent({
     List<Offset>? points,
     this.height = 1.0,
     super.material,
@@ -1111,7 +1129,7 @@ class Polygon3D extends Primitive3D {
     final outline = _outline;
     final b = MeshBuilder(uv);
     if (outline.length < 3) return b.build();
-    final hy = Primitive3D.size(height) / 2;
+    final hy = Primitive3DComponent.size(height) / 2;
     final triangles = Outline.triangulate(outline);
     for (final (y, ny) in [(-hy, -1.0), (hy, 1.0)]) {
       final first = b.vertexCount;
@@ -1147,7 +1165,7 @@ class Polygon3D extends Primitive3D {
 
   @override
   void boundsInto(Aabb3 out) {
-    final hy = Primitive3D.size(height) / 2;
+    final hy = Primitive3DComponent.size(height) / 2;
     out.setEmpty();
     for (final p in points) {
       out.addXYZ(p.dx, -hy, p.dy);
@@ -1164,7 +1182,7 @@ class Polygon3D extends Primitive3D {
   List<SolidPart> get solidParts {
     final outline = _outline;
     if (outline.length < 3) return const [];
-    final hy = Primitive3D.size(height) / 2;
+    final hy = Primitive3DComponent.size(height) / 2;
     SolidHull hull(Iterable<(double, double)> corners) => SolidHull(
       Float32List.fromList([
         for (final (x, z) in corners) ...[x, -hy, z, x, hy, z],
@@ -1181,7 +1199,7 @@ class Polygon3D extends Primitive3D {
   }
 }
 
-/// A list of points compared by value, for [Polygon3D.shapeKey].
+/// A list of points compared by value, for [Polygon3DComponent.shapeKey].
 final class _PointsKey {
   _PointsKey(List<Offset> points)
     : _values = [

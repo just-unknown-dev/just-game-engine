@@ -14,7 +14,7 @@ Map<String, dynamic> _scene(List<Object?> entities) => {
 };
 
 Map<String, dynamic> _rect(Object? width) => {
-  'type': 'RectangleComponent',
+  'type': 'Rectangle2DComponent',
   'fields': {'width': width, 'height': 10},
 };
 
@@ -56,7 +56,7 @@ void main() {
           'message',
           allOf(
             contains('Entity #1 "Crate"'),
-            contains('RectangleComponent.width'),
+            contains('Rectangle2DComponent.width'),
           ),
         ),
       ),

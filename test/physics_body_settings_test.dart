@@ -225,8 +225,8 @@ void main() {
       );
       final components = (out['entities'] as List).single['components'] as List;
       final registry = ComponentDefinitionRegistry.core();
-      final rigid = registry.decode(components[0] as Map<String, dynamic>) as RigidBody2D;
-      final collider = registry.decode(components[1] as Map<String, dynamic>) as Collider2D;
+      final rigid = registry.decode(components[0] as Map<String, dynamic>) as RigidBody2DComponent;
+      final collider = registry.decode(components[1] as Map<String, dynamic>) as Collider2DComponent;
       expect(rigid.bodyType, BodyType.static);
       expect(rigid.layer, 1);
       expect(rigid.collidesWith, 1);
@@ -262,8 +262,8 @@ void main() {
         'isOneWay': true,
         'oneWayDirection': 'fromBelow',
       });
-      expect(rigid['type'], 'RigidBody2D');
-      expect(collider['type'], 'Collider2D');
+      expect(rigid['type'], 'RigidBody2DComponent');
+      expect(collider['type'], 'Collider2DComponent');
       final r = rigid['fields'] as Map, c = collider['fields'] as Map;
       expect((r['linearDamping'], r['lockRotation'], r['continuousCollision']), (0.3, true, true));
       expect((r['friction'], r['restitution']), (0.2, 0.8), reason: 'the defaults it was saved with');
@@ -294,7 +294,7 @@ void main() {
       expect(capsule['height'], 28.0);
       expect((capsule['rotation'] as double).abs(), closeTo(math.pi / 2, 1e-9));
       final shape = ColliderGeometry.shapeOf(
-        ComponentDefinitionRegistry.core().decode({'type': 'Collider2D', 'fields': capsule}) as Collider2D,
+        ComponentDefinitionRegistry.core().decode({'type': 'Collider2DComponent', 'fields': capsule}) as Collider2DComponent,
       )!;
       final placed = ColliderGeometry.build(shape, rotation: capsule['rotation'] as double) as CapsuleShape;
       expect(placed.center1.dx.abs(), closeTo(10, 1e-9), reason: 'lying as it was');
@@ -334,25 +334,25 @@ void main() {
 
     test('joints take their new names, their target a target', () {
       final [weld] = migrate({'targetEntityName': 'B', 'localAnchorB': {'dx': 4.0, 'dy': 0.0}}, 'WeldJointComponent');
-      expect(weld['type'], 'FixedJoint2D');
+      expect(weld['type'], 'FixedJoint2DComponent');
       expect(weld['fields']['connectedBody'], {'name': 'B'});
       expect(weld['fields']['connectedAnchor'], {'dx': 4.0, 'dy': 0.0});
       final [slider] = migrate({'enableLimit': true, 'lowerTranslation': -3.0, 'maxMotorForce': 9.0}, 'PrismaticJointComponent');
-      expect(slider['type'], 'SliderJoint2D');
+      expect(slider['type'], 'SliderJoint2DComponent');
       expect((slider['fields']['useLimits'], slider['fields']['minPosition'], slider['fields']['motorMaxForce']), (true, -3.0, 9.0));
       final [wheel] = migrate({'targetEntityName': '', 'suspensionAxis': {'dx': 0.0, 'dy': 1.0}}, 'WheelJointComponent');
-      expect(wheel['type'], 'WheelJoint2D');
+      expect(wheel['type'], 'WheelJoint2DComponent');
       expect(wheel['fields']['connectedBody'], isNull);
       expect(wheel['fields']['axis'], {'dx': 0.0, 'dy': 1.0});
       final registry = ComponentDefinitionRegistry.core();
-      expect(registry.decode(weld), isA<FixedJoint2D>());
-      expect((registry.decode(slider) as SliderJoint2D).minPosition, -3);
+      expect(registry.decode(weld), isA<FixedJoint2DComponent>());
+      expect((registry.decode(slider) as SliderJoint2DComponent).minPosition, -3);
     });
   });
 
   test('every field round-trips through the definitions', () {
     final registry = ComponentDefinitionRegistry.core();
-    final body = RigidBody2D(
+    final body = RigidBody2DComponent(
       bodyType: BodyType.kinematic,
       friction: 0.7,
       angularDamping: 0.3,
@@ -363,7 +363,7 @@ void main() {
       layer: 5,
       collidesWith: 0x21,
     );
-    final back = registry.decode(jsonDecode(jsonEncode(registry.encode(body)))) as RigidBody2D;
+    final back = registry.decode(jsonDecode(jsonEncode(registry.encode(body)))) as RigidBody2DComponent;
     expect(back.bodyType, BodyType.kinematic);
     expect(back.friction, 0.7);
     expect(back.angularDamping, 0.3);
@@ -374,11 +374,11 @@ void main() {
     expect(back.layer, 5);
     expect(back.collidesWith, 0x21);
 
-    final collider = Collider2D(shape: ColliderShape2D.circle, radius: 6, offset: const Offset(3, -4));
-    final c = registry.decode(jsonDecode(jsonEncode(registry.encode(collider)))) as Collider2D;
+    final collider = Collider2DComponent(shape: ColliderShape2D.circle, radius: 6, offset: const Offset(3, -4));
+    final c = registry.decode(jsonDecode(jsonEncode(registry.encode(collider)))) as Collider2DComponent;
     expect((c.shape, c.radius, c.offset), (ColliderShape2D.circle, 6.0, const Offset(3, -4)));
 
-    final grid = registry.decode(jsonDecode(jsonEncode(registry.encode(RigidBody2D())))) as RigidBody2D;
+    final grid = registry.decode(jsonDecode(jsonEncode(registry.encode(RigidBody2DComponent())))) as RigidBody2DComponent;
     expect(grid.collidesWith, isNull);
     // 3-D's defaults: worked out from the collider, a little damping.
     expect(grid.mass, 0);
@@ -417,30 +417,30 @@ void main() {
     });
 
     test("a collider's shape: its own fields, turned, its own scale", () {
-      final box = ColliderGeometry.of(Collider2D(size: Vector2(10, 4), rotation: math.pi / 2))!;
+      final box = ColliderGeometry.of(Collider2DComponent(size: Vector2(10, 4), rotation: math.pi / 2))!;
       final bounds = ColliderGeometry.boundsOf(box);
       expect(bounds.width, closeTo(4, 1e-9));
       expect(bounds.height, closeTo(10, 1e-9));
-      final circle = ColliderGeometry.of(Collider2D(shape: ColliderShape2D.circle, radius: 3, scale: Vector2(2, 1)))!;
+      final circle = ColliderGeometry.of(Collider2DComponent(shape: ColliderShape2D.circle, radius: 3, scale: Vector2(2, 1)))!;
       expect((circle as CircleShape).radius, 6);
-      final rounded = ColliderGeometry.of(Collider2D(size: Vector2(20, 10), cornerRadius: 2))!;
+      final rounded = ColliderGeometry.of(Collider2DComponent(size: Vector2(20, 10), cornerRadius: 2))!;
       expect(ColliderGeometry.boundsOf(rounded).width, closeTo(20, 1e-9), reason: 'rounded inside its size');
-      expect(ColliderGeometry.of(Collider2D(shape: ColliderShape2D.polygon, points: const [Offset.zero])), isNull);
+      expect(ColliderGeometry.of(Collider2DComponent(shape: ColliderShape2D.polygon, points: const [Offset.zero])), isNull);
     });
 
     test('matching the shape: what the entity draws', () {
       final world = World()..initialize();
       addTearDown(world.dispose);
-      final collider = Collider2D(shape: ColliderShape2D.matchShape);
+      final collider = Collider2DComponent(shape: ColliderShape2D.matchShape);
       final e = world.createEntityWithComponents([
         TransformComponent(),
-        CircleComponent(radius: 12),
+        Circle2DComponent(radius: 12),
         collider,
       ]);
       expect((ColliderGeometry.shapeOf(collider, entity: e) as CircleShape).radius, 12);
       final rect = world.createEntityWithComponents([
         TransformComponent(),
-        RectangleComponent(width: 30, height: 10),
+        Rectangle2DComponent(width: 30, height: 10),
       ]);
       expect(ColliderGeometry.visualShapeOf(rect), isA<RectangleShape>());
       expect(ColliderGeometry.visualKeyOf(rect), ('box', 30.0, 10.0, 0.0));
@@ -474,20 +474,20 @@ void main() {
         position: Vector3(0, 0, 0),
         scale: Vector3(1, scaleY, 1),
       ),
-      RigidBody2D(bodyType: BodyType.static, layer: layer, restitution: restitution),
-      Collider2D(size: Vector2(200, 20), offset: offset),
+      RigidBody2DComponent(bodyType: BodyType.static, layer: layer, restitution: restitution),
+      Collider2DComponent(size: Vector2(200, 20), offset: offset),
     ], name: 'floor');
 
     Entity ball({int layer = 0, int? collidesWith, double restitution = 0}) =>
         world.createEntityWithComponents([
           TransformComponent(position: Vector3(0, -150, 0)),
-          RigidBody2D(
+          RigidBody2DComponent(
             restitution: restitution,
             layer: layer,
             collidesWith: collidesWith,
             lockRotation: true,
           ),
-          Collider2D(shape: ColliderShape2D.circle, radius: 10),
+          Collider2DComponent(shape: ColliderShape2D.circle, radius: 10),
         ], name: 'ball');
 
     double run(Entity e, [int frames = 90]) {
@@ -552,17 +552,17 @@ void main() {
     });
 
     test('a collider alone is a static body', () {
-      world.createEntityWithComponents([TransformComponent(), Collider2D(size: Vector2(200, 20))]);
+      world.createEntityWithComponents([TransformComponent(), Collider2DComponent(size: Vector2(200, 20))]);
       expect(run(ball()), closeTo(-20, 1));
     });
 
     test('a collider matching what its entity draws, following it as it changes', () {
-      final rect = RectangleComponent(width: 200, height: 20);
+      final rect = Rectangle2DComponent(width: 200, height: 20);
       world.createEntityWithComponents([
         TransformComponent(),
         rect,
-        RigidBody2D(bodyType: BodyType.static),
-        Collider2D(shape: ColliderShape2D.matchShape),
+        RigidBody2DComponent(bodyType: BodyType.static),
+        Collider2DComponent(shape: ColliderShape2D.matchShape),
       ]);
       final b = ball();
       expect(run(b), closeTo(-20, 1));
@@ -576,8 +576,8 @@ void main() {
         final e = world.createEntityWithComponents([
           TransformComponent(position: Vector3(0, 0, 0)),
           VelocityComponent(),
-          RigidBody2D(gravityScale: 0, initialVelocity: const Offset(120, 0)),
-          Collider2D(shape: ColliderShape2D.circle, radius: 5),
+          RigidBody2DComponent(gravityScale: 0, initialVelocity: const Offset(120, 0)),
+          Collider2DComponent(shape: ColliderShape2D.circle, radius: 5),
         ]);
         for (var i = 0; i < 30; i++) {
           world.update(1 / 60);
@@ -590,11 +590,11 @@ void main() {
     );
 
     test('gameplay moves a body through its rigid body: velocity, impulse, force', () {
-      final rigid = RigidBody2D(gravityScale: 0, mass: 1, linearDamping: 0);
+      final rigid = RigidBody2DComponent(gravityScale: 0, mass: 1, linearDamping: 0);
       final e = world.createEntityWithComponents([
         TransformComponent(),
         rigid,
-        Collider2D(shape: ColliderShape2D.circle, radius: 5),
+        Collider2DComponent(shape: ColliderShape2D.circle, radius: 5),
       ]);
       world.update(1 / 60);
       rigid.setVelocity(const Offset(60, 0));
@@ -613,14 +613,14 @@ void main() {
     });
 
     test('a mass of 0 is worked out from the collider, as in 3-D', () {
-      Entity crate(double mass, Collider2D collider) => world.createEntityWithComponents([
+      Entity crate(double mass, Collider2DComponent collider) => world.createEntityWithComponents([
         TransformComponent(),
-        RigidBody2D(mass: mass, gravityScale: 0),
+        RigidBody2DComponent(mass: mass, gravityScale: 0),
         collider,
       ]);
-      final square = crate(0, Collider2D(size: Vector2(100, 100)));
-      final ball = crate(0, Collider2D(shape: ColliderShape2D.circle, radius: 10));
-      final set = crate(3, Collider2D(size: Vector2(100, 100)));
+      final square = crate(0, Collider2DComponent(size: Vector2(100, 100)));
+      final ball = crate(0, Collider2DComponent(shape: ColliderShape2D.circle, radius: 10));
+      final set = crate(3, Collider2DComponent(size: Vector2(100, 100)));
       world.update(1 / 60);
       double massOf(Entity e) => e.getComponent<PhysicsBodyRefComponent>()!.body.mass;
       expect(massOf(square), closeTo(1000, 1e-6), reason: 'a 1 m square weighs what a 1 m cube does');
@@ -629,11 +629,11 @@ void main() {
     });
 
     test('a kinematic body keeps its speed: damping slows only a dynamic one', () {
-      final platform = RigidBody2D(bodyType: BodyType.kinematic, linearDamping: 1);
+      final platform = RigidBody2DComponent(bodyType: BodyType.kinematic, linearDamping: 1);
       final e = world.createEntityWithComponents([
         TransformComponent(),
         platform,
-        Collider2D(size: Vector2(64, 16)),
+        Collider2DComponent(size: Vector2(64, 16)),
       ]);
       world.update(1 / 60);
       platform.setVelocity(const Offset(60, 0));
@@ -645,8 +645,8 @@ void main() {
       final f = floor();
       final b = ball();
       world.update(1 / 60);
-      f.getComponent<RigidBody2D>()!.restitution = 1;
-      b.getComponent<RigidBody2D>()!.restitution = 1;
+      f.getComponent<RigidBody2DComponent>()!.restitution = 1;
+      b.getComponent<RigidBody2DComponent>()!.restitution = 1;
       var rose = false;
       for (var i = 0; i < 90; i++) {
         world.update(1 / 60);
@@ -661,15 +661,15 @@ void main() {
       double slide(double friction) {
         final crate = world.createEntityWithComponents([
           TransformComponent(position: Vector3(-80, -20, 0)),
-          RigidBody2D(
+          RigidBody2DComponent(
             restitution: 0,
             lockRotation: true,
             initialVelocity: const Offset(150, 0),
           ),
-          Collider2D(size: Vector2(20, 20)),
+          Collider2DComponent(size: Vector2(20, 20)),
         ]);
-        f.getComponent<RigidBody2D>()!.friction = friction;
-        crate.getComponent<RigidBody2D>()!.friction = friction;
+        f.getComponent<RigidBody2DComponent>()!.friction = friction;
+        crate.getComponent<RigidBody2DComponent>()!.friction = friction;
         run(crate, 60);
         final out = crate.getComponent<TransformComponent>()!.position.x;
         world.destroyEntity(crate);
@@ -685,8 +685,8 @@ void main() {
     test('contacts and sensors are reported as the 3-D ones are', () {
       world.createEntityWithComponents([
         TransformComponent(position: Vector3(0, -60, 0)),
-        RigidBody2D(bodyType: BodyType.static, isSensor: true),
-        Collider2D(size: Vector2(200, 20)),
+        RigidBody2DComponent(bodyType: BodyType.static, isSensor: true),
+        Collider2DComponent(size: Vector2(200, 20)),
       ], name: 'zone');
       floor();
       final b = ball();
@@ -704,11 +704,11 @@ void main() {
       final hit = enters.firstWhere((e) => e.entityA == b || e.entityB == b);
       expect(hit.point.dy, closeTo(-10, 2), reason: "where the ball meets the floor's top");
       expect(stays, isNotEmpty, reason: 'resting on the floor');
-      expect(b.getComponent<RigidBody2D>()!.isGrounded, isTrue);
+      expect(b.getComponent<RigidBody2DComponent>()!.isGrounded, isTrue);
     });
 
     test('the outline says what kind of body it is', () {
-      RigidBody2D b(BodyType t, {bool sensor = false}) => RigidBody2D(bodyType: t, isSensor: sensor);
+      RigidBody2DComponent b(BodyType t, {bool sensor = false}) => RigidBody2DComponent(bodyType: t, isSensor: sensor);
       final kinds = {
         for (final t in BodyType.values)
           t: PhysicsSystem.debugPaintFor(b(t)).color,

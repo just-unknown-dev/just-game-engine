@@ -176,7 +176,7 @@ A shot with `projection: CameraProjection.perspective` sees in perspective, with
 - `FirstPersonComponent`: the camera at the target's `eye`, turned by `yaw` and `pitch`.
 - `LookAtComponent`: aims at the target, raised by `offset`, wherever the rest of the shot put the camera.
 
-Your input code turns the shot by writing `yaw` and `pitch`. For smooth motion at any frame rate, set `brain.updateMode = CameraUpdateMode.frame`: the brain then runs once per rendered frame, following targets between their fixed updates. With 3D physics, `CameraCollision3D` keeps an orbiting camera out of walls; see [3D physics](/docs/physics-3d).
+Your input code turns the shot by writing `yaw` and `pitch`. For smooth motion at any frame rate, set `brain.updateMode = CameraUpdateMode.frame`: the brain then runs once per rendered frame, following targets between their fixed updates. With 3D physics, `CameraCollision3DComponent` keeps an orbiting camera out of walls; see [3D physics](/docs/physics-3d).
 
 ```dart
 import 'package:just_game_engine/just_game_engine.dart';

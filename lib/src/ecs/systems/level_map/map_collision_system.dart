@@ -18,8 +18,8 @@ import '../../base/system_priorities.dart';
 /// Gives every map layer marked *collides* the static bodies its tiles'
 /// collision shapes describe.
 ///
-/// Bodies are ordinary entities — a transform, a static `RigidBody2D` and a
-/// `Collider2D`, a [MapBodyComponent] saying what they are — so contacts
+/// Bodies are ordinary entities — a transform, a static `RigidBody2DComponent` and a
+/// `Collider2DComponent`, a [MapBodyComponent] saying what they are — so contacts
 /// with them are
 /// reported like any other, and standing on them grounds a character. They
 /// carry a `GeneratedEntityComponent`: built from the map, never saved.
@@ -151,7 +151,7 @@ class MapCollisionSystem extends System {
       TransformComponent(position: Vector3(at.dx, at.dy, 0)),
       // The level does not bounce what lands on it, and a level's worth of
       // collider outlines is noise.
-      RigidBody2D(
+      RigidBody2DComponent(
         bodyType: BodyType.static,
         isSensor: kind.sensor,
         lockRotation: true,
@@ -160,12 +160,12 @@ class MapCollisionSystem extends System {
         restitution: 0,
       ),
       spec.isBox
-          ? Collider2D(
+          ? Collider2DComponent(
               size: Vector2(spec.size!.width, spec.size!.height),
               oneWay: kind.oneWay,
               showDebugOutline: false,
             )
-          : Collider2D(
+          : Collider2DComponent(
               shape: ColliderShape2D.polygon,
               points: [...spec.polygon!],
               oneWay: kind.oneWay,

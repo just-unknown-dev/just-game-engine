@@ -10,7 +10,7 @@ import 'package:flutter/painting.dart';
 import '../../components/components.dart';
 import '../../../subsystems/rendering/impl/renderable.dart';
 
-/// Collects [RectangleComponent]s and [CircleComponent]s into one
+/// Collects [Rectangle2DComponent]s and [Circle2DComponent]s into one
 /// [Canvas.drawVertices] call — the shape counterpart of a sprite batch,
 /// used by `RenderSystem(batchShapes: true)`.
 ///
@@ -50,10 +50,12 @@ class ShapeBatch {
   /// and nothing added — when the shape cannot be batched.
   bool tryAdd(RenderableComponent component, Renderable renderable) {
     if (renderable.opacity < 1.0 || renderable.tint != null) return false;
-    if (component is RectangleComponent) {
+    if (component is Rectangle2DComponent) {
       return _addRect(component, renderable);
     }
-    if (component is CircleComponent) return _addCircle(component, renderable);
+    if (component is Circle2DComponent) {
+      return _addCircle(component, renderable);
+    }
     return false;
   }
 
@@ -93,7 +95,7 @@ class ShapeBatch {
     return (fills, strokes);
   }
 
-  bool _addRect(RectangleComponent c, Renderable r) {
+  bool _addRect(Rectangle2DComponent c, Renderable r) {
     if (!c.drawsOwnShape || c.cornerRadius != 0) return false;
     final parts = _parts(c.filled, c.fillStyle, c.strokeStyle, c.strokeWidth);
     if (parts == null) return false;
@@ -119,7 +121,7 @@ class ShapeBatch {
     return true;
   }
 
-  bool _addCircle(CircleComponent c, Renderable r) {
+  bool _addCircle(Circle2DComponent c, Renderable r) {
     if (!c.drawsOwnShape || c.radius < 0) return false;
     final parts = _parts(c.filled, c.fillStyle, c.strokeStyle, c.strokeWidth);
     if (parts == null) return false;

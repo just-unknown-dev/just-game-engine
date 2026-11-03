@@ -25,8 +25,8 @@ void main() {
 
   Entity wall(String name, double x, {int layer = 0, bool sensor = false}) => world.createEntityWithComponents([
     TransformComponent(position: Vector3(x, 0, 0)),
-    RigidBody2D(bodyType: BodyType.static, layer: layer, isSensor: sensor),
-    Collider2D(size: Vector2(10, 100)),
+    RigidBody2DComponent(bodyType: BodyType.static, layer: layer, isSensor: sensor),
+    Collider2DComponent(size: Vector2(10, 100)),
   ], name: name);
 
   test('a ray finds the nearest wall, and every wall in order', () {

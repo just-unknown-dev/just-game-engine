@@ -15,9 +15,9 @@ import '../../ecs.dart';
 /// runs — a vignette closing in, the colour draining — by key
 /// (`vignette.amount`), as a material file saves them. Change them with
 /// [set] and [remove] (or give [overrides] a new map).
-class ScreenMaterial extends Component {
+class ScreenMaterialComponent extends Component {
   /// A screen material from the file at [material].
-  ScreenMaterial({
+  ScreenMaterialComponent({
     this.material = '',
     this.enabled = true,
     this.order = 0,

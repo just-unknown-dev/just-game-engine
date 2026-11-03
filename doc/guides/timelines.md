@@ -4,7 +4,7 @@ _Graphics_ · Animate any component field over time, and play clips, cut cameras
 
 A timeline animates component fields over time, and can also play sprite clips, cut between cameras, switch entities on and off, play sounds and fire events, all on one clock. Use one for a bobbing coin, a door, a moving platform or a whole cut-scene.
 
-Timelines are assets: a `.timeline.json` file (format 2), or a `TimelineAsset` stored inline in the component that plays it. The editor's Timeline dock authors them, with a dope sheet, a curve editor, record mode and motion paths drawn in the level (see [The editor](/docs/editor)). The files are plain JSON, so you can also write them by hand or build them in code.
+Timelines are assets: a `.timeline.json` file (format 3), or a `TimelineAsset` stored inline in the component that plays it. The editor's Timeline dock authors them, with a dope sheet, a curve editor, record mode and motion paths drawn in the level (see [The editor](/docs/editor)). The files are plain JSON, so you can also write them by hand or build them in code.
 
 `TimelineSystem` plays them and `TimelineTriggerSystem` starts them from trigger areas. Both come with `DefaultSystem.sprites`.
 
@@ -14,7 +14,7 @@ This one slides its entity 96 units up in one second and fires `opened` at the e
 
 ```json assets/timelines/door_open.timeline.json
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "name": "door_open",
   "duration": 1.0,
   "wrap": "once",
@@ -61,7 +61,7 @@ All but the first two are block tracks: a list of `blocks`, each with a `start` 
 
 ```json assets/timelines/boss_intro.timeline.json
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "name": "boss_intro",
   "duration": 6.0,
   "wrap": "once",
@@ -110,7 +110,7 @@ void addDoor(Engine engine) {
   // and plays backwards when they leave.
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(500, 250, 0)),
-    RectangleComponent(width: 40, height: 96),
+    Rectangle2DComponent(width: 40, height: 96),
     TimelinePlayerComponent(
       timelinePath: 'assets/timelines/door_open.timeline.json',
     ),
@@ -181,7 +181,7 @@ Entity addCoin(World world, Vector3 at) {
   );
   return world.createEntityWithComponents([
     TransformComponent(position: at),
-    CircleComponent(radius: 10),
+    Circle2DComponent(radius: 10),
     TimelinePlayerComponent(inline: bob, playOnStart: true),
   ], name: 'Coin');
 }

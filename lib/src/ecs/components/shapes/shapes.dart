@@ -4,11 +4,11 @@
 /// (entity-relative) space. A render system reads these to produce visuals.
 library;
 
-export 'circle_component.dart';
-export 'rectangle_component.dart';
-export 'polygon_component.dart';
-export 'line_component.dart';
-export 'capsule_component.dart';
+export 'circle_2d_component.dart';
+export 'rectangle_2d_component.dart';
+export 'polygon_2d_component.dart';
+export 'line_2d_component.dart';
+export 'capsule_2d_component.dart';
 export 'shape_paint_style.dart';
 export 'shape_painting.dart';
 export 'shape_paint_cache.dart';

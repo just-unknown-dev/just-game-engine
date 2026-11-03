@@ -25,14 +25,14 @@ void main() {
     final engine = Engine();
     addTearDown(engine.dispose);
     expect(engine.physics3D, isNull);
-    expect(engine.context.definitions.definitionByType('RigidBody3D'), isNull);
+    expect(engine.context.definitions.definitionByType('RigidBody3DComponent'), isNull);
   });
 
   test('the components are known as soon as the engine is made', () {
     final engine = Engine(config: EngineConfig(physics3D: Physics3D(engine: FakePhysicsEngine3D())));
     addTearDown(engine.dispose);
-    expect(engine.context.definitions.definitionByType('RigidBody3D'), isNotNull);
-    expect(engine.context.definitions.definitionByType('Collider3D'), isNotNull);
+    expect(engine.context.definitions.definitionByType('RigidBody3DComponent'), isNotNull);
+    expect(engine.context.definitions.definitionByType('Collider3DComponent'), isNotNull);
     expect(engine.physics3D!.isStarted, isFalse);
   });
 
@@ -52,8 +52,8 @@ void main() {
 
     final box = engine.world.createEntityWithComponents([
       TransformComponent(position: Vector3(0, -2, 0)),
-      Collider3D(),
-      RigidBody3D(),
+      Collider3DComponent(),
+      RigidBody3DComponent(),
     ]);
     engine.world.update(1 / 60);
     final world = fake.worlds.single;
@@ -73,7 +73,7 @@ void main() {
     final engine = await _engine(Physics3D(engine: fake));
     final physics3D = engine.physics3D!;
     final system = physics3D.system;
-    engine.world.createEntityWithComponents([TransformComponent(), Collider3D()]);
+    engine.world.createEntityWithComponents([TransformComponent(), Collider3DComponent()]);
     engine.world.update(1 / 60);
     final world = fake.worlds.single;
     expect(world.bodies, hasLength(1));
@@ -116,11 +116,11 @@ void main() {
   test('a scene with 3-D physics components loads through the definitions', () async {
     final engine = await _engine(Physics3D(engine: FakePhysicsEngine3D()));
     final loaded =
-        engine.context.definitions.definitionByType('RigidBody3D')!.decode({
-              'type': 'RigidBody3D',
+        engine.context.definitions.definitionByType('RigidBody3DComponent')!.decode({
+              'type': 'RigidBody3DComponent',
               'fields': {'bodyType': 'kinematic', 'layer': 2, 'mass': 4},
             })
-            as RigidBody3D;
+            as RigidBody3DComponent;
     expect(loaded.bodyType, BodyType3D.kinematic);
     expect(loaded.layer, 2);
     expect(loaded.mass, 4);
@@ -130,6 +130,6 @@ void main() {
     final context = EngineContext();
     addTearDown(context.dispose);
     Physics3D.registerSchemas(context);
-    expect(context.definitions.definitionByType('CharacterBody3D'), isNotNull);
+    expect(context.definitions.definitionByType('CharacterBody3DComponent'), isNotNull);
   });
 }

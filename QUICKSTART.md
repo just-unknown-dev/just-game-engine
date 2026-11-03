@@ -77,7 +77,7 @@ Future<void> main() async {
   final world = engine.world;
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(-150, 0, 0)),
-    CircleComponent(
+    Circle2DComponent(
       radius: 40,
       fillStyle: const ShapePaintStyle(color: Colors.lightBlue),
     ),
@@ -87,7 +87,7 @@ Future<void> main() async {
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(150, -100, 0), angle: 0.3),
     VelocityComponent(velocity: Vector3(0, 40, 0)),
-    RectangleComponent(
+    Rectangle2DComponent(
       width: 120,
       height: 60,
       cornerRadius: 8,
@@ -108,7 +108,7 @@ What each part does:
 
 - **`EngineConfig(defaultSystems: DefaultSystems.all)`** adds the standard systems while the engine initializes. Without it the world starts with no systems, and nothing moves or draws. `DefaultSystems.headless` is the same set without rendering and audio (servers, tests).
 - **`await engine.initialize()`** comes before anything touches `engine.world`, `engine.physics`, `engine.input` or the other subsystems. Before that they throw `EngineNotReadyError`. If a stage fails, `initialize()` throws `EngineInitException` and undoes what it built.
-- **An entity** is an id with components. `createEntityWithComponents` adds them in one go. The shape components — `CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent` — draw themselves.
+- **An entity** is an id with components. `createEntityWithComponents` adds them in one go. The shape components — `Circle2DComponent`, `Rectangle2DComponent`, `Polygon2DComponent`, `Line2DComponent`, `Capsule2DComponent` — draw themselves.
 - **`engine.start()`** starts the game loop. **`GameWidget`** drives it from Flutter's frame ticker, draws the world, and sends keys and pointers to `engine.input`. It shows an FPS counter unless you pass `showFPS: false`.
 - **`Engine` is an ordinary object.** Make one per game session. When the game is one screen of a larger app, create it in a `State` and call `engine.dispose()` from `dispose()`. Disposal is final: to play again, make a new `Engine`.
 
@@ -136,7 +136,7 @@ Entity addTurret(World world, Entity tank) => world.createEntityWithComponents([
   // Where the turret sits in the tank's space. The next update places
   // it there, whatever its TransformComponent says now.
   ParentComponent(parentId: tank.id, localPosition: Vector3(0, -30, 0)),
-  RectangleComponent(width: 50, height: 12),
+  Rectangle2DComponent(width: 50, height: 12),
 ], name: 'Turret');
 ```
 
@@ -165,7 +165,7 @@ To move the turret on the tank later, change its `ParentComponent.localPosition`
 | 40 | `render` | `RenderSystem`, which draws in `render()`, once per display frame |
 | −10 | `audio` | sounds follow their entities |
 
-**One component of each type per entity.** Adding a second component of a type replaces the first. Every shape and every sprite is stored as a `RenderableComponent`, so one entity draws one thing: put a second drawing on a child entity. Read a shape back with `entity.getComponent<RenderableComponent>()`; `getComponent<CircleComponent>()` finds nothing.
+**One component of each type per entity.** Adding a second component of a type replaces the first. Every shape and every sprite is stored as a `RenderableComponent`, so one entity draws one thing: put a second drawing on a child entity. Read a shape back with `entity.getComponent<RenderableComponent>()`; `getComponent<Circle2DComponent>()` finds nothing.
 
 ---
 
@@ -283,7 +283,7 @@ Entity addPlayer(World world) => world.createEntityWithComponents([
   TransformComponent(),
   VelocityComponent(),
   InputComponent(), // player 1
-  RectangleComponent(width: 32, height: 48),
+  Rectangle2DComponent(width: 32, height: 48),
 ], name: 'Player');
 ```
 
@@ -297,7 +297,7 @@ In `main`, after `initialize()`: `await loadInput(engine);`, `engine.world.addSy
 
 ## 5. Physics
 
-Physics in 2-D is the same model as in 3-D, with a `2D` suffix: a `RigidBody2D` says how a body moves, a `Collider2D` gives it its shape. A collider alone is a static body. `PhysicsSystem` (a default system) steps `engine.physics`, writes the results back to the entity's `TransformComponent` and `VelocityComponent`, and fires events on `world.events`.
+Physics in 2-D is the same model as in 3-D, with a `2D` suffix: a `RigidBody2DComponent` says how a body moves, a `Collider2DComponent` gives it its shape. A collider alone is a static body. `PhysicsSystem` (a default system) steps `engine.physics`, writes the results back to the entity's `TransformComponent` and `VelocityComponent`, and fires events on `world.events`.
 
 ```dart
 import 'package:flutter/material.dart';
@@ -311,33 +311,33 @@ void buildPlayground(Engine engine) {
 
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(0, 200, 0)),
-    RectangleComponent(
+    Rectangle2DComponent(
       width: 900,
       height: 40,
       fillStyle: const ShapePaintStyle(color: Colors.brown),
     ),
     // Static ground: a collider is enough. Match shape follows the rectangle.
-    Collider2D(shape: ColliderShape2D.matchShape),
+    Collider2DComponent(shape: ColliderShape2D.matchShape),
   ], name: 'Ground');
 
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(-100, -200, 0)),
     VelocityComponent(),
-    CircleComponent(
+    Circle2DComponent(
       radius: 20,
       fillStyle: const ShapePaintStyle(color: Colors.red),
     ),
-    RigidBody2D(restitution: 0.7),
-    Collider2D(shape: ColliderShape2D.circle, radius: 20),
+    RigidBody2DComponent(restitution: 0.7),
+    Collider2DComponent(shape: ColliderShape2D.circle, radius: 20),
     TagComponent('ball'),
   ], name: 'Ball');
 
   // A sensor reports overlaps and blocks nothing.
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(300, 140, 0)),
-    RectangleComponent(width: 80, height: 80, filled: false),
-    RigidBody2D(bodyType: BodyType.static, isSensor: true),
-    Collider2D(size: Vector2(80, 80)),
+    Rectangle2DComponent(width: 80, height: 80, filled: false),
+    RigidBody2DComponent(bodyType: BodyType.static, isSensor: true),
+    Collider2DComponent(size: Vector2(80, 80)),
   ], name: 'Goal');
 
   world.events.on<CollisionEnter2DEvent>((e) {
@@ -353,9 +353,9 @@ Entity addPlatformer(World world) => world.createEntityWithComponents([
   TransformComponent(),
   VelocityComponent(),
   InputComponent(),
-  RectangleComponent(width: 32, height: 48),
-  RigidBody2D(friction: 0, lockRotation: true),
-  Collider2D(size: Vector2(32, 48)),
+  Rectangle2DComponent(width: 32, height: 48),
+  RigidBody2DComponent(friction: 0, lockRotation: true),
+  Collider2DComponent(size: Vector2(32, 48)),
   TagComponent('player'),
 ], name: 'Player');
 
@@ -368,14 +368,14 @@ class PlatformerSystem extends System {
   List<Type> get requiredComponents => [
     InputComponent,
     VelocityComponent,
-    RigidBody2D,
+    RigidBody2DComponent,
   ];
 
   @override
   void update(double deltaTime) {
     forEach((entity) {
       final input = entity.getComponent<InputComponent>()!;
-      final body = entity.getComponent<RigidBody2D>()!;
+      final body = entity.getComponent<RigidBody2DComponent>()!;
       final velocity = entity.getComponent<VelocityComponent>()!.velocity;
       velocity.x = input.vector('move').dx * 260;
       if (body.isGrounded && input.wasPressed('jump')) {
@@ -388,30 +388,30 @@ class PlatformerSystem extends System {
 
 In `main`, with the input of step 4 loaded: `buildPlayground(engine);`, `engine.world.addSystem(PlatformerSystem());`, `addPlatformer(engine.world);`.
 
-A character can also be moved by gameplay rather than by the simulation: a `CharacterBody2D` (3-D's `CharacterBody3D`). It walks slopes up to `maxSlopeAngle`, climbs steps up to `stepHeight`, keeps to the floor going down, rides moving platforms and stands on one-way platforms — and needs no rigid body or collider of its own.
+A character can also be moved by gameplay rather than by the simulation: a `CharacterBody2DComponent` (3-D's `CharacterBody3DComponent`). It walks slopes up to `maxSlopeAngle`, climbs steps up to `stepHeight`, keeps to the floor going down, rides moving platforms and stands on one-way platforms — and needs no rigid body or collider of its own.
 
 ```dart
 Entity addCharacter(World world) => world.createEntityWithComponents([
   TransformComponent(),
   InputComponent(),
-  RectangleComponent(width: 32, height: 48),
-  CharacterBody2D(shape: CharacterShape2D.box, width: 32, height: 48),
+  Rectangle2DComponent(width: 32, height: 48),
+  CharacterBody2DComponent(shape: CharacterShape2D.box, width: 32, height: 48),
   TagComponent('player'),
 ], name: 'Hero');
 
-/// Runs and jumps a CharacterBody2D.
+/// Runs and jumps a CharacterBody2DComponent.
 class CharacterControlSystem extends System {
   @override
   int get priority => SystemPriorities.playerControl;
 
   @override
-  List<Type> get requiredComponents => [InputComponent, CharacterBody2D];
+  List<Type> get requiredComponents => [InputComponent, CharacterBody2DComponent];
 
   @override
   void update(double deltaTime) {
     forEach((entity) {
       final input = entity.getComponent<InputComponent>()!;
-      final body = entity.getComponent<CharacterBody2D>()!;
+      final body = entity.getComponent<CharacterBody2DComponent>()!;
       body.moveVelocity = Offset(input.vector('move').dx * 260, 0);
       if (body.isGrounded && input.wasPressed('jump')) body.jump(800);
     });
@@ -421,11 +421,11 @@ class CharacterControlSystem extends System {
 
 A character's own body is kinematic, so sensors see it and dynamic bodies bump into it; it touches static ground through the mover, not through contacts — read `groundEntity` for what it stands on.
 
-- Collider shapes (`Collider2D.shape`): `box` (`size`, optional `cornerRadius`), `circle` (`radius`), `capsule` (`radius`, `height`), `polygon` (`points`), `segment` and `chain` (`points`, `loop`), and `matchShape` — whatever the entity draws (a rectangle, circle, polygon or sprite), followed as it changes. Centred on the entity unless `offset` moves them; `rotation` and `scale` turn and stretch the collider itself. It also grows and shrinks with the entity's scale, as its sprite does.
+- Collider shapes (`Collider2DComponent.shape`): `box` (`size`, optional `cornerRadius`), `circle` (`radius`), `capsule` (`radius`, `height`), `polygon` (`points`), `segment` and `chain` (`points`, `loop`), and `matchShape` — whatever the entity draws (a rectangle, circle, polygon or sprite), followed as it changes. Centred on the entity unless `offset` moves them; `rotation` and `scale` turn and stretch the collider itself. It also grows and shrinks with the entity's scale, as its sprite does.
 - Rigid bodies are dynamic by default. `bodyType: BodyType.static` never moves; `BodyType.kinematic` moves only by the velocity you set (moving platforms). On the collider, `oneWay: true` makes a platform you can jump up through.
 - The defaults are the same as in 3-D: `friction: 0.5`, `restitution: 0` (no bounce), `mass: 0` (worked out from the collider's area: a 100 × 100 box weighs 1000 kg, as a 1 m cube does in 3-D) and a little damping (`linearDamping: 0.05`, `angularDamping: 0.05`). Bounce comes from `restitution` on both bodies; give both some for a bouncy hit. A character usually wants `friction: 0` (so it slides down walls instead of sticking to them) and `lockRotation: true`.
 - Collision layers: put a body on a layer from 0 (the default) to 15, name the layers and say which collide in `assets/project/physics.json` (a `PhysicsLayers`; the editor's Physics Layers dock writes it), and list that file under `flutter: assets:`. A body's own `collidesWith` overrides the grid.
-- `isGrounded`, `groundEntity`, `groundNormal`, `linearVelocity` and `angularVelocity` on `RigidBody2D` are kept up to date for you.
+- `isGrounded`, `groundEntity`, `groundNormal`, `linearVelocity` and `angularVelocity` on `RigidBody2DComponent` are kept up to date for you.
 - Push from code with `addForce`, `addImpulse`, `addTorque`, `addAngularImpulse`, `setVelocity` and `setAngularVelocity`; they apply at the next step.
 - Events: `CollisionEnter2DEvent` (the two entities, the contact `point` and `normal`) when a contact begins, `CollisionExit2DEvent` when it ends, `CollisionStay2DEvent` every step in between once you set `PhysicsSystem.reportContactStay`, and `SensorEnter2DEvent` / `SensorExit2DEvent` (`sensor` and `other`) for sensors.
 - Queries: `Physics2DQueries(engine.physics, physicsSystem)` casts rays and circles and finds overlaps, filtered by layer.
@@ -520,7 +520,7 @@ void addSprites(Engine engine) {
   // speedY, health, healthFraction and alive.
   engine.context.animatorBindings.register(
     'grounded',
-    (entity) => entity.getComponent<RigidBody2D>()?.isGrounded,
+    (entity) => entity.getComponent<RigidBody2DComponent>()?.isGrounded,
   );
 
   final world = engine.world;
@@ -552,8 +552,8 @@ void addSprites(Engine engine) {
       faceVelocity: true,
     ),
     InputComponent(), // steered by step 5's PlatformerSystem
-    RigidBody2D(friction: 0, lockRotation: true),
-    Collider2D(size: Vector2(28, 32)),
+    RigidBody2DComponent(friction: 0, lockRotation: true),
+    Collider2DComponent(size: Vector2(28, 32)),
     // Draw order: lower layer first, then lower zOrder first.
     LayerComponent(zOrder: 10),
   ], name: 'Hero');
@@ -586,8 +586,8 @@ A level is a scene: a JSON file listing entities and their components. The Just 
       "name": "Ground",
       "components": [
         { "type": "TransformComponent", "fields": { "position": { "x": 0, "y": 300, "z": 0 } } },
-        { "type": "RectangleComponent", "fields": { "width": 1200, "height": 40 } },
-        { "type": "Collider2D", "fields": { "shape": "matchShape" } }
+        { "type": "Rectangle2DComponent", "fields": { "width": 1200, "height": 40 } },
+        { "type": "Collider2DComponent", "fields": { "shape": "matchShape" } }
       ]
     },
     {
@@ -738,7 +738,7 @@ A timeline animates any component field over time — a bobbing coin, a door, a 
 
 ```json
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "name": "door_open",
   "duration": 1.0,
   "wrap": "once",
@@ -775,7 +775,7 @@ void addDoor(Engine engine) {
   // and plays backwards when they leave.
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(500, 250, 0)),
-    RectangleComponent(width: 40, height: 96),
+    Rectangle2DComponent(width: 40, height: 96),
     TimelinePlayerComponent(
       timelinePath: 'assets/timelines/door_open.timeline.json',
     ),
@@ -828,9 +828,9 @@ final List<Spawner> spawners = [
       ),
       VelocityComponent(),
       InputComponent(),
-      RectangleComponent(width: 32, height: 48),
-      RigidBody2D(friction: 0, lockRotation: true),
-      Collider2D(shape: ColliderShape2D.matchShape),
+      Rectangle2DComponent(width: 32, height: 48),
+      RigidBody2DComponent(friction: 0, lockRotation: true),
+      Collider2DComponent(shape: ColliderShape2D.matchShape),
       TagComponent('player'),
     ], name: 'Player'),
   ),

@@ -272,7 +272,7 @@ GameWidget(
 
 `GameWidget` may be built before `initialize()` has completed: it starts drawing the engine and applies `showDebug` as soon as the engine is ready (it listens to `Engine.stateListenable`).
 
-Apart from `GameWidget`, debug builds (`kDebugMode`) draw collider outlines from `PhysicsSystem` (for bodies whose `Collider2D.showDebugOutline` is true, the default) and checkpoint radii from `CheckpointSystem`, each through the camera it was given.
+Apart from `GameWidget`, debug builds (`kDebugMode`) draw collider outlines from `PhysicsSystem` (for bodies whose `Collider2DComponent.showDebugOutline` is true, the default) and checkpoint radii from `CheckpointSystem`, each through the camera it was given.
 
 The HUD shows no update or physics timings. For those, draw your own from the maps above — for example `performanceStats['lastUpdateMs']`, `world.stats['systemTimesMs']` and `physics.stats['lastStepMs']`.
 

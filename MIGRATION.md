@@ -11,7 +11,7 @@ Scene files saved by earlier versions still load: they are migrated in memory wh
 - [ ] Raise the constraints: `just_game_engine: ^2.0.0-dev.1`, Flutter 3.47.1 or newer ([Dependencies](#dependencies)).
 - [ ] Create the engine with `Engine(config: ...)`, `await initialize()` before `runApp`, and dispose it once. Replace `Engine.instance` with a reference you pass around ([Engine setup](#engine-setup-and-lifecycle)).
 - [ ] Add the standard systems through `EngineConfig.defaultSystems`, or give `PhysicsSystem` the engine's physics ([Systems](#systems)).
-- [ ] Physics bodies: `PhysicsBodyComponent` becomes a `RigidBody2D` and a `Collider2D`, with 3-D's names and defaults; `bodyType` instead of `isStatic`, a layer number instead of a layer bit, colliders that follow scale, and the `...2D` events ([Physics bodies](#physics-bodies)).
+- [ ] Physics bodies: `PhysicsBodyComponent` becomes a `RigidBody2DComponent` and a `Collider2DComponent`, with 3-D's names and defaults; `bodyType` instead of `isStatic`, a layer number instead of a layer bit, colliders that follow scale, and the `...2D` events ([Physics bodies](#physics-bodies)).
 - [ ] If you used achievements, sign-in, leaderboards, currency, inventory or ads: add `just_game_services` ([Game services](#game-services)).
 - [ ] `transform.rotation` becomes `transform.angle` ([Transforms](#transforms)).
 - [ ] Drop `HierarchySystem` and rename `localOffset` to `localPosition` ([The transform hierarchy](#the-transform-hierarchy)).
@@ -279,7 +279,7 @@ engine.world
 
 ## Physics bodies
 
-**Two components, as in 3-D.** 1.6's `PhysicsBodyComponent` is split the way 3-D physics (and most engines) split a body: `RigidBody2D` says how it moves, `Collider2D` gives it its shape. The two dimensions use the same names, so what you learn in one carries over. A `Collider2D` alone is a static body: walls and floors need nothing else.
+**Two components, as in 3-D.** 1.6's `PhysicsBodyComponent` is split the way 3-D physics (and most engines) split a body: `RigidBody2DComponent` says how it moves, `Collider2DComponent` gives it its shape. The two dimensions use the same names, so what you learn in one carries over. A `Collider2DComponent` alone is a static body: walls and floors need nothing else.
 
 ```dart
 // 1.6
@@ -290,30 +290,30 @@ PhysicsBodyComponent(
 );
 
 // 2.0
-RigidBody2D(lockRotation: true, friction: 0.2),
-Collider2D(size: Vector2(32, 48)),
+RigidBody2DComponent(lockRotation: true, friction: 0.2),
+Collider2DComponent(size: Vector2(32, 48)),
 ```
 
 | `PhysicsBodyComponent` | 2.0 |
 |---|---|
-| `shape: RectangleShape(w, h)` | `Collider2D(size: Vector2(w, h))` (`box`, the default shape) |
-| `shape: CircleShape(r)` | `Collider2D(shape: ColliderShape2D.circle, radius: r)` |
+| `shape: RectangleShape(w, h)` | `Collider2DComponent(size: Vector2(w, h))` (`box`, the default shape) |
+| `shape: CircleShape(r)` | `Collider2DComponent(shape: ColliderShape2D.circle, radius: r)` |
 | `CapsuleShape`, `PolygonShape`, `SegmentShape`, `ChainShape` | `capsule` (`radius`, `height`), `polygon` (`points`), `segment`, `chain` (`points`, `loop`) |
 | a shape sized to match the sprite or rectangle | `ColliderShape2D.matchShape`: whatever the entity draws, kept in step as it changes |
-| `offset`, `isOneWay`, `oneWayDirection`, `showDebugOutline` | `Collider2D.offset`, `oneWay`, `oneWayDirection`, `showDebugOutline` |
-| `isStatic`, `effectiveBodyType` | `RigidBody2D.bodyType` (`isStatic` stays as a read-only getter) |
+| `offset`, `isOneWay`, `oneWayDirection`, `showDebugOutline` | `Collider2DComponent.offset`, `oneWay`, `oneWayDirection`, `showDebugOutline` |
+| `isStatic`, `effectiveBodyType` | `RigidBody2DComponent.bodyType` (`isStatic` stays as a read-only getter) |
 | `drag` | `linearDamping` |
 | `fixedRotation` | `lockRotation` |
 | `isBullet` | `continuousCollision` |
 | `collisionMask`, `canCollideWith`, `layer` as a bit | `layer` as a layer number, `collidesWith`, `PhysicsLayers.collides` |
-| `mass`, `friction`, `restitution`, `gravityScale`, `isSensor`, `angularDamping`, `canSleep`, `initialVelocity`, `initialAngularVelocity`, `groupIndex` | the same names, on `RigidBody2D` |
-| `isGrounded`, `groundEntity`, `groundNormal` | the same names, on `RigidBody2D`, with `linearVelocity`, `angularVelocity` and `isAwake` |
+| `mass`, `friction`, `restitution`, `gravityScale`, `isSensor`, `angularDamping`, `canSleep`, `initialVelocity`, `initialAngularVelocity`, `groupIndex` | the same names, on `RigidBody2DComponent` |
+| `isGrounded`, `groundEntity`, `groundNormal` | the same names, on `RigidBody2DComponent`, with `linearVelocity`, `angularVelocity` and `isAwake` |
 
-Code that read the body for its shape reads the collider: `entity.getComponent<Collider2D>()`. Code that steered it reads the rigid body: `entity.getComponent<RigidBody2D>()`.
+Code that read the body for its shape reads the collider: `entity.getComponent<Collider2DComponent>()`. Code that steered it reads the rigid body: `entity.getComponent<RigidBody2DComponent>()`.
 
 **The defaults are 3-D's:** `friction` 0.5 (1.6 used the physics engine's 0.2 for every body), `restitution` 0 (1.6: 0.8, so everything bounced), `linearDamping` and `angularDamping` 0.05 (1.6's `drag` was 0.98: a body lost about 60% of its speed every second in the air) and `mass` 0, which works the mass out from the collider's area as 3-D does from its volume (a 100 × 100 box weighs 1000 kg; 1.6's default was 1). Set the old values where you relied on them. Scenes saved by 1.6 keep them: the migration writes each one out. Damping slows only a dynamic body: a kinematic one keeps the velocity it is given.
 
-**Push from code** with `addForce`, `addImpulse`, `addTorque`, `addAngularImpulse`, `setVelocity`, `setAngularVelocity` and `wakeUp` on `RigidBody2D`; each applies at the next physics step.
+**Push from code** with `addForce`, `addImpulse`, `addTorque`, `addAngularImpulse`, `setVelocity`, `setAngularVelocity` and `wakeUp` on `RigidBody2DComponent`; each applies at the next physics step.
 
 **Named collision layers.** A body is on one of sixteen layers, `layer: 0` to `15`, and collides with what the project's grid says for that layer — or, given `collidesWith` (a mask, bit `n` for layer `n`), only with those. The names and the grid are a `PhysicsLayers`, kept in `assets/project/physics.json`; `Engine.initialize` reads it when the app bundles it, so list the file under `flutter: assets:`. Without it every body collides with every other, as before. Two bodies collide only when each collides with the other's layer.
 
@@ -325,7 +325,7 @@ PhysicsBodyComponent(shape: s, layer: 4, collisionMask: 1 | 4);
 if (a.canCollideWith(b.layer)) { ... }
 
 // 2.0
-RigidBody2D(layer: 2, collidesWith: 1 << 0 | 1 << 2);
+RigidBody2DComponent(layer: 2, collidesWith: 1 << 0 | 1 << 2);
 final layers = engine.context.physicsLayers;
 if (layers.collides(a.layer, b.layer)) { ... }
 ```
@@ -351,10 +351,10 @@ To make a body collide with nothing for a while — a platform that crumbles —
 
 | 1.6 | 2.0 |
 |---|---|
-| `DistanceJointComponent` | `DistanceJoint2D` |
-| `WeldJointComponent` | `FixedJoint2D` |
-| `PrismaticJointComponent` | `SliderJoint2D` |
-| `WheelJointComponent` | `WheelJoint2D` |
+| `DistanceJointComponent` | `DistanceJoint2DComponent` |
+| `WeldJointComponent` | `FixedJoint2DComponent` |
+| `PrismaticJointComponent` | `SliderJoint2DComponent` |
+| `WheelJointComponent` | `WheelJoint2DComponent` |
 | `targetEntityName` | `connectedBody` |
 | `localAnchorA`, `localAnchorB` | `anchor`, `connectedAnchor` |
 | `enableLimit`, `lowerTranslation`, `upperTranslation` | `useLimits`, `minPosition`, `maxPosition` |
@@ -363,7 +363,7 @@ To make a body collide with nothing for a while — a platform that crumbles —
 
 Every joint also has `enabled`; off, the joint is not made.
 
-**New: `CharacterBody2D`**, 3-D's `CharacterBody3D` in 2-D: a character gameplay moves (`moveVelocity`, `jump`) instead of the simulation, walking slopes and steps and riding platforms. A platformer hero that fought its rigid body's physics — sliding down slopes, catching on seams — can move to it; it needs no rigid body or collider.
+**New: `CharacterBody2DComponent`**, 3-D's `CharacterBody3DComponent` in 2-D: a character gameplay moves (`moveVelocity`, `jump`) instead of the simulation, walking slopes and steps and riding platforms. A platformer hero that fought its rigid body's physics — sliding down slopes, catching on seams — can move to it; it needs no rigid body or collider.
 
 ## Game services
 
@@ -1042,8 +1042,8 @@ Add the package to your `pubspec.yaml` as well. A file that imported `package:ju
 - **Profiling timings** (`systemTimesMs`, `lastUpdateMs`) are taken only while `World.profiling` / `SystemManager.profiling` are on — not in release builds.
 - **`CommandBuffer.flush`** runs every command, then rethrows the first error. An `EventBus` listener cancelled during a dispatch is not called for that event.
 - **Physics events** are per pair of entities: a chain or compound collider sends one enter and one exit, an end and a begin in the same update cancel, and a body rebuilt because its collider, scale or sensor flag changed keeps its contacts (no second enter; an exit only if it no longer touches). A destroyed or switched-off entity still ends its contacts with no exit. Scale changes smaller than `scaleTolerance` (1e-4, relative) do not rebuild a body. A static sensor no longer reports static colliders on native Box2D.
-- **2-D joints**: `DistanceJoint2D` and `WheelJoint2D` `stiffness` is in hertz and `damping` a damping ratio on every backend; slider and wheel axes are in the joint entity's space; with `collideConnected` off, jointed bodies send no contact events between them.
-- **2-D bodies**: a kinematic `RigidBody2D` moved through its transform carries what stands on it (it is driven by velocity, like 3-D, instead of teleported); torque and angular impulses turn a body by its rotational inertia; view culling freezes bodies on native Box2D too, and 2-D characters; a capsule stretches with the entity's scale; an angle read back from native Box2D no longer wraps at ±π.
+- **2-D joints**: `DistanceJoint2DComponent` and `WheelJoint2DComponent` `stiffness` is in hertz and `damping` a damping ratio on every backend; slider and wheel axes are in the joint entity's space; with `collideConnected` off, jointed bodies send no contact events between them.
+- **2-D bodies**: a kinematic `RigidBody2DComponent` moved through its transform carries what stands on it (it is driven by velocity, like 3-D, instead of teleported); torque and angular impulses turn a body by its rotational inertia; view culling freezes bodies on native Box2D too, and 2-D characters; a capsule stretches with the entity's scale; an angle read back from native Box2D no longer wraps at ±π.
 - **3-D animation**: set `AnimationPlayerComponent.speed` / `loop` for a new clip after `play()`, not before; the clip fading out keeps the values it had. `CameraState.lerp` extrapolates for t outside 0..1, so blends with overshooting curves overshoot. `ParticleEmitter.isComplete` is false while sub-emitters live.
 - **Sprites**: a tint colour with alpha below 1 now fades the sprite (use an opaque tint for the old look). The built-in shapes' renderables are on layer 0 (they were on 8, which the ECS never read); an entity without a `LayerComponent` is ordered by its renderable's `layer` and `zOrder`.
 - **Timelines**: a camera shot block that runs to the very end of a `once` timeline keeps its camera until the player stops; end the block before the timeline ends to hand the camera back. Activation and sprite-clip blocks likewise hold at the end.
@@ -1097,7 +1097,7 @@ The [CHANGELOG](CHANGELOG.md) lists every other fix.
 | `LinearProgressComponent`, `CircularProgressComponent` | `just_ui_editor`'s `UiProgressComponent`, or a Flutter widget |
 | `PhysicsBridgeSystem` | `PhysicsSystem(engine.physics)` |
 | `PhysicsSystem.gravity`, `broadPhaseCellSize` | `engine.physics.setGravity(x, y)` |
-| `PhysicsBodyComponent` | `RigidBody2D` and `Collider2D` ([physics bodies](#physics-bodies)) |
+| `PhysicsBodyComponent` | `RigidBody2DComponent` and `Collider2DComponent` ([physics bodies](#physics-bodies)) |
 | `CollisionEvent`, `ContactExitEvent`, `SensorEnterEvent`, `SensorExitEvent` | `CollisionEnter2DEvent`, `CollisionExit2DEvent`, `SensorEnter2DEvent`, `SensorExit2DEvent` ([physics bodies](#physics-bodies)) |
 | `ReactiveTransformComponent`, `ReactiveVelocityComponent`, `ReactiveHealthComponent` | `TransformSignals`, `ComponentSignal`, or the `ReactiveComponent` mixin on your own component |
 | `ParticleEmitter.shape`, `ParticleEmitter.gravity`, `ParticleShape` | `renderer:`, `forces: [GravityForce(...)]` |
@@ -1125,7 +1125,7 @@ The [CHANGELOG](CHANGELOG.md) lists every other fix.
 | `EngineState.error` | `EngineState.failed` |
 | `Engine.getSystem<T>()` | `Engine.subsystem<T>()` |
 | `SystemPriorities.tileMap` | `SystemPriorities.levelMap` |
-| `DistanceJointComponent`, `WeldJointComponent`, `PrismaticJointComponent`, `WheelJointComponent` | `DistanceJoint2D`, `FixedJoint2D`, `SliderJoint2D`, `WheelJoint2D` ([physics bodies](#physics-bodies)) |
+| `DistanceJointComponent`, `WeldJointComponent`, `PrismaticJointComponent`, `WheelJointComponent` | `DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent`, `WheelJoint2DComponent` ([physics bodies](#physics-bodies)) |
 
 ## Deprecated APIs
 
@@ -1144,14 +1144,14 @@ These still work in 2.0 and go in 3.0. Each deprecation message names the replac
 
 These wait on `just_physics_engine` and `just_audio_engine`. The fields involved are saved as usual, so scenes need no change when the limits lift.
 
-- **Joint anchors.** `anchor` / `connectedAnchor` of `DistanceJoint2D` and `FixedJoint2D` are not passed to the physics engine: a distance joint holds the bodies by their centres, and a fixed joint holds them as they were when joined. A wheel joint's axle anchor is honoured on native Box2D only.
+- **Joint anchors.** `anchor` / `connectedAnchor` of `DistanceJoint2DComponent` and `FixedJoint2DComponent` are not passed to the physics engine: a distance joint holds the bodies by their centres, and a fixed joint holds them as they were when joined. A wheel joint's axle anchor is honoured on native Box2D only.
 - **`collideConnected`.** Jointed bodies with `collideConnected` off send no contact events between them, but on the pure-Dart backend (the web) they still push each other apart.
 - **Queries on native Box2D** skip bodies whose collision mask is 0; the Dart backend finds them.
 - **Stream channels.** `AudioStreamComponent.channel` is handed to the stream, but the channel's volume does not apply to it. A playing sound's pitch, pan, speed and loop cannot change, and a stream that plays to its end still reports `isPlaying`.
 
 ## Saved data
 
-- **Scenes** carry a `version`; the current format is 9. `SceneLoader` migrates an older file in memory, one step at a time from format 0 (files with no `version`) to 9, before creating anything. Format 8 is the physics body's: `isStatic` becomes `bodyType`, category and mask bits a layer and its list, and the shape of a scaled entity is divided by its scale so its collider, which now follows the scale, stays the size it was — a note names each one. Format 9 splits each body into a `RigidBody2D` and a `Collider2D`, writing out every setting the old defaults gave it (so it plays the same under the new ones), and renames the joints and their fields. Nothing on disk changes until the file is saved again, or until `just game scene migrate` rewrites it. `SceneFormat.migrateWithReport` runs the same migration and says what it changed (`MigrationResult.notes`) and which sprites need an atlas (`MigrationResult.needsAtlas`).
+- **Scenes** carry a `version`; the current format is 9. `SceneLoader` migrates an older file in memory, one step at a time from format 0 (files with no `version`) to 9, before creating anything. Format 8 is the physics body's: `isStatic` becomes `bodyType`, category and mask bits a layer and its list, and the shape of a scaled entity is divided by its scale so its collider, which now follows the scale, stays the size it was — a note names each one. Format 9 splits each body into a `RigidBody2DComponent` and a `Collider2DComponent`, writing out every setting the old defaults gave it (so it plays the same under the new ones), and renames the joints and their fields. Nothing on disk changes until the file is saved again, or until `just game scene migrate` rewrites it. `SceneFormat.migrateWithReport` runs the same migration and says what it changed (`MigrationResult.notes`) and which sprites need an atlas (`MigrationResult.needsAtlas`).
 - **Timelines** carry `formatVersion` 2 and are migrated the same way (`TimelineFormat.migrate`). A track `binding` saved as a bare string reads the way `EntityTarget.parse` reads one: `"#door"` is a tag, `"Door"` a name and `"self"` the timeline's own entity. Pre-release 2.0 builds bound every bare string to the timeline's own entity. What the engine writes (`"self"`, `{"name": ...}`, `{"tag": ...}`) reads as before.
 - **Animator graphs** (`.animator.json`) carry `version` 2, written as 1 when a graph uses nothing version 2 added (crossfading transitions, blend trees). A graph saved by a newer engine is refused with an `UnsupportedFormatVersionException`; a file without `version` reads as version 1.
 - **Level maps, tilesets and the tag library** have format numbers too. A file from a newer engine is refused with an `UnsupportedFormatVersionException` rather than loaded with data dropped.

@@ -10,24 +10,25 @@ import '../../ecs/ecs.dart';
 import '../../subsystems/assets/assets.dart';
 
 /// A 3-D shape made from its own sizes rather than a model file — the base
-/// of `Cube3D`, `Sphere3D`, `Plane3D`, `Cylinder3D`, `Capsule3D`,
-/// `Cone3D`, `Torus3D`, `Ramp3D`, `Stairs3D`, `Arch3D` and `Polygon3D`.
+/// of `Cube3DComponent`, `Sphere3DComponent`, `Plane3DComponent`, `Cylinder3DComponent`, `Capsule3DComponent`,
+/// `Cone3DComponent`, `Torus3DComponent`, `Ramp3DComponent`, `Stairs3DComponent`, `Arch3DComponent` and `Polygon3DComponent`.
 ///
 /// Every shape is centred on its entity, in metres, with +Y down like the
 /// rest of the engine. An entity has at most one (as a 2-D entity has one
-/// renderable): find it with `entity.getComponent<Primitive3D>()`.
+/// renderable): find it with `entity.getComponent<Primitive3DComponent>()`.
 ///
 /// Each carries its look — a physically based material: [color],
 /// [metallic], [roughness], a [emission] glow, [opacity], [unlit], and an
 /// optional [texture] repeated [tiling] times (per metre of the world with
 /// [tileInMetres]).
 ///
-/// Its shape is also a [SolidShapeSource], so the engine's `Collider3D`
+/// Its shape is also a [SolidShapeSource], so the engine's `Collider3DComponent`
 /// set to match the shape takes the same one.
-abstract class Primitive3D extends Component implements SolidShapeSource {
+abstract class Primitive3DComponent extends Component
+    implements SolidShapeSource {
   /// A shape with the given look; the defaults are a light grey, slightly
   /// rough, untextured surface.
-  Primitive3D({
+  Primitive3DComponent({
     this.material = '',
     this.color = defaultColor,
     this.metallic = 0.0,
@@ -48,7 +49,7 @@ abstract class Primitive3D extends Component implements SolidShapeSource {
 
   /// Every shape shares one column: an entity has one shape.
   @override
-  Type get componentType => Primitive3D;
+  Type get componentType => Primitive3DComponent;
 
   /// A material file (`*.material.json`) it is drawn with, by path —
   /// shared with everything else drawn with it; empty for its own look,
@@ -164,8 +165,8 @@ abstract class Primitive3D extends Component implements SolidShapeSource {
 
 /// What a shape's mesh or look was last made from, kept to tell cheaply
 /// whether it has changed: a renderer keeps one per shape and each frame
-/// gives it the shape's values ([Primitive3D.writeShapeValues],
-/// [Primitive3D.writeMaterialValues]) between [begin] and [end]. Numbers
+/// gives it the shape's values ([Primitive3DComponent.writeShapeValues],
+/// [Primitive3DComponent.writeMaterialValues]) between [begin] and [end]. Numbers
 /// are compared in place, so nothing is made while nothing changes.
 final class ShapeValues {
   Float64List _numbers = Float64List(16);

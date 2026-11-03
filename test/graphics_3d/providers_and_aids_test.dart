@@ -36,7 +36,7 @@ class _PatchProvider extends RenderProvider<_Patch> {
     RenderProviderOutput out,
   ) {
     builds++;
-    final cube = Cube3D();
+    final cube = Cube3DComponent();
     final mesh = context.shapes.meshFor(cube, Vector3(1, 1, 1))!;
     final material = context.shapes.materialFor(cube);
     out
@@ -131,10 +131,10 @@ void main() {
     setUp(() {
       low = engine.world.createEntity(name: 'low')
         ..addComponent(TransformComponent(position: Vector3(0, -0.5, 0)))
-        ..addComponent(Cube3D());
+        ..addComponent(Cube3DComponent());
       high = engine.world.createEntity(name: 'high')
         ..addComponent(TransformComponent(position: Vector3(0, -5, 0)))
-        ..addComponent(Cube3D());
+        ..addComponent(Cube3DComponent());
       renderer = service.sceneRenderer;
       aids = renderer.aids = SceneEditorAids()..plainViews.add(preview);
     });

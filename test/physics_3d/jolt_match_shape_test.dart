@@ -62,7 +62,7 @@ void main() {
     // A floor whose top is at y = 0 (+Y is down).
     world.createEntityWithComponents([
       TransformComponent(position: Vector3(0, 0.5, 0)),
-      Collider3D(size: Vector3(20, 1, 20)),
+      Collider3DComponent(size: Vector3(20, 1, 20)),
     ]);
   });
   tearDown(() {
@@ -80,8 +80,8 @@ void main() {
     final row = world.createEntityWithComponents([
       TransformComponent(position: Vector3(0, -3, 0)),
       _Row(),
-      Collider3D(shape: ColliderShape3D.matchShape),
-      RigidBody3D(),
+      Collider3DComponent(shape: ColliderShape3D.matchShape),
+      RigidBody3DComponent(),
     ]);
     run(240);
     final t = row.getComponent<TransformComponent>()!;
@@ -93,8 +93,8 @@ void main() {
     final ring = world.createEntityWithComponents([
       TransformComponent(position: Vector3(0, -2, 0)),
       _Ring(),
-      Collider3D(shape: ColliderShape3D.matchShape),
-      RigidBody3D(),
+      Collider3DComponent(shape: ColliderShape3D.matchShape),
+      RigidBody3DComponent(),
     ]);
     run(300);
     final t = ring.getComponent<TransformComponent>()!;

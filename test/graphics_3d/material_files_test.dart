@@ -83,7 +83,7 @@ void main() {
     'a shape is drawn with its material file once read, and again when it changes',
     () async {
       final renderer = service.sceneRenderer;
-      add('crate', [Cube3D(material: _red)]);
+      add('crate', [Cube3DComponent(material: _red)]);
       renderer.update(view);
       final instance = renderer.debugShapeInstances.single!;
       expect(
@@ -103,7 +103,7 @@ void main() {
 
   test('laid out in metres: the mesh is made for its size', () async {
     final renderer = service.sceneRenderer;
-    final cube = Cube3D(material: _tiles);
+    final cube = Cube3DComponent(material: _tiles);
     add('floor', [cube]);
     renderer.update(view);
     await until(() => renderer.shapes.tilesInMetres(cube));
@@ -119,7 +119,7 @@ void main() {
 
   test('a broken file leaves the shape its own look', () async {
     final renderer = service.sceneRenderer;
-    add('crate', [Cube3D(material: _broken, roughness: 0.5)]);
+    add('crate', [Cube3DComponent(material: _broken, roughness: 0.5)]);
     renderer.update(view);
     await until(() => renderer.materials.errorOf(_broken) != null);
     expect(renderer.debugShapeInstances.single!.material.data.roughness, 0.5);
@@ -204,7 +204,7 @@ void main() {
 
   test('a variant is drawn over its parent, and follows it', () async {
     final renderer = service.sceneRenderer;
-    add('crate', [Cube3D(material: _mossy)]);
+    add('crate', [Cube3DComponent(material: _mossy)]);
     renderer.update(view);
     final instance = renderer.debugShapeInstances.single!;
     await until(() => instance.material.data.metallic == 1);
@@ -220,7 +220,7 @@ void main() {
 
   test('a parent that is missing: drawn over the defaults, and said', () async {
     final renderer = service.sceneRenderer;
-    add('crate', [Cube3D(material: _orphan)]);
+    add('crate', [Cube3DComponent(material: _orphan)]);
     renderer.update(view);
     await until(() => renderer.materials.problemsOf(_orphan).isNotEmpty);
     expect(
@@ -234,8 +234,8 @@ void main() {
 
   test('an unsaved edit is drawn until it ends, its variants too', () async {
     final renderer = service.sceneRenderer;
-    add('crate', [Cube3D(material: _red)]);
-    add('mossy', [Cube3D(material: _mossy)]);
+    add('crate', [Cube3DComponent(material: _red)]);
+    add('mossy', [Cube3DComponent(material: _mossy)]);
     renderer.update(view);
     final crate = renderer.debugShapeInstances[0]!;
     final mossy = renderer.debugShapeInstances[1]!;
@@ -263,7 +263,7 @@ void main() {
 
   test('saved again, the old look stays until the new file arrives', () async {
     final renderer = service.sceneRenderer;
-    add('crate', [Cube3D(material: _red)]);
+    add('crate', [Cube3DComponent(material: _red)]);
     renderer.update(view);
     final instance = renderer.debugShapeInstances.single!;
     await until(() => instance.material.data.roughness == 0.2);
@@ -282,12 +282,14 @@ void main() {
     "an entity's own values over its material file, shape and model",
     () async {
       final renderer = service.sceneRenderer;
-      final shapeOverrides = MaterialOverrides3D(
+      final shapeOverrides = MaterialOverrides3DComponent(
         values: {'roughness': 0.4, 'emissionStrength': 3},
       );
-      add('crate', [Cube3D(material: _red), shapeOverrides]);
+      add('crate', [Cube3DComponent(material: _red), shapeOverrides]);
       final model = ModelComponent(model: cubePath, materials: {'*': _red});
-      final modelOverrides = MaterialOverrides3D(values: {'metallic': 0.7});
+      final modelOverrides = MaterialOverrides3DComponent(
+        values: {'metallic': 0.7},
+      );
       add('box', [model, modelOverrides]);
       renderer.update(view);
       final crate = renderer.debugShapeInstances.single!;
@@ -329,9 +331,12 @@ void main() {
     'the Timeline keys an override, one number of a pair at a time',
     () async {
       final renderer = service.sceneRenderer;
-      final e = add('crate', [Cube3D(material: _red), MaterialOverrides3D()]);
+      final e = add('crate', [
+        Cube3DComponent(material: _red),
+        MaterialOverrides3DComponent(),
+      ]);
       final field = engine.context.definitions
-          .definitionByType('MaterialOverrides3D')!
+          .definitionByType('MaterialOverrides3DComponent')!
           .fields
           .firstWhere((f) => f.name == 'values');
       expect(
@@ -340,13 +345,13 @@ void main() {
       );
       PropertyAccess.of(
         e,
-        'MaterialOverrides3D',
+        'MaterialOverrides3DComponent',
         'values',
         'roughness',
       )!.write(0.3);
       PropertyAccess.of(
         e,
-        'MaterialOverrides3D',
+        'MaterialOverrides3DComponent',
         'values',
         'tiling#0',
       )!.write(3);
@@ -359,7 +364,7 @@ void main() {
 
   test('overrides are saved with the entity', () {
     final definitions = engine.context.definitions;
-    final o = MaterialOverrides3D(
+    final o = MaterialOverrides3DComponent(
       values: {
         'color': 0xFF00FF00,
         'tiling': [2.0, 3.0],
@@ -370,7 +375,7 @@ void main() {
               jsonDecode(jsonEncode(definitions.encode(o)))
                   as Map<String, dynamic>,
             )!
-            as MaterialOverrides3D;
+            as MaterialOverrides3DComponent;
     expect(back.values, {
       'color': 0xFF00FF00,
       'tiling': [2.0, 3.0],
@@ -392,9 +397,11 @@ void main() {
     final back = definitions.decode(json)! as ModelComponent;
     expect(back.materials, {'Body': _red, '#2': _tiles});
     final shape = definitions.decode(
-      jsonDecode(jsonEncode(definitions.encode(Cube3D(material: _red))))
+      jsonDecode(
+            jsonEncode(definitions.encode(Cube3DComponent(material: _red))),
+          )
           as Map<String, dynamic>,
     )!;
-    expect((shape as Primitive3D).material, _red);
+    expect((shape as Primitive3DComponent).material, _red);
   });
 }

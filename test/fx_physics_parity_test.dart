@@ -1,4 +1,4 @@
-﻿// The 2-D physics backends agreeing where they did not: a wake reaches a
+// The 2-D physics backends agreeing where they did not: a wake reaches a
 // sleeping native body, a wheel turns on its own axle, joint springs are
 // hertz and a damping ratio on both, a slider's axis is in its entity's
 // space, jointed bodies send no contact events, culling freezes a body,
@@ -55,11 +55,11 @@ void main() {
     group('on $name', () {
       test('a body asleep wakes for a new gravity scale and wakeUp', () {
         final (:world, :physics) = _setUp(make());
-        final rigid = RigidBody2D(gravityScale: 0, linearDamping: 0);
+        final rigid = RigidBody2DComponent(gravityScale: 0, linearDamping: 0);
         final box = world.createEntityWithComponents([
           TransformComponent(),
           rigid,
-          Collider2D(size: Vector2(20, 20)),
+          Collider2DComponent(size: Vector2(20, 20)),
         ]);
         _step(world, 120);
         expect(_bodyOf(box).isAwake, isFalse, reason: 'asleep at rest');
@@ -81,14 +81,16 @@ void main() {
         final (:world, :physics) = _setUp(make(), gravityY: 0, joints: true);
         final chassis = world.createEntityWithComponents([
           TransformComponent(),
-          RigidBody2D(lockRotation: true, linearDamping: 0),
-          Collider2D(size: Vector2(80, 20)),
-          WheelJoint2D(connectedBody: const EntityTarget.name('Wheel')),
+          RigidBody2DComponent(lockRotation: true, linearDamping: 0),
+          Collider2DComponent(size: Vector2(80, 20)),
+          WheelJoint2DComponent(
+            connectedBody: const EntityTarget.name('Wheel'),
+          ),
         ], name: 'Chassis');
         final wheel = world.createEntityWithComponents([
           TransformComponent(position: Vector3(30, 40, 0)),
-          RigidBody2D(linearDamping: 0),
-          Collider2D(shape: ColliderShape2D.circle, radius: 12),
+          RigidBody2DComponent(linearDamping: 0),
+          Collider2DComponent(shape: ColliderShape2D.circle, radius: 12),
         ], name: 'Wheel');
         _step(world, 90);
         final dx = _t(wheel).position.x - _t(chassis).position.x;
@@ -101,14 +103,16 @@ void main() {
         final (:world, :physics) = _setUp(make(), gravityY: 0, joints: true);
         world.createEntityWithComponents([
           TransformComponent(),
-          RigidBody2D(bodyType: BodyType.static),
-          Collider2D(size: Vector2(10, 10)),
-          DistanceJoint2D(connectedBody: const EntityTarget.name('Bob')),
+          RigidBody2DComponent(bodyType: BodyType.static),
+          Collider2DComponent(size: Vector2(10, 10)),
+          DistanceJoint2DComponent(
+            connectedBody: const EntityTarget.name('Bob'),
+          ),
         ], name: 'Pin');
         final bob = world.createEntityWithComponents([
           TransformComponent(position: Vector3(100, 0, 0)),
-          RigidBody2D(linearDamping: 0, lockRotation: true),
-          Collider2D(size: Vector2(10, 10)),
+          RigidBody2DComponent(linearDamping: 0, lockRotation: true),
+          Collider2DComponent(size: Vector2(10, 10)),
         ], name: 'Bob');
         _step(world, 20);
         expect(_t(bob).position.x, closeTo(48, 3));
@@ -120,14 +124,14 @@ void main() {
         final (:world, :physics) = _setUp(make(), joints: true);
         world.createEntityWithComponents([
           TransformComponent(angle: math.pi / 2),
-          RigidBody2D(bodyType: BodyType.static),
-          Collider2D(size: Vector2(10, 10)),
-          SliderJoint2D(connectedBody: const EntityTarget.name('Car')),
+          RigidBody2DComponent(bodyType: BodyType.static),
+          Collider2DComponent(size: Vector2(10, 10)),
+          SliderJoint2DComponent(connectedBody: const EntityTarget.name('Car')),
         ], name: 'Rail');
         final car = world.createEntityWithComponents([
           TransformComponent(position: Vector3(0, 40, 0)),
-          RigidBody2D(linearDamping: 0),
-          Collider2D(size: Vector2(10, 10)),
+          RigidBody2DComponent(linearDamping: 0),
+          Collider2DComponent(size: Vector2(10, 10)),
         ], name: 'Car');
         _step(world, 30);
         expect(_t(car).position.y, greaterThan(100), reason: 'down the rail');
@@ -142,14 +146,16 @@ void main() {
           ..on<CollisionExit2DEvent>((_) => exits++);
         world.createEntityWithComponents([
           TransformComponent(),
-          RigidBody2D(bodyType: BodyType.static),
-          Collider2D(size: Vector2(40, 40)),
-          FixedJoint2D(connectedBody: const EntityTarget.name('Plate')),
+          RigidBody2DComponent(bodyType: BodyType.static),
+          Collider2DComponent(size: Vector2(40, 40)),
+          FixedJoint2DComponent(
+            connectedBody: const EntityTarget.name('Plate'),
+          ),
         ], name: 'Base');
         world.createEntityWithComponents([
           TransformComponent(position: Vector3(10, 10, 0)),
-          RigidBody2D(),
-          Collider2D(size: Vector2(40, 40)),
+          RigidBody2DComponent(),
+          Collider2DComponent(size: Vector2(40, 40)),
         ], name: 'Plate');
         // The first step finds them touching before the joint is made: that
         // contact ends as it is made, and no other begins.
@@ -163,8 +169,8 @@ void main() {
         final cull = CullStateComponent()..isActive = false;
         final box = world.createEntityWithComponents([
           TransformComponent(),
-          RigidBody2D(initialVelocity: const Offset(50, 0)),
-          Collider2D(size: Vector2(20, 20)),
+          RigidBody2DComponent(initialVelocity: const Offset(50, 0)),
+          Collider2DComponent(size: Vector2(20, 20)),
           cull,
         ]);
         _step(world, 30);
@@ -179,11 +185,11 @@ void main() {
 
       test('torque and angular impulse turn by the body\'s inertia', () {
         final (:world, :physics) = _setUp(make(), gravityY: 0);
-        final rigid = RigidBody2D(mass: 1, angularDamping: 0);
+        final rigid = RigidBody2DComponent(mass: 1, angularDamping: 0);
         world.createEntityWithComponents([
           TransformComponent(),
           rigid,
-          Collider2D(size: Vector2(64, 64)),
+          Collider2DComponent(size: Vector2(64, 64)),
         ]);
         _step(world);
         // A 64 Ã— 64 box of 1 kg: I = (64Â² + 64Â²) / 12.
@@ -200,7 +206,7 @@ void main() {
 
       test('a spinning body\'s angle goes on round', () {
         final (:world, :physics) = _setUp(make(), gravityY: 0);
-        final rigid = RigidBody2D(
+        final rigid = RigidBody2DComponent(
           initialAngularVelocity: 12,
           angularDamping: 0,
           // The pure-Dart engine puts a body to sleep by its linear speed
@@ -210,7 +216,7 @@ void main() {
         final box = world.createEntityWithComponents([
           TransformComponent(),
           rigid,
-          Collider2D(size: Vector2(20, 20)),
+          Collider2DComponent(size: Vector2(20, 20)),
         ]);
         var last = _t(box).angle;
         for (var i = 0; i < 60; i++) {
@@ -226,13 +232,13 @@ void main() {
         final (:world, :physics) = _setUp(make());
         final platform = world.createEntityWithComponents([
           TransformComponent(position: Vector3(0, 300, 0)),
-          RigidBody2D(bodyType: BodyType.kinematic, friction: 1),
-          Collider2D(size: Vector2(400, 20)),
+          RigidBody2DComponent(bodyType: BodyType.kinematic, friction: 1),
+          Collider2DComponent(size: Vector2(400, 20)),
         ], name: 'Platform');
         final crate = world.createEntityWithComponents([
           TransformComponent(position: Vector3(0, 280, 0)),
-          RigidBody2D(friction: 1, lockRotation: true, restitution: 0),
-          Collider2D(size: Vector2(20, 20)),
+          RigidBody2DComponent(friction: 1, lockRotation: true, restitution: 0),
+          Collider2DComponent(size: Vector2(20, 20)),
         ], name: 'Crate');
         _step(world, 30);
         final start = _t(crate).position.x;
@@ -247,7 +253,7 @@ void main() {
   }
 
   test('a capsule stretched by its entity keeps its caps', () {
-    final collider = Collider2D(
+    final collider = Collider2DComponent(
       shape: ColliderShape2D.capsule,
       radius: 16,
       height: 64,
@@ -257,7 +263,7 @@ void main() {
       TransformComponent(scale: Vector3(1, 2, 1)),
     )!;
     final viaOwnScale = ColliderGeometry.of(
-      Collider2D(
+      Collider2DComponent(
         shape: ColliderShape2D.capsule,
         radius: 16,
         height: 64,
@@ -303,9 +309,12 @@ void main() {
       ..addSystem(PhysicsSystem(physics))
       ..addSystem(ColliderDebuggerSystem());
     for (final collider in [
-      Collider2D(shape: ColliderShape2D.capsule),
-      Collider2D(shape: ColliderShape2D.circle, offset: const Offset(10, 0)),
-      Collider2D(
+      Collider2DComponent(shape: ColliderShape2D.capsule),
+      Collider2DComponent(
+        shape: ColliderShape2D.circle,
+        offset: const Offset(10, 0),
+      ),
+      Collider2DComponent(
         shape: ColliderShape2D.chain,
         points: const [Offset(0, 0), Offset(10, 0), Offset(20, 5)],
       ),

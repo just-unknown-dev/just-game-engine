@@ -26,7 +26,7 @@ World _world({void Function(PhysicsWorld3D)? withPhysics}) {
 Entity _static(World world, Vector3 at, Vector3 size, {String? name}) =>
     world.createEntityWithComponents([
       TransformComponent(position: at),
-      Collider3D(size: size),
+      Collider3DComponent(size: size),
     ], name: name);
 
 void _run(World world, int frames, [void Function(int frame)? each]) {
@@ -48,7 +48,7 @@ void main() {
     final physics3D = engine.physics3D!;
     expect(physics3D.engine, isA<JoltPhysicsEngine>());
     expect(physics3D.hasWorld, isFalse);
-    engine.world.createEntityWithComponents([TransformComponent(), Collider3D()]);
+    engine.world.createEntityWithComponents([TransformComponent(), Collider3DComponent()]);
     engine.world.update(_dt);
     expect(physics3D.hasWorld, isTrue);
     expect(physics3D.world.bodyCount, 1);
@@ -61,8 +61,8 @@ void main() {
       for (var i = 0; i < 3; i++)
         world.createEntityWithComponents([
           TransformComponent(position: Vector3(i * 2.0, -2 - i.toDouble(), 0)),
-          Collider3D(),
-          RigidBody3D(),
+          Collider3DComponent(),
+          RigidBody3DComponent(),
         ]),
     ];
     _run(world, 240);
@@ -91,18 +91,18 @@ void main() {
       }
       final coin = world.createEntityWithComponents([
         TransformComponent(position: Vector3(4, -1.2, 0)),
-        Collider3D(shape: ColliderShape3D.sphere, radius: 0.3),
-        RigidBody3D(bodyType: BodyType3D.static, isSensor: true),
+        Collider3DComponent(shape: ColliderShape3D.sphere, radius: 0.3),
+        RigidBody3DComponent(bodyType: BodyType3D.static, isSensor: true),
       ], name: 'Coin');
       final hero = world.createEntityWithComponents([
         TransformComponent(position: Vector3.zero()),
-        CharacterBody3D(),
+        CharacterBody3DComponent(),
       ], name: 'Hero');
       final picked = <Entity>[];
       world.events.on<SensorEnter3DEvent>((e) {
         if (e.other == hero) picked.add(e.sensor);
       });
-      final body = hero.getComponent<CharacterBody3D>()!;
+      final body = hero.getComponent<CharacterBody3DComponent>()!;
       final t = hero.getComponent<TransformComponent>()!;
       _run(world, 120, (_) => body.moveVelocity.setValues(2, 0, 0));
       expect(t.position.y, closeTo(-0.6, 0.05), reason: 'on the third step');
@@ -111,8 +111,8 @@ void main() {
       // A platform the game moves by writing its transform.
       final platform = world.createEntityWithComponents([
         TransformComponent(position: Vector3(10, -0.35, 0)),
-        Collider3D(size: Vector3(3, 0.5, 3)),
-        RigidBody3D(bodyType: BodyType3D.kinematic),
+        Collider3DComponent(size: Vector3(3, 0.5, 3)),
+        RigidBody3DComponent(bodyType: BodyType3D.kinematic),
       ], name: 'Platform');
       t.position.setValues(10, -0.6, 0); // Teleported onto it.
       _run(world, 20, (_) => body.moveVelocity.setZero());
@@ -130,9 +130,9 @@ void main() {
     // Jointed bodies still collide, so the frame stands clear of the door.
     world.createEntityWithComponents([
       TransformComponent(position: Vector3(-0.5, -1, 0)),
-      Collider3D(size: Vector3(0.2, 2, 0.2)),
+      Collider3DComponent(size: Vector3(0.2, 2, 0.2)),
     ], name: 'Frame');
-    final hinge = HingeJoint3D(
+    final hinge = HingeJoint3DComponent(
       connectedBody: const EntityTarget.name('Frame'),
       anchor: Vector3(-0.5, 0, 0),
       motor: MotorState3D.position,
@@ -140,8 +140,8 @@ void main() {
     );
     world.createEntityWithComponents([
       TransformComponent(position: Vector3(0.6, -1, 0)),
-      Collider3D(size: Vector3(1, 2, 0.1)),
-      RigidBody3D(gravityScale: 0),
+      Collider3DComponent(size: Vector3(1, 2, 0.1)),
+      RigidBody3DComponent(gravityScale: 0),
       hinge,
     ], name: 'Door');
     _run(world, 120);
@@ -161,10 +161,10 @@ void main() {
             ((i ~/ 10) % 10) * 1.5 - 7,
           ),
         ),
-        Collider3D(
+        Collider3DComponent(
           shape: i.isEven ? ColliderShape3D.box : ColliderShape3D.sphere,
         ),
-        RigidBody3D(),
+        RigidBody3DComponent(),
       ]);
     }
     _run(world, 30);

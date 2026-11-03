@@ -30,7 +30,7 @@ void main() {
           position: Vector3((i % 100) * 12.0, (i ~/ 100) * 12.0, 0),
         ),
         VelocityComponent(velocity: Vector3(1, 0.5, 0)),
-        RectangleComponent(width: 8, height: 8),
+        Rectangle2DComponent(width: 8, height: 8),
       ]);
     }
 
@@ -70,8 +70,8 @@ void main() {
         TransformComponent(
           position: Vector3((i % 50) * 40.0, (i ~/ 50) * 40.0, 0),
         ),
-        RigidBody2D(),
-        Collider2D(shape: ColliderShape2D.circle, radius: 4, showDebugOutline: false),
+        RigidBody2DComponent(),
+        Collider2DComponent(shape: ColliderShape2D.circle, radius: 4, showDebugOutline: false),
       ]);
     }
 

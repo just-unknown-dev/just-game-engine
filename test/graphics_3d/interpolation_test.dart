@@ -48,7 +48,7 @@ void main() {
     final transform = TransformComponent();
     engine.world.createEntity(name: name)
       ..addComponent(transform)
-      ..addComponent(Cube3D());
+      ..addComponent(Cube3DComponent());
     return transform;
   }
 

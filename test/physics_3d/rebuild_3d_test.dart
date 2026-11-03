@@ -39,20 +39,20 @@ final _backends = <String, PhysicsWorld3D Function()>{
 /// A 20 m floor whose top is at y = 0 (+Y is down).
 Entity _floor(World world) => world.createEntityWithComponents([
   TransformComponent(position: Vector3(0, 0.5, 0)),
-  Collider3D(size: Vector3(20, 1, 20)),
+  Collider3DComponent(size: Vector3(20, 1, 20)),
 ], name: 'Floor');
 
 Entity _crate(World world, {double x = 0}) => world.createEntityWithComponents([
   TransformComponent(position: Vector3(x, -0.6, 0)),
-  Collider3D(),
-  RigidBody3D(canSleep: false),
+  Collider3DComponent(),
+  RigidBody3DComponent(canSleep: false),
 ], name: 'Crate');
 
 /// A static sensor 4 m wide round (0, -1, 0).
 Entity _zone(World world) => world.createEntityWithComponents([
   TransformComponent(position: Vector3(0, -1, 0)),
-  Collider3D(size: Vector3(4, 2, 4)),
-  RigidBody3D(bodyType: BodyType3D.static, isSensor: true),
+  Collider3DComponent(size: Vector3(4, 2, 4)),
+  RigidBody3DComponent(bodyType: BodyType3D.static, isSensor: true),
 ], name: 'Zone');
 
 void _run(World world, int frames, [void Function(int frame)? each]) {
@@ -155,14 +155,14 @@ void main() {
       final (:world, physics: _, :system) = _setUp(physics);
       final frame = world.createEntityWithComponents([
         TransformComponent(position: Vector3.zero()),
-        Collider3D(),
-        RigidBody3D(bodyType: BodyType3D.kinematic),
+        Collider3DComponent(),
+        RigidBody3DComponent(bodyType: BodyType3D.kinematic),
       ], name: 'Frame');
       final door = world.createEntityWithComponents([
         TransformComponent(position: Vector3(1, 0, 0)),
-        Collider3D(),
-        RigidBody3D(bodyType: BodyType3D.kinematic),
-        PointJoint3D(
+        Collider3DComponent(),
+        RigidBody3DComponent(bodyType: BodyType3D.kinematic),
+        PointJoint3DComponent(
           connectedBody: const EntityTarget.name('Frame'),
           anchor: Vector3(-0.5, 0, 0),
         ),
@@ -191,17 +191,17 @@ void main() {
       expect(again.settings.pointB.y, closeTo(1, 1e-6));
       expect(again.settings.pointA.x, closeTo(0.5, 1e-6));
       expect(again.settings.pointA.y, closeTo(0, 1e-6));
-      expect(door.getComponent<PointJoint3D>()!.joint, again.handle);
+      expect(door.getComponent<PointJoint3DComponent>()!.joint, again.handle);
     });
 
     test('a body refused for its layer is made once the layer is fixed', () {
       final (:world, :physics, :system) = _setUp(
         FakePhysicsWorld3D(PhysicsWorldSettings3D()),
       );
-      final rigid = RigidBody3D(layer: 20);
+      final rigid = RigidBody3DComponent(layer: 20);
       final box = world.createEntityWithComponents([
         TransformComponent(),
-        Collider3D(),
+        Collider3DComponent(),
         rigid,
       ]);
       _run(world, 2);
@@ -221,7 +221,7 @@ void main() {
       _crate(world);
       final ground = world.createEntityWithComponents([
         TransformComponent(position: Vector3(0, 0.5, 0)),
-        Collider3D(shape: ColliderShape3D.mesh, model: 'ground.glb'),
+        Collider3DComponent(shape: ColliderShape3D.mesh, model: 'ground.glb'),
       ], name: 'Ground');
       final log = _Log(world);
       _run(world, 2);
@@ -248,7 +248,7 @@ void main() {
 
   test('collider shapes are kept within their limits', () {
     final shapes = ColliderShapes3D(geometry: _Geometry());
-    final mesh = Collider3D(shape: ColliderShape3D.mesh, model: 'a.glb');
+    final mesh = Collider3DComponent(shape: ColliderShape3D.mesh, model: 'a.glb');
     final first = shapes.build(mesh, Vector3(1, 1, 1));
     for (var i = 0; i < ColliderShapes3D.modelLimit * 2; i++) {
       shapes.build(mesh, Vector3(1, 1, 1));

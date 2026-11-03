@@ -48,7 +48,7 @@ void addSprites(Engine engine) {
   // `grounded` is not a built-in binding, so teach it to this engine.
   engine.context.animatorBindings.register(
     'grounded',
-    (entity) => entity.getComponent<RigidBody2D>()?.isGrounded,
+    (entity) => entity.getComponent<RigidBody2DComponent>()?.isGrounded,
   );
 
   final world = engine.world;
@@ -79,8 +79,8 @@ void addSprites(Engine engine) {
       graphPath: 'assets/sprites/hero.animator.json',
       faceVelocity: true,
     ),
-    RigidBody2D(friction: 0, lockRotation: true),
-    Collider2D(size: Vector2(28, 32)),
+    RigidBody2DComponent(friction: 0, lockRotation: true),
+    Collider2DComponent(size: Vector2(28, 32)),
     LayerComponent(zOrder: 10),
   ], name: 'Hero');
 }

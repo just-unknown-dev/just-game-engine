@@ -41,7 +41,7 @@ void main() {
 
     test('every component survives a save and a load', () {
       final samples = <Component>[
-        RigidBody3D(
+        RigidBody3DComponent(
           bodyType: BodyType3D.kinematic,
           continuousCollision: true,
           mass: 3,
@@ -54,7 +54,7 @@ void main() {
           lockRotation: true,
           initialVelocity: Vector3(1, 2, 3),
         ),
-        Collider3D(
+        Collider3DComponent(
           shape: ColliderShape3D.heightField,
           size: Vector3(2, 3, 4),
           radius: 0.7,
@@ -67,19 +67,19 @@ void main() {
           rotation: Vector3(0, 0.5, 0),
           scale: Vector3(2, 2, 2),
         ),
-        CharacterBody3D(
+        CharacterBody3DComponent(
           radius: 0.4,
           height: 2,
           stepHeight: 0.3,
           layer: 2,
           detectable: false,
         ),
-        FixedJoint3D(
+        FixedJoint3DComponent(
           connectedBody: const EntityTarget.name('Door'),
           anchor: Vector3(1, 0, 0),
         ),
-        PointJoint3D(connectedBody: const EntityTarget.tag('rope')),
-        HingeJoint3D(
+        PointJoint3DComponent(connectedBody: const EntityTarget.tag('rope')),
+        HingeJoint3DComponent(
           axis: Vector3(0, 0, 1),
           useLimits: true,
           minAngle: -1,
@@ -88,19 +88,19 @@ void main() {
           motorTarget: 3,
           motorMaxTorque: 40,
         ),
-        SliderJoint3D(
+        SliderJoint3DComponent(
           useLimits: true,
           minPosition: 0,
           maxPosition: 4,
           motor: MotorState3D.position,
         ),
-        DistanceJoint3D(
+        DistanceJoint3DComponent(
           connectedAnchor: Vector3(0, 2, 0),
           minDistance: 1,
           maxDistance: 3,
           springFrequency: 2,
         ),
-        SixDofJoint3D(
+        SixDofJoint3DComponent(
           translationX: SixDofAxisMode3D.free,
           rotationY: SixDofAxisMode3D.limited,
           rotationMin: Vector3(0, -1, 0),
@@ -126,7 +126,7 @@ void main() {
     test('a joint to nobody saves nothing and loads as the world', () {
       final schema = Physics3DSchemas.hingeJoint;
       final loaded = schema.decode(
-        jsonDecode(jsonEncode(schema.encode(HingeJoint3D())))
+        jsonDecode(jsonEncode(schema.encode(HingeJoint3DComponent())))
             as Map<String, dynamic>,
       );
       expect(loaded.connectedBody.isNone, isTrue);
@@ -136,22 +136,22 @@ void main() {
   test('the 2-D and 3-D bodies show the same fields, grouped alike', () {
     final context = EngineContext()..install(Physics3D());
     addTearDown(context.dispose);
-    final two = context.definitions.definitionByType('RigidBody2D')!;
-    final three = context.definitions.definitionByType('RigidBody3D')!;
+    final two = context.definitions.definitionByType('RigidBody2DComponent')!;
+    final three = context.definitions.definitionByType('RigidBody3DComponent')!;
     final shared = {for (final f in three.fields) f.name};
     expect({for (final f in two.fields) f.name}.containsAll(shared), isTrue, reason: 'every 3-D field has a 2-D twin');
     for (final name in shared) {
       expect(three.hints.fields[name]?.label, two.hints.fields[name]?.label, reason: name);
     }
     expect(three.hints.group, two.hints.group);
-    expect(context.definitions.definitionByType('Collider3D')!.hints.group, 'Physics');
+    expect(context.definitions.definitionByType('Collider3DComponent')!.hints.group, 'Physics');
   });
 
   test('the 2-D and 3-D characters show the same fields, grouped alike', () {
     final context = EngineContext()..install(Physics3D());
     addTearDown(context.dispose);
-    final two = context.definitions.definitionByType('CharacterBody2D')!;
-    final three = context.definitions.definitionByType('CharacterBody3D')!;
+    final two = context.definitions.definitionByType('CharacterBody2DComponent')!;
+    final three = context.definitions.definitionByType('CharacterBody3DComponent')!;
     final shared = {for (final f in three.fields) f.name};
     expect({for (final f in two.fields) f.name}.containsAll(shared), isTrue, reason: 'every 3-D field has a 2-D twin');
     for (final name in shared) {
@@ -169,7 +169,7 @@ void main() {
 
     test('a box takes its size and the entity scale, as half extents', () {
       final shape = shapes.build(
-        Collider3D(size: Vector3(2, 4, 6)),
+        Collider3DComponent(size: Vector3(2, 4, 6)),
         Vector3(1, 0.5, -2),
       );
       expect(shape, const BoxShape3D(1, 1, 6));
@@ -178,21 +178,21 @@ void main() {
     test('round shapes take the largest scale across them', () {
       expect(
         shapes.build(
-          Collider3D(shape: ColliderShape3D.sphere, radius: 1),
+          Collider3DComponent(shape: ColliderShape3D.sphere, radius: 1),
           Vector3(1, 3, 2),
         ),
         const SphereShape3D(3),
       );
       expect(
         shapes.build(
-          Collider3D(shape: ColliderShape3D.capsule, radius: 0.5, height: 3),
+          Collider3DComponent(shape: ColliderShape3D.capsule, radius: 0.5, height: 3),
           Vector3(2, 1, 1),
         ),
         const CapsuleShape3D(0.5, 1),
       );
       expect(
         shapes.build(
-          Collider3D(shape: ColliderShape3D.cylinder, radius: 0.5, height: 2),
+          Collider3DComponent(shape: ColliderShape3D.cylinder, radius: 0.5, height: 2),
           Vector3(1, 1, 1),
         ),
         const CylinderShape3D(1, 0.5),
@@ -202,7 +202,7 @@ void main() {
     test('a capsule too short for a straight part is a ball', () {
       expect(
         shapes.build(
-          Collider3D(shape: ColliderShape3D.capsule, radius: 1, height: 1.5),
+          Collider3DComponent(shape: ColliderShape3D.capsule, radius: 1, height: 1.5),
           Vector3(1, 1, 1),
         ),
         const SphereShape3D(1),
@@ -211,7 +211,7 @@ void main() {
 
     test('an offset or a turn places the shape in its entity', () {
       final shape = shapes.build(
-        Collider3D(size: Vector3(2, 2, 2), offset: Vector3(0, -1, 0)),
+        Collider3DComponent(size: Vector3(2, 2, 2), offset: Vector3(0, -1, 0)),
         Vector3(2, 2, 2),
       );
       expect(shape, isA<TransformedShape3D>());
@@ -225,13 +225,13 @@ void main() {
       () {
         final geometry = _Geometry();
         final meshes = ColliderShapes3D(geometry: geometry);
-        final collider = Collider3D(
+        final collider = Collider3DComponent(
           shape: ColliderShape3D.mesh,
           model: 'a.glb',
         );
         final first = meshes.build(collider, Vector3(1, 1, 1));
         final second = meshes.build(
-          Collider3D(shape: ColliderShape3D.mesh, model: 'a.glb'),
+          Collider3DComponent(shape: ColliderShape3D.mesh, model: 'a.glb'),
           Vector3(1, 1, 1),
         );
         expect(identical(first, second), isTrue);
@@ -245,7 +245,7 @@ void main() {
     test('a mesh waits for its triangles', () {
       final geometry = _Geometry()..ready = false;
       final meshes = ColliderShapes3D(geometry: geometry);
-      final collider = Collider3D(
+      final collider = Collider3DComponent(
         shape: ColliderShape3D.convexHull,
         model: 'a.glb',
       );
@@ -258,7 +258,7 @@ void main() {
     });
 
     test('a height field needs its samples', () {
-      final field = Collider3D(
+      final field = Collider3DComponent(
         shape: ColliderShape3D.heightField,
         heights: [for (var i = 0; i < 16; i++) i < 8 ? 0.0 : 1.0],
         heightFieldSize: 4,

@@ -20,9 +20,9 @@ T roundTrip<T extends Component>(T component) {
 }
 
 void main() {
-  test('RigidBody2D keeps its body type and rotation lock', () {
+  test('RigidBody2DComponent keeps its body type and rotation lock', () {
     final back = roundTrip(
-      RigidBody2D(
+      RigidBody2DComponent(
         bodyType: BodyType.kinematic,
         lockRotation: true,
         gravityScale: 0.25,
@@ -41,9 +41,9 @@ void main() {
     expect(back.collidesWith, 6);
   });
 
-  test('Collider2D keeps its shape, placement and one-way side', () {
+  test('Collider2DComponent keeps its shape, placement and one-way side', () {
     final back = roundTrip(
-      Collider2D(
+      Collider2DComponent(
         shape: ColliderShape2D.capsule,
         radius: 6,
         height: 30,
@@ -130,9 +130,9 @@ void main() {
     expect(flat.keys, isNot(contains('rotationX')));
   });
 
-  test('PolygonComponent keeps its shape', () {
+  test('Polygon2DComponent keeps its shape', () {
     const triangle = [Offset(0, -20), Offset(18, 12), Offset(-18, 12)];
-    final back = roundTrip(PolygonComponent(vertices: triangle));
+    final back = roundTrip(Polygon2DComponent(vertices: triangle));
     expect(back.vertices, triangle);
   });
 
@@ -158,8 +158,8 @@ void main() {
       ],
     });
     final components = (scene['entities'] as List).single['components'] as List;
-    final rigid = _coreDefinitions.decode(components[0] as Map<String, dynamic>)! as RigidBody2D;
-    final collider = _coreDefinitions.decode(components[1] as Map<String, dynamic>)! as Collider2D;
+    final rigid = _coreDefinitions.decode(components[0] as Map<String, dynamic>)! as RigidBody2DComponent;
+    final collider = _coreDefinitions.decode(components[1] as Map<String, dynamic>)! as Collider2DComponent;
     expect(rigid.bodyType, BodyType.kinematic);
     expect(rigid.lockRotation, isTrue);
     expect(rigid.linearDamping, 0.5);
@@ -174,19 +174,19 @@ void main() {
     const expected = {
       'TransformComponent',
       'VelocityComponent',
-      'RectangleComponent',
-      'CircleComponent',
-      'CapsuleComponent',
-      'RigidBody2D',
-      'Collider2D',
-      'DistanceJoint2D',
-      'FixedJoint2D',
-      'SliderJoint2D',
-      'WheelJoint2D',
+      'Rectangle2DComponent',
+      'Circle2DComponent',
+      'Capsule2DComponent',
+      'RigidBody2DComponent',
+      'Collider2DComponent',
+      'DistanceJoint2DComponent',
+      'FixedJoint2DComponent',
+      'SliderJoint2DComponent',
+      'WheelJoint2DComponent',
       'SpriteComponent',
       // Text and buttons are just_ui_editor's.
-      'LineComponent',
-      'PolygonComponent',
+      'Line2DComponent',
+      'Polygon2DComponent',
       'VirtualCameraComponent',
       'CameraFramingComponent',
       'LayerComponent',

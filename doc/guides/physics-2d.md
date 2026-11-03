@@ -1,18 +1,18 @@
 # 2D physics
 
-_Gameplay_ · Give entities bodies and shapes with RigidBody2D and Collider2D, move them with forces or a CharacterBody2D, and react to collisions, sensors and queries.
+_Gameplay_ · Give entities bodies and shapes with RigidBody2DComponent and Collider2DComponent, move them with forces or a CharacterBody2DComponent, and react to collisions, sensors and queries.
 
-`RigidBody2D` says how a body moves and `Collider2D` gives it a shape. Put them on an entity that has a `TransformComponent` and the engine simulates it. The 3D components use the same names with a `3D` suffix, so what you learn here carries over to [3D physics](/docs/physics-3d).
+`RigidBody2DComponent` says how a body moves and `Collider2DComponent` gives it a shape. Put them on an entity that has a `TransformComponent` and the engine simulates it. The 3D components use the same names with a `3D` suffix, so what you learn here carries over to [3D physics](/docs/physics-3d).
 
 ## How it fits together
 
-`PhysicsSystem` is one of the default systems (`DefaultSystem.physics`, part of `DefaultSystems.all`). Each fixed step it makes a body for every entity with a `Collider2D`, applies the forces and velocities you asked for, steps `engine.physics`, writes the results back to `TransformComponent` and `VelocityComponent`, and fires collision and sensor events on `world.events`. It runs at `SystemPriorities.physics` (90), after input (100) and player control (95), so a velocity you set in a step moves the body in that same step. See [ECS](/docs/ecs) for how priorities work.
+`PhysicsSystem` is one of the default systems (`DefaultSystem.physics`, part of `DefaultSystems.all`). Each fixed step it makes a body for every entity with a `Collider2DComponent`, applies the forces and velocities you asked for, steps `engine.physics`, writes the results back to `TransformComponent` and `VelocityComponent`, and fires collision and sensor events on `world.events`. It runs at `SystemPriorities.physics` (90), after input (100) and player control (95), so a velocity you set in a step moves the body in that same step. See [ECS](/docs/ecs) for how priorities work.
 
 Units are world units (pixels in a 2D game) and +Y is down: gravity points along +Y and a jump is −Y. The default gravity is 981 units/s², real gravity at 1 unit = 1 cm. Platformers usually want more, for example `engine.physics.setGravity(0, 2000)`.
 
 ## Bodies and colliders
 
-A `Collider2D` on its own is a static body, so floors and walls need nothing else. It behaves like `RigidBody2D(bodyType: BodyType.static)` with the default settings. Add a `RigidBody2D` when the body should move, or when a static body needs its own friction, bounce or layer.
+A `Collider2DComponent` on its own is a static body, so floors and walls need nothing else. It behaves like `RigidBody2DComponent(bodyType: BodyType.static)` with the default settings. Add a `RigidBody2DComponent` when the body should move, or when a static body needs its own friction, bounce or layer.
 
 ```dart lib/playground.dart
 import 'package:flutter/material.dart';
@@ -25,32 +25,32 @@ void buildPlayground(Engine engine) {
   // Static ground: a collider alone. matchShape follows the rectangle.
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(0, 200, 0)),
-    RectangleComponent(
+    Rectangle2DComponent(
       width: 900,
       height: 40,
       fillStyle: const ShapePaintStyle(color: Colors.brown),
     ),
-    Collider2D(shape: ColliderShape2D.matchShape),
+    Collider2DComponent(shape: ColliderShape2D.matchShape),
   ], name: 'Ground');
 
   // A dynamic ball.
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(-100, -200, 0)),
     VelocityComponent(),
-    CircleComponent(
+    Circle2DComponent(
       radius: 20,
       fillStyle: const ShapePaintStyle(color: Colors.red),
     ),
-    RigidBody2D(restitution: 0.7),
-    Collider2D(shape: ColliderShape2D.circle, radius: 20),
+    RigidBody2DComponent(restitution: 0.7),
+    Collider2DComponent(shape: ColliderShape2D.circle, radius: 20),
     TagComponent('ball'),
   ], name: 'Ball');
 
   // A sensor reports overlaps and blocks nothing.
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(300, 140, 0)),
-    RigidBody2D(bodyType: BodyType.static, isSensor: true),
-    Collider2D(size: Vector2(80, 80)),
+    RigidBody2DComponent(bodyType: BodyType.static, isSensor: true),
+    Collider2DComponent(size: Vector2(80, 80)),
   ], name: 'Goal');
 
   world.events.on<CollisionEnter2DEvent>((e) {
@@ -62,7 +62,7 @@ void buildPlayground(Engine engine) {
 }
 ```
 
-> **Note:** A contact bounces as much as the less bouncy of its two bodies, and a collider-only body has no bounce. For a bouncy floor, give it `RigidBody2D(bodyType: BodyType.static, restitution: 1)`.
+> **Note:** A contact bounces as much as the less bouncy of its two bodies, and a collider-only body has no bounce. For a bouncy floor, give it `RigidBody2DComponent(bodyType: BodyType.static, restitution: 1)`.
 
 ## Body types
 
@@ -113,20 +113,20 @@ A match shape follows the drawing as it changes. Every shape is centred on the e
 
 ## Moving bodies from code
 
-Push a `RigidBody2D` with `addForce`, `addImpulse`, `addTorque`, `addAngularImpulse`, `setVelocity`, `setAngularVelocity` and `wakeUp`. Each applies at the next physics step. You can also write the entity's `VelocityComponent`, which the physics system picks up, and teleport a body by writing its `TransformComponent`.
+Push a `RigidBody2DComponent` with `addForce`, `addImpulse`, `addTorque`, `addAngularImpulse`, `setVelocity`, `setAngularVelocity` and `wakeUp`. Each applies at the next physics step. You can also write the entity's `VelocityComponent`, which the physics system picks up, and teleport a body by writing its `TransformComponent`.
 
 A simple platformer controller is a system at `SystemPriorities.playerControl` that sets `velocity.x` from the `move` action and, when `body.isGrounded` and `jump` was pressed, sets `velocity.y = -800` (up is −Y). Reading actions is covered in [Input](/docs/input).
 
 ## Character bodies
 
-A `CharacterBody2D` is a character that gameplay moves rather than the simulation. It walks slopes up to `maxSlopeAngle` (50° by default), climbs steps up to `stepHeight`, keeps to the floor going down (`stickToFloor`), rides moving platforms, stands on one-way platforms and jumps up through them, and pushes dynamic bodies. It needs no `RigidBody2D` or `Collider2D`: its shape is its own, a capsule or a box (`CharacterShape2D`), centred on the entity plus `offset`.
+A `CharacterBody2DComponent` is a character that gameplay moves rather than the simulation. It walks slopes up to `maxSlopeAngle` (50° by default), climbs steps up to `stepHeight`, keeps to the floor going down (`stickToFloor`), rides moving platforms, stands on one-way platforms and jumps up through them, and pushes dynamic bodies. It needs no `RigidBody2DComponent` or `Collider2DComponent`: its shape is its own, a capsule or a box (`CharacterShape2D`), centred on the entity plus `offset`.
 
 ```dart lib/hero.dart
 Entity addHero(World world) => world.createEntityWithComponents([
   TransformComponent(),
   InputComponent(),
-  RectangleComponent(width: 32, height: 48),
-  CharacterBody2D(shape: CharacterShape2D.box, width: 32, height: 48),
+  Rectangle2DComponent(width: 32, height: 48),
+  CharacterBody2DComponent(shape: CharacterShape2D.box, width: 32, height: 48),
   TagComponent('player'),
 ], name: 'Hero');
 
@@ -135,13 +135,13 @@ class HeroControlSystem extends System {
   int get priority => SystemPriorities.playerControl;
 
   @override
-  List<Type> get requiredComponents => [InputComponent, CharacterBody2D];
+  List<Type> get requiredComponents => [InputComponent, CharacterBody2DComponent];
 
   @override
   void update(double deltaTime) {
     forEach((entity) {
       final input = entity.getComponent<InputComponent>()!;
-      final body = entity.getComponent<CharacterBody2D>()!;
+      final body = entity.getComponent<CharacterBody2DComponent>()!;
       body.moveVelocity = Offset(input.vector('move').dx * 260, 0);
       if (body.isGrounded && input.wasPressed('jump')) body.jump(800);
     });
@@ -157,10 +157,10 @@ Put a joint on an entity that has a body and point `connectedBody` at the other 
 
 | Joint | What it does | Main fields |
 |---|---|---|
-| `DistanceJoint2D` | keeps two bodies a set distance apart, springily | `length`, `stiffness` (Hz; 0 holds the length rigidly), `damping` (a damping ratio) |
-| `FixedJoint2D` | holds two bodies rigidly together | none |
-| `SliderJoint2D` | lets the bodies slide along one axis | `axis`, `useLimits`, `minPosition`, `maxPosition`, `enableMotor`, `motorSpeed`, `motorMaxForce` |
-| `WheelJoint2D` | a wheel on a suspension | `axis`, `stiffness`, `damping`, `enableMotor`, `motorSpeed`, `motorMaxTorque` |
+| `DistanceJoint2DComponent` | keeps two bodies a set distance apart, springily | `length`, `stiffness` (Hz; 0 holds the length rigidly), `damping` (a damping ratio) |
+| `FixedJoint2DComponent` | holds two bodies rigidly together | none |
+| `SliderJoint2DComponent` | lets the bodies slide along one axis | `axis`, `useLimits`, `minPosition`, `maxPosition`, `enableMotor`, `motorSpeed`, `motorMaxForce` |
+| `WheelJoint2DComponent` | a wheel on a suspension | `axis`, `stiffness`, `damping`, `enableMotor`, `motorSpeed`, `motorMaxTorque` |
 
 Every joint also has `anchor`, `connectedAnchor`, `collideConnected` (false: the two bodies do not collide with each other) and `enabled`. Axes are in the joint entity's own space.
 
@@ -170,7 +170,7 @@ Each body sits on one of 16 collision layers, `layer: 0` to `15`. The project na
 
 The file lists each layer by number, for example `{"version": 1, "layers": [{"index": 1, "name": "Player"}, {"index": 2, "name": "Enemy", "ignores": [2]}]}`, where enemies pass through each other. Read the grid in code with `engine.context.physicsLayers`, for example `engine.context.physicsLayers.collides(1, 2)`.
 
-- `collidesWith` is a mask (bit `n` for layer `n`) that overrides the grid for one body: `RigidBody2D(layer: 2, collidesWith: (1 << 0) | (1 << 2))`. Two bodies collide only when each collides with the other's layer.
+- `collidesWith` is a mask (bit `n` for layer `n`) that overrides the grid for one body: `RigidBody2DComponent(layer: 2, collidesWith: (1 << 0) | (1 << 2))`. Two bodies collide only when each collides with the other's layer.
 - Set `collidesWith = 0` to make a body collide with nothing for a while, such as a crumbling platform, and set it back to `null` to follow the grid again.
 - `groupIndex` overrides layers for a group: a positive group always collides with itself, a negative one never does, and 0 leaves it to the layers.
 
@@ -220,7 +220,7 @@ bool canSeePlayer(Engine engine, Entity guard) {
 
 These wait on `just_physics_engine`. The fields involved are saved as usual, so scenes need no change when the limits lift.
 
-- `anchor` and `connectedAnchor` of `DistanceJoint2D` and `FixedJoint2D` are not passed to the physics engine: a distance joint holds the bodies by their centres, and a fixed joint holds them as they were when joined. A wheel joint's axle anchor is honoured on native Box2D only.
+- `anchor` and `connectedAnchor` of `DistanceJoint2DComponent` and `FixedJoint2DComponent` are not passed to the physics engine: a distance joint holds the bodies by their centres, and a fixed joint holds them as they were when joined. A wheel joint's axle anchor is honoured on native Box2D only.
 - Jointed bodies with `collideConnected` off send no contact events between them, but on the pure-Dart backend they still push each other apart.
 - On native Box2D, queries skip bodies whose collision mask is 0 (such as `collidesWith: 0`); the pure-Dart backend finds them.
 - `continuousCollision` works on the native backend only.

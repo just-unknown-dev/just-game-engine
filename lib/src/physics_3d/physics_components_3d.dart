@@ -7,14 +7,14 @@ import '../ecs/ecs.dart';
 // them). Units are metres; +Y is down.
 
 /// Makes its entity a rigid body that [PhysicsSystem3D] simulates. It needs
-/// a [Collider3D] on the same entity for its shape.
+/// a [Collider3DComponent] on the same entity for its shape.
 ///
 /// Gameplay moves a dynamic body with forces, impulses or a velocity — all
 /// applied before the next step — and a kinematic or static one by writing
 /// its entity's transform.
-class RigidBody3D extends Component {
+class RigidBody3DComponent extends Component {
   /// A dynamic body on layer 0, by default.
-  RigidBody3D({
+  RigidBody3DComponent({
     this.bodyType = BodyType3D.dynamic,
     this.continuousCollision = false,
     this.mass = 0.0,
@@ -135,44 +135,44 @@ class RigidBody3D extends Component {
   void wakeUp() => pendingWake = true;
 }
 
-/// The shapes a [Collider3D] can be.
+/// The shapes a [Collider3DComponent] can be.
 enum ColliderShape3D {
-  /// A box [Collider3D.size] big.
+  /// A box [Collider3DComponent.size] big.
   box,
 
-  /// A sphere of [Collider3D.radius].
+  /// A sphere of [Collider3DComponent.radius].
   sphere,
 
-  /// A capsule along Y, [Collider3D.height] tall overall, of
-  /// [Collider3D.radius].
+  /// A capsule along Y, [Collider3DComponent.height] tall overall, of
+  /// [Collider3DComponent.radius].
   capsule,
 
-  /// A cylinder along Y, [Collider3D.height] tall, of [Collider3D.radius].
+  /// A cylinder along Y, [Collider3DComponent.height] tall, of [Collider3DComponent.radius].
   cylinder,
 
-  /// The convex hull of a model's vertices ([Collider3D.model]).
+  /// The convex hull of a model's vertices ([Collider3DComponent.model]).
   convexHull,
 
-  /// A model's triangles ([Collider3D.model]); static and kinematic bodies
+  /// A model's triangles ([Collider3DComponent.model]); static and kinematic bodies
   /// only.
   mesh,
 
-  /// Terrain from [Collider3D.heights]; static bodies only.
+  /// Terrain from [Collider3DComponent.heights]; static bodies only.
   heightField,
 
   /// The shape its entity is drawn as — a 3-D shape such as
-  /// just_graphics_engine's `Cube3D` or `Stairs3D` (any [SolidShapeSource]
+  /// just_graphics_engine's `Cube3DComponent` or `Stairs3DComponent` (any [SolidShapeSource]
   /// on the entity) — following it as it changes. A concave one is made of
   /// convex parts, so it works on a dynamic body too.
   matchShape,
 }
 
-/// The shape of its entity's [RigidBody3D] — or, without one, of a static
+/// The shape of its entity's [RigidBody3DComponent] — or, without one, of a static
 /// body made for it. It follows the entity's scale. Set to
 /// [ColliderShape3D.matchShape] it takes the shape its entity is drawn as.
-class Collider3D extends Component {
+class Collider3DComponent extends Component {
   /// A 1 m box, by default.
-  Collider3D({
+  Collider3DComponent({
     this.shape = ColliderShape3D.box,
     Vector3? size,
     this.radius = 0.5,
@@ -249,9 +249,9 @@ class Collider3D extends Component {
 /// [useGravity] the system adds gravity and the ground's own velocity, as
 /// a platformer wants. Without it [moveVelocity] is the whole velocity
 /// (flying, swimming, ladders).
-class CharacterBody3D extends Component {
+class CharacterBody3DComponent extends Component {
   /// A character 1.8 m tall and 0.3 m in radius, by default.
-  CharacterBody3D({
+  CharacterBody3DComponent({
     this.radius = 0.3,
     this.height = 1.8,
     this.maxSlopeAngle = 0.8726646259971648,
@@ -340,9 +340,9 @@ class CharacterBody3D extends Component {
 /// bodies are when both exist, and made again when a setting changes.
 /// Jointed bodies still collide with each other: leave a gap between them,
 /// or put them on layers that do not collide.
-abstract class Joint3D extends Component {
+abstract class Joint3DComponent extends Component {
   /// A joint to [connectedBody] at [anchor].
-  Joint3D({
+  Joint3DComponent({
     this.connectedBody = EntityTarget.none,
     Vector3? anchor,
     this.enabled = true,
@@ -365,27 +365,27 @@ abstract class Joint3D extends Component {
 }
 
 /// Holds two bodies rigidly together.
-class FixedJoint3D extends Joint3D {
+class FixedJoint3DComponent extends Joint3DComponent {
   /// A fixed joint.
-  FixedJoint3D({super.connectedBody, super.anchor, super.enabled});
+  FixedJoint3DComponent({super.connectedBody, super.anchor, super.enabled});
 
   @override
   JointKind3D get kind => JointKind3D.fixed;
 }
 
 /// Holds two bodies at one point, free to turn about it (a ball joint).
-class PointJoint3D extends Joint3D {
+class PointJoint3DComponent extends Joint3DComponent {
   /// A point joint.
-  PointJoint3D({super.connectedBody, super.anchor, super.enabled});
+  PointJoint3DComponent({super.connectedBody, super.anchor, super.enabled});
 
   @override
   JointKind3D get kind => JointKind3D.point;
 }
 
 /// Lets two bodies turn about one axis: a door, a wheel, a lever.
-class HingeJoint3D extends Joint3D {
+class HingeJoint3DComponent extends Joint3DComponent {
   /// A hinge about [axis] (this entity's +Y by default).
-  HingeJoint3D({
+  HingeJoint3DComponent({
     super.connectedBody,
     super.anchor,
     super.enabled,
@@ -428,9 +428,9 @@ class HingeJoint3D extends Joint3D {
 }
 
 /// Lets two bodies slide along one axis: a drawer, a piston, a lift.
-class SliderJoint3D extends Joint3D {
+class SliderJoint3DComponent extends Joint3DComponent {
   /// A slider along [axis] (this entity's +X by default).
-  SliderJoint3D({
+  SliderJoint3DComponent({
     super.connectedBody,
     super.anchor,
     super.enabled,
@@ -474,11 +474,11 @@ class SliderJoint3D extends Joint3D {
 
 /// Keeps two anchors within a distance range: a rope, a chain link, a
 /// spring.
-class DistanceJoint3D extends Joint3D {
+class DistanceJoint3DComponent extends Joint3DComponent {
   /// A joint from [anchor] to [connectedAnchor]; the distance range is
   /// what they are apart when it is made, unless [minDistance] and
   /// [maxDistance] are given (0 or more).
-  DistanceJoint3D({
+  DistanceJoint3DComponent({
     super.connectedBody,
     super.anchor,
     super.enabled,
@@ -505,10 +505,10 @@ class DistanceJoint3D extends Joint3D {
 
 /// Each of the six degrees of freedom free, limited or fixed — anything
 /// the other joints cannot express.
-class SixDofJoint3D extends Joint3D {
+class SixDofJoint3DComponent extends Joint3DComponent {
   /// Every axis fixed, by default; [axis] is the joint's X axis and
   /// [normal] its Y, in this entity's space.
-  SixDofJoint3D({
+  SixDofJoint3DComponent({
     super.connectedBody,
     super.anchor,
     super.enabled,

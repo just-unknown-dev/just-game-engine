@@ -1,4 +1,4 @@
-// 2-D lighting: a scene with Lighting2D on is drawn, then lit by its
+// 2-D lighting: a scene with Lighting2DComponent on is drawn, then lit by its
 // Light2Ds over the ambient light — shaded by the normal maps sprites'
 // materials name, turned as the sprites are; emissive ones glowing in the
 // dark; what is drawn over a shaded sprite hiding its normals — through the
@@ -173,7 +173,7 @@ void main() {
     Color ambient = const Color(0xFF000000),
     bool enabled = true,
   }) => engine.world.createEntityWithComponents([
-    Lighting2D(ambient: ambient, enabled: enabled),
+    Lighting2DComponent(ambient: ambient, enabled: enabled),
   ]);
 
   Entity light(
@@ -185,7 +185,7 @@ void main() {
     double angle = 0,
   }) => engine.world.createEntityWithComponents([
     TransformComponent(position: Vector3(at.dx, at.dy, 0), angle: angle),
-    Light2D(
+    Light2DComponent(
       kind: kind,
       colour: colour,
       radius: radius,
@@ -199,7 +199,7 @@ void main() {
         TransformComponent(position: Vector3(at.dx, at.dy, 0), angle: angle),
         RenderableComponent(renderable: Sprite(image: white)),
         LayerComponent(zOrder: z),
-        if (material != null) Material2D(material: material),
+        if (material != null) Material2DComponent(material: material),
       ]);
 
   test('a dark scene, lit where its light reaches', () async {
@@ -266,7 +266,7 @@ void main() {
         engine.world.createEntityWithComponents([
           TransformComponent(position: Vector3(20, 15, 0)),
           RenderableComponent(renderable: Sprite(image: image)),
-          Material2D(material: _halves),
+          Material2DComponent(material: _halves),
         ]);
 
     test('repeats across it', () async {
@@ -326,7 +326,7 @@ void main() {
     var d = await frame();
     expect(at(d, 20, 15).$1, greaterThan(100), reason: 'faces the light above');
 
-    s.getComponent<Material2D>()!.material = _upDirectX;
+    s.getComponent<Material2DComponent>()!.material = _upDirectX;
     d = await frame();
     expect(at(d, 20, 15).$1, lessThan(20), reason: 'the same map, facing down');
   });
@@ -374,7 +374,9 @@ void main() {
   test('under a screen material, the lit frame is what it draws', () async {
     lighting();
     light(const Offset(20, 15));
-    engine.world.createEntityWithComponents([ScreenMaterial(material: _grey)]);
+    engine.world.createEntityWithComponents([
+      ScreenMaterialComponent(material: _grey),
+    ]);
     final d = await frame();
     final (r, g, b) = at(d, 20, 15);
     expect(r, closeTo(76, 4), reason: 'the red light, as grey');
@@ -398,8 +400,8 @@ void main() {
     Entity box({bool caster = true}) =>
         engine.world.createEntityWithComponents([
           TransformComponent(position: Vector3(20, 15, 0)),
-          RectangleComponent(width: 2, height: 4),
-          if (caster) ShadowCaster2D(),
+          Rectangle2DComponent(width: 2, height: 4),
+          if (caster) ShadowCaster2DComponent(),
         ]);
 
     test('behind what casts them, from the light', () async {
@@ -427,13 +429,13 @@ void main() {
         lighting();
         box();
         final l = light(const Offset(5, 15), radius: 40, height: 8);
-        l.getComponent<Light2D>()!.castsShadows = false;
+        l.getComponent<Light2DComponent>()!.castsShadows = false;
         var d = await frame();
         expect(at(d, 30, 15).$1, greaterThan(12));
 
-        l.getComponent<Light2D>()!.castsShadows = true;
-        for (final e in engine.world.query(const [ShadowCaster2D])) {
-          e.getComponent<ShadowCaster2D>()!.enabled = false;
+        l.getComponent<Light2DComponent>()!.castsShadows = true;
+        for (final e in engine.world.query(const [ShadowCaster2DComponent])) {
+          e.getComponent<ShadowCaster2DComponent>()!.enabled = false;
         }
         d = await frame();
         expect(at(d, 30, 15).$1, greaterThan(12));
@@ -451,13 +453,13 @@ void main() {
                 jsonDecode(
                       jsonEncode(
                         definitions.encode(
-                          ShadowCaster2D(depth: 3, enabled: false),
+                          ShadowCaster2DComponent(depth: 3, enabled: false),
                         ),
                       ),
                     )
                     as Map<String, dynamic>,
               )!
-              as ShadowCaster2D;
+              as ShadowCaster2DComponent;
       expect([back.depth, back.enabled], [3.0, false]);
       final layer = MapLayerData(id: 1, castsShadows: true, shadowDepth: 5);
       final again = MapLayerData.fromJson(layer.toJson());
@@ -485,8 +487,8 @@ void main() {
       for (var i = 0; i < 8; i++) {
         engine.world.createEntityWithComponents([
           TransformComponent(position: Vector3(4.0 + i * 4, 15, 0)),
-          RectangleComponent(width: 2, height: 4),
-          ShadowCaster2D(depth: i < 5 ? 1 : 2),
+          Rectangle2DComponent(width: 2, height: 4),
+          ShadowCaster2DComponent(depth: i < 5 ? 1 : 2),
         ]);
       }
       light(const Offset(20, 3), radius: 40, height: 8);
@@ -521,37 +523,40 @@ void main() {
     });
   });
 
-  test('Light2D and Lighting2D are saved with their entities', () {
-    final definitions = engine.context.definitions;
-    T back<T>(Component c) =>
-        definitions.decode(
-              jsonDecode(jsonEncode(definitions.encode(c)))
-                  as Map<String, dynamic>,
-            )!
-            as T;
-    final l = back<Light2D>(
-      Light2D(
-        kind: Light2DKind.spot,
-        colour: const Color(0xFF00FF00),
-        radius: 99,
-        coneAngle: 30,
-        castsShadows: false,
-      ),
-    );
-    expect(
-      [l.kind, l.colour, l.radius, l.coneAngle, l.castsShadows],
-      [Light2DKind.spot, const Color(0xFF00FF00), 99.0, 30.0, false],
-    );
-    final g = back<Lighting2D>(
-      Lighting2D(
-        ambient: const Color(0xFF102030),
-        ambientIntensity: 0.5,
-        enabled: false,
-      ),
-    );
-    expect(
-      [g.ambient, g.ambientIntensity, g.enabled],
-      [const Color(0xFF102030), 0.5, false],
-    );
-  });
+  test(
+    'Light2DComponent and Lighting2DComponent are saved with their entities',
+    () {
+      final definitions = engine.context.definitions;
+      T back<T>(Component c) =>
+          definitions.decode(
+                jsonDecode(jsonEncode(definitions.encode(c)))
+                    as Map<String, dynamic>,
+              )!
+              as T;
+      final l = back<Light2DComponent>(
+        Light2DComponent(
+          kind: Light2DKind.spot,
+          colour: const Color(0xFF00FF00),
+          radius: 99,
+          coneAngle: 30,
+          castsShadows: false,
+        ),
+      );
+      expect(
+        [l.kind, l.colour, l.radius, l.coneAngle, l.castsShadows],
+        [Light2DKind.spot, const Color(0xFF00FF00), 99.0, 30.0, false],
+      );
+      final g = back<Lighting2DComponent>(
+        Lighting2DComponent(
+          ambient: const Color(0xFF102030),
+          ambientIntensity: 0.5,
+          enabled: false,
+        ),
+      );
+      expect(
+        [g.ambient, g.ambientIntensity, g.enabled],
+        [const Color(0xFF102030), 0.5, false],
+      );
+    },
+  );
 }

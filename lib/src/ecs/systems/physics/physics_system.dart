@@ -23,17 +23,17 @@ import 'physics_events_2d.dart';
 /// Physics system — the ECS front end for [PhysicsEngine], in step with
 /// the 3-D `PhysicsSystem3D`.
 ///
-/// Owns the [PhysicsBody] lifecycle for every entity with a [Collider2D]:
-/// its [RigidBody2D] says how it moves (a collider alone is a static body).
+/// Owns the [PhysicsBody] lifecycle for every entity with a [Collider2DComponent]:
+/// its [RigidBody2DComponent] says how it moves (a collider alone is a static body).
 /// Each frame it syncs component state into the body, applies the forces,
-/// impulses and velocities gameplay asked for ([RigidBody2D.addForce] and
+/// impulses and velocities gameplay asked for ([RigidBody2DComponent.addForce] and
 /// the rest), steps [physics] once, then syncs the result back into
 /// [TransformComponent], [VelocityComponent] and the rigid body's runtime
 /// fields, and fires [CollisionEnter2DEvent], [CollisionStay2DEvent] (with
 /// [reportContactStay]), [CollisionExit2DEvent], [SensorEnter2DEvent] and
 /// [SensorExit2DEvent] on [World.events].
 ///
-/// It moves every [CharacterBody2D] too, before stepping
+/// It moves every [CharacterBody2DComponent] too, before stepping
 /// ([PhysicsCharacters2D]): a character's own body is a kinematic one, so its
 /// events are those of a kinematic body.
 ///
@@ -47,7 +47,7 @@ import 'physics_events_2d.dart';
 /// body wakes it: a velocity different from the one the last step left
 /// (written to [VelocityComponent] or to the body), a teleport through
 /// [TransformComponent], a force, impulse or torque waiting to be applied, a
-/// changed [RigidBody2D] or [Collider2D] setting, the body coming back from
+/// changed [RigidBody2DComponent] or [Collider2DComponent] setting, the body coming back from
 /// view culling, or a change of gravity. A player pressing a direction or
 /// jump therefore always moves at once.
 ///
@@ -89,11 +89,14 @@ class PhysicsSystem extends System {
 
   /// Which entities' outlines are drawn while [drawsOutlines]: all of them
   /// when null. The editor leaves out what it hides. A collider's own
-  /// [Collider2D.showDebugOutline] has the last word.
+  /// [Collider2DComponent.showDebugOutline] has the last word.
   bool Function(Entity entity)? outlineFilter;
 
   @override
-  List<Type> get requiredComponents => const [TransformComponent, Collider2D];
+  List<Type> get requiredComponents => const [
+    TransformComponent,
+    Collider2DComponent,
+  ];
 
   /// Below this positional difference (world units), an ECS/body mismatch is
   /// float round-trip noise rather than a deliberate teleport.
@@ -117,11 +120,11 @@ class PhysicsSystem extends System {
   static const double autoMassPerSquareUnit = 0.1;
 
   /// What [rigid] weighs with [shape]: nothing when it is static, its own
-  /// [RigidBody2D.mass] when that is set, and otherwise
+  /// [RigidBody2DComponent.mass] when that is set, and otherwise
   /// [autoMassPerSquareUnit] for each square unit of [shape]. A line (a
   /// segment or a chain) counts its bounds, at least a unit each way, as a
   /// 3-D shape with no volume does.
-  static double massOf(RigidBody2D rigid, CollisionShape shape) {
+  static double massOf(RigidBody2DComponent rigid, CollisionShape shape) {
     if (rigid.isStatic) return 0.0;
     if (rigid.mass > 0) return rigid.mass;
     var area = shape.area;
@@ -135,10 +138,10 @@ class PhysicsSystem extends System {
   // Only a dynamic body is slowed by damping, as in 3-D: Box2D would also
   // slow a kinematic one, and a moving platform has to keep the velocity it
   // is given.
-  static double _linearDampingOf(RigidBody2D rigid) =>
+  static double _linearDampingOf(RigidBody2DComponent rigid) =>
       rigid.isDynamic ? rigid.linearDamping : 0.0;
 
-  static double _angularDampingOf(RigidBody2D rigid) =>
+  static double _angularDampingOf(RigidBody2DComponent rigid) =>
       rigid.isDynamic ? rigid.angularDamping : 0.0;
 
   /// Every entity with a transform and a collider, whether or not its body
@@ -274,8 +277,8 @@ class PhysicsSystem extends System {
       final ids = archetype.entityIds;
       if (ids.isEmpty) continue;
       final transforms = archetype.getColumn(TransformComponent)!;
-      final colliders = archetype.getColumn(Collider2D)!;
-      final rigids = archetype.getColumn(RigidBody2D);
+      final colliders = archetype.getColumn(Collider2DComponent)!;
+      final rigids = archetype.getColumn(RigidBody2DComponent);
       final velocities = archetype.getColumn(VelocityComponent);
       final culls = archetype.getColumn(CullStateComponent);
       for (var row = 0; row < ids.length; row++) {
@@ -283,8 +286,8 @@ class PhysicsSystem extends System {
         final link = _linkByEntity[entity] ??= _BodyLink(entity);
         link
           ..transform = transforms[row] as TransformComponent
-          ..collider = colliders[row] as Collider2D
-          ..rigid = rigids?[row] as RigidBody2D?
+          ..collider = colliders[row] as Collider2DComponent
+          ..rigid = rigids?[row] as RigidBody2DComponent?
           ..velocity = velocities?[row] as VelocityComponent?
           ..cull = culls?[row] as CullStateComponent?
           ..version = version;
@@ -622,7 +625,7 @@ class PhysicsSystem extends System {
   /// Wakes [body] — natively too: the Box2D backend wakes a sleeping body
   /// only for a velocity that is not zero, so a body asleep stayed asleep
   /// through a change of its gravity scale, of the world's gravity, or a
-  /// [RigidBody2D.wakeUp].
+  /// [RigidBody2DComponent.wakeUp].
   void _wake(PhysicsBody body) {
     final p = physics;
     if (!body.isAwake && body.isDynamic && p is Box2DPhysicsEngine) {
@@ -668,7 +671,7 @@ class PhysicsSystem extends System {
   /// velocity to set, impulses, forces — to [body], and clears it. Whether
   /// anything was asked (which wakes the body).
   bool _flushCommands(
-    RigidBody2D? rigid,
+    RigidBody2DComponent? rigid,
     PhysicsBody body,
     VelocityComponent? velocityComp,
   ) {
@@ -722,7 +725,7 @@ class PhysicsSystem extends System {
   /// for a shape a mirror leaves as it was, so a character turning to face
   /// the other way by a negative scale is not built again.
   static (double, double) _scaleKey(
-    Collider2D collider,
+    Collider2DComponent collider,
     TransformComponent transform,
     _BodyLink link,
   ) {
@@ -734,7 +737,7 @@ class PhysicsSystem extends System {
   /// was: an unturned, centred box, circle or capsule — or one matching a
   /// Rectangle, Circle, Capsule or sprite (as [link] last found its entity's
   /// look, [_BodyLink.findLook]).
-  static bool _isMirrorSymmetric(Collider2D collider, _BodyLink link) {
+  static bool _isMirrorSymmetric(Collider2DComponent collider, _BodyLink link) {
     if (collider.offset != Offset.zero || collider.rotation != 0) return false;
     return switch (collider.shape) {
       ColliderShape2D.box ||
@@ -859,7 +862,7 @@ class PhysicsSystem extends System {
         final grounded = contact.grounded;
         if (grounded != null) {
           _removeGroundContact(contact);
-          final rigid = grounded.getComponent<RigidBody2D>();
+          final rigid = grounded.getComponent<RigidBody2DComponent>();
           if (rigid != null && identical(rigid.groundEntity, entity)) {
             rigid.groundEntity = null;
           }
@@ -1023,7 +1026,7 @@ class PhysicsSystem extends System {
     contact.grounded = grounded;
     final count = (_groundContactCount[grounded] ?? 0) + 1;
     _groundContactCount[grounded] = count;
-    final rigid = grounded.getComponent<RigidBody2D>();
+    final rigid = grounded.getComponent<RigidBody2DComponent>();
     if (rigid == null) return;
     rigid.isGrounded = true;
     // Recorded so a rider can inherit a moving platform's velocity. With
@@ -1041,7 +1044,7 @@ class PhysicsSystem extends System {
     final count = (_groundContactCount[grounded] ?? 1) - 1;
     if (count <= 0) {
       _groundContactCount.remove(grounded);
-      final rigid = grounded.getComponent<RigidBody2D>();
+      final rigid = grounded.getComponent<RigidBody2DComponent>();
       if (rigid != null) {
         rigid.isGrounded = false;
         rigid.groundEntity = null;
@@ -1072,7 +1075,7 @@ class PhysicsSystem extends System {
     final definitions = world.context.definitions;
     forEach((entity) {
       final transform = entity.getComponent<TransformComponent>()!;
-      final collider = entity.getComponent<Collider2D>()!;
+      final collider = entity.getComponent<Collider2DComponent>()!;
       if (!collider.showDebugOutline) return;
       if (filter != null && !filter(entity)) return;
       final body = _linkByEntity[entity]?.body;
@@ -1087,7 +1090,7 @@ class PhysicsSystem extends System {
       ColliderGeometry.paint(
         canvas,
         shape,
-        debugPaintFor(entity.getComponent<RigidBody2D>(), body),
+        debugPaintFor(entity.getComponent<RigidBody2DComponent>(), body),
       );
       canvas.restore();
     });
@@ -1095,16 +1098,16 @@ class PhysicsSystem extends System {
     // Characters: their shape where they are, moved yet or not.
     for (final archetype in world.queryArchetypes(const [
       TransformComponent,
-      CharacterBody2D,
+      CharacterBody2DComponent,
     ])) {
       final transforms = archetype.getColumn(TransformComponent)!;
-      final characters = archetype.getColumn(CharacterBody2D)!;
+      final characters = archetype.getColumn(CharacterBody2DComponent)!;
       for (var row = 0; row < transforms.length; row++) {
         if (filter != null && !filter(archetype.entityAt(row))) continue;
         _paintCharacter(
           canvas,
           transforms[row] as TransformComponent,
-          characters[row] as CharacterBody2D,
+          characters[row] as CharacterBody2DComponent,
         );
       }
     }
@@ -1119,7 +1122,7 @@ class PhysicsSystem extends System {
   static void _paintCharacter(
     Canvas canvas,
     TransformComponent transform,
-    CharacterBody2D character,
+    CharacterBody2DComponent character,
   ) {
     final shape = character.moverShape;
     final p = shape.points;
@@ -1146,7 +1149,7 @@ class PhysicsSystem extends System {
   /// How the debug outline draws a body of [rigid] (none: a static body): a
   /// sensor yellow, a static body blue, a kinematic one orange, a dynamic
   /// one green — faded while its [body] sleeps.
-  static Paint debugPaintFor(RigidBody2D? rigid, [PhysicsBody? body]) {
+  static Paint debugPaintFor(RigidBody2DComponent? rigid, [PhysicsBody? body]) {
     if (rigid == null) return _debugStaticPaint;
     if (rigid.isSensor) return _debugSensorPaint;
     return switch (rigid.bodyType) {
@@ -1186,16 +1189,18 @@ final class _BodyLink {
 
   final Entity entity;
   late TransformComponent transform;
-  late Collider2D collider;
-  RigidBody2D? rigid;
+  late Collider2DComponent collider;
+  RigidBody2DComponent? rigid;
   VelocityComponent? velocity;
   CullStateComponent? cull;
 
   /// What a collider without a rigid body is: a static body.
-  late final RigidBody2D _static = RigidBody2D(bodyType: BodyType.static);
+  late final RigidBody2DComponent _static = RigidBody2DComponent(
+    bodyType: BodyType.static,
+  );
 
   /// How the body moves: its rigid body, or a static body's defaults.
-  RigidBody2D get settings => rigid ?? _static;
+  RigidBody2DComponent get settings => rigid ?? _static;
 
   /// [World.queryVersion] of the rebuild that last saw [entity].
   int version = -1;
@@ -1222,7 +1227,12 @@ final class _BodyLink {
   bool _loop = false;
   List<Offset> _points = const [];
 
-  void remember(Collider2D c, double sx, double sy, {required bool matching}) {
+  void remember(
+    Collider2DComponent c,
+    double sx,
+    double sy, {
+    required bool matching,
+  }) {
     _shape = c.shape;
     _w = c.size.x;
     _h = c.size.y;
@@ -1242,7 +1252,7 @@ final class _BodyLink {
     if (matching) _rememberLook();
   }
 
-  bool builtMatches(Collider2D c, double sx, double sy) {
+  bool builtMatches(Collider2DComponent c, double sx, double sy) {
     if (_shape != c.shape ||
         _w != c.size.x ||
         _h != c.size.y ||
@@ -1294,13 +1304,13 @@ final class _BodyLink {
     final sized = <(Component, ComponentExtent)>[];
     for (final c in entity.components) {
       switch (c) {
-        case CircleComponent() ||
-            CapsuleComponent() ||
-            RectangleComponent() ||
-            PolygonComponent() ||
-            LineComponent():
+        case Circle2DComponent() ||
+            Capsule2DComponent() ||
+            Rectangle2DComponent() ||
+            Polygon2DComponent() ||
+            Line2DComponent():
           shapes.add(c);
-        case Collider2D() || RigidBody2D():
+        case Collider2DComponent() || RigidBody2DComponent():
           continue;
       }
       final extent = definitions.definitionFor(c)?.extent;
@@ -1309,7 +1319,7 @@ final class _BodyLink {
     _lookShapes = shapes.isEmpty ? const [] : shapes;
     _lookSized = sized.isEmpty ? const [] : sized;
     lookMirrors = shapes.any(
-      (c) => c is PolygonComponent || c is LineComponent,
+      (c) => c is Polygon2DComponent || c is Line2DComponent,
     );
   }
 
@@ -1323,7 +1333,7 @@ final class _BodyLink {
   /// ColliderGeometry.visualShapeOf takes it; null for none.
   Component? _look() {
     for (final c in _lookShapes) {
-      if (c is PolygonComponent && c.vertices.length < 3) continue;
+      if (c is Polygon2DComponent && c.vertices.length < 3) continue;
       return c;
     }
     return null;
@@ -1351,16 +1361,16 @@ final class _BodyLink {
   /// Whether the entity looks as it did when the body was built.
   bool sameLook() {
     switch (_look()) {
-      case CircleComponent v:
+      case Circle2DComponent v:
         return _lookKind == 1 && _l1 == v.radius;
-      case CapsuleComponent v:
+      case Capsule2DComponent v:
         return _lookKind == 2 && _l1 == v.width && _l2 == v.height;
-      case RectangleComponent v:
+      case Rectangle2DComponent v:
         return _lookKind == 3 &&
             _l1 == v.width &&
             _l2 == v.height &&
             _l3 == v.cornerRadius;
-      case PolygonComponent v:
+      case Polygon2DComponent v:
         if (_lookKind != 4) return false;
         final points = v.vertices;
         if (points.length != _lookPoints.length) return false;
@@ -1368,7 +1378,7 @@ final class _BodyLink {
           if (points[i] != _lookPoints[i]) return false;
         }
         return true;
-      case LineComponent v:
+      case Line2DComponent v:
         return _lookKind == 5 &&
             _l1 == v.start.dx &&
             _l2 == v.start.dy &&
@@ -1384,22 +1394,22 @@ final class _BodyLink {
   void _rememberLook() {
     _lookPoints = const [];
     switch (_look()) {
-      case CircleComponent v:
+      case Circle2DComponent v:
         _lookKind = 1;
         _l1 = v.radius;
-      case CapsuleComponent v:
+      case Capsule2DComponent v:
         _lookKind = 2;
         _l1 = v.width;
         _l2 = v.height;
-      case RectangleComponent v:
+      case Rectangle2DComponent v:
         _lookKind = 3;
         _l1 = v.width;
         _l2 = v.height;
         _l3 = v.cornerRadius;
-      case PolygonComponent v:
+      case Polygon2DComponent v:
         _lookKind = 4;
         _lookPoints = List.of(v.vertices);
-      case LineComponent v:
+      case Line2DComponent v:
         _lookKind = 5;
         _l1 = v.start.dx;
         _l2 = v.start.dy;

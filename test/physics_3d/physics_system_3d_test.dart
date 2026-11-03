@@ -31,14 +31,14 @@ const _dt = 1 / 60;
 /// A 20 m floor whose top is at y = 0 (+Y is down).
 Entity _floor(World world) => world.createEntityWithComponents([
   TransformComponent(position: Vector3(0, 0.5, 0)),
-  Collider3D(size: Vector3(20, 1, 20)),
+  Collider3DComponent(size: Vector3(20, 1, 20)),
 ], name: 'Floor');
 
-Entity _box(World world, Vector3 at, {String? name, RigidBody3D? body}) =>
+Entity _box(World world, Vector3 at, {String? name, RigidBody3DComponent? body}) =>
     world.createEntityWithComponents([
       TransformComponent(position: at),
-      Collider3D(),
-      body ?? RigidBody3D(),
+      Collider3DComponent(),
+      body ?? RigidBody3DComponent(),
     ], name: name);
 
 void main() {
@@ -75,7 +75,7 @@ void main() {
         closeTo(-0.5, 0.02),
         reason: 'resting on the floor top',
       );
-      final rigid = box.getComponent<RigidBody3D>()!;
+      final rigid = box.getComponent<RigidBody3DComponent>()!;
       expect(rigid.body, isNot(0));
       expect(rigid.linearVelocity.length, lessThan(0.1));
     });
@@ -98,10 +98,10 @@ void main() {
       final box = _box(
         world,
         Vector3.zero(),
-        body: RigidBody3D(gravityScale: 0),
+        body: RigidBody3DComponent(gravityScale: 0),
       );
       world.update(_dt);
-      final rigid = box.getComponent<RigidBody3D>()!;
+      final rigid = box.getComponent<RigidBody3DComponent>()!;
       rigid.setVelocity(Vector3(2, 0, 0));
       world.update(_dt);
       expect(rigid.linearVelocity.x, closeTo(2, 0.05));
@@ -116,7 +116,7 @@ void main() {
       final box = _box(
         world,
         Vector3.zero(),
-        body: RigidBody3D(gravityScale: 0),
+        body: RigidBody3DComponent(gravityScale: 0),
       );
       world.update(_dt);
       final t = box.getComponent<TransformComponent>()!;
@@ -133,7 +133,7 @@ void main() {
         final lift = _box(
           world,
           Vector3.zero(),
-          body: RigidBody3D(bodyType: BodyType3D.kinematic),
+          body: RigidBody3DComponent(bodyType: BodyType3D.kinematic),
         );
         world.update(_dt);
         final t = lift.getComponent<TransformComponent>()!;
@@ -164,16 +164,16 @@ void main() {
         final box = _box(
           world,
           Vector3.zero(),
-          body: RigidBody3D(gravityScale: 0),
+          body: RigidBody3DComponent(gravityScale: 0),
         );
         world.update(_dt);
         final first = system.bodyOf(box);
-        box.getComponent<RigidBody3D>()!.friction = 0.9;
+        box.getComponent<RigidBody3DComponent>()!.friction = 0.9;
         world.update(_dt);
         expect(system.bodyOf(box), first);
         expect(physics.bodies[first]!.friction, 0.9);
 
-        box.getComponent<Collider3D>()!.size = Vector3(2, 2, 2);
+        box.getComponent<Collider3DComponent>()!.size = Vector3(2, 2, 2);
         world.update(_dt);
         expect(system.bodyOf(box), isNot(first));
         expect(physics.isBody(first), isFalse);
@@ -188,7 +188,7 @@ void main() {
       final (:world, :physics, :system) = _setUp();
       final box = world.createEntityWithComponents([
         TransformComponent(position: Vector3.zero(), scale: Vector3(2, 3, 4)),
-        Collider3D(),
+        Collider3DComponent(),
       ]);
       world.update(_dt);
       expect(
@@ -221,16 +221,16 @@ void main() {
         final (:world, :physics, :system) = _setUp();
         final terrain = world.createEntityWithComponents([
           TransformComponent(),
-          Collider3D(
+          Collider3DComponent(
             shape: ColliderShape3D.heightField,
             heights: List.filled(16, 0.0),
             heightFieldSize: 4,
           ),
-          RigidBody3D(),
+          RigidBody3DComponent(),
         ]);
         world.update(_dt);
         expect(system.bodyOf(terrain), 0);
-        terrain.getComponent<RigidBody3D>()!.bodyType = BodyType3D.static;
+        terrain.getComponent<RigidBody3DComponent>()!.bodyType = BodyType3D.static;
         world.update(_dt);
         expect(system.bodyOf(terrain), isNot(0));
       },
@@ -264,7 +264,7 @@ void main() {
         expect(enters, hasLength(1));
         expect({enters.single.entityA, enters.single.entityB}, {floor, box});
 
-        box.getComponent<RigidBody3D>()!.setVelocity(Vector3(0, -5, 0));
+        box.getComponent<RigidBody3DComponent>()!.setVelocity(Vector3(0, -5, 0));
         for (var i = 0; i < 10; i++) {
           world.update(_dt);
         }
@@ -290,8 +290,8 @@ void main() {
         final (:world, :physics, :system) = _setUp();
         final zone = world.createEntityWithComponents([
           TransformComponent(position: Vector3(0, -2, 0)),
-          Collider3D(size: Vector3(4, 2, 4)),
-          RigidBody3D(bodyType: BodyType3D.static, isSensor: true),
+          Collider3DComponent(size: Vector3(4, 2, 4)),
+          RigidBody3DComponent(bodyType: BodyType3D.static, isSensor: true),
         ], name: 'Zone');
         final ball = _box(world, Vector3(0, -6, 0), name: 'Ball');
         final enters = <SensorEnter3DEvent>[];
@@ -309,17 +309,17 @@ void main() {
   });
 
   group('characters', () {
-    Entity character(World world, Vector3 at, {CharacterBody3D? body}) =>
+    Entity character(World world, Vector3 at, {CharacterBody3DComponent? body}) =>
         world.createEntityWithComponents([
           TransformComponent(position: at),
-          body ?? CharacterBody3D(),
+          body ?? CharacterBody3DComponent(),
         ], name: 'Hero');
 
     test('stands on the floor, walks, and its feet are its position', () {
       final (:world, :physics, :system) = _setUp();
       _floor(world);
       final hero = character(world, Vector3(0, -1, 0));
-      final comp = hero.getComponent<CharacterBody3D>()!;
+      final comp = hero.getComponent<CharacterBody3DComponent>()!;
       for (var i = 0; i < 60; i++) {
         world.update(_dt);
       }
@@ -340,7 +340,7 @@ void main() {
       final (:world, :physics, :system) = _setUp();
       _floor(world);
       final hero = character(world, Vector3.zero());
-      final comp = hero.getComponent<CharacterBody3D>()!;
+      final comp = hero.getComponent<CharacterBody3DComponent>()!;
       final t = hero.getComponent<TransformComponent>()!;
       world.update(_dt);
       expect(comp.isGrounded, isTrue);
@@ -361,13 +361,13 @@ void main() {
       final (:world, :physics, :system) = _setUp();
       final platform = world.createEntityWithComponents([
         TransformComponent(position: Vector3(0, 0.25, 0)),
-        Collider3D(size: Vector3(4, 0.5, 4)),
-        RigidBody3D(bodyType: BodyType3D.kinematic),
+        Collider3DComponent(size: Vector3(4, 0.5, 4)),
+        RigidBody3DComponent(bodyType: BodyType3D.kinematic),
       ], name: 'Platform');
       final hero = character(world, Vector3.zero());
-      final comp = hero.getComponent<CharacterBody3D>()!;
+      final comp = hero.getComponent<CharacterBody3DComponent>()!;
       world.update(_dt);
-      platform.getComponent<RigidBody3D>()!.setVelocity(Vector3(1, 0, 0));
+      platform.getComponent<RigidBody3DComponent>()!.setVelocity(Vector3(1, 0, 0));
       for (var i = 0; i < 60; i++) {
         world.update(_dt);
       }
@@ -385,14 +385,14 @@ void main() {
         final hero = character(
           world,
           Vector3.zero(),
-          body: CharacterBody3D(useGravity: false),
+          body: CharacterBody3DComponent(useGravity: false),
         );
         world.update(_dt);
         final t = hero.getComponent<TransformComponent>()!;
         t.position.setValues(10, -5, 0);
         world.update(_dt);
         expect(physics.characters.values.single.position, Vector3(10, -5, 0));
-        final comp = hero.getComponent<CharacterBody3D>()!;
+        final comp = hero.getComponent<CharacterBody3DComponent>()!;
         comp.moveVelocity.setValues(0, -3, 0);
         world.update(_dt);
         expect(t.position.y, closeTo(-5.05, 1e-9), reason: 'flies up at 3 m/s');
@@ -404,13 +404,13 @@ void main() {
       _floor(world);
       final coin = world.createEntityWithComponents([
         TransformComponent(position: Vector3(3, -1, 0)),
-        Collider3D(size: Vector3(0.5, 0.5, 0.5)),
-        RigidBody3D(bodyType: BodyType3D.static, isSensor: true),
+        Collider3DComponent(size: Vector3(0.5, 0.5, 0.5)),
+        RigidBody3DComponent(bodyType: BodyType3D.static, isSensor: true),
       ], name: 'Coin');
       final hero = character(world, Vector3.zero());
       final enters = <SensorEnter3DEvent>[];
       world.events.on<SensorEnter3DEvent>(enters.add);
-      final comp = hero.getComponent<CharacterBody3D>()!;
+      final comp = hero.getComponent<CharacterBody3DComponent>()!;
       for (var i = 0; i < 120; i++) {
         comp.moveVelocity.setValues(3, 0, 0);
         world.update(_dt);
@@ -423,7 +423,7 @@ void main() {
       final hero = character(world, Vector3(1, 0, 0));
       world.update(_dt);
       final first = system.characterOf(hero);
-      hero.getComponent<CharacterBody3D>()!.height = 1.2;
+      hero.getComponent<CharacterBody3DComponent>()!.height = 1.2;
       world.update(_dt);
       expect(system.characterOf(hero), isNot(first));
       expect(physics.isCharacter(first), isFalse);
@@ -442,7 +442,7 @@ void main() {
       t.setRotation(Quaternion.axisAngle(up, 0.5));
       world.update(_dt);
       t.setRotation(Quaternion.axisAngle(up, 0.7));
-      hero.getComponent<CharacterBody3D>()!.moveVelocity.setValues(3, 0, 0);
+      hero.getComponent<CharacterBody3DComponent>()!.moveVelocity.setValues(3, 0, 0);
       world.update(_dt);
 
       final previous = Quaternion.identity();
@@ -459,7 +459,7 @@ void main() {
       'made once both bodies exist, again when a setting changes, gone with an entity',
       () {
         final (:world, :physics, :system) = _setUp();
-        final hinge = HingeJoint3D(
+        final hinge = HingeJoint3DComponent(
           connectedBody: const EntityTarget.name('Frame'),
           anchor: Vector3(-0.5, 0, 0),
         );
@@ -472,7 +472,7 @@ void main() {
           world,
           Vector3.zero(),
           name: 'Frame',
-          body: RigidBody3D(bodyType: BodyType3D.static),
+          body: RigidBody3DComponent(bodyType: BodyType3D.static),
         );
         world.update(_dt);
         final joint = physics.joints.values.single;
@@ -511,7 +511,7 @@ void main() {
     test('a joint to nobody holds the body to the world', () {
       final (:world, :physics, :system) = _setUp();
       final weight = _box(world, Vector3.zero());
-      weight.addComponent(DistanceJoint3D(connectedAnchor: Vector3(0, -3, 0)));
+      weight.addComponent(DistanceJoint3DComponent(connectedAnchor: Vector3(0, -3, 0)));
       world.update(_dt);
       final joint = physics.joints.values.single;
       expect(joint.bodyB, 0);
@@ -521,7 +521,7 @@ void main() {
     test('switching a joint off keeps it', () {
       final (:world, :physics, :system) = _setUp();
       final a = _box(world, Vector3.zero());
-      final fixed = FixedJoint3D();
+      final fixed = FixedJoint3DComponent();
       a.addComponent(fixed);
       world.update(_dt);
       fixed.enabled = false;
@@ -538,7 +538,7 @@ void main() {
         world,
         Vector3(0, -0.5, 0),
         name: 'Crate',
-        body: RigidBody3D(bodyType: BodyType3D.static),
+        body: RigidBody3DComponent(bodyType: BodyType3D.static),
       );
       world.update(_dt);
       final queries = Physics3DQueries(system);

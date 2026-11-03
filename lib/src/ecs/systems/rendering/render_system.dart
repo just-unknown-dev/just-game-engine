@@ -54,8 +54,8 @@ class RenderSystem extends System implements FrameSystem {
   /// `Canvas.drawVertices` call, where they would otherwise cost several
   /// canvas calls each.
   ///
-  /// Taken are [RectangleComponent]s with square corners and
-  /// [CircleComponent]s whose fill and outline are plain colours (no
+  /// Taken are [Rectangle2DComponent]s with square corners and
+  /// [Circle2DComponent]s whose fill and outline are plain colours (no
   /// gradient), whose outline is wider than zero, and whose entity is fully
   /// opaque, untinted and has no shader; everything else draws as before,
   /// and the draw order is kept. Off by default because triangles are not
@@ -121,7 +121,7 @@ class RenderSystem extends System implements FrameSystem {
 
   final ShapeBatch _shapeBatch = ShapeBatch();
 
-  /// Sprites drawn through a 2-D material ([Material2D]), queued; made with
+  /// Sprites drawn through a 2-D material ([Material2DComponent]), queued; made with
   /// the world's library the first time one is drawn.
   Material2DBatch? _materialBatch;
 
@@ -407,7 +407,7 @@ class RenderSystem extends System implements FrameSystem {
       final renderables = archetype.getColumn(RenderableComponent)!;
       final layers = archetype.getColumn(LayerComponent);
       final shaders = archetype.getColumn(ShaderComponent);
-      final materials = archetype.getColumn(Material2D);
+      final materials = archetype.getColumn(Material2DComponent);
       final hasPhysics = archetype.types.contains(PhysicsBodyRefComponent);
       final bodies = archetype.getColumn(PhysicsBodyRefComponent);
       for (var row = 0; row < ids.length; row++) {
@@ -419,7 +419,7 @@ class RenderSystem extends System implements FrameSystem {
           ..renderComp = renderables[row] as RenderableComponent
           ..layer = layers?[row] as LayerComponent?
           ..shader = shaders?[row] as ShaderComponent?
-          ..material = materials?[row] as Material2D?
+          ..material = materials?[row] as Material2DComponent?
           ..hasPhysics = hasPhysics
           ..physicsRef = physicsRef
           ..seq = seq++;
@@ -592,7 +592,7 @@ class RenderSystem extends System implements FrameSystem {
     _drawCalls++;
   }
 
-  /// Queues [renderable] — of an entity with a [Material2D] — to be drawn
+  /// Queues [renderable] — of an entity with a [Material2DComponent] — to be drawn
   /// through its material with the others sharing it; false when it must be
   /// drawn as it is: its material not read yet (or broken, or for the
   /// screen), the shader not loaded, nothing to draw it from.
@@ -604,7 +604,7 @@ class RenderSystem extends System implements FrameSystem {
     Canvas canvas,
     _DrawEntry entry,
     Renderable renderable,
-    Material2D material,
+    Material2DComponent material,
   ) {
     final library = Material2DLibrary.of(world.context);
     final file = library.fileOf(material.material);
@@ -731,7 +731,9 @@ class RenderSystem extends System implements FrameSystem {
     RenderableComponent comp,
     Renderable renderable,
   ) {
-    if (comp is! RectangleComponent && comp is! CircleComponent) return false;
+    if (comp is! Rectangle2DComponent && comp is! Circle2DComponent) {
+      return false;
+    }
     // Sprites queued before this shape, or shapes under another key, draw
     // first: a batch never moves anything ahead of what came before it.
     if (_pendingSprites.isNotEmpty ||
@@ -925,7 +927,7 @@ class RenderSystem extends System implements FrameSystem {
     );
 
   /// Draws, onto [canvas], the normals of what [render] last drew — in the
-  /// same order and place — for 2-D lighting ([Lighting2D]): red and green
+  /// same order and place — for 2-D lighting ([Lighting2DComponent]): red and green
   /// the normal's x and y in the world, blue how emissive, alpha where.
   ///
   /// A sprite, shape or tile layer whose 2-D material has a normal map (or
@@ -1031,7 +1033,7 @@ class RenderSystem extends System implements FrameSystem {
   final Paint _casterPaint = Paint();
 
   /// Draws, onto [canvas], what casts shadows of what [render] last drew —
-  /// sprites and shapes with a [ShadowCaster2D] on, Level Map layers that
+  /// sprites and shapes with a [ShadowCaster2DComponent] on, Level Map layers that
   /// cast them — as their shapes, coloured by [MapLayerPainter.casterColour]
   /// of how far light reaches into them: 2-D lighting's mask. True when it
   /// drew anything. Call after [render], in the same frame.
@@ -1080,7 +1082,7 @@ class RenderSystem extends System implements FrameSystem {
         continue;
       }
       if (entry.emitter != null) continue;
-      final caster = entity.getComponent<ShadowCaster2D>();
+      final caster = entity.getComponent<ShadowCaster2DComponent>();
       if (caster == null || !caster.enabled) continue;
       final renderable = entry.renderComp!.renderable;
       if (!renderable.visible) continue;
@@ -1108,7 +1110,7 @@ class RenderSystem extends System implements FrameSystem {
     Material2DBatch batch,
     _DrawEntry entry,
     Renderable renderable,
-    Material2D material,
+    Material2DComponent material,
     Material2DFile file,
     Material2DLibrary library,
     double time,
@@ -1320,7 +1322,7 @@ class _DrawEntry {
   RenderableComponent? renderComp;
   LayerComponent? layer;
   ShaderComponent? shader;
-  Material2D? material;
+  Material2DComponent? material;
   bool hasPhysics = false;
   PhysicsBodyRefComponent? physicsRef;
   int seq = 0;

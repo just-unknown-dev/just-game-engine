@@ -12,7 +12,7 @@ import 'package:just_graphics_engine/renderer.dart';
 import 'material_library.dart';
 import 'shapes/primitive_3d.dart';
 
-/// The GPU side of the shapes ([Primitive3D]): meshes made from their sizes
+/// The GPU side of the shapes ([Primitive3DComponent]): meshes made from their sizes
 /// and materials from their looks, uploaded once and shared by every shape
 /// alike — twenty equal crates are one mesh and one material, drawn in one
 /// instanced draw.
@@ -31,7 +31,7 @@ final class GraphicsShapes {
   /// The bytes of an asset (a texture).
   final Future<Uint8List> Function(String path) read;
 
-  /// The material files a shape may be drawn with ([Primitive3D.material]);
+  /// The material files a shape may be drawn with ([Primitive3DComponent.material]);
   /// without one, every shape is drawn with its own look.
   final MaterialLibrary? library;
 
@@ -60,7 +60,7 @@ final class GraphicsShapes {
 
   /// [shape]'s mesh, for an entity scaled by [scale] (which counts only
   /// for a texture tiled per metre); null when it has no triangles.
-  GpuPrimitive? meshFor(Primitive3D shape, Vector3 scale) {
+  GpuPrimitive? meshFor(Primitive3DComponent shape, Vector3 scale) {
     final uv = tilesInMetres(shape) ? _metres(scale) : ShapeUv.natural;
     final key = (shape.shapeKey, uv.key);
     final known = _meshes[key];
@@ -76,7 +76,7 @@ final class GraphicsShapes {
   }
 
   /// How [shape]'s texture is laid out at [scale], drawn with its own look.
-  static ShapeUv uvFor(Primitive3D shape, Vector3 scale) {
+  static ShapeUv uvFor(Primitive3DComponent shape, Vector3 scale) {
     if (!shape.tileInMetres || shape.texture.isEmpty) return ShapeUv.natural;
     return _metres(scale);
   }
@@ -90,7 +90,7 @@ final class GraphicsShapes {
   /// Whether [shape]'s maps repeat per metre of the world, so its mesh is
   /// made for its scale: its own texture tiled per metre, or a material
   /// file laid out in metres.
-  bool tilesInMetres(Primitive3D shape) {
+  bool tilesInMetres(Primitive3DComponent shape) {
     if (shape.material.isNotEmpty) {
       return library?.fileOf(shape.material)?.uv == MaterialUv.metres;
     }
@@ -99,10 +99,10 @@ final class GraphicsShapes {
 
   /// [shape]'s material: its material file's once that is read (its own
   /// look meanwhile), with [overrides] (its entity's own values,
-  /// [MaterialOverrides3D]) on top; else its own look, with its texture once
+  /// [MaterialOverrides3DComponent]) on top; else its own look, with its texture once
   /// that has loaded.
   GpuMaterial materialFor(
-    Primitive3D shape, {
+    Primitive3DComponent shape, {
     Map<String, Object?> overrides = const {},
   }) {
     final file = shape.material;
@@ -128,8 +128,8 @@ final class GraphicsShapes {
 
   /// [shape]'s look as a glTF-style material: colours made linear, blended
   /// when it is not opaque, its texture (as texture 0) repeated
-  /// [Primitive3D.tiling] times.
-  static MaterialData materialDataOf(Primitive3D shape) {
+  /// [Primitive3DComponent.tiling] times.
+  static MaterialData materialDataOf(Primitive3DComponent shape) {
     final (r, g, b) = linear(shape.color);
     final (er, eg, eb) = linear(shape.emission);
     final alpha = shape.opacity.clamp(0.0, 1.0) * shape.color.a;

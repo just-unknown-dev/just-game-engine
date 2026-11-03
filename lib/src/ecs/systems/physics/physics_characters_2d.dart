@@ -10,16 +10,16 @@ import '../../../subsystems/physics/physics_layers.dart';
 import '../../components/components.dart';
 import '../../ecs.dart';
 
-/// The [CharacterBody2D] side of `PhysicsSystem`, which owns one and runs
+/// The [CharacterBody2DComponent] side of `PhysicsSystem`, which owns one and runs
 /// it each update before stepping — as the 3-D `PhysicsSystem3D`
 /// moves its characters.
 ///
 /// Each character is moved by [CharacterMover2D] through the world as it was
-/// after the last step. While [CharacterBody2D.detectable], it also keeps a
+/// after the last step. While [CharacterBody2DComponent.detectable], it also keeps a
 /// kinematic body where it is, so sensors detect it, rays hit it and dynamic
 /// bodies bump into it: that body's contacts are the character's collision
 /// events, as in 3-D (a kinematic body touches dynamic bodies and sensors,
-/// never static ones — read [CharacterBody2D.groundEntity] for those).
+/// never static ones — read [CharacterBody2DComponent.groundEntity] for those).
 final class PhysicsCharacters2D {
   /// Characters in [physics]'s world. [onBody] and [onBodyGone] tell the
   /// system about each character's own body, so events and queries name
@@ -219,18 +219,18 @@ final class PhysicsCharacters2D {
   void _refresh(World world) {
     final version = world.queryVersion(const [
       TransformComponent,
-      CharacterBody2D,
+      CharacterBody2DComponent,
     ]);
     if (version == _seenVersion) return;
     _seenVersion = version;
     _active.clear();
     for (final archetype in world.queryArchetypes(const [
       TransformComponent,
-      CharacterBody2D,
+      CharacterBody2DComponent,
     ])) {
       final ids = archetype.entityIds;
       final transforms = archetype.getColumn(TransformComponent)!;
-      final comps = archetype.getColumn(CharacterBody2D)!;
+      final comps = archetype.getColumn(CharacterBody2DComponent)!;
       final velocities = archetype.getColumn(VelocityComponent);
       final culls = archetype.getColumn(CullStateComponent);
       for (var row = 0; row < ids.length; row++) {
@@ -238,7 +238,7 @@ final class PhysicsCharacters2D {
         final link = _links[entity] ??= _CharacterLink(entity);
         link
           ..transform = transforms[row] as TransformComponent
-          ..comp = comps[row] as CharacterBody2D
+          ..comp = comps[row] as CharacterBody2DComponent
           ..velocity = velocities?[row] as VelocityComponent?
           ..cull = culls?[row] as CullStateComponent?
           ..version = version;
@@ -281,7 +281,7 @@ final class _CharacterLink {
 
   final Entity entity;
   late TransformComponent transform;
-  late CharacterBody2D comp;
+  late CharacterBody2DComponent comp;
 
   /// Its velocity component, if it has one: written, never read.
   VelocityComponent? velocity;
@@ -308,7 +308,7 @@ final class _CharacterLink {
   int _category = 0, _mask = 0;
   bool _detectable = true;
 
-  void remember(CharacterBody2D c, int category, int mask) {
+  void remember(CharacterBody2DComponent c, int category, int mask) {
     _shape = c.shape;
     _radius = c.radius;
     _width = c.width;
@@ -318,7 +318,7 @@ final class _CharacterLink {
     _detectable = c.detectable;
   }
 
-  bool matches(CharacterBody2D c, int category, int mask) =>
+  bool matches(CharacterBody2DComponent c, int category, int mask) =>
       _shape == c.shape &&
       _radius == c.radius &&
       _width == c.width &&

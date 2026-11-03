@@ -101,7 +101,7 @@ void main() {
     });
 
     void shape(double x, {bool visible = true}) {
-      final rect = RectangleComponent(width: 10, height: 10);
+      final rect = Rectangle2DComponent(width: 10, height: 10);
       world.createEntityWithComponents([
         TransformComponent(position: Vector3(x, 0, 0)),
         rect,

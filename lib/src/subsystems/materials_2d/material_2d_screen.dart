@@ -14,7 +14,7 @@ import '../rendering/screen_pass.dart';
 import 'material_2d_library.dart';
 import 'material_2d_shader.dart';
 
-/// Draws the frame through the world's [ScreenMaterial]: of those enabled
+/// Draws the frame through the world's [ScreenMaterialComponent]: of those enabled
 /// on active entities, the one with the highest order. What the engine
 /// installs as its `RenderingEngine.screenPass`.
 ///
@@ -41,8 +41,8 @@ final class ScreenMaterialPass implements ScreenPass {
   Map<String, Object> _overrides = const {};
 
   /// The screen material drawn this frame, once [active] has been asked.
-  ScreenMaterial? get current => _current;
-  ScreenMaterial? _current;
+  ScreenMaterialComponent? get current => _current;
+  ScreenMaterialComponent? _current;
 
   @override
   bool get active {
@@ -50,10 +50,10 @@ final class ScreenMaterialPass implements ScreenPass {
     _file = null;
     final w = world();
     if (w == null) return false;
-    ScreenMaterial? best;
-    for (final entity in w.query(const [ScreenMaterial])) {
+    ScreenMaterialComponent? best;
+    for (final entity in w.query(const [ScreenMaterialComponent])) {
       if (!entity.isActiveInHierarchy) continue;
-      final c = entity.getComponent<ScreenMaterial>();
+      final c = entity.getComponent<ScreenMaterialComponent>();
       if (c == null || !c.enabled || c.material.isEmpty) continue;
       if (best == null || c.order >= best.order) best = c;
     }

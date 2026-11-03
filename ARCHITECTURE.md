@@ -721,7 +721,7 @@ A scene file (`assets/scenes/<name>.scene.json`, see `SceneAssets`) is:
 
 ### 9.4 Migrations
 
-`SceneFormat.current` is 7. A file without `version` is v0. Each step is a `SceneMigration` (`from`, `apply(json, MigrationRun run)`), listed in `SceneMigrations.chain`:
+`SceneFormat.current` is 11. A file without `version` is v0. Each step is a `SceneMigration` (`from`, `apply(json, MigrationRun run)`), listed in `SceneMigrations.chain`:
 
 | Step | What it changes |
 |---|---|
@@ -732,6 +732,10 @@ A scene file (`assets/scenes/<name>.scene.json`, see `SceneAssets`) is:
 | `V4ToV5` | UI text keeps its style |
 | `V5ToV6` | every entity is 3-D: `position.z`, `rotation {x, y, z}`, `velocity.z`; parent offsets are no longer saved (they follow from the world transforms); the legacy `root` tree goes; `mode` is written; inline timelines move to timeline format 2 |
 | `V6ToV7` | tags and targets: `tag` becomes `tags`, `SpawnComponent`'s tag becomes `spawner`, every name-else-tag pair becomes one `EntityTarget` |
+| `V7ToV8` | physics bodies: `isStatic` becomes `bodyType`, collision bits become `layer` and `collidesWith`, a collider follows its entity's scale |
+| `V8ToV9` | one physics model for 2-D and 3-D: a `PhysicsBodyComponent` becomes a rigid body and a collider beside it; the joints are renamed |
+| `V9ToV10` | a scene entry may place a prefab (a `prefab` block) and name an entity inside one as its parent |
+| `V10ToV11` | every component's name ends in `Component`, tagged `2D` or `3D` when it has both versions (`RigidBody2DComponent`, `Light3DComponent`), here and in what a prefab instance changes |
 
 `SceneFormat.migrate(json, {hooks})` returns the current-format scene; `migrateWithReport(json, {hooks})` returns a `MigrationResult` (`scene`, `fromVersion`, `migrated`, `needsAtlas`, `notes` — `MigrationNote`s a person may want to read). Neither mutates its input. A scene newer than `current` throws `UnsupportedFormatVersionException` (a `FormatException`) instead of being misread.
 
@@ -740,9 +744,10 @@ A package adds its own rules through the context's `MigrationHooks` (`context.mi
 | Hook | Runs |
 |---|---|
 | `v0Components[type]` | v0 → v1, instead of the engine's rule for that type |
-| `perEntity(from)` | the step from `from` (1–6), after the engine's rules: one component becoming several, or moving to another entity |
-| `perType(from)[type]` | the step from 5 or 6, on a component's `fields` |
+| `perEntity(from)` | the step from `from` (1–10), after the engine's rules: one component becoming several, or moving to another entity |
+| `perType(from)[type]` | the step from 5 to 10, on a component's `fields` |
 | `targetPairs[type]` | v6 → v7: a package's own name/tag/target field triples |
+| `renamedTypes[type]` | v10 → v11, and timeline v2 → v3: a package's own renamed components, old name → new |
 | `perTrack` | timeline v1 → v2, per track |
 
 `MigrationHooks.none` is frozen and empty. Every run gets its own `MigrationRun`, so two migrations never share what they found.
@@ -828,25 +833,25 @@ Both have the same API: bodies (`PhysicsBody`, with `CircleShape`, `RectangleSha
 
 ### 11.2 PhysicsSystem
 
-`PhysicsSystem(engine.physics, camera: …)` (priority 90) is the ECS front end. It owns a body for every entity with a `TransformComponent` and a `Collider2D`. The collider is the body's shape; the entity's `RigidBody2D`, if it has one, says how it moves, and without one the body is static — the model 3-D physics has (`lib/src/physics_3d/`), with the same names. Each update it:
+`PhysicsSystem(engine.physics, camera: …)` (priority 90) is the ECS front end. It owns a body for every entity with a `TransformComponent` and a `Collider2DComponent`. The collider is the body's shape; the entity's `RigidBody2DComponent`, if it has one, says how it moves, and without one the body is static — the model 3-D physics has (`lib/src/physics_3d/`), with the same names. Each update it:
 
-1. **syncs in** — makes bodies for new entities (and adds a `PhysicsBodyRefComponent`), removes bodies of entities that left, rebuilds a body whose collider changed (for `matchShape`, whose drawn shape changed), and copies settings, velocities, teleports and the forces, impulses and velocities queued on `RigidBody2D` into the bodies;
+1. **syncs in** — makes bodies for new entities (and adds a `PhysicsBodyRefComponent`), removes bodies of entities that left, rebuilds a body whose collider changed (for `matchShape`, whose drawn shape changed), and copies settings, velocities, teleports and the forces, impulses and velocities queued on `RigidBody2DComponent` into the bodies;
 2. **steps** `physics.update(dt)` — inline, in the ECS pass (§7.2);
 3. **syncs out** — body poses into `TransformComponent` (a static body only when it was made or teleported) and velocities into `VelocityComponent`, keeping the previous pose for render interpolation;
-4. **dispatches** `CollisionEnter2DEvent`, `CollisionExit2DEvent`, `SensorEnter2DEvent` and `SensorExit2DEvent` on `world.events` (and `CollisionStay2DEvent` each step while `reportContactStay` is on), and keeps `RigidBody2D`'s `isGrounded`, ground and velocities up to date. A collision event carries the two entities, the contact `normal`, a `point` worked out from where their bounds meet and a `depth` of 0: no backend reports either in 2-D.
+4. **dispatches** `CollisionEnter2DEvent`, `CollisionExit2DEvent`, `SensorEnter2DEvent` and `SensorExit2DEvent` on `world.events` (and `CollisionStay2DEvent` each step while `reportContactStay` is on), and keeps `RigidBody2DComponent`'s `isGrounded`, ground and velocities up to date. A collision event carries the two entities, the contact `normal`, a `point` worked out from where their bounds meet and a `depth` of 0: no backend reports either in 2-D.
 
 Details:
 
 - Its list of entities is rebuilt only when the versions of the queries it reads move (`world.queryVersion`).
 - A switched-off entity leaves the simulation; switched back on, it gets a fresh body where its transform then is.
-- **Sleep.** A body at rest may fall asleep, as the physics engine decides. Anything the ECS does to it wakes it: a velocity different from the one the last step left, a teleport through the transform, a force or torque waiting to be applied, a changed `RigidBody2D` or `Collider2D` setting, a return from view culling, or a change of gravity.
+- **Sleep.** A body at rest may fall asleep, as the physics engine decides. Anything the ECS does to it wakes it: a velocity different from the one the last step left, a teleport through the transform, a force or torque waiting to be applied, a changed `RigidBody2DComponent` or `Collider2DComponent` setting, a return from view culling, or a change of gravity.
 - **Removal.** Taking the system out of its world, or disposing it, removes every body it made, so none stay behind colliding as ghosts.
-- `MovementSystem` skips entities with a `Collider2D`: physics moves them.
-- In debug builds it draws collider outlines (per collider, `Collider2D.showDebugOutline`) through its `camera`.
+- `MovementSystem` skips entities with a `Collider2DComponent`: physics moves them.
+- In debug builds it draws collider outlines (per collider, `Collider2DComponent.showDebugOutline`) through its `camera`.
 - `Physics2DQueries` casts rays and circles and finds overlaps through the physics engine, answering with entities; `PhysicsSystem.bodyOf(entity)` is the way from an entity to its body.
-- **Characters.** Before stepping, `PhysicsCharacters2D` moves every `CharacterBody2D` with just_physics_engine's `CharacterMover2D` through the world as the last step left it — the recipe `PhysicsSystem3D` uses: on the ground it moves with the ground (and jumps from it), in the air it keeps its vertical speed, then gravity and `moveVelocity`. A detectable character keeps a kinematic body where it is, registered as its entity's, so sensors and rays see it and its contacts with dynamic bodies are its collision events. `MovementSystem` skips characters as it skips colliders.
+- **Characters.** Before stepping, `PhysicsCharacters2D` moves every `CharacterBody2DComponent` with just_physics_engine's `CharacterMover2D` through the world as the last step left it — the recipe `PhysicsSystem3D` uses: on the ground it moves with the ground (and jumps from it), in the air it keeps its vertical speed, then gravity and `moveVelocity`. A detectable character keeps a kinematic body where it is, registered as its entity's, so sensors and rays see it and its contacts with dynamic bodies are its collision events. `MovementSystem` skips characters as it skips colliders.
 
-Related: `PhysicsJointBindingSystem` (priority 88) makes and keeps joints from `DistanceJoint2D`, `FixedJoint2D`, `SliderJoint2D` and `WheelJoint2D`, each joined to the body its `connectedBody` (an `EntityTarget`) names (where native wheel joints are missing, a wheel is the physics engine's own Dart wheel joint); what they cannot pass to the physics engine yet is in §20.6. `RaycastSystem` answers `castRay`, `castRayAll` and `hasLineOfSight` against `RaycastColliderComponent`s; it has no per-frame work. `PhysicsSystem.entityForBody(body)` maps a body back to its entity.
+Related: `PhysicsJointBindingSystem` (priority 88) makes and keeps joints from `DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent` and `WheelJoint2DComponent`, each joined to the body its `connectedBody` (an `EntityTarget`) names (where native wheel joints are missing, a wheel is the physics engine's own Dart wheel joint); what they cannot pass to the physics engine yet is in §20.6. `RaycastSystem` answers `castRay`, `castRayAll` and `hasLineOfSight` against `RaycastColliderComponent`s; it has no per-frame work. `PhysicsSystem.entityForBody(body)` maps a body back to its entity.
 
 ---
 
@@ -948,7 +953,7 @@ The key-value store is the engine's own, not the app's:
 
 ### 16.3 Timelines
 
-A `TimelineAsset` (`.timeline.json`, format 2, or inline in a component) is a set of tracks over time. The engine has seven track kinds: `property` (keys any component field's channels on a `KeyCurve`, with easings from `context.easings`), `event` (fires named events, and emits them on `context.signals`), `spriteClip`, `cameraShot`, `audio`, `activation` and `nested` (plays another timeline).
+A `TimelineAsset` (`.timeline.json`, format 3, or inline in a component) is a set of tracks over time. The engine has seven track kinds: `property` (keys any component field's channels on a `KeyCurve`, with easings from `context.easings`), `event` (fires named events, and emits them on `context.signals`), `spriteClip`, `cameraShot`, `audio`, `activation` and `nested` (plays another timeline).
 
 - `TimelinePlayerComponent` plays one; `TimelineSystem` (72) drives one `TimelinePlayback` per player. The playback is disposed when its entity is destroyed or the component removed, and kept while the entity is switched off.
 - `TimelineTriggerComponent` with `TimelineTriggerSystem` (73) starts timelines from trigger zones.
@@ -1057,9 +1062,9 @@ A `SceneRenderer` renders its scene into a texture and draws the image over the 
 
 `Graphics3D` is opt-in, like `Physics3D`: one object that is both the `ContextExtension` (it registers the 3-D components, the skeletal animation target and the skeletal clip track) and the `EngineService` (it makes the renderer and draws). `EngineConfig.graphics3D` installs it as the engine is made and starts it before the game's own services, so they can load models. The renderer is just_graphics_engine's (`Renderer3D` on a `GpuDevice` over Flutter GPU); the engine reaches it only through that package's public libraries, whose web branch has no flutter_gpu, so the engine stays web-safe (`test/graphics_3d/graphics_3d_boundary_test.dart`). Without a `Graphics3D` the 3-D components are unknown, and a scene holding one fails to load with `UnknownComponentTypeException`, whose `builtInHint` names the switch.
 
-- **Components** (`src/graphics_3d/`): `ModelComponent`, `LightComponent`, `EnvironmentComponent`, `AnimationPlayerComponent` and `SocketComponent` are plain data, and their definitions (`GraphicsSchemas`) mark them `Dimensions.threeD`. They import nothing from the GPU or the renderer, so scene files holding them load on every platform. `Graphics3D` is a `RefreshableExtension`, so an editor picks up new fields after a hot reload.
+- **Components** (`src/graphics_3d/`): `ModelComponent`, `Light3DComponent`, `EnvironmentComponent`, `AnimationPlayerComponent` and `SocketComponent` are plain data, and their definitions (`GraphicsSchemas`) mark them `Dimensions.threeD`. They import nothing from the GPU or the renderer, so scene files holding them load on every platform. `Graphics3D` is a `RefreshableExtension`, so an editor picks up new fields after a hot reload.
 - **Start.** `Renderer3D.tryCreate` makes the device and the renderer. When there is no GPU, or the renderer can't start, `Graphics3D` logs the reason once, calls `onUnsupported` and runs on a `NullGpuDevice` instead. Scene loading, model loading and bounds keep working, and the frame shows a short note in place of the 3-D view. It registers a model loader with the engine's `AssetManager`, adds the scene renderer to the frame and an `AnimationSystem3D` to the world.
-- **Shapes** (`src/graphics_3d/shapes/`): `Primitive3D` and its eleven subclasses are plain data too. Each builds its own mesh on the CPU (a `ShapeMesh`, in engine axes: no axis correction) through just_graphics_engine's `MeshBuilder`, which winds every triangle to face the way its vertices' normals point, so a generator only has to get its normals right. A test checks every shape is closed and encloses its expected volume (positive: facing out). `Primitive3D.componentType` is `Primitive3D`, so all shapes share one archetype column and an entity has one, as a 2-D entity has one renderable. A shape is also a `SolidShapeSource`: its convex parts (a box per step of a staircase, a hull per segment of an arch or a ring, the convex pieces of a concave outline, triangulated by ear clipping, then merged Hertel–Mehlhorn style), which 3-D physics matches.
+- **Shapes** (`src/graphics_3d/shapes/`): `Primitive3DComponent` and its eleven subclasses are plain data too. Each builds its own mesh on the CPU (a `ShapeMesh`, in engine axes: no axis correction) through just_graphics_engine's `MeshBuilder`, which winds every triangle to face the way its vertices' normals point, so a generator only has to get its normals right. A test checks every shape is closed and encloses its expected volume (positive: facing out). `Primitive3DComponent.componentType` is `Primitive3DComponent`, so all shapes share one archetype column and an entity has one, as a 2-D entity has one renderable. A shape is also a `SolidShapeSource`: its convex parts (a box per step of a staircase, a hull per segment of an arch or a ring, the convex pieces of a concave outline, triangulated by ear clipping, then merged Hertel–Mehlhorn style), which 3-D physics matches.
 - **`GraphicsShapes`** is their GPU side: meshes by `shapeKey` (and, for a texture tiled per metre, the entity's scale rounded to a millimetre), materials by `materialKey`. Equal shapes share both, so they instance. A texture loads in the background; materials made before it arrives are made again with it (`revision`). Whatever no shape used for 300 frames is let go.
 - **`GraphicsModels`** loads each model path once: it reads through the engine's bundle (relative `.gltf` URIs resolve next to the file), prefers a cooked `<model>.jmodel` the bundle's manifest lists, parses in an isolate and uploads. `GraphicsModelAsset` is the engine-side `ModelAsset`. Its bounds and triangles are in engine axes; a mesh used by several nodes gives one triangle set per placement.
 - **Animation.** `AnimationPlayerComponent` saves the clip, speed, loop and crossfade; `AnimationSystem3D` (priority `animation`) moves time on. The scene renderer samples each animated entity at `FrameView.interpolation` between its last two updates. `SocketComponent` pins a child entity to a joint: each update the system writes the joint's frame as the child's world transform (`parent · G · joint · G`, where G is `gltfToEngine`, so a model hung there is not turned twice), and the hierarchy works the local offset out from it.

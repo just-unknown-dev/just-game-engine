@@ -42,9 +42,11 @@ void main() {
 
     Entity block({required bool isStatic}) => world.createEntityWithComponents([
       TransformComponent(position: Vector3(-64, -214, 0)),
-      RectangleComponent(width: 64, height: 20),
-      RigidBody2D(bodyType: isStatic ? BodyType.static : BodyType.dynamic),
-      Collider2D(size: Vector2(64, 20)),
+      Rectangle2DComponent(width: 64, height: 20),
+      RigidBody2DComponent(
+        bodyType: isStatic ? BodyType.static : BodyType.dynamic,
+      ),
+      Collider2DComponent(size: Vector2(64, 20)),
     ]);
 
     test('gets its previous pose back after something outside physics '

@@ -5,7 +5,7 @@ import 'dart:typed_data';
 /// shape without being told it twice.
 ///
 /// A renderer package's shape components implement it (just_graphics_engine's
-/// `Primitive3D`), and the engine's 3-D physics reads it (a `Collider3D`
+/// `Primitive3DComponent`), and the engine's 3-D physics reads it (a `Collider3DComponent`
 /// set to match the shape). Plain data: nothing here draws or
 /// collides. Units are the entity's own (metres in 3-D); +Y is down.
 abstract interface class SolidShapeSource {

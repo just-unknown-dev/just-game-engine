@@ -124,12 +124,12 @@ Also: `SceneAssets` (scenes live in `assets/scenes`, listed in `assets/scenes/sc
   - `void render(Canvas canvas, Size size)`
 - **`LayerComponent`** — draw order and editor grouping.
   - `LayerComponent({String layerId = 'main', int layer = 0, int zOrder = 0, bool visible = true, bool locked = false, int? mapLayer})`
-- **`RectangleComponent`** — a rectangle shape.
-  - `RectangleComponent({required double width, required double height, …})`
+- **`Rectangle2DComponent`** — a rectangle shape.
+  - `Rectangle2DComponent({required double width, required double height, …})`
 - **`ParallaxComponent`** — a background behind the world, drawn by `ParallaxRenderSystem`.
   - `ParallaxComponent({required ParallaxBackground background})`
 
-Also: shapes `CircleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent`, `ShapePaintStyle`; `LevelLayers`, `ParallaxBackground`, `ParallaxLayer`, `ParallaxRenderSystem`; post-processing `ShaderComponent`, `PostProcessPass`, `PostProcessSystem`; `RenderHookChain`, `RenderStatsSink`, `Sprite`, `SpriteBatch`, `TextRenderable`, `CustomRenderable`; culling `ViewCullingSystem`, `CullStateComponent`; 3-D seam `SceneRenderer`, `FrameView`.
+Also: shapes `Circle2DComponent`, `Polygon2DComponent`, `Line2DComponent`, `Capsule2DComponent`, `ShapePaintStyle`; `LevelLayers`, `ParallaxBackground`, `ParallaxLayer`, `ParallaxRenderSystem`; post-processing `ShaderComponent`, `PostProcessPass`, `PostProcessSystem`; `RenderHookChain`, `RenderStatsSink`, `Sprite`, `SpriteBatch`, `TextRenderable`, `CustomRenderable`; culling `ViewCullingSystem`, `CullStateComponent`; 3-D seam `SceneRenderer`, `FrameView`.
 
 ## Sprites and animation
 
@@ -213,17 +213,17 @@ Also: `MapCollisionSystem`, `TileChangedEvent`, `TileAssets`, `LevelMapData`, `M
 
 ## Physics
 
-`engine.physics` is a `PhysicsEngine` from `just_physics_engine`: Box2D where its native library loads, pure Dart otherwise and on the web. `PhysicsSystem` makes a body per `Collider2D`, moved as the entity's `RigidBody2D` says (a static body without one), steps, and writes positions back. The names are 3-D physics' (`package:just_game_engine/physics_3d.dart`), with `2D` for `3D`.
+`engine.physics` is a `PhysicsEngine` from `just_physics_engine`: Box2D where its native library loads, pure Dart otherwise and on the web. `PhysicsSystem` makes a body per `Collider2DComponent`, moved as the entity's `RigidBody2DComponent` says (a static body without one), steps, and writes positions back. The names are 3-D physics' (`package:just_game_engine/physics_3d.dart`), with `2D` for `3D`.
 
 - **`PhysicsSystem`** — bodies from components; contacts as events.
   - `PhysicsSystem(PhysicsEngine physics, {GameCamera? camera, bool reportContactStay = false})`
   - `Entity? entityForBody(PhysicsBody body)`, `PhysicsBody? bodyOf(Entity entity)`
-- **`RigidBody2D`** — how a body moves: body type, mass, material (friction, restitution), motion (gravity scale, damping, continuous collision, sleep, locked rotation, start velocity), sensor, layer and what it collides with. After each step it holds `isGrounded`, `groundEntity`, `groundNormal`, `linearVelocity`, `angularVelocity` and `isAwake`.
-  - `RigidBody2D({BodyType bodyType, double mass, double friction, double restitution, …, int layer, int? collidesWith})`
+- **`RigidBody2DComponent`** — how a body moves: body type, mass, material (friction, restitution), motion (gravity scale, damping, continuous collision, sleep, locked rotation, start velocity), sensor, layer and what it collides with. After each step it holds `isGrounded`, `groundEntity`, `groundNormal`, `linearVelocity`, `angularVelocity` and `isAwake`.
+  - `RigidBody2DComponent({BodyType bodyType, double mass, double friction, double restitution, …, int layer, int? collidesWith})`
   - `void addForce(Offset force)`, `addImpulse(Offset impulse)`, `addTorque(double torque)`, `addAngularImpulse(double impulse)`, `setVelocity(Offset velocity)`, `setAngularVelocity(double velocity)`, `wakeUp()`
   - `bool get isStatic`, `isKinematic`, `isDynamic`
-- **`Collider2D`** — a body's shape (`ColliderShape2D`: box, circle, capsule, polygon, segment, chain, or `matchShape` for what the entity draws), with its own offset, rotation and scale, and one-way. Alone, a static body. It follows the entity's scale.
-  - `Collider2D({ColliderShape2D shape, Vector2? size, double radius, …, Offset offset, bool oneWay, …})`
+- **`Collider2DComponent`** — a body's shape (`ColliderShape2D`: box, circle, capsule, polygon, segment, chain, or `matchShape` for what the entity draws), with its own offset, rotation and scale, and one-way. Alone, a static body. It follows the entity's scale.
+  - `Collider2DComponent({ColliderShape2D shape, Vector2? size, double radius, …, Offset offset, bool oneWay, …})`
 - **`PhysicsLayers`** — sixteen named collision layers and which collide; `engine.context.physicsLayers`, read from `assets/project/physics.json` on `initialize()`.
   - `String nameOf(int layer)`, `labelOf(int layer)`, `Color colorOf(int layer)`, `String descriptionOf(int layer)`, `int? indexOf(String name)`, `int maskOf(int layer)`, `bool collides(int a, int b)`
   - `PhysicsLayers withName(int layer, String name)`, `withColor`, `withDescription`, `withCollision(int a, int b, bool collide)`, `cleared(int layer)`, `int? firstFree`, `String? problemWithName(String name, {int? except})`, `toJson()`, `fromJson(json)`
@@ -232,8 +232,8 @@ Also: `MapCollisionSystem`, `TileChangedEvent`, `TileAssets`, `LevelMapData`, `M
   - `void setGravity(double gx, double gy)`
   - `void applyLinearImpulse(PhysicsBody body, double ix, double iy)`
   - `RayBodyHit? castRay(Ray ray, {Set<PhysicsBody>? exclude})`
-- **`CharacterBody2D`** — a character gameplay moves rather than the simulation (the 3-D `CharacterBody3D`, field for field): a capsule or a box (`CharacterShape2D`) that walks slopes, climbs steps, keeps to the floor, rides platforms and pushes bodies. It needs no rigid body or collider. `PhysicsSystem` moves it before each step (`PhysicsCharacters2D`).
-  - `CharacterBody2D({CharacterShape2D shape, double radius, double width, double height, Offset offset, double maxSlopeAngle, double stepHeight, double stickToFloor, …, int layer, int? collidesWith, bool detectable})`
+- **`CharacterBody2DComponent`** — a character gameplay moves rather than the simulation (the 3-D `CharacterBody3DComponent`, field for field): a capsule or a box (`CharacterShape2D`) that walks slopes, climbs steps, keeps to the floor, rides platforms and pushes bodies. It needs no rigid body or collider. `PhysicsSystem` moves it before each step (`PhysicsCharacters2D`).
+  - `CharacterBody2DComponent({CharacterShape2D shape, double radius, double width, double height, Offset offset, double maxSlopeAngle, double stepHeight, double stickToFloor, …, int layer, int? collidesWith, bool detectable})`
   - `Offset moveVelocity`, `void jump(double speed)`; after each step `velocity`, `groundState` (`GroundState2D`), `isGrounded`, `groundNormal`, `groundVelocity`, `groundEntity`
 - **`Physics2DQueries`** — rays, casts and overlaps, answering with entities.
   - `Physics2DQueries(PhysicsEngine physics, PhysicsSystem system)`
@@ -246,7 +246,7 @@ Also: `MapCollisionSystem`, `TileChangedEvent`, `TileAssets`, `LevelMapData`, `M
   - `Offset normal`
   - `double depth`
 
-Also: `RaycastSystem`, `RaycastColliderComponent` (rays without physics); `CollisionStay2DEvent`, `CollisionExit2DEvent`, `SensorEnter2DEvent`, `SensorExit2DEvent`; `PhysicsHit2D`; joints `Joint2D`, `DistanceJoint2D`, `FixedJoint2D`, `SliderJoint2D`, `WheelJoint2D`, `PhysicsJointBindingSystem`; `PhysicsDefinitions2D`; shapes `RectangleShape`, `CircleShape`, `CapsuleShape`, `PolygonShape`.
+Also: `RaycastSystem`, `RaycastColliderComponent` (rays without physics); `CollisionStay2DEvent`, `CollisionExit2DEvent`, `SensorEnter2DEvent`, `SensorExit2DEvent`; `PhysicsHit2D`; joints `Joint2DComponent`, `DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent`, `WheelJoint2DComponent`, `PhysicsJointBindingSystem`; `PhysicsDefinitions2D`; shapes `RectangleShape`, `CircleShape`, `CapsuleShape`, `PolygonShape`.
 
 
 ## 3-D physics
@@ -258,7 +258,7 @@ Also: `RaycastSystem`, `RaycastColliderComponent` (rays without physics); `Colli
   - `static void registerSchemas(EngineContext context)`, `static bool get isSupported`, `static String? get unsupportedReason`
   - `bool get isStarted`, `PhysicsEngine3D get engine`, `PhysicsSystem3D get system`, `Physics3DQueries get queries`, `bool get hasWorld`, `PhysicsWorld3D get world`
 - **`EngineConfig.physics3D`**, **`Engine.physics3D`** — the `Physics3D` given, or null.
-- **Components**: `RigidBody3D` (`bodyType`, `mass`, `friction`, `restitution`, `linearDamping`, `angularDamping`, `gravityScale`, `isSensor`, `lockRotation`, `continuousCollision`, `canSleep`, `layer`; `addForce`, `addImpulse`, `setVelocity`, …), `Collider3D` (`shape`: `ColliderShape3D`), `CharacterBody3D` (`moveVelocity`, `jump`, `isGrounded`, `groundVelocity`, …), joints `FixedJoint3D`, `PointJoint3D`, `HingeJoint3D`, `SliderJoint3D`, `DistanceJoint3D`, `SixDofJoint3D` (`Joint3D`), `CameraCollision3D`.
+- **Components**: `RigidBody3DComponent` (`bodyType`, `mass`, `friction`, `restitution`, `linearDamping`, `angularDamping`, `gravityScale`, `isSensor`, `lockRotation`, `continuousCollision`, `canSleep`, `layer`; `addForce`, `addImpulse`, `setVelocity`, …), `Collider3DComponent` (`shape`: `ColliderShape3D`), `CharacterBody3DComponent` (`moveVelocity`, `jump`, `isGrounded`, `groundVelocity`, …), joints `FixedJoint3DComponent`, `PointJoint3DComponent`, `HingeJoint3DComponent`, `SliderJoint3DComponent`, `DistanceJoint3DComponent`, `SixDofJoint3DComponent` (`Joint3DComponent`), `CameraCollision3DComponent`.
 - **`PhysicsSystem3D`** — steps the world: `PhysicsSystem3D(PhysicsWorld3D physics, {ColliderGeometry3D? geometry})`, `PhysicsSystem3D.lazy(PhysicsWorld3D Function() create, …)`; `entityOf`, `bodyOf`, `characterOf`.
 - **Events**: `CollisionEnter3DEvent`, `CollisionStay3DEvent`, `CollisionExit3DEvent`, `SensorEnter3DEvent`, `SensorExit3DEvent`.
 - **`Physics3DQueries`** — `raycast`, `raycastAll`, `sphereCast`, `shapeCast`, `overlapSphere`, `overlapBox`, `overlap` (`PhysicsHit3D`).

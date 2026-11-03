@@ -15,7 +15,7 @@ A 2-D game engine for Flutter. Transforms, cameras and the renderer seam are 3-D
 | Scenes | JSON scene format v7 with a migration chain from v0; `ComponentDefinition`s per context; `SceneLoader` |
 | Rendering | `RenderSystem` with layer / z-order sorting, shapes, sprites and sprite batching, optional off-screen culling, fragment-shader post-processing, parallax backgrounds |
 | Sprites and animation | Atlases (TexturePacker, Aseprite, grid sheets), clip playback with frame events, animator state machines (`.animator.json`, format 1) |
-| Timelines | `.timeline.json` (format 2) with 7 track kinds: property, event, sprite clip, camera shot, audio, activation, nested timeline |
+| Timelines | `.timeline.json` (format 3) with 7 track kinds: property, event, sprite clip, camera shot, audio, activation, nested timeline |
 | Cameras | Virtual cameras and a `CameraBrain` with blends; framing, confiner, noise, dolly and group stages; impulses; blend-list, mixer and state-driven managers; fade, letterbox and motion-blur effects |
 | Level maps | Orthogonal, isometric, staggered and hexagonal tile maps; the engine's own map and tileset JSON and Tiled `.tmx` / `.tmj`; Wang terrain; collision kinds; tile changes at run time |
 | Physics | `just_physics_engine`: bodies, joints, sensors, one-way platforms, ray casts |

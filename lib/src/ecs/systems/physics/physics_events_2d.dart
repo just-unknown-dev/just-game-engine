@@ -86,7 +86,7 @@ class CollisionExit2DEvent extends GameEvent {
   final Entity entityB;
 }
 
-/// Something has entered a sensor (a body with `RigidBody2D.isSensor`).
+/// Something has entered a sensor (a body with `RigidBody2DComponent.isSensor`).
 class SensorEnter2DEvent extends GameEvent {
   /// [other] entering [sensor].
   SensorEnter2DEvent({required this.sensor, required this.other});
