@@ -10,7 +10,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart'
     show KeyDownEvent, KeyRepeatEvent, KeyUpEvent, LogicalKeyboardKey;
 import 'package:just_signals/just_signals.dart';
-import '../physics_2d/collider_debugger_system.dart';
+import '../physics/physics_2d/collider_debugger_system.dart';
 import 'engine.dart';
 import '../localization/localization_widget.dart';
 import 'game_layers.dart';

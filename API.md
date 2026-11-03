@@ -8,7 +8,7 @@ Generated from `lib/` with an analyzer dump of the public libraries, so every na
 |---|---|
 | `package:just_game_engine/just_game_engine.dart` | 734 names: 589 from the engine, 145 [re-exported](#re-exported-packages) |
 | `package:just_game_engine/widgets.dart` | 17 screen widgets ([list](#widgetsdart)) |
-| `package:just_game_engine/physics_3d.dart` | 58 names: 26 from the engine, 32 re-exported from `just_physics_engine` ([3-D physics](#3-d-physics)) |
+| `package:just_game_engine/just_game_engine_3d.dart` | 58 names: 26 from the engine, 32 re-exported from `just_physics_engine` ([3-D physics](#3-d-physics)) |
 
 Achievements, sign-in, leaderboards, currency, inventory and ads are `EngineService`s in the separate package `just_game_services`.
 
@@ -219,7 +219,7 @@ Also: `MapCollisionSystem`, `TileChangedEvent`, `TileAssets`, `LevelMapData`, `M
 
 ## Physics
 
-`engine.physics` is a `PhysicsEngine` from `just_physics_engine`: Box2D where its native library loads, pure Dart otherwise and on the web. `Physics2DSystem` makes a body per `Collider2DComponent`, moved as the entity's `RigidBody2DComponent` says (a static body without one), steps, and writes positions back. The names are 3-D physics' (`package:just_game_engine/physics_3d.dart`), with `2D` for `3D`.
+`engine.physics` is a `PhysicsEngine` from `just_physics_engine`: Box2D where its native library loads, pure Dart otherwise and on the web. `Physics2DSystem` makes a body per `Collider2DComponent`, moved as the entity's `RigidBody2DComponent` says (a static body without one), steps, and writes positions back. The names are 3-D physics' (`package:just_game_engine/just_game_engine_3d.dart`), with `2D` for `3D`.
 
 - **`Physics2DSystem`** — bodies from components; contacts as events.
   - `Physics2DSystem(PhysicsEngine physics, {GameCamera? camera, bool reportContactStay = false})`
@@ -257,13 +257,13 @@ Also: `RaycastSystem`, `RaycastColliderComponent` (rays without physics); `Colli
 
 ## 3-D physics
 
-`package:just_game_engine/physics_3d.dart`. Give the engine a `Physics3D` and it saves, loads and simulates the 3-D components on Jolt Physics; without one a game is 2-D only and carries none of this.
+`package:just_game_engine/just_game_engine_3d.dart`. Give the engine a `Physics3D` and it saves, loads and simulates the 3-D components on Jolt Physics; without one a game is 2-D only and carries none of this.
 
 - **`Physics3D`** — the one way in: installs the components, starts the physics engine, adds the system.
   - `Physics3D({PhysicsEngine3D? engine, Vector3? gravity, int workerThreads = -1, int maxBodies = 10240, bool reportContactStay = false, bool reportActivation = false, bool addSystem = true})`
   - `static void registerSchemas(EngineContext context)`, `static bool get isSupported`, `static String? get unsupportedReason`
   - `bool get isStarted`, `PhysicsEngine3D get engine`, `Physics3DSystem get system`, `Physics3DQueries get queries`, `bool get hasWorld`, `PhysicsWorld3D get world`
-- **`engine.physics3D`** (an extension in `physics_3d.dart`) — the `Physics3D` given in `EngineConfig.services`, or null.
+- **`engine.physics3D`** (an extension in `just_game_engine_3d.dart`) — the `Physics3D` given in `EngineConfig.services`, or null.
 - **Components**: `RigidBody3DComponent` (`bodyType`, `mass`, `friction`, `restitution`, `linearDamping`, `angularDamping`, `gravityScale`, `isSensor`, `lockRotation`, `continuousCollision`, `canSleep`, `layer`; `addForce`, `addImpulse`, `setVelocity`, …), `Collider3DComponent` (`shape`: `ColliderShape3D`), `CharacterBody3DComponent` (`moveVelocity`, `jump`, `isGrounded`, `groundVelocity`, …), joints `FixedJoint3DComponent`, `PointJoint3DComponent`, `HingeJoint3DComponent`, `SliderJoint3DComponent`, `DistanceJoint3DComponent`, `SixDofJoint3DComponent` (`Joint3DComponent`), `CameraCollision3DComponent`.
 - **`Physics3DSystem`** — steps the world: `Physics3DSystem(PhysicsWorld3D physics, {Collider3DGeometry? geometry})`, `Physics3DSystem.lazy(PhysicsWorld3D Function() create, …)`; `entityOf`, `bodyOf`, `characterOf`.
 - **Events**: `CollisionEnter3DEvent`, `CollisionStay3DEvent`, `CollisionExit3DEvent`, `SensorEnter3DEvent`, `SensorExit3DEvent`.

@@ -55,9 +55,6 @@ export 'src/camera/camera.dart';
 // Rendering - Graphics, sprites, and game widget
 export 'src/rendering/rendering.dart';
 
-// Post-Processing - Fullscreen shader effects
-export 'src/rendering/post_processing/post_processing.dart';
-
 // Particles - Advanced particle effects system
 export 'src/particles/particles.dart';
 
@@ -132,12 +129,8 @@ export 'src/assets/assets.dart';
 // Entity-Component System (ECS) - Data-oriented game architecture
 export 'src/ecs/ecs.dart';
 export 'src/gameplay/gameplay.dart';
-export 'src/physics_2d/physics_2d.dart';
 export 'src/navigation/navigation.dart';
 export 'src/scenes/scenes.dart';
-export 'src/shapes_2d/shapes_2d.dart';
-export 'src/ecs/spatial/spatial.dart';
-export 'src/ecs/serialization/serialization.dart';
 
 // Math - the vector, quaternion, matrix and volume types the engine's own
 // signatures use, from just_dart (Quadtree and the rest: import just_dart).
@@ -175,8 +168,9 @@ export 'package:just_memory/just_memory.dart'
 // Sprite Atlas - Sprite-sheet parsing, named regions, and atlas animations
 // Supports TexturePacker (JSON Array / Hash / multi-page) and Aseprite formats
 export 'src/sprites/sprites.dart';
-export 'src/materials_2d/materials_2d.dart';
-export 'src/lighting_2d/lighting_2d.dart';
+
+// Graphics - 2D shapes, materials and lighting
+export 'src/graphics/graphics.dart';
 
 // Timeline - Reusable timelines that animate any component field
 export 'src/timeline/timeline.dart';

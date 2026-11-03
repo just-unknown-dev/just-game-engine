@@ -176,8 +176,8 @@ Everything that shapes an engine is in one `EngineConfig`, given to the construc
 | `createRendering` | Builds your own `RenderingEngine`. |
 | `createAudio` | Builds the `AudioEngine`, for example `AudioEngine.withBackend(...)`. |
 | `createPhysics` | Builds the 2-D `PhysicsEngine` (`engine.physics`). Null makes the standard one: native Box2D, pure Dart on the web. |
-| `graphics3D` | A `Graphics3D` (`package:just_game_engine/graphics_3d.dart`) draws 3-D on Flutter GPU. Null: 2-D only, no GPU device and no shaders loaded. |
-| `physics3D` | A `Physics3D` (`package:just_game_engine/physics_3d.dart`) gives the engine 3-D bodies on Jolt; the app's pubspec must build Jolt (`hooks: user_defines: just_jolt: build: true`). Null: a 2-D game carries no 3-D. |
+| `graphics3D` | A `Graphics3D` (`package:just_game_engine/just_game_engine_3d.dart`) draws 3-D on Flutter GPU. Null: 2-D only, no GPU device and no shaders loaded. |
+| `physics3D` | A `Physics3D` (`package:just_game_engine/just_game_engine_3d.dart`) gives the engine 3-D bodies on Jolt; the app's pubspec must build Jolt (`hooks: user_defines: just_jolt: build: true`). Null: a 2-D game carries no 3-D. |
 | `deferAudioUntilInput` | Start audio at the first key or pointer press. `null` (the default) means on the web only, where browsers keep audio made before a user gesture suspended. |
 
 `initialize(config: ...)` still takes a config and replaces the constructor's; prefer `Engine(config: ...)`.
@@ -1006,7 +1006,7 @@ Future<Sprite> loadHero(Engine engine) =>
 | `just_dart` | `Vector2`, `Vector3`, `Matrix4`, `JustMatrix4`, `Quaternion`, `Aabb3`, `Ray3`, `Plane`, `Frustum` | `Quadtree` |
 | `just_memory` | `MemoryScope`, `DisposeCallback`, `MemoryProfiler`, `MemoryProfileSnapshot`, `MemoryStats`, `CacheBudgetStats`, `PoolManager`, `PoolStats`, `ArenaStats`, `MemoryCleanupResult`, `SystemMemorySnapshot` | `ObjectPool`, `PriorityPool`, `RoundRobinPool`, `Recyclable`, `MemoryArena`, `TypedBuffer`, `BudgetedCache`, `RefCountedRegistry`, `LeakTracker`, … |
 | `just_audio_engine` | `AudioEngine`, `MusicManager`, `SoundEffectManager`, `AudioChannel`, `AudioClip`, `AudioBus`, `AudioBusGraph`, `AudioEffect`, `AudioEffectType`, `AudioState`, `AudioStream`, `AudioBackend`, `Audio3DListener`, `Audio3DPosition`, `AudioSpatial`, `AudioRolloff`, `AudioSpatialMix` | `createAudioBackend` |
-| `just_physics_engine` | `PhysicsEngine`, `Box2DPhysicsEngine`, `PhysicsBody`, `RigidBody`, the shapes (`CircleShape` … `RoundedPolygonShape`), the joints (`DistanceJoint`, `MouseJoint`, `WeldJoint`, `RevoluteJoint`, `Box2DJoint`), `Ray`, `RayBodyHit`, `ShapeCastResult`, `BodyType`, `OneWayDirection`, `GroundState2D`, `MoverShape` and a few more (31 in all) | the 3-D side (through `package:just_game_engine/physics_3d.dart`), `CharacterMover2D`, `PhysicsEngineFactory`, the testing engines |
+| `just_physics_engine` | `PhysicsEngine`, `Box2DPhysicsEngine`, `PhysicsBody`, `RigidBody`, the shapes (`CircleShape` … `RoundedPolygonShape`), the joints (`DistanceJoint`, `MouseJoint`, `WeldJoint`, `RevoluteJoint`, `Box2DJoint`), `Ray`, `RayBodyHit`, `ShapeCastResult`, `BodyType`, `OneWayDirection`, `GroundState2D`, `MoverShape` and a few more (31 in all) | the 3-D side (through `package:just_game_engine/just_game_engine_3d.dart`), `CharacterMover2D`, `PhysicsEngineFactory`, the testing engines |
 | `just_game_engine_formats` | `SceneFormat`, `SceneManifest`, `SceneNames`, `SceneStarters`, `TimelineFormat`, `AnimatorGraph` and its parts, the migration types and `UnsupportedFormatVersionException` (37 in all) | nothing else; everything a game needs is re-exported |
 | `just_signals` | `Signal`, `Computed` (new in 2.0: the reactive wrappers return them) | `Effect`, `SignalBuilder`, `SignalScope`, … |
 
@@ -1108,7 +1108,7 @@ The [CHANGELOG](CHANGELOG.md) lists every other fix.
 | `AudioPauseComponent`, `AudioResumeComponent`, `AudioStopComponent` | `source.pause()`, `source.resume()`, `source.stop()` on the `AudioSourceComponent` or `AudioStreamComponent`; `source.play()` plays it again from the start (setting `playOnAdd` no longer does: the system never changes that field) |
 | `TimelineAudio.viaComponent` | `TimelineAudio.viaAudioSystem` |
 | `World.structureVersion` | `world.queryVersion(types)` for the queries your system reads (the largest of several) |
-| `PlayerScratch`, `samplePlayer` (from `graphics_3d.dart`) | nothing: they were the renderer's helpers |
+| `PlayerScratch`, `samplePlayer` (from `just_game_engine_3d.dart`) | nothing: they were the renderer's helpers |
 | `AudioListenerComponent.forwardX`, `forwardY`, `forwardZ`, `upX`, `upY`, `upZ` | the entity's rotation; `atCamera` and `faceCamera` to hear from the camera, or face like it |
 
 ## Renamed APIs

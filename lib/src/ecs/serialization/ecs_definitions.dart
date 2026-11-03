@@ -4,9 +4,6 @@
 library;
 
 import '../ecs.dart';
-import 'component_codec.dart';
-import 'component_definition.dart';
-import 'field_type.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
 import 'package:just_dart/just_dart.dart';

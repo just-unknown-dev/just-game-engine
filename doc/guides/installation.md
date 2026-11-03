@@ -79,7 +79,7 @@ The engine reads scenes, input actions, atlases, maps, timelines and sounds thro
 
 ## Opting into 3D graphics
 
-A game is 2D unless you give the engine a `Graphics3D`, from `package:just_game_engine/graphics_3d.dart`. Without one, the engine makes no GPU device and loads no shaders, and a scene holding 3D components fails to load with a message saying how to turn 3D on.
+A game is 2D unless you give the engine a `Graphics3D`, from `package:just_game_engine/just_game_engine_3d.dart`. Without one, the engine makes no GPU device and loads no shaders, and a scene holding 3D components fails to load with a message saying how to turn 3D on.
 
 3D draws with Flutter GPU, which must be switched on in each platform's runner. `just create` does this for you when the template it starts from draws in 3D. Otherwise, add the switch by hand:
 
@@ -104,12 +104,11 @@ hooks:
       build: true
 ```
 
-Then give the engine a `Physics3D`, from `package:just_game_engine/physics_3d.dart`. A game without one is 2D only, and its release build holds no 3D physics code and no Jolt. Where 3D physics cannot run (the web, or Jolt not built), `initialize()` throws an `EngineInitException` whose `cause` is a `Physics3DUnsupportedError`. Ask `Physics3D.isSupported` first in a game that also targets the web:
+Then give the engine a `Physics3D`, from `package:just_game_engine/just_game_engine_3d.dart`. A game without one is 2D only, and its release build holds no 3D physics code and no Jolt. Where 3D physics cannot run (the web, or Jolt not built), `initialize()` throws an `EngineInitException` whose `cause` is a `Physics3DUnsupportedError`. Ask `Physics3D.isSupported` first in a game that also targets the web:
 
 ```dart lib/main.dart
-import 'package:just_game_engine/graphics_3d.dart';
 import 'package:just_game_engine/just_game_engine.dart';
-import 'package:just_game_engine/physics_3d.dart';
+import 'package:just_game_engine/just_game_engine_3d.dart';
 
 Future<Engine> start3D() async {
   final engine = Engine(

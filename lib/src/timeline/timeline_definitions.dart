@@ -2,7 +2,6 @@
 library;
 
 import 'timeline_player_component.dart';
-import '../ecs/serialization/component_schema.dart';
 import 'timeline_asset.dart';
 
 import 'package:flutter/material.dart' show Icons;
@@ -10,8 +9,6 @@ import 'package:flutter/painting.dart';
 import '../foundation/dimensions.dart';
 
 import '../ecs/ecs.dart';
-import '../ecs/serialization/component_presentation.dart';
-import '../ecs/serialization/field_type.dart';
 import 'timeline_trigger_component.dart';
 
 /// Definitions for the timeline components that need more than a plain

@@ -44,7 +44,7 @@ const Map<String, String> _allowed = {
   // (EngineContext.slot); never written.
   'animation/animation_context.dart:_key': 'a slot key',
   'level_map/level_map_context.dart:_key': 'a slot key',
-  'materials_2d/materials_2d_context.dart:_key': 'a slot key',
+  'graphics/graphics_2d/materials/materials_2d_context.dart:_key': 'a slot key',
   'physics/physics_context.dart:_key': 'a slot key',
   'scenes/prefabs_context.dart:_key': 'a slot key',
   'sprites/sprites_context.dart:_key': 'a slot key',
@@ -59,19 +59,19 @@ const Map<String, String> _allowed = {
   'ecs/transform/hierarchy_math.dart:_v': 'scratch',
   'camera/output_camera.dart:_zero': 'a constant vector',
   'camera/output_camera.dart:_one': 'a constant vector',
-  'physics_3d/physics_3d_system.dart:_zero': 'a constant vector',
-  'physics_3d/physics_3d_system.dart:_scratch': 'scratch',
+  'physics/physics_3d/physics_3d_system.dart:_zero': 'a constant vector',
+  'physics/physics_3d/physics_3d_system.dart:_scratch': 'scratch',
 
   // Paints for debug outlines: configured once, never changed.
   'gameplay/checkpoint_system.dart:_inactivePaint': 'paint',
   'gameplay/checkpoint_system.dart:_activatedPaint': 'paint',
-  'physics_2d/physics_2d_system.dart:_debugStaticPaint': 'paint',
-  'physics_2d/physics_2d_system.dart:_debugDynamicPaint': 'paint',
-  'physics_2d/physics_2d_system.dart:_debugSensorPaint': 'paint',
-  'physics_2d/physics_2d_system.dart:_debugKinematicPaint': 'paint',
-  'physics_2d/physics_2d_system.dart:_debugSleepingPaint': 'paint',
-  'physics_2d/physics_2d_system.dart:_debugCharacterPaint': 'paint',
-  'physics_2d/physics_2d_system.dart:_debugCharacterAirPaint': 'paint',
+  'physics/physics_2d/physics_2d_system.dart:_debugStaticPaint': 'paint',
+  'physics/physics_2d/physics_2d_system.dart:_debugDynamicPaint': 'paint',
+  'physics/physics_2d/physics_2d_system.dart:_debugSensorPaint': 'paint',
+  'physics/physics_2d/physics_2d_system.dart:_debugKinematicPaint': 'paint',
+  'physics/physics_2d/physics_2d_system.dart:_debugSleepingPaint': 'paint',
+  'physics/physics_2d/physics_2d_system.dart:_debugCharacterPaint': 'paint',
+  'physics/physics_2d/physics_2d_system.dart:_debugCharacterAirPaint': 'paint',
 
   // Caches keyed by object identity or type, invisible from outside.
   'ecs/world.dart:_zobristKeys':

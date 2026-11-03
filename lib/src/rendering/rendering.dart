@@ -16,6 +16,6 @@ export 'system/render_system.dart';
 export 'system/lighting_2d_pass.dart';
 export 'culling/cull_state_component.dart';
 export 'culling/view_culling_system.dart';
-export 'post_processing/post_processing.dart';
+export 'post_processing/post_process_pass.dart';
 export 'post_processing/post_process_system.dart';
 export 'rendering_definitions.dart';

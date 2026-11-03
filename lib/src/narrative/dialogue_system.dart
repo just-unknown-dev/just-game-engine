@@ -4,7 +4,6 @@ library;
 import 'dart:math' as math;
 
 import '../ecs/ecs.dart';
-import '../ecs/serialization/tag_library.dart' show EngineTags;
 import 'dialogue_manager.dart';
 import 'runtime/dialogue_runner.dart';
 import 'dialogue_component.dart';

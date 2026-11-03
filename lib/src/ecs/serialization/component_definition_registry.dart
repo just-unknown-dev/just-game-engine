@@ -1,8 +1,6 @@
 library;
 
 import '../ecs.dart';
-import 'component_codec.dart';
-import 'component_definition.dart';
 
 /// Every component the engine can save, load, inspect, size and draw, keyed
 /// by type name, alias and Dart type.

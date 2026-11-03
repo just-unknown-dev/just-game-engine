@@ -7,9 +7,6 @@ import 'dart:ui' show Offset;
 import 'package:just_dart/just_dart.dart' show Vector2, Vector3;
 
 import '../../ecs/ecs.dart';
-import '../../ecs/serialization/component_definition.dart';
-import '../../ecs/serialization/component_definition_registry.dart';
-import '../../ecs/serialization/field_type.dart';
 import '../timeline_keys.dart';
 import '../timeline_track.dart';
 import '../timeline_context.dart';

@@ -53,8 +53,8 @@ What 2.0 changed in the architecture:
 | Dart SDK | `^3.11.0` |
 | Flutter | `>=3.47.1` |
 | Platforms | Android, iOS, Linux, macOS, Windows, Web (declared in `pubspec.yaml`) |
-| Public libraries | `package:just_game_engine/just_game_engine.dart` (the engine and the hosting widget), `package:just_game_engine/widgets.dart` (optional screen UI), `package:just_game_engine/graphics_3d.dart` (3-D graphics, opt-in), `package:just_game_engine/physics_3d.dart` (3-D physics, opt-in) |
-| Source | `lib/`: 387 Dart files, about 78,700 lines; 64 component classes; 31 concrete systems (plus the abstract `ReactiveSystem` and `AutoSyncSystem`) |
+| Public libraries | `package:just_game_engine/just_game_engine.dart` (the engine and the hosting widget), `package:just_game_engine/widgets.dart` (optional screen UI), `package:just_game_engine/just_game_engine_3d.dart` (3-D graphics and physics, opt-in) |
+| Source | `lib/`: 389 Dart files, about 78,700 lines; 64 component classes; 31 concrete systems (plus the abstract `ReactiveSystem` and `AutoSyncSystem`) |
 | Tests | `test/`: 171 test files, in folders that mirror `lib/src/`; `flutter test`: 1,958 passed, 4 skipped (November 4, 2026) |
 | Repository | https://github.com/just-unknown-dev/just-game-engine |
 
@@ -64,15 +64,15 @@ What 2.0 changed in the architecture:
 
 ### 2.1 Folders
 
-`lib/src/` is organised by feature: each folder holds a feature's components, systems, definitions and the state it keeps per engine, the way `graphics_3d/` and `physics_3d/` always were. Below the features sit the ECS core and a few leaf folders; above them, `core/` wires everything together.
+`lib/src/` is organised by feature: each folder holds a feature's components, systems, definitions and the state it keeps per engine, the way the 3-D graphics and physics folders always were. Below the features sit the ECS core and a few leaf folders; above them, `core/` wires everything together.
 
 ```
 lib/
 ├── just_game_engine.dart     the public library: one barrel per folder, plus curated `show`
 │                             re-exports of just_inputs, just_dart, just_memory and
 │                             just_game_engine_formats
-├── graphics_3d.dart          3-D graphics (opt-in): Graphics3D, models, shapes, materials
-├── physics_3d.dart           3-D physics (opt-in): Physics3D, bodies, colliders, joints, queries
+├── just_game_engine_3d.dart  3-D, opt-in: Graphics3D, models, shapes, materials, lights;
+│                             Physics3D, bodies, colliders, joints, queries
 ├── widgets.dart              optional screen UI: dialogue boxes, subtitles, localized text,
 │                             GameCameraControls, and just_inputs' on-screen controls
 └── src/
@@ -89,7 +89,8 @@ lib/
     │   │                     the hierarchy maths and HierarchySystem
     │   └── spatial/          EntitySpatialGrid, SpatialIndex
     ├── reactive/             signals over the ECS
-    ├── foundation/           leaves: Dimensions, Easings, WorldAxes, ShapePaintStyle
+    ├── foundation/           leaves: Dimensions, Easings, WorldAxes, ShapePaintStyle, and
+    │                         the solid parts colliders are fitted to (SolidShapeSource)
     ├── interfaces/           leaves: GameCamera, CameraLens, ViewVolume, FrameView,
     │                         BatchableSprite, SpriteBatchRenderer
     ├── assets/               AssetManager, assets and loaders, TextReader
@@ -104,8 +105,8 @@ lib/
     ├── gameplay/             health, checkpoints, spawns, lifetimes, bounds, movement
     ├── scenes/               SceneLoader and prefabs (files, library, instance components)
     ├── physics/              shared by 2-D and 3-D: collision layers, VelocityComponent
-    ├── physics_2d/           bodies, colliders, joints, queries, ray casting, Physics2DSystem
-    ├── physics_3d/           3-D physics (see physics_3d.dart)
+    │   ├── physics_2d/       bodies, colliders, joints, queries, ray casting, Physics2DSystem
+    │   └── physics_3d/       3-D physics (see just_game_engine_3d.dart)
     ├── rendering/            RenderingEngine and the drawing contracts: Renderable, Sprite,
     │   │                     sprite batching, the render components, culling/,
     │   │                     post_processing/
@@ -113,8 +114,13 @@ lib/
     │                         lighting pass, component painters
     ├── sprites/              sprite components and systems; atlas/: sheets, regions, clips
     │                         and their parsers
-    ├── shapes_2d/  materials_2d/  lighting_2d/  parallax/  particles/  level_map/
-    └── graphics_3d/          3-D graphics (see graphics_3d.dart)
+    ├── parallax/  particles/  level_map/
+    └── graphics/             the 2-D barrel (graphics.dart) and the two below
+        ├── graphics_2d/      2-D graphics: shapes/, materials/, lighting/ (RenderSystem draws
+        │                     them)
+        └── graphics_3d/      3-D graphics (see just_game_engine_3d.dart): the Graphics3D
+                              service, the renderer, models, skeletal animation; shapes/,
+                              materials/, lighting/
 ```
 
 Notes:
@@ -122,29 +128,30 @@ Notes:
 - **A feature keeps its state on the context** through an extension of its own (`ContextTimeline`, `ContextLevelMap`, `ContextSprites`, …) backed by `EngineContext.slot` (§5). `EngineContext` itself knows no feature.
 - **Definitions live with their feature** (`Shape2DDefinitions`, `GameplayDefinitions`, `Lighting2DDefinitions`, …). `BuiltInComponents` in `core/` lists them all, in the order an editor shows them, and an `Engine` installs it.
 - **`rendering/` is two layers.** The drawing contracts (`Renderable`, `RenderableComponent`, `LayerComponent`, culling) are below every drawable; `rendering/system/` — `RenderSystem`, which draws shapes, sprites, map layers, particles, materials and lights — is above them.
+- **By dimension.** `physics/` holds what 2-D and 3-D physics share (layers, `VelocityComponent`), with `physics_2d/` and `physics_3d/` inside it; `graphics/` holds `graphics_2d/` and `graphics_3d/`. The folder names repeat their parent's so a search by name finds them. Like every subfolder, each 2-D one is exported by its parent's barrel (`physics.dart`, `graphics.dart`); the 3-D ones only by the 3-D library. The two graphics folders each hold `shapes/`, `materials/` and `lighting/`, with the 2-D/3-D tag in the class and file names (`Light2DComponent` in `graphics/graphics_2d/lighting/light_2d_component.dart`). `graphics/graphics_3d/` also holds the 3-D renderer, models and skeletal animation and the `Graphics3D` service, its only way in; the 2-D renderer (`rendering/system/`) and sprites sit outside `graphics/graphics_2d/`. The solid parts both 2-D and 3-D colliders are fitted to (`SolidShapeSource`, `SolidBox`, …) are in `foundation/`, so neither graphics folder imports the other.
 - **The output `Camera`** (`camera/output_camera.dart`) imports only `interfaces/`, so the renderer can hold it without depending on the camera director.
 
 ### 2.2 Names and barrels
 
 A file is named after its main class (`asset_manager.dart` holds `AssetManager`); a file that holds several is `<subject>_<kind>.dart`, with any 2-D/3-D tag right after the subject, as in the class names (`physics_2d_events.dart` holds `CollisionEnter2DEvent` and the rest). A subfolder says what it holds (`tracks/`, `built_in/`, `widgets/`); there are no `impl/` or `base/` folders, and no folder of one file.
 
-Each folder has one barrel, named after it (`src/timeline/timeline.dart`), which `lib/just_game_engine.dart` exports; a subfolder is exported by its parent's barrel unless it has its own (`post_processing/`). The 3-D folders are exported by the public `graphics_3d.dart` and `physics_3d.dart` instead, so their own `graphics_3d.dart` and `physics_3d.dart` hold the `Graphics3D` and `Physics3D` services. A barrel exports only its own folder, plus the `show` lists of `just_game_engine_formats` names its feature owns (the animation barrel shows `AnimatorGraph`, the scenes barrel `SceneFormat`, `PrefabFile`, …). Inside `lib/src/`, a file imports the files it needs, or the barrel of a folder below its own (the 3-D folders, which sit above everything else, import a few) — never one that would lead back to it. A feature's context state (`TimelineContextState`, …) is public to `core/` but not exported.
+Each top-level folder of `lib/src/` has one barrel, named after it (`src/timeline/timeline.dart`), which `lib/just_game_engine.dart` exports; it exports the whole folder, subfolders included (`ecs.dart` exports `serialization/`, `spatial/` and `transform/`; `rendering.dart` exports `post_processing/`). No subfolder has a barrel of its own. A library that holds parts is not a barrel: `sprites/atlas/atlas.dart` and `effects/deterministic_effects.dart` are libraries their folder's barrel exports. The 3-D folders are exported by the public `just_game_engine_3d.dart` instead; their own `graphics_3d.dart` and `physics_3d.dart` hold the `Graphics3D` and `Physics3D` services. A barrel exports only its own folder, plus the `show` lists of `just_game_engine_formats` names its feature owns (the animation barrel shows `AnimatorGraph`, the scenes barrel `SceneFormat`, `PrefabFile`, …). Inside `lib/src/`, a file imports the files it needs, or the barrel of a folder below its own (the 3-D folders, which sit above everything else, import a few) — never one that would lead back to it. A feature's context state (`TimelineContextState`, …) is public to `core/` but not exported.
 
 ### 2.3 Module structure and the import graph
 
 Folder-level dependencies, from the `import`/`export` directives in `lib/` (a part file belongs to its library; a barrel counts on its own):
 
 ```
-lib/just_game_engine.dart, graphics_3d.dart, physics_3d.dart, widgets.dart
+lib/just_game_engine.dart, just_game_engine_3d.dart, widgets.dart
         │
 src/core  ─────────────── composition root: imports whatever it wires; only the 3-D folders
         │                 import it (they implement EngineService)
-src/graphics_3d, src/physics_3d
+src/graphics/graphics_3d, src/physics/physics_3d
         │
 src/rendering/system ──── RenderSystem: draws the features below
         │
-features: scenes, level_map, lighting_2d, materials_2d, particles, parallax, sprites,
-          shapes_2d, physics_2d, camera, timeline, animation, gameplay, effects,
+features: scenes, level_map, graphics/graphics_2d, particles, parallax, sprites, physics/physics_2d,
+          camera, timeline, animation, gameplay, effects,
           narrative, navigation, input, audio, localization, subtitle
         │
 src/rendering (contracts), src/physics (shared), src/reactive
@@ -154,7 +161,7 @@ src/ecs ───────────────── the ECS core: import
 leaves: src/foundation, src/interfaces, src/assets, src/storage
 ```
 
-Measured on 2026-11-04: 387 Dart files in `lib/`, 1,305 import, export and part directives, 85 folder nodes and 303 folder-level edges. **No import loop crosses from one feature to another, and none reaches the ECS core.** The loops that remain are each inside one folder and its own subfolders or barrel (`level_map` with `collision/` and `wang/`; `camera` with `stages/`; `narrative` with `runtime/`; `timeline` with `tracks/`; the ECS core with `serialization/` and `transform/`), which is how a feature's parts refer to each other.
+Measured on 2026-11-04: 389 Dart files in `lib/`, 1,326 import, export and part directives, 83 folder nodes and 308 folder-level edges. **No import loop crosses from one feature to another, and none reaches the ECS core.** The loops that remain are each inside one folder and its own subfolders or barrel (`level_map` with `collision/` and `wang/`; `camera` with `stages/`; `narrative` with `runtime/`; `timeline` with `tracks/`; the ECS core with `serialization/` and `transform/`), which is how a feature's parts refer to each other.
 
 Before the feature layout, the ECS core sat in one loop of 34 folders with most of the engine: `EngineContext` had a field for each feature, and the core's registry knew every built-in component. Both now live above the core — the fields as feature extensions on the context (§5), the built-in components in `BuiltInComponents`.
 
@@ -302,7 +309,7 @@ Each feature keeps its own state in a slot and offers it as an extension on `Eng
 | `ContextLocalization` (`localization/`) | `localization` (`LocalizationManager?`; `GameWidget` provides it through a `LocalizationScope`) |
 | `ContextSprites` (`sprites/`) | `sprites` (the `SpriteAssetLoader` seam; a `BundleSpriteAssetLoader` by default) |
 | `ContextPrefabs` (`scenes/`) | `prefabs` (the `PrefabLoader` seam) |
-| `ContextMaterials2D` (`materials_2d/`) | `material2DText` (the `TextReader` seam) |
+| `ContextMaterials2D` (`graphics/graphics_2d/materials/`) | `material2DText` (the `TextReader` seam) |
 
 The runtime registries — `TimelineTrackKinds`, `KeyEasings`, `AnimatorBindings`, `MapCollisionKinds`, `EffectTypes` — are instance classes, each with a frozen, read-only `static builtIn` holding the engine's own entries (`register` on it throws `UnsupportedError`). `EngineContext(withBuiltIns: false)` registers no core definitions or field types, and each feature's registry starts empty — only for tests that check a registry precisely.
 
@@ -818,7 +825,7 @@ Both have the same API: bodies (`PhysicsBody`, with `CircleShape`, `RectangleSha
 
 ### 11.2 Physics2DSystem
 
-`Physics2DSystem(engine.physics, camera: …)` (priority 90) is the ECS front end. It owns a body for every entity with a `TransformComponent` and a `Collider2DComponent`. The collider is the body's shape; the entity's `RigidBody2DComponent`, if it has one, says how it moves, and without one the body is static — the model 3-D physics has (`lib/src/physics_3d/`), with the same names. Each update it:
+`Physics2DSystem(engine.physics, camera: …)` (priority 90) is the ECS front end. It owns a body for every entity with a `TransformComponent` and a `Collider2DComponent`. The collider is the body's shape; the entity's `RigidBody2DComponent`, if it has one, says how it moves, and without one the body is static — the model 3-D physics has (`lib/src/physics/physics_3d/`), with the same names. Each update it:
 
 1. **syncs in** — makes bodies for new entities (and adds a `PhysicsBodyRefComponent`), removes bodies of entities that left, rebuilds a body whose collider changed (for `matchShape`, whose drawn shape changed), and copies settings, velocities, teleports and the forces, impulses and velocities queued on `RigidBody2DComponent` into the bodies;
 2. **steps** `physics.update(dt)` — inline, in the ECS pass (§7.2);
@@ -843,9 +850,9 @@ Related: `PhysicsJointBindingSystem` (priority 88) makes and keeps joints from `
 
 ### 3-D physics
 
-`lib/src/physics_3d/`, public as `package:just_game_engine/physics_3d.dart`: the 3-D components and their definitions, `Physics3DSystem`, the queries and events, the camera's collision stage, and `Physics3D`, the only way in. The simulation is just_physics_engine's `PhysicsEngine3D` (`JoltPhysicsEngine`, on just_jolt's bindings), so the chain is just_jolt → just_physics_engine → this engine, and nothing depends the other way.
+`lib/src/physics/physics_3d/`, public as `package:just_game_engine/just_game_engine_3d.dart`: the 3-D components and their definitions, `Physics3DSystem`, the queries and events, the camera's collision stage, and `Physics3D`, the only way in. The simulation is just_physics_engine's `PhysicsEngine3D` (`JoltPhysicsEngine`, on just_jolt's bindings), so the chain is just_jolt → just_physics_engine → this engine, and nothing depends the other way.
 
-**2-D games carry none of it.** Nothing outside the folder names its code: a game gives the engine a `Physics3D` in `EngineConfig.services`, and the engine reaches it only as a `ContextExtension` and an `EngineService`; `engine.physics3D` is an extension in the folder itself. `Physics3D`'s install registers the 3-D schemas; they are in no default list. A game that never makes a `Physics3D` gives the compiler no way to reach the folder, the Jolt engine or the bindings, and tree shaking drops them all. `test/physics_3d/physics_3d_boundary_test.dart` fails when anything else in `lib/src` imports the folder or calls `create3D`, `JoltPhysicsEngine`, `Physics3DDefinitions` or `Physics3DSystem` directly; the CLI's `check release-build` fails a 2-D game's release that holds 3-D names or Jolt's library. Jolt's native code is a separate matter: tree shaking never removes native code, so just_jolt's build hook compiles nothing unless the app's pubspec asks (`hooks: user_defines: just_jolt: build: true`).
+**2-D games carry none of it.** Nothing outside the folder names its code: a game gives the engine a `Physics3D` in `EngineConfig.services`, and the engine reaches it only as a `ContextExtension` and an `EngineService`; `engine.physics3D` is an extension in the folder itself. `Physics3D`'s install registers the 3-D schemas; they are in no default list. A game that never makes a `Physics3D` gives the compiler no way to reach the folder, the Jolt engine or the bindings, and tree shaking drops them all. `test/physics/physics_3d/physics_3d_boundary_test.dart` fails when anything else in `lib/src` imports the folder or calls `create3D`, `JoltPhysicsEngine`, `Physics3DDefinitions` or `Physics3DSystem` directly; the CLI's `check release-build` fails a 2-D game's release that holds 3-D names or Jolt's library. Jolt's native code is a separate matter: tree shaking never removes native code, so just_jolt's build hook compiles nothing unless the app's pubspec asks (`hooks: user_defines: just_jolt: build: true`).
 
 **At run time.** `Physics3D.install` (as the engine is made) registers the schemas and `CameraCollisionStage`; `start` (as it initializes) makes the physics engine — `PhysicsEngineFactory.create3D()`, which throws `Physics3DUnsupportedError` on the web or when Jolt was not built — and adds a `Physics3DSystem.lazy`. The world (Jolt's job system is the process's; a world brings its tables for 10,240 bodies and its temporary allocator) is made only when the first 3-D body or character appears; until then an update is one structure check, and `Physics3DQueries` find nothing. Each step sends what gameplay set, moves characters, steps, reads the moved bodies' poses in one batch (14 floats each) and drains the events once.
 
@@ -1043,13 +1050,13 @@ clear → background hooks (parallax) → post-process layers open → camera pr
 
 A `SceneRenderer` renders its scene into a texture and draws the image over the viewport with `canvas.drawImageRect`; post-processing and camera effects still apply, and sprites, UI and editor gizmos draw on top. `FrameView` (`rendering.view`) holds the frame's view, projection, view-projection and canvas matrices, filled once a frame and only when read, so a 2-D game pays nothing for it. `EngineConfig.createRendering` replaces the rendering engine outright.
 
-### 3-D graphics (`lib/graphics_3d.dart`)
+### 3-D graphics
 
-`Graphics3D` is opt-in, like `Physics3D`: one object that is both the `ContextExtension` (it registers the 3-D components, the skeletal animation target and the skeletal clip track) and the `EngineService` (it makes the renderer and draws). Given in `EngineConfig.services`, it is installed as the engine is made and started in the order the services are listed — first, so the game's own services can load models; `engine.graphics3D` is an extension in `graphics_3d.dart`. The renderer is just_graphics_engine's (`Renderer3D` on a `GpuDevice` over Flutter GPU); the engine reaches it only through that package's public libraries, whose web branch has no flutter_gpu, so the engine stays web-safe (`test/graphics_3d/graphics_3d_boundary_test.dart`). Without a `Graphics3D` the 3-D components are unknown, and a scene holding one fails to load with `UnknownComponentTypeException`, whose `builtInHint` names the switch.
+`Graphics3D` is opt-in, like `Physics3D`: one object that is both the `ContextExtension` (it registers the 3-D components, the skeletal animation target and the skeletal clip track) and the `EngineService` (it makes the renderer and draws). Given in `EngineConfig.services`, it is installed as the engine is made and started in the order the services are listed — first, so the game's own services can load models; `engine.graphics3D` is an extension beside it, in `src/graphics/graphics_3d/graphics_3d.dart`. The renderer is just_graphics_engine's (`Renderer3D` on a `GpuDevice` over Flutter GPU); the engine reaches it only through that package's public libraries, whose web branch has no flutter_gpu, so the engine stays web-safe (`test/graphics/graphics_3d/graphics_3d_boundary_test.dart`). Without a `Graphics3D` the 3-D components are unknown, and a scene holding one fails to load with `UnknownComponentTypeException`, whose `builtInHint` names the switch.
 
-- **Components** (`src/graphics_3d/`): `ModelComponent`, `Light3DComponent`, `EnvironmentComponent`, `AnimationPlayerComponent` and `SocketComponent` are plain data, and their definitions (`Graphics3DDefinitions`) mark them `Dimensions.threeD`. They import nothing from the GPU or the renderer, so scene files holding them load on every platform. `Graphics3D` is a `RefreshableExtension`, so an editor picks up new fields after a hot reload.
+- **Components** (`src/graphics/graphics_3d/`): `ModelComponent`, `AnimationPlayerComponent` and `SocketComponent`, `Light3DComponent` and `EnvironmentComponent` (in `lighting/`) and `MaterialOverrides3DComponent` (in `materials/`) are plain data, and their definitions (`Graphics3DDefinitions`, `Lighting3DDefinitions`, `Material3DDefinitions`) mark them `Dimensions.threeD`. They import nothing from the GPU or the renderer, so scene files holding them load on every platform. `Graphics3D` is a `RefreshableExtension`, so an editor picks up new fields after a hot reload.
 - **Start.** `Renderer3D.tryCreate` makes the device and the renderer. When there is no GPU, or the renderer can't start, `Graphics3D` logs the reason once, calls `onUnsupported` and runs on a `NullGpuDevice` instead. Scene loading, model loading and bounds keep working, and the frame shows a short note in place of the 3-D view. It registers a model loader with the engine's `AssetManager`, adds the scene renderer to the frame and an `Animation3DSystem` to the world.
-- **Shapes** (`src/graphics_3d/shapes/`): `Primitive3DComponent` and its eleven subclasses are plain data too. Each builds its own mesh on the CPU (a `ShapeMesh`, in engine axes: no axis correction) through just_graphics_engine's `MeshBuilder`, which winds every triangle to face the way its vertices' normals point, so a generator only has to get its normals right. A test checks every shape is closed and encloses its expected volume (positive: facing out). `Primitive3DComponent.componentType` is `Primitive3DComponent`, so all shapes share one archetype column and an entity has one, as a 2-D entity has one renderable. A shape is also a `SolidShapeSource`: its convex parts (a box per step of a staircase, a hull per segment of an arch or a ring, the convex pieces of a concave outline, triangulated by ear clipping, then merged Hertel–Mehlhorn style), which 3-D physics matches.
+- **Shapes** (`src/graphics/graphics_3d/shapes/`): `Primitive3DComponent` and its eleven subclasses are plain data too. Each builds its own mesh on the CPU (a `ShapeMesh`, in engine axes: no axis correction) through just_graphics_engine's `MeshBuilder`, which winds every triangle to face the way its vertices' normals point, so a generator only has to get its normals right. A test checks every shape is closed and encloses its expected volume (positive: facing out). `Primitive3DComponent.componentType` is `Primitive3DComponent`, so all shapes share one archetype column and an entity has one, as a 2-D entity has one renderable. A shape is also a `SolidShapeSource`: its convex parts (a box per step of a staircase, a hull per segment of an arch or a ring, the convex pieces of a concave outline, triangulated by ear clipping, then merged Hertel–Mehlhorn style), which 3-D physics matches.
 - **`GraphicsShapes`** is their GPU side: meshes by `shapeKey` (and, for a texture tiled per metre, the entity's scale rounded to a millimetre), materials by `materialKey`. Equal shapes share both, so they instance. A texture loads in the background; materials made before it arrives are made again with it (`revision`). Whatever no shape used for 300 frames is let go.
 - **`GraphicsModels`** loads each model path once: it reads through the engine's bundle (relative `.gltf` URIs resolve next to the file), prefers a cooked `<model>.jmodel` the bundle's manifest lists, parses in an isolate and uploads. `GraphicsModelAsset` is the engine-side `ModelAsset`. Its bounds and triangles are in engine axes; a mesh used by several nodes gives one triangle set per placement.
 - **Animation.** `AnimationPlayerComponent` saves the clip, speed, loop and crossfade; `Animation3DSystem` (priority `animation`) moves time on. The scene renderer samples each animated entity at `FrameView.interpolation` between its last two updates. `SocketComponent` pins a child entity to a joint: each update the system writes the joint's frame as the child's world transform (`parent · G · joint · G`, where G is `gltfToEngine`, so a model hung there is not turned twice), and the hierarchy works the local offset out from it.

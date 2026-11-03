@@ -13,12 +13,12 @@ import '../effects/effect_definitions.dart';
 import '../gameplay/gameplay_definitions.dart';
 import '../input/input_definitions.dart';
 import '../level_map/level_map_definitions.dart';
-import '../lighting_2d/lighting_2d_definitions.dart';
-import '../materials_2d/material_2d_definitions.dart';
+import '../graphics/graphics_2d/lighting/lighting_2d_definitions.dart';
+import '../graphics/graphics_2d/materials/material_2d_definitions.dart';
 import '../physics/physics_definitions.dart';
-import '../physics_2d/physics_2d_definitions.dart';
+import '../physics/physics_2d/physics_2d_definitions.dart';
 import '../rendering/rendering_definitions.dart';
-import '../shapes_2d/shape_2d_definitions.dart';
+import '../graphics/graphics_2d/shapes/shape_2d_definitions.dart';
 import '../sprites/sprite_definitions.dart';
 import '../timeline/timeline_definitions.dart';
 

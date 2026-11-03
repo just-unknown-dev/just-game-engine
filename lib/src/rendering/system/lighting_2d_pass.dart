@@ -9,9 +9,9 @@ import 'package:flutter/rendering.dart' show Matrix4, Offset, Paint, Rect;
 
 import '../../ecs/ecs.dart';
 import 'render_system.dart';
-import '../../materials_2d/material_2d_library.dart';
+import '../../graphics/graphics_2d/materials/material_2d_library.dart';
 import '../screen_pass.dart';
-import '../../lighting_2d/light_2d_component.dart';
+import '../../graphics/graphics_2d/lighting/light_2d_component.dart';
 
 /// Lights the frame when the world has a [Lighting2DComponent] on: the frame and its
 /// normals (`RenderSystem.renderNormals`) drawn through

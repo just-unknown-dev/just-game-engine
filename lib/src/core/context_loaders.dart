@@ -6,7 +6,7 @@ import '../animation/animation_context.dart';
 import '../assets/text_reader.dart';
 import '../ecs/engine_context.dart';
 import '../level_map/level_map_context.dart';
-import '../materials_2d/materials_2d_context.dart';
+import '../graphics/graphics_2d/materials/materials_2d_context.dart';
 import '../scenes/prefabs_context.dart';
 import '../sprites/atlas/sprite_asset_loader.dart';
 import '../sprites/sprites_context.dart';

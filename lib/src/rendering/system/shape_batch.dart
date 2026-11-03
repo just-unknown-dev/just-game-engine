@@ -8,9 +8,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
 
 import '../renderable.dart';
-import '../../shapes_2d/circle_2d_component.dart';
-import '../../shapes_2d/rectangle_2d_component.dart';
-import '../../shapes_2d/shape_paint_cache.dart';
+import '../../graphics/graphics_2d/shapes/circle_2d_component.dart';
+import '../../graphics/graphics_2d/shapes/rectangle_2d_component.dart';
+import '../../graphics/graphics_2d/shapes/shape_paint_cache.dart';
 import '../../foundation/shape_paint_style.dart';
 import '../renderable_component.dart';
 

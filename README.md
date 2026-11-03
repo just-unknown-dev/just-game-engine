@@ -161,7 +161,7 @@ void addCameras(Engine engine) {
 
 ### Physics
 
-- The same model as 3-D (`package:just_game_engine/physics_3d.dart`), with a `2D` suffix (but `Physics2DSystem` and `BodyType`, which keep their 1.x names): `RigidBody2DComponent` is how a body moves (static, kinematic or dynamic; mass, friction, bounce, damping, gravity scale, sensor, layer and filter) and `Collider2DComponent` its shape (box, circle, capsule, polygon, segment, chain, or *match shape*: whatever the entity draws; offset, rotation, one-way). A collider alone is a static body. `Physics2DSystem` steps `engine.physics` and syncs transforms and velocities back.
+- The same model as 3-D (`package:just_game_engine/just_game_engine_3d.dart`), with a `2D` suffix (but `Physics2DSystem` and `BodyType`, which keep their 1.x names): `RigidBody2DComponent` is how a body moves (static, kinematic or dynamic; mass, friction, bounce, damping, gravity scale, sensor, layer and filter) and `Collider2DComponent` its shape (box, circle, capsule, polygon, segment, chain, or *match shape*: whatever the entity draws; offset, rotation, one-way). A collider alone is a static body. `Physics2DSystem` steps `engine.physics` and syncs transforms and velocities back.
 - Push a body from code with `addForce`, `addImpulse`, `addTorque`, `setVelocity` and the rest on `RigidBody2DComponent`; it reports `isGrounded`, `groundNormal` and its velocities after each step.
 - `CharacterBody2DComponent` is a character gameplay moves instead (3-D's `CharacterBody3DComponent`): set its `moveVelocity`, call `jump`, and it walks slopes, climbs steps, rides platforms and stands on one-way ones, the same on every platform. It needs no rigid body or collider.
 - Physics comes from `just_physics_engine`: Box2D v3 through FFI where its native library loads, and a pure-Dart engine with the same API on the web or wherever it does not.
@@ -172,7 +172,7 @@ void addCameras(Engine engine) {
 
 ```dart
 import 'package:flutter/painting.dart' show Offset;
-import 'package:just_game_engine/graphics_3d.dart';
+import 'package:just_game_engine/just_game_engine_3d.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
 Future<Engine> start3D() async {
@@ -191,7 +191,7 @@ Future<Engine> start3D() async {
 }
 ```
 
-- `EngineConfig(services: [Graphics3D()])`, from `package:just_game_engine/graphics_3d.dart`, draws 3-D scenes with [just_graphics_engine](https://pub.dev/packages/just_graphics_engine) on Flutter GPU: `ModelComponent` (a `.glb` or `.gltf` model; its `bounds` fill in once it loads), `Light3DComponent` (directional, point or spot, shining along the entity's +Z; a scene with no lights gets a default sun), `EnvironmentComponent` (a gradient sky or an `.hdr` skybox, ambient light, reflections, fog, exposure), `AnimationPlayerComponent` (glTF clips with crossfades and blends; animator graphs and timelines play on a model's skeleton) and `SocketComponent` (pins a child entity to a joint).
+- `EngineConfig(services: [Graphics3D()])`, from `package:just_game_engine/just_game_engine_3d.dart`, draws 3-D scenes with [just_graphics_engine](https://pub.dev/packages/just_graphics_engine) on Flutter GPU: `ModelComponent` (a `.glb` or `.gltf` model; its `bounds` fill in once it loads), `Light3DComponent` (directional, point or spot, shining along the entity's +Z; a scene with no lights gets a default sun), `EnvironmentComponent` (a gradient sky or an `.hdr` skybox, ambient light, reflections, fog, exposure), `AnimationPlayerComponent` (glTF clips with crossfades and blends; animator graphs and timelines play on a model's skeleton) and `SocketComponent` (pins a child entity to a joint).
 - Eleven shapes made from their own sizes, no model file: `Cube3DComponent`, `Sphere3DComponent`, `Plane3DComponent`, `Cylinder3DComponent`, `Capsule3DComponent`, `Cone3DComponent`, `Torus3DComponent`, `Ramp3DComponent`, `Stairs3DComponent`, `Arch3DComponent` and `Polygon3DComponent` (base `Primitive3DComponent`), each with a material (colour, metallic, roughness, glow, opacity, unlit, a texture tiled per face or per metre). Equal shapes share a mesh and a material, so a hundred equal crates are one draw, and `Collider3DComponent(shape: ColliderShape3D.matchShape)` gives one the same shape in 3-D physics.
 - **Material files** (`*.material.json`): one material shared by every shape drawn with it (`Primitive3DComponent.material`) and laid over a model's own by name (`ModelComponent.materials`); texture coordinates natural, in metres or from the world; a layered material blends four layers by the vertex colour (a terrain's).
 - **Render providers**: a package draws a component of its own — a terrain, a road along a spline, a field of grass — as meshes and instance batches with `RenderProviders.of(engine.context).register(...)`; `just_world_builder_kit` is built on them.
@@ -202,7 +202,7 @@ Future<Engine> start3D() async {
 
 ### 3-D physics
 
-- `EngineConfig(services: [Physics3D()])`, from `package:just_game_engine/physics_3d.dart`: `RigidBody3DComponent`, `Collider3DComponent` (box, sphere, capsule, cylinder, convex hull, mesh, height field, or matching a 3-D shape), `CharacterBody3DComponent` and six joints, simulated on Jolt Physics, with the same names, fields and events as 2-D (`3D` for `2D`).
+- `EngineConfig(services: [Physics3D()])`, from `package:just_game_engine/just_game_engine_3d.dart`: `RigidBody3DComponent`, `Collider3DComponent` (box, sphere, capsule, cylinder, convex hull, mesh, height field, or matching a 3-D shape), `CharacterBody3DComponent` and six joints, simulated on Jolt Physics, with the same names, fields and events as 2-D (`3D` for `2D`).
 - The app's pubspec builds Jolt:
 
   ```yaml

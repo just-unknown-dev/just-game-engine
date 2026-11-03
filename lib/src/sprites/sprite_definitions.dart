@@ -2,10 +2,6 @@
 library;
 
 import '../ecs/ecs.dart';
-import '../ecs/serialization/component_codec.dart';
-import '../ecs/serialization/component_presentation.dart';
-import '../ecs/serialization/component_schema.dart';
-import '../ecs/serialization/field_type.dart';
 import '../ecs/serialization/schema_fields.dart';
 import '../foundation/dimensions.dart';
 import 'package:flutter/material.dart' show Icons;

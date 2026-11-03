@@ -7,8 +7,6 @@ import 'package:flutter/services.dart' show AssetBundle, rootBundle;
 import 'package:just_dart/just_dart.dart' show Quaternion, Vector3;
 
 import '../ecs/ecs.dart';
-import '../ecs/serialization/component_codec.dart';
-import '../ecs/serialization/component_definition_registry.dart';
 import 'package:just_game_engine_formats/just_game_engine_formats.dart';
 import 'prefab_library.dart';
 import 'prefab_components.dart';

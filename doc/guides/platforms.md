@@ -35,7 +35,7 @@ A game that targets both the web and native platforms asks before it turns 3-D p
 
 ```dart
 import 'package:just_game_engine/just_game_engine.dart';
-import 'package:just_game_engine/physics_3d.dart';
+import 'package:just_game_engine/just_game_engine_3d.dart';
 
 final engine = Engine(
   config: EngineConfig(

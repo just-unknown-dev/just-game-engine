@@ -25,7 +25,7 @@ import '../parallax/parallax_background.dart';
 import 'game_layers.dart';
 import 'game_terminal.dart';
 import '../rendering/rendering_engine.dart';
-import '../materials_2d/material_2d_screen.dart';
+import '../graphics/graphics_2d/materials/material_2d_screen.dart';
 import '../rendering/system/lighting_2d_pass.dart';
 import 'engine_config.dart';
 import 'engine_plugin.dart';

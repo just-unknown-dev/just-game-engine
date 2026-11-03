@@ -61,7 +61,7 @@ dependencies:
   # the editor and the just tool, and re-exported from the engine.
   just_game_engine_formats: ^0.2.0
   just_dart: ^0.2.0
-  # 3-D drawing on Flutter GPU, for lib/graphics_3d.dart (Graphics3D). Its
+  # 3-D drawing on Flutter GPU, for lib/just_game_engine_3d.dart (Graphics3D). Its
   # web branch carries no flutter_gpu, so the engine stays web-safe; a 2-D
   # game never makes a GPU device or loads the shaders.
   just_graphics_engine: ^0.1.0-dev.2

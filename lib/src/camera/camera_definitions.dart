@@ -6,11 +6,8 @@ import 'package:just_dart/just_dart.dart' show Vector3;
 import '../foundation/dimensions.dart';
 
 import '../ecs/ecs.dart';
-import '../ecs/serialization/component_definition.dart';
-import '../ecs/serialization/component_presentation.dart';
 import '../interfaces/camera_lens.dart';
 import 'camera_noise.dart';
-import '../ecs/serialization/field_type.dart';
 import 'camera_confiner_components.dart';
 import 'camera_framing_component.dart';
 import 'camera_manager_components.dart';

@@ -52,7 +52,7 @@ class EngineConfig {
   /// A service that is also a [ContextExtension] is installed into the
   /// engine's context as the engine is made, so its components are known
   /// before [Engine.initialize]. 3-D graphics and physics are such services
-  /// (`package:just_game_engine/graphics_3d.dart` and `physics_3d.dart`):
+  /// (`package:just_game_engine/just_game_engine_3d.dart`):
   ///
   /// ```dart
   /// EngineConfig(services: [Graphics3D(), Physics3D()])

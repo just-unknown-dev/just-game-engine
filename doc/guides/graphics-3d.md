@@ -8,11 +8,11 @@ A game without a `Graphics3D` is 2D only: it makes no GPU device and loads no sh
 
 ## Turning 3D on
 
-Import `package:just_game_engine/graphics_3d.dart` and pass a `Graphics3D` to `EngineConfig`. As the engine is made it registers the 3D components. As it initializes, it makes the GPU device and the renderer, loads models through `engine.assets`, adds a `GraphicsSceneRenderer` to the frame and an `Animation3DSystem` to the world. `engine.graphics3D` returns the one you gave, or null in a 2D game.
+Import `package:just_game_engine/just_game_engine_3d.dart` and pass a `Graphics3D` to `EngineConfig`. As the engine is made it registers the 3D components. As it initializes, it makes the GPU device and the renderer, loads models through `engine.assets`, adds a `GraphicsSceneRenderer` to the frame and an `Animation3DSystem` to the world. `engine.graphics3D` returns the one you gave, or null in a 2D game.
 
 ```dart lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:just_game_engine/graphics_3d.dart';
+import 'package:just_game_engine/just_game_engine_3d.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
 Future<void> main() async {
@@ -100,7 +100,7 @@ A 3D scene is seen through the same main camera as a 2D one, given a perspective
 - `SocketComponent(node: ...)` on a child entity pins it to a joint of its parent's model, keeping its own scale: a sword in a hand, a hat on a head.
 
 ```dart
-import 'package:just_game_engine/graphics_3d.dart';
+import 'package:just_game_engine/just_game_engine_3d.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
 Entity addKnight(World world) {

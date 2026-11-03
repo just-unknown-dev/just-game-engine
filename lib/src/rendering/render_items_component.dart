@@ -4,7 +4,6 @@ library;
 import 'dart:ui';
 
 import '../ecs/ecs.dart';
-import '../ecs/serialization/component_presentation.dart' show RenderContext;
 
 /// One drawable an entity owns, sorted into the same draw order as every
 /// renderable in the world.

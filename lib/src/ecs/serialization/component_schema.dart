@@ -1,7 +1,6 @@
 library;
 
 import '../ecs.dart';
-import 'component_definition.dart';
 
 export 'component_definition.dart';
 

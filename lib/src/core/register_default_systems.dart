@@ -12,8 +12,8 @@ import '../gameplay/movement_system.dart';
 import '../input/input_system.dart';
 import '../level_map/level_map_system.dart';
 import '../level_map/map_collision_system.dart';
-import '../physics_2d/physics_joint_binding_system.dart';
-import '../physics_2d/physics_2d_system.dart';
+import '../physics/physics_2d/physics_joint_binding_system.dart';
+import '../physics/physics_2d/physics_2d_system.dart';
 import '../parallax/parallax_render_system.dart';
 import '../rendering/system/render_system.dart';
 

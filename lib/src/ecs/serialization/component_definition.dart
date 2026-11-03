@@ -6,9 +6,6 @@ import 'package:flutter/widgets.dart' show IconData;
 
 import '../../foundation/dimensions.dart';
 import '../ecs.dart';
-import 'component_codec.dart';
-import 'component_presentation.dart';
-import 'field_type.dart';
 
 /// One persisted property of a component.
 class SchemaField {

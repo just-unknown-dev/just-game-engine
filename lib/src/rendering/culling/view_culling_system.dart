@@ -6,9 +6,6 @@ import 'dart:ui' show Rect;
 import 'package:just_dart/just_dart.dart' show Aabb3, Frustum, Matrix4, Vector3;
 
 import '../../ecs/ecs.dart';
-import '../../ecs/serialization/component_definition_registry.dart';
-import '../../ecs/serialization/component_presentation.dart'
-    show ComponentExtent;
 import '../../interfaces/interfaces.dart';
 import '../renderable.dart' show Renderable;
 import '../renderable_component.dart';

@@ -6,7 +6,6 @@ import 'dart:ui';
 import 'package:just_dart/just_dart.dart';
 
 import '../ecs.dart';
-import 'entity_spatial_grid.dart';
 
 /// An index of entities by their bounds in the world, in 3-D.
 ///

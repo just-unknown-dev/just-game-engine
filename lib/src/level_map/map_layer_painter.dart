@@ -11,14 +11,13 @@ import 'package:just_game_engine_formats/just_game_engine_formats.dart'
     show Material2DFile, Material2DKind;
 
 import '../ecs/ecs.dart';
-import '../ecs/serialization/component_presentation.dart' show RenderContext;
 import 'tile_cell.dart';
 import 'tile_chunks.dart';
 import 'level_map_data.dart';
 import 'map_geometry.dart';
 import 'level_map_runtime.dart';
-import '../materials_2d/material_2d_batch.dart';
-import '../materials_2d/material_2d_library.dart';
+import '../graphics/graphics_2d/materials/material_2d_batch.dart';
+import '../graphics/graphics_2d/materials/material_2d_library.dart';
 import '../rendering/render_items_component.dart';
 
 /// One map layer's tiles, as one of the level's things to draw: it sorts

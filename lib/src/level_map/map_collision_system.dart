@@ -12,7 +12,7 @@ import 'level_map_data.dart';
 import 'level_map_runtime.dart';
 import 'tile_properties.dart';
 import '../ecs/ecs.dart';
-import '../physics_2d/physics_2d_components.dart';
+import '../physics/physics_2d/physics_2d_components.dart';
 import 'level_map_component.dart';
 import 'map_body_component.dart';
 import 'level_map_context.dart';

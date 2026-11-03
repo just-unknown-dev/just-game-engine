@@ -6,7 +6,7 @@ _Gameplay_ · Opt into Jolt-based 3D physics with Physics3D, then use RigidBody3
 
 ## Turn it on
 
-Import `package:just_game_engine/physics_3d.dart` and give the engine a `Physics3D`. Jolt is native code, so the app's own `pubspec.yaml` must also ask for it to be built. An app that gets Jolt only through another package builds nothing.
+Import `package:just_game_engine/just_game_engine_3d.dart` and give the engine a `Physics3D`. Jolt is native code, so the app's own `pubspec.yaml` must also ask for it to be built. An app that gets Jolt only through another package builds nothing.
 
 ```yaml pubspec.yaml
 hooks:
@@ -18,7 +18,7 @@ hooks:
 ```dart lib/main.dart
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:just_game_engine/just_game_engine.dart';
-import 'package:just_game_engine/physics_3d.dart';
+import 'package:just_game_engine/just_game_engine_3d.dart';
 
 Future<Engine> createEngine() async {
   final engine = Engine(

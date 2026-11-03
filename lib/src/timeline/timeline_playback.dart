@@ -2,7 +2,6 @@
 library;
 
 import '../ecs/ecs.dart';
-import '../ecs/serialization/component_definition.dart' show SchemaField;
 import 'timeline_asset.dart';
 import 'timeline_track.dart';
 import 'timeline_context.dart';

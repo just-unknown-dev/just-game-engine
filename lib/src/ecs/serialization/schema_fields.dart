@@ -3,8 +3,6 @@
 library;
 
 import '../ecs.dart';
-import 'component_definition.dart';
-import 'field_type.dart';
 
 /// A decimal, boolean, whole-number or text field, read from and written to
 /// a component by the given functions.

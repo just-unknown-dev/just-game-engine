@@ -3,9 +3,6 @@ library;
 import 'dart:ui';
 
 import '../../ecs/ecs.dart';
-import '../../ecs/serialization/component_definition.dart';
-import '../../ecs/serialization/component_presentation.dart';
-import '../../ecs/serialization/component_definition_registry.dart';
 
 /// One stage of [RenderSystem]'s frame, run inside the camera transform.
 ///
