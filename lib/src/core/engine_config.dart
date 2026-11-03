@@ -5,11 +5,9 @@ import 'package:just_physics_engine/just_physics_engine.dart'
     show PhysicsEngine;
 
 import 'register_default_systems.dart';
-import '../graphics_3d/graphics_3d.dart' show Graphics3D;
-import '../physics_3d/physics_3d.dart' show Physics3D;
-import '../subsystems/audio/audio.dart';
-import '../subsystems/rendering/rendering_engine.dart';
-import '../ecs/base/engine_context.dart';
+import '../audio/audio.dart';
+import '../rendering/rendering_engine.dart';
+import '../ecs/engine_context.dart';
 import 'engine_service.dart';
 
 /// Choices made once, when an [Engine] is made: what it is taught
@@ -35,8 +33,6 @@ class EngineConfig {
     this.createRendering,
     this.createAudio,
     this.createPhysics,
-    this.physics3D,
-    this.graphics3D,
     this.deferAudioUntilInput,
     this.extensions = const [],
     this.services = const [],
@@ -52,6 +48,19 @@ class EngineConfig {
   /// The services the engine runs — started in this order as it
   /// initializes, stopped in reverse as it disposes; see [EngineService].
   /// Found with `engine.service<T>()`.
+  ///
+  /// A service that is also a [ContextExtension] is installed into the
+  /// engine's context as the engine is made, so its components are known
+  /// before [Engine.initialize]. 3-D graphics and physics are such services
+  /// (`package:just_game_engine/graphics_3d.dart` and `physics_3d.dart`):
+  ///
+  /// ```dart
+  /// EngineConfig(services: [Graphics3D(), Physics3D()])
+  /// ```
+  ///
+  /// Put `Graphics3D` before any service that loads models as it starts. A
+  /// game without them is 2-D only, and its release build carries no 3-D
+  /// code.
   final List<EngineService> services;
 
   /// Makes the audio engine — `AudioEngine.withBackend(...)` for a backend
@@ -62,35 +71,6 @@ class EngineConfig {
   /// standard one: native Box2D where the platform has it, the pure-Dart
   /// engine on the web. A world with no 2-D bodies costs nothing per step.
   final PhysicsEngine Function()? createPhysics;
-
-  /// 3-D physics (`package:just_game_engine/physics_3d.dart`): null for a
-  /// 2-D-only game, whose release build then carries no 3-D code at all.
-  ///
-  /// ```dart
-  /// EngineConfig(physics3D: Physics3D())
-  /// ```
-  ///
-  /// The engine installs it (the 3-D components and the camera's collision
-  /// stage) as it is made and starts it, after [services], as it
-  /// initializes. Jolt must be built into the app (its pubspec:
-  /// `hooks: user_defines: just_jolt: build: true`); where 3-D cannot run,
-  /// initializing fails with an `EngineInitException` whose `cause` is a
-  /// `Physics3DUnsupportedError` (`Physics3D.isSupported` asks first).
-  final Physics3D? physics3D;
-
-  /// 3-D graphics (`package:just_game_engine/graphics_3d.dart`): null for a
-  /// 2-D-only game, which then makes no GPU device and loads no shaders.
-  ///
-  /// ```dart
-  /// EngineConfig(graphics3D: Graphics3D())
-  /// ```
-  ///
-  /// The engine installs it (the 3-D components, and how animator graphs
-  /// and timelines play clips on a skeleton) as it is made and starts it,
-  /// before [services], as it initializes. Flutter GPU must be switched on
-  /// in each platform's runner; where it can't draw (the web, Android on
-  /// OpenGL ES) the game runs anyway and the 3-D view says why.
-  final Graphics3D? graphics3D;
 
   /// Whether audio starts at the first key or pointer press rather than in
   /// [Engine.initialize]. Browsers keep an audio context made before any

@@ -6,7 +6,7 @@ import 'package:just_dart/just_dart.dart' show Aabb3, JustMatrix4, Vector3;
 import 'package:just_graphics_engine/assets.dart';
 import 'package:just_graphics_engine/renderer.dart';
 
-import '../subsystems/assets/assets.dart';
+import '../assets/assets.dart';
 
 /// The models a game's scenes use, each loaded once per asset path: read
 /// from [bundle], parsed, uploaded with [uploader].

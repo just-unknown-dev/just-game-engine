@@ -227,7 +227,7 @@ final engine = Engine(
 );
 ```
 
-Every engine has its own `EngineContext` (`engine.context`): the definitions, loaders, registries and localization it uses. Two engines in one process no longer share any of it. A `World()` made on its own gets a fresh context; pass `World(context: engine.context)` for a second world that must read the engine's scenes.
+Every engine has its own `EngineContext` (`engine.context`): the definitions, loaders, registries and localization it uses. Two engines in one process no longer share any of it. A `World()` made on its own gets a fresh context with only the ECS core's components (`World(extensions: [BuiltInComponents.extension])` adds the engine's); pass `World(context: engine.context)` for a second world that must read the engine's scenes.
 
 ## Systems
 
@@ -919,7 +919,7 @@ void addBackgroundAndSparks(World world, ParallaxBackground sky) {
 }
 ```
 
-`RenderSystem` now draws `ParticleEmitterComponent` emitters itself (1.6 drew none). If you also registered them with `addManagedEmitter` or `addRenderable`, remove that, or they draw twice.
+`RenderSystem` now draws `ParticleEmitterComponent` emitters itself (1.6 drew none). If you also registered them with `addRenderable`, remove that, or they draw twice. `addManagedEmitter` is gone: an emitter goes on an entity.
 
 `ParticleEmitter.shape`, `ParticleEmitter.gravity` and `ParticleShape` (deprecated in 1.6) are removed: pass `renderer:` (for example `SquareParticleRenderer()`) and `forces: [GravityForce(...)]`.
 

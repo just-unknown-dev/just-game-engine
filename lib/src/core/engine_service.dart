@@ -5,7 +5,7 @@ import 'package:meta/meta.dart' show internal;
 
 import '../ecs/ecs.dart';
 import 'engine.dart';
-import '../ecs/base/engine_context.dart';
+import '../ecs/engine_context.dart';
 
 /// Something a game adds to its engine that lives as long as the engine
 /// does — achievements, a wallet, sign-in, ads (package

@@ -111,7 +111,7 @@ void main() {
 
     test('its saved form is a copy, read back into a map of its own', () {
       final registry = ComponentDefinitionRegistry()
-        ..registerAll(CoreDefinitions.all);
+        ..registerAll(BuiltInComponents.all);
       final component = LevelMapComponent(inline: map());
       final json = registry.encode(component)!;
       final again =

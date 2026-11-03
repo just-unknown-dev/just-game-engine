@@ -6,7 +6,7 @@ Make a new engine, or a new world, in each test and dispose it afterwards. Nothi
 
 ## A world on its own
 
-For plain ECS logic, a `World()` on its own is enough, and much faster than an engine. It makes a fresh context with the engine's components registered and disposes it with itself. Add the systems you are testing and call `world.update(1 / 60)` once per step:
+For plain ECS logic, a `World()` on its own is enough, and much faster than an engine. It makes a fresh context with the ECS core's components (the transform, the parent and children links, tags) and disposes it with itself; a test that reads or writes scenes gives it the engine's too, `World(extensions: [BuiltInComponents.extension])`. Add the systems you are testing and call `world.update(1 / 60)` once per step:
 
 ```dart test/movement_test.dart
 import 'package:flutter_test/flutter_test.dart';

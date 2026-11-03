@@ -115,9 +115,11 @@ Future<Engine> start3D() async {
   final engine = Engine(
     config: EngineConfig(
       defaultSystems: DefaultSystems.all,
-      graphics3D: Graphics3D(),
-      // Jolt does not run on the web: ask before giving the engine 3D physics.
-      physics3D: Physics3D.isSupported ? Physics3D() : null,
+      services: [
+        Graphics3D(),
+        // Jolt does not run on the web: ask before giving the engine 3D physics.
+        if (Physics3D.isSupported) Physics3D(),
+      ],
     ),
   );
   await engine.initialize();

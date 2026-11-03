@@ -78,7 +78,7 @@ class UnknownComponentTypeException implements Exception {
     'Arch3DComponent' ||
     'Polygon3DComponent' =>
       'It is a 3-D graphics component: give the engine '
-          'EngineConfig(graphics3D: Graphics3D()) '
+          'EngineConfig(services: [Graphics3D()]) '
           '(package:just_game_engine/graphics_3d.dart).',
     'RigidBody3DComponent' ||
     'Collider3DComponent' ||
@@ -91,7 +91,7 @@ class UnknownComponentTypeException implements Exception {
     'SixDofJoint3DComponent' ||
     'CameraCollision3DComponent' =>
       'It is a 3-D physics component: give the engine '
-          'EngineConfig(physics3D: Physics3D()) '
+          'EngineConfig(services: [Physics3D()]) '
           '(package:just_game_engine/physics_3d.dart).',
     _ => null,
   };

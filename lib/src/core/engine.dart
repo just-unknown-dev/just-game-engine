@@ -15,28 +15,27 @@ import 'package:just_inputs/just_inputs.dart';
 import 'package:just_physics_engine/just_physics_engine.dart';
 
 import '../ecs/ecs.dart';
-import '../ecs/systems/audio/audio_system.dart';
 import 'register_default_systems.dart';
-import '../memory/cache_manager.dart';
-import '../graphics_3d/graphics_3d.dart' show Graphics3D;
-import '../physics_3d/physics_3d.dart' show Physics3D;
-import '../subsystems/assets/asset_management.dart';
-import '../subsystems/audio/audio.dart';
-import '../ecs/systems/camera/camera_system.dart';
-import '../subsystems/input/cache_input_override_store.dart';
-import '../subsystems/parallax/parallax_background.dart';
+import '../storage/cache_manager.dart';
+import '../assets/asset_management.dart';
+import '../audio/audio.dart';
+import '../camera/camera_system.dart';
+import '../input/cache_input_override_store.dart';
+import '../parallax/parallax_background.dart';
 import 'game_layers.dart';
-import '../subsystems/rendering/impl/game_terminal.dart';
-import '../subsystems/rendering/rendering_engine.dart';
-import '../subsystems/materials_2d/material_2d_screen.dart';
-import '../subsystems/lighting_2d/lighting_2d_pass.dart';
+import '../rendering/impl/game_terminal.dart';
+import '../rendering/rendering_engine.dart';
+import '../materials_2d/material_2d_screen.dart';
+import '../rendering/system/lighting_2d_pass.dart';
 import 'engine_config.dart';
-import '../ecs/base/engine_context.dart';
+import '../ecs/engine_context.dart';
 import 'engine_plugin.dart';
 import 'engine_service.dart';
 import 'game_loop.dart';
 import 'system_manager.dart';
 import 'time_manager.dart';
+import '../physics/physics_context.dart';
+import 'built_in_components.dart';
 
 /// Main game engine class that orchestrates all subsystems
 ///
@@ -70,20 +69,20 @@ class Engine {
     _adopt(config);
   }
 
-  /// Installs [config]'s extensions (and its 3-D graphics and physics) and
-  /// queues its services: 3-D graphics first, so a service can load models,
-  /// and 3-D physics last.
+  /// Installs [config]'s extensions, and every service that is also a
+  /// [ContextExtension] (3-D graphics and physics are), then queues the
+  /// services in the order given.
   void _adopt(EngineConfig config) {
+    context.install(BuiltInComponents.extension);
     context.installAll(config.extensions);
-    final graphics3D = config.graphics3D;
-    if (graphics3D != null) context.install(graphics3D);
-    final physics3D = config.physics3D;
-    if (physics3D != null) context.install(physics3D);
-    if (graphics3D != null) unawaited(services.add(graphics3D));
+    for (final service in config.services) {
+      if (service case final ContextExtension extension) {
+        context.install(extension);
+      }
+    }
     for (final service in config.services) {
       unawaited(services.add(service));
     }
-    if (physics3D != null) unawaited(services.add(physics3D));
   }
 
   EngineConfig _config;
@@ -215,17 +214,6 @@ class Engine {
   /// it was set instead of lagging a frame behind. If no [PhysicsSystem] is
   /// in [world], bodies added here simply won't advance.
   PhysicsEngine get physics => _ready(_physics, 'physics');
-
-  /// The 3-D physics given in [EngineConfig.physics3D], or null for a 2-D
-  /// game. Its world, system and queries are there once the engine has
-  /// initialized.
-  Physics3D? get physics3D => _config.physics3D;
-
-  /// The 3-D graphics given in [EngineConfig.graphics3D], or null for a 2-D
-  /// game. Its renderer, models and scene renderer are there once the
-  /// engine has initialized; `unsupportedReason` says why nothing is drawn
-  /// where Flutter GPU can't.
-  Graphics3D? get graphics3D => _config.graphics3D;
 
   /// The game's input: devices, the input asset, players. Starts with no
   /// actions — the game loads its asset after [initialize]. Updated once per
@@ -583,10 +571,6 @@ class Engine {
     );
     // No standalone 'physics' task here — see the doc comment on [physics]
     // above. PhysicsSystem steps it inline within the 'ecs' task below.
-    systems.registerUpdateTask(
-      'particles',
-      (deltaTime) => rendering.updateManagedEmitters(deltaTime),
-    );
     systems.registerUpdateTask('ecs', (deltaTime) => world.update(deltaTime));
     // Systems that also move once per rendered frame (see FrameSystem).
     systems.registerFrameTask('ecs', world.frame);

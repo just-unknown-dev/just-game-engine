@@ -40,8 +40,8 @@ import 'package:just_game_engine/physics_3d.dart';
 final engine = Engine(
   config: EngineConfig(
     defaultSystems: DefaultSystems.all,
-    // Null on the web and wherever Jolt was not built into the app.
-    physics3D: Physics3D.isSupported ? Physics3D() : null,
+    // Left out on the web and wherever Jolt was not built into the app.
+    services: [if (Physics3D.isSupported) Physics3D()],
   ),
 );
 ```

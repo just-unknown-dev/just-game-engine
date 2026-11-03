@@ -3,11 +3,9 @@ import 'dart:typed_data';
 
 import 'package:just_physics_engine/physics_3d.dart';
 
-import '../ecs/base/system_priorities.dart';
-import '../ecs/base/transform/transform_component.dart';
-import '../ecs/components/shapes/solid_shape.dart';
+import '../shapes_2d/solid_shape.dart';
 import '../ecs/ecs.dart';
-import '../ecs/systems/physics/contact_pairs.dart';
+import '../physics_2d/contact_pairs.dart';
 import 'collider_shapes_3d.dart';
 import 'physics_components_3d.dart';
 import 'physics_events_3d.dart';

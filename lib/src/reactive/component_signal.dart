@@ -3,8 +3,9 @@ library;
 import 'package:just_signals/just_signals.dart';
 
 import '../ecs/ecs.dart';
-import '../ecs/components/components.dart';
 import 'package:just_dart/just_dart.dart';
+import '../gameplay/health_component.dart';
+import '../physics/velocity_component.dart';
 
 /// A signal that wraps a component's property for reactive updates.
 ///

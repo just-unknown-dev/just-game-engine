@@ -42,7 +42,7 @@ void main() {
   test('Physics3D() runs on Jolt by default, here where it is built', () async {
     expect(Physics3D.isSupported, isTrue);
     expect(Physics3D.unsupportedReason, isNull);
-    final engine = Engine(config: EngineConfig(physics3D: Physics3D()));
+    final engine = Engine(config: EngineConfig(services: [Physics3D()]));
     addTearDown(engine.dispose);
     await engine.initialize();
     final physics3D = engine.physics3D!;

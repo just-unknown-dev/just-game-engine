@@ -165,7 +165,7 @@ After a frame's steps, systems that also implement `FrameSystem` run their `fram
 
 `engine.context` is an `EngineContext`: everything one engine knows that is not a subsystem. It holds the component `definitions` and `fieldTypes` scenes are read with, the scene `migrations`, registries such as `animatorBindings`, `trackKinds`, `easings`, `collisionKinds` and `effectTypes`, the project's `physicsLayers`, the timeline `signals`, the game's `localization`, the asset `bundle` and the `assets` manager. The engine makes it in its constructor, so you can fill it before `initialize()`.
 
-`engine.world.context` is the same object. A second world that must read the engine's scenes is made with `World(context: engine.context)`; a bare `World()` makes a fresh context of its own.
+`engine.world.context` is the same object. A second world that must read the engine's scenes is made with `World(context: engine.context)`; a bare `World()` makes a fresh context of its own, with only the ECS core's components (`World(extensions: [BuiltInComponents.extension])` adds the engine's).
 
 A package, or your game, teaches an engine through a `ContextExtension`:
 

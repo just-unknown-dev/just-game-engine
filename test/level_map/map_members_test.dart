@@ -190,7 +190,7 @@ void main() {
   });
 
   test('the layer it is on is saved; an older scene has none', () {
-    final schema = CoreComponentSchemas.layer;
+    final schema = RenderingDefinitions.layer;
     final json = schema.encode(LayerComponent(mapLayer: 7));
     expect(schema.decode(json).mapLayer, 7);
     final old = Map<String, dynamic>.of(json)

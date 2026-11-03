@@ -176,7 +176,7 @@ import 'package:just_game_engine/graphics_3d.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
 Future<Engine> start3D() async {
-  final engine = Engine(config: EngineConfig(graphics3D: Graphics3D()));
+  final engine = Engine(config: EngineConfig(services: [Graphics3D()]));
   await engine.initialize();
   await SceneLoader.loadAsset(engine.world, 'assets/scenes/level.scene.json');
 
@@ -191,7 +191,7 @@ Future<Engine> start3D() async {
 }
 ```
 
-- `EngineConfig(graphics3D: Graphics3D())`, from `package:just_game_engine/graphics_3d.dart`, draws 3-D scenes with [just_graphics_engine](https://pub.dev/packages/just_graphics_engine) on Flutter GPU: `ModelComponent` (a `.glb` or `.gltf` model; its `bounds` fill in once it loads), `Light3DComponent` (directional, point or spot, shining along the entity's +Z; a scene with no lights gets a default sun), `EnvironmentComponent` (a gradient sky or an `.hdr` skybox, ambient light, reflections, fog, exposure), `AnimationPlayerComponent` (glTF clips with crossfades and blends; animator graphs and timelines play on a model's skeleton) and `SocketComponent` (pins a child entity to a joint).
+- `EngineConfig(services: [Graphics3D()])`, from `package:just_game_engine/graphics_3d.dart`, draws 3-D scenes with [just_graphics_engine](https://pub.dev/packages/just_graphics_engine) on Flutter GPU: `ModelComponent` (a `.glb` or `.gltf` model; its `bounds` fill in once it loads), `Light3DComponent` (directional, point or spot, shining along the entity's +Z; a scene with no lights gets a default sun), `EnvironmentComponent` (a gradient sky or an `.hdr` skybox, ambient light, reflections, fog, exposure), `AnimationPlayerComponent` (glTF clips with crossfades and blends; animator graphs and timelines play on a model's skeleton) and `SocketComponent` (pins a child entity to a joint).
 - Eleven shapes made from their own sizes, no model file: `Cube3DComponent`, `Sphere3DComponent`, `Plane3DComponent`, `Cylinder3DComponent`, `Capsule3DComponent`, `Cone3DComponent`, `Torus3DComponent`, `Ramp3DComponent`, `Stairs3DComponent`, `Arch3DComponent` and `Polygon3DComponent` (base `Primitive3DComponent`), each with a material (colour, metallic, roughness, glow, opacity, unlit, a texture tiled per face or per metre). Equal shapes share a mesh and a material, so a hundred equal crates are one draw, and `Collider3DComponent(shape: ColliderShape3D.matchShape)` gives one the same shape in 3-D physics.
 - **Material files** (`*.material.json`): one material shared by every shape drawn with it (`Primitive3DComponent.material`) and laid over a model's own by name (`ModelComponent.materials`); texture coordinates natural, in metres or from the world; a layered material blends four layers by the vertex colour (a terrain's).
 - **Render providers**: a package draws a component of its own — a terrain, a road along a spline, a field of grass — as meshes and instance batches with `RenderProviders.of(engine.context).register(...)`; `just_world_builder_kit` is built on them.
@@ -202,7 +202,7 @@ Future<Engine> start3D() async {
 
 ### 3-D physics
 
-- `EngineConfig(physics3D: Physics3D())`, from `package:just_game_engine/physics_3d.dart`: `RigidBody3DComponent`, `Collider3DComponent` (box, sphere, capsule, cylinder, convex hull, mesh, height field, or matching a 3-D shape), `CharacterBody3DComponent` and six joints, simulated on Jolt Physics, with the same names, fields and events as 2-D (`3D` for `2D`).
+- `EngineConfig(services: [Physics3D()])`, from `package:just_game_engine/physics_3d.dart`: `RigidBody3DComponent`, `Collider3DComponent` (box, sphere, capsule, cylinder, convex hull, mesh, height field, or matching a 3-D shape), `CharacterBody3DComponent` and six joints, simulated on Jolt Physics, with the same names, fields and events as 2-D (`3D` for `2D`).
 - The app's pubspec builds Jolt:
 
   ```yaml

@@ -39,13 +39,18 @@ Also: `EngineInitException`, `EngineNotReadyError`, `GameLayer`, `TimeManager`, 
 
 ## Context and services
 
-An engine's registries, loaders and package state live in its `EngineContext` (`engine.context`, also `world.context`); nothing is process-wide. A package teaches an engine through a `ContextExtension` listed in `EngineConfig.extensions`.
+An engine's registries, loaders and package state live in its `EngineContext` (`engine.context`, also `world.context`); nothing is process-wide. A package teaches an engine through a `ContextExtension` listed in `EngineConfig.extensions`. The engine's own features come from `BuiltInComponents.extension`, which an `Engine` installs first.
 
 - **`EngineContext`** — per-engine definitions, registries, loaders and package state.
   - `EngineContext({Iterable<ContextExtension> extensions = const [], AssetBundle? bundle, bool withBuiltIns = true})`
   - `ComponentDefinitionRegistry definitions`
   - `void install(ContextExtension extension)`
-  - Also holds `fieldTypes`, `migrations`, `trackKinds`, `easings`, `animatorBindings`, `collisionKinds`, `effectTypes`, `assets`, `sprites`, `animatorGraphs`, `timelines`, `tiles`, `signals`, `localization`, `bundle`; `slot` keeps a package's own state, `overrideLoaders` swaps the loaders.
+  - Also holds `fieldTypes`, `migrations`, `assets`, `bundle` and `withBuiltIns`; `slot` keeps a feature's or a package's own state.
+  - Each feature adds its members as an extension: `ContextTimeline` (`trackKinds`, `easings`, `signals`, `timelineAudio`, `timelines`), `ContextAnimation` (`animatorBindings`, `animationTargets`, `animatorGraphs`), `ContextLevelMap` (`collisionKinds`, `tiles`), `ContextEffects` (`effectTypes`), `ContextPhysics` (`physicsLayers`, `loadPhysicsLayers`), `ContextLocalization` (`localization`), `ContextSprites` (`sprites`), `ContextPrefabs` (`prefabs`), `ContextMaterials2D` (`material2DText`); `ContextLoaders` (`overrideLoaders`, `useBundle`) swaps the file seams together.
+- **`BuiltInComponents`** — every feature's component definitions.
+  - `static const ContextExtension extension`
+  - `static ComponentDefinitionRegistry registry()` — the ECS core's components and these, without a context.
+  - `static List<ComponentCodec> get all`
 - **`ContextExtension`** — what a package installs into a context.
   - `String get id`
   - `void install(EngineContext context)`
@@ -60,6 +65,7 @@ Also: `ServiceHost` (`engine.services`), `ServiceContext`, `ContextResource`, `L
 Entities are ids with components, stored by archetype. Systems run each frame by priority, highest first. A system that creates or destroys entities inside its loop queues that on `world.commands`; the world applies the queue between systems.
 
 - **`World`** — `engine.world`: entities, systems, queries, events.
+  - `World({EngineContext? context, Iterable<ContextExtension> extensions = const []})` — on its own, a fresh context with the ECS core's components and [extensions]; `World(extensions: [BuiltInComponents.extension])` reads the engine's scenes.
   - `Entity createEntityWithComponents(List<Component> components, {String? name})`
   - `void destroyEntity(Entity entity, {bool withChildren = true})`
   - `void addSystem(System system)`
@@ -257,7 +263,7 @@ Also: `RaycastSystem`, `RaycastColliderComponent` (rays without physics); `Colli
   - `Physics3D({PhysicsEngine3D? engine, Vector3? gravity, int workerThreads = -1, int maxBodies = 10240, bool reportContactStay = false, bool reportActivation = false, bool addSystem = true})`
   - `static void registerSchemas(EngineContext context)`, `static bool get isSupported`, `static String? get unsupportedReason`
   - `bool get isStarted`, `PhysicsEngine3D get engine`, `PhysicsSystem3D get system`, `Physics3DQueries get queries`, `bool get hasWorld`, `PhysicsWorld3D get world`
-- **`EngineConfig.physics3D`**, **`Engine.physics3D`** — the `Physics3D` given, or null.
+- **`engine.physics3D`** (an extension in `physics_3d.dart`) — the `Physics3D` given in `EngineConfig.services`, or null.
 - **Components**: `RigidBody3DComponent` (`bodyType`, `mass`, `friction`, `restitution`, `linearDamping`, `angularDamping`, `gravityScale`, `isSensor`, `lockRotation`, `continuousCollision`, `canSleep`, `layer`; `addForce`, `addImpulse`, `setVelocity`, …), `Collider3DComponent` (`shape`: `ColliderShape3D`), `CharacterBody3DComponent` (`moveVelocity`, `jump`, `isGrounded`, `groundVelocity`, …), joints `FixedJoint3DComponent`, `PointJoint3DComponent`, `HingeJoint3DComponent`, `SliderJoint3DComponent`, `DistanceJoint3DComponent`, `SixDofJoint3DComponent` (`Joint3DComponent`), `CameraCollision3DComponent`.
 - **`PhysicsSystem3D`** — steps the world: `PhysicsSystem3D(PhysicsWorld3D physics, {ColliderGeometry3D? geometry})`, `PhysicsSystem3D.lazy(PhysicsWorld3D Function() create, …)`; `entityOf`, `bodyOf`, `characterOf`.
 - **Events**: `CollisionEnter3DEvent`, `CollisionStay3DEvent`, `CollisionExit3DEvent`, `SensorEnter3DEvent`, `SensorExit3DEvent`.
@@ -449,6 +455,6 @@ The engine library re-exports these names; anything else from these packages nee
 
 ## Deprecated in 2.0
 
-Still exported, to go in a later major release; the deprecation message says what to use instead, where there is a replacement. `Engine`: `getSystem`, `parallax`; `Entity`: `generation`; `HierarchySystem`; `IEnableable`; `IPausable`; `IRenderable`; `IUpdatable`; `LifecycleStateMixin`; `ParallaxSystem`; `RenderingEngine`: `addManagedEmitter`, `addRenderable`, `layerCount`, `markLayerOrderDirty`, `markSpatialIndexDirty`, `onRenderBackground`, `onRenderOverlay`, `removeManagedEmitter`, `removeRenderable`, `renderableCount`, `renderables`, `updateManagedEmitters`, `useSpatialIndex`; `TagComponent`: `tag`. Parameters: `Entity(generation:)`, `ViewCullingSystem(gridCellSize:)`.
+Still exported, to go in a later major release; the deprecation message says what to use instead, where there is a replacement. `Engine`: `getSystem`, `parallax`; `Entity`: `generation`; `HierarchySystem`; `IEnableable`; `IPausable`; `IRenderable`; `IUpdatable`; `LifecycleStateMixin`; `ParallaxSystem`; `RenderingEngine`: `addRenderable`, `layerCount`, `markLayerOrderDirty`, `markSpatialIndexDirty`, `onRenderBackground`, `onRenderOverlay`, `removeRenderable`, `renderableCount`, `renderables`, `useSpatialIndex`; `TagComponent`: `tag`. Parameters: `Entity(generation:)`, `ViewCullingSystem(gridCellSize:)`.
 
 What changed since 1.x: [CHANGELOG](https://github.com/just-unknown-dev/just-game-engine/blob/main/CHANGELOG.md), [MIGRATION](https://github.com/just-unknown-dev/just-game-engine/blob/main/MIGRATION.md).

@@ -4,8 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:just_physics_engine/physics_3d.dart';
 
-import '../ecs/components/shapes/solid_shape.dart';
-import '../subsystems/assets/asset_management.dart';
+import '../shapes_2d/solid_shape.dart';
+import '../assets/asset_management.dart';
 import 'physics_components_3d.dart';
 
 /// Where mesh and convex-hull colliders get their triangles.

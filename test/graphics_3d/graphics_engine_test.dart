@@ -114,7 +114,7 @@ void main() {
       device = NullGpuDevice(shaders: rendererNullShaders);
       service = Graphics3D(device: device);
       engine = Engine(
-        config: EngineConfig(graphics3D: service),
+        config: EngineConfig(services: [service]),
         context: EngineContext(bundle: TestBundle({cubePath: cubeGlb()})),
       );
       await engine.initialize();
@@ -279,7 +279,7 @@ void main() {
 
   test('with no GPU it starts anyway, says why and draws a note', () async {
     final engine = Engine(
-      config: EngineConfig(graphics3D: Graphics3D()),
+      config: EngineConfig(services: [Graphics3D()]),
     );
     await engine.initialize();
     addTearDown(engine.dispose);

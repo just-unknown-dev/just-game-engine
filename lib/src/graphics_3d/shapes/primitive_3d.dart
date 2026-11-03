@@ -5,9 +5,9 @@ import 'dart:ui' show Color;
 import 'package:just_dart/just_dart.dart' show Aabb3, Vector2;
 import 'package:just_graphics_engine/assets.dart';
 
-import '../../ecs/components/components.dart';
 import '../../ecs/ecs.dart';
-import '../../subsystems/assets/assets.dart';
+import '../../assets/assets.dart';
+import '../../shapes_2d/solid_shape.dart';
 
 /// A 3-D shape made from its own sizes rather than a model file — the base
 /// of `Cube3DComponent`, `Sphere3DComponent`, `Plane3DComponent`, `Cylinder3DComponent`, `Capsule3DComponent`,

@@ -8,6 +8,7 @@ import '../ecs/serialization/serialization.dart';
 import '../foundation/dimensions.dart';
 import 'camera_collision_3d.dart';
 import 'physics_components_3d.dart';
+import '../physics_2d/physics_definitions_2d.dart';
 
 /// How the 3-D physics components are saved and shown in an editor. Every
 /// one is a 3-D component (`Dimensions.threeD`), in the `Physics` group the

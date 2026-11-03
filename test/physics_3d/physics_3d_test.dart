@@ -12,7 +12,7 @@ import 'package:just_game_engine/physics_3d.dart';
 import 'package:just_physics_engine/testing.dart';
 
 Future<Engine> _engine(Physics3D physics3D) async {
-  final engine = Engine(config: EngineConfig(physics3D: physics3D));
+  final engine = Engine(config: EngineConfig(services: [physics3D]));
   addTearDown(engine.dispose);
   await engine.initialize();
   return engine;
@@ -29,7 +29,7 @@ void main() {
   });
 
   test('the components are known as soon as the engine is made', () {
-    final engine = Engine(config: EngineConfig(physics3D: Physics3D(engine: FakePhysicsEngine3D())));
+    final engine = Engine(config: EngineConfig(services: [Physics3D(engine: FakePhysicsEngine3D())]));
     addTearDown(engine.dispose);
     expect(engine.context.definitions.definitionByType('RigidBody3DComponent'), isNotNull);
     expect(engine.context.definitions.definitionByType('Collider3DComponent'), isNotNull);
@@ -94,9 +94,7 @@ void main() {
 
   test('where 3-D physics cannot run, initializing fails saying why', () async {
     final engine = Engine(
-      config: EngineConfig(
-        physics3D: Physics3D(engine: FakePhysicsEngine3D(unavailableReason: 'not here')),
-      ),
+      config: EngineConfig(services: [Physics3D(engine: FakePhysicsEngine3D(unavailableReason: 'not here'))]),
     );
     addTearDown(engine.dispose);
     await expectLater(

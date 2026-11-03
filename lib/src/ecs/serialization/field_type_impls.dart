@@ -5,9 +5,9 @@ import 'dart:math' as math;
 import 'package:flutter/painting.dart';
 import 'package:just_dart/just_dart.dart';
 
-import '../components/components.dart';
 import '../ecs.dart' show EntityTarget, EntityTargetKind, TagNames;
 import 'field_type.dart';
+import '../../foundation/shape_paint_style.dart';
 
 double _toDouble(Object? v) => v is num ? v.toDouble() : 0.0;
 

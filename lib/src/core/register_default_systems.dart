@@ -4,17 +4,17 @@ library;
 import 'engine.dart';
 import '../interfaces/game_camera.dart';
 import '../ecs/ecs.dart';
-import '../ecs/systems/animation/register_animation_systems.dart';
-import '../ecs/systems/audio/audio_system.dart';
-import '../ecs/systems/camera/camera_brain_system.dart';
-import '../ecs/systems/core/movement_system.dart';
-import '../ecs/systems/input/input_system.dart';
-import '../ecs/systems/level_map/level_map_system.dart';
-import '../ecs/systems/level_map/map_collision_system.dart';
-import '../ecs/systems/physics/physics_joint_binding_system.dart';
-import '../ecs/systems/physics/physics_system.dart';
-import '../ecs/systems/rendering/parallax_render_system.dart';
-import '../ecs/systems/rendering/render_system.dart';
+import 'register_sprite_systems.dart';
+import '../audio/audio_system.dart';
+import '../camera/camera_brain_system.dart';
+import '../gameplay/movement_system.dart';
+import '../input/input_system.dart';
+import '../level_map/level_map_system.dart';
+import '../level_map/map_collision_system.dart';
+import '../physics_2d/physics_joint_binding_system.dart';
+import '../physics_2d/physics_system.dart';
+import '../parallax/parallax_render_system.dart';
+import '../rendering/system/render_system.dart';
 
 /// One of the engine's standard sets of systems; see [registerDefaultSystems].
 enum DefaultSystem {

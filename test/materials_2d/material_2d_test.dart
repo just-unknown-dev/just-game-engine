@@ -168,7 +168,7 @@ void main() {
     });
 
     setUp(() async {
-      world = World()..initialize();
+      world = World(extensions: [BuiltInComponents.extension])..initialize();
       world.context.material2DText = (path) async =>
           _files[path] ?? (throw StateError('no $path'));
       render = RenderSystem(passes: const [], clock: () => 0);
@@ -391,7 +391,8 @@ void main() {
 
   group('the Timeline', () {
     test("keys an entity's overridden numbers, not its colours", () {
-      final world = World()..initialize();
+      final world = World(extensions: [BuiltInComponents.extension])
+        ..initialize();
       addTearDown(world.dispose);
       final e = world.createEntityWithComponents([
         Material2DComponent(material: _flash),
@@ -465,7 +466,9 @@ void main() {
   });
 
   test('a Material2DComponent is saved with its entity', () {
-    final definitions = EngineContext().definitions;
+    final definitions = EngineContext(
+      extensions: [BuiltInComponents.extension],
+    ).definitions;
     final component = Material2DComponent(
       material: _flash,
       overrides: {'flash.amount': 0.5},

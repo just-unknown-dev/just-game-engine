@@ -3,8 +3,8 @@ import 'package:just_graphics_engine/gpu.dart';
 import 'package:just_graphics_engine/renderer.dart';
 
 import '../core/core.dart';
-import '../subsystems/assets/assets.dart';
-import '../subsystems/timeline/timeline.dart';
+import '../assets/assets.dart';
+import '../timeline/timeline.dart';
 import 'animation_system.dart';
 import 'graphics_components.dart';
 import 'graphics_definitions.dart';
@@ -14,6 +14,7 @@ import 'shapes/shape_components.dart';
 import 'shapes/shape_definitions.dart';
 import 'skeletal_animation_target.dart';
 import 'skeletal_clip_track.dart';
+import '../animation/animation_context.dart';
 
 /// 3-D graphics for an engine. Give one to the engine and its 3-D
 /// components — [ModelComponent], [Light3DComponent],
@@ -22,7 +23,7 @@ import 'skeletal_clip_track.dart';
 /// offered in the editor's 3-D scenes and drawn:
 ///
 /// ```dart
-/// Engine(config: EngineConfig(graphics3D: Graphics3D()));
+/// Engine(config: EngineConfig(services: [Graphics3D()]));
 /// ```
 ///
 /// with Flutter GPU switched on in each platform's runner (see the README).
@@ -117,7 +118,7 @@ final class Graphics3D implements RefreshableExtension, EngineService {
 
   static const String _notStarted =
       'Graphics3D has not started: give it to the engine '
-      '(EngineConfig(graphics3D: ...)) and initialize the engine.';
+      '(EngineConfig(services: [Graphics3D()])) and initialize the engine.';
 
   // ── ContextExtension ──────────────────────────────────────────────────
 
@@ -199,7 +200,7 @@ final class Graphics3D implements RefreshableExtension, EngineService {
       }
     }
     if (!identical(_engine, engine)) return;
-    engine.physics3D?.reloadModel(path);
+    engine.assets.notifyReloaded(path);
   }
 
   /// Takes out what [start] put in — the scene renderer, the animation
@@ -229,4 +230,13 @@ final class Graphics3D implements RefreshableExtension, EngineService {
     _renderer = null;
     _engine = null;
   }
+}
+
+/// The engine's 3-D graphics.
+extension EngineGraphics3D on Engine {
+  /// The [Graphics3D] given in `EngineConfig.services`, or null for a 2-D
+  /// game. Its renderer, models and scene renderer are there once the
+  /// engine has initialized; [Graphics3D.unsupportedReason] says why
+  /// nothing is drawn where Flutter GPU can't.
+  Graphics3D? get graphics3D => maybeService<Graphics3D>();
 }

@@ -6,9 +6,7 @@ import 'package:just_dart/just_dart.dart' show Matrix4, Quaternion;
 import 'package:just_graphics_engine/assets.dart';
 import 'package:just_graphics_engine/renderer.dart';
 
-import '../ecs/components/components.dart';
 import '../ecs/ecs.dart';
-import '../ecs/systems/systems.dart';
 import 'graphics_components.dart';
 import 'graphics_models.dart';
 

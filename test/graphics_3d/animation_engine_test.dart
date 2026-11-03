@@ -47,7 +47,7 @@ void main() {
       device = NullGpuDevice(shaders: rendererNullShaders);
       service = Graphics3D(device: device);
       engine = Engine(
-        config: EngineConfig(graphics3D: service),
+        config: EngineConfig(services: [service]),
         context: EngineContext(bundle: TestBundle({_barPath: skinnedBarGlb()})),
       );
       await engine.initialize();

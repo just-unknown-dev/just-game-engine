@@ -5,9 +5,9 @@ import 'dart:ui' show Offset;
 import 'package:just_dart/just_dart.dart' show Aabb3;
 import 'package:just_graphics_engine/assets.dart';
 
-import '../../ecs/components/components.dart';
 import 'outline.dart';
 import 'primitive_3d.dart';
+import '../../shapes_2d/solid_shape.dart';
 
 // The 3-D shapes. Plain data with no GPU imports, like the other 3-D
 // components: a scene holding them loads everywhere. Sizes are metres, every

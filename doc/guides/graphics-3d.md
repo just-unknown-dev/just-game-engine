@@ -21,9 +21,11 @@ Future<void> main() async {
   final engine = Engine(
     config: EngineConfig(
       defaultSystems: DefaultSystems.all,
-      graphics3D: Graphics3D(
-        onUnsupported: (reason) => debugPrint('No 3D here: $reason'),
-      ),
+      services: [
+        Graphics3D(
+          onUnsupported: (reason) => debugPrint('No 3D here: $reason'),
+        ),
+      ],
     ),
   );
   await engine.initialize();

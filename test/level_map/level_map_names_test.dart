@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
 /// The engine's own definitions, fresh for this file.
-final _coreDefinitions = ComponentDefinitionRegistry.core();
+final _coreDefinitions = BuiltInComponents.registry();
 void main() {
   test('a map saved as a TileMapComponent loads, and is saved as a '
       'LevelMapComponent', () {

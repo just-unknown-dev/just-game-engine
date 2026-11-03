@@ -15,71 +15,77 @@ import 'package:flutter_test/flutter_test.dart';
 const Map<String, String> _allowed = {
   // Immutable data: constants computed once, read-only tables, frozen
   // registries holding only the engine's own entries.
-  'ecs/base/tags.dart:_valid': 'a RegExp',
+  'ecs/tags.dart:_valid': 'a RegExp',
   'ecs/serialization/tag_library.dart:empty': 'an empty, immutable library',
-  'subsystems/physics/physics_layers.dart:defaults':
-      'the default layers; immutable',
-  'ecs/components/animation/animator_bindings.dart:builtIn': 'frozen registry',
-  'ecs/components/animation/animator_bindings.dart:_engine':
+  'physics/physics_layers.dart:defaults': 'the default layers; immutable',
+  'animation/animator_bindings.dart:builtIn': 'frozen registry',
+  'animation/animator_bindings.dart:_engine':
       "the engine's own bindings; private, never written",
-  'subsystems/effects/networking/effect_serializer.dart:builtIn':
-      'frozen registry',
-  'subsystems/effects/networking/effect_serializer.dart:_engine':
+  'effects/networking/effect_serializer.dart:builtIn': 'frozen registry',
+  'effects/networking/effect_serializer.dart:_engine':
       "the engine's own decoders; private, never written",
-  'subsystems/level_map/collision/map_collision_kinds.dart:builtIn':
-      'frozen registry',
-  'subsystems/timeline/timeline_keys.dart:builtIn': 'frozen registry',
-  'subsystems/timeline/timeline_keys.dart:empty': 'an empty, immutable curve',
-  'subsystems/timeline/timeline_track.dart:builtIn': 'frozen registry',
-  'subsystems/timeline/timeline_track.dart:_engine':
+  'level_map/collision/map_collision_kinds.dart:builtIn': 'frozen registry',
+  'timeline/timeline_keys.dart:builtIn': 'frozen registry',
+  'timeline/timeline_keys.dart:empty': 'an empty, immutable curve',
+  'timeline/timeline_track.dart:builtIn': 'frozen registry',
+  'timeline/timeline_track.dart:_engine':
       "the engine's own track readers; private, never written",
-  'subsystems/level_map/built_in_tilesets.dart:_shapes': 'a constant table',
+  'level_map/built_in_tilesets.dart:_shapes': 'a constant table',
   'ecs/serialization/material_overrides_field_type.dart:material2D':
       'a field type: final fields, its channels unmodifiable',
   'ecs/serialization/material_overrides_field_type.dart:material3D':
       'a field type: final fields, its channels unmodifiable',
-  'subsystems/level_map/wang/wang_templates.dart:_blobMasks':
-      'a constant table',
-  'ecs/systems/rendering/shape_batch.dart:_circle16': 'a constant table',
-  'ecs/systems/rendering/shape_batch.dart:_circle24': 'a constant table',
-  'ecs/systems/camera/camera_stage.dart:_ln100': 'a constant',
+  'level_map/wang/wang_templates.dart:_blobMasks': 'a constant table',
+  'rendering/system/shape_batch.dart:_circle16': 'a constant table',
+  'rendering/system/shape_batch.dart:_circle24': 'a constant table',
+  'camera/camera_stage.dart:_ln100': 'a constant',
+
+  // Slot keys: an identity each feature keeps its per-engine state under
+  // (EngineContext.slot); never written.
+  'animation/animation_context.dart:_key': 'a slot key',
+  'level_map/level_map_context.dart:_key': 'a slot key',
+  'materials_2d/materials_2d_context.dart:_key': 'a slot key',
+  'physics/physics_context.dart:_key': 'a slot key',
+  'scenes/prefabs_context.dart:_key': 'a slot key',
+  'sprites/sprites_context.dart:_key': 'a slot key',
+  'timeline/timeline_context.dart:_key': 'a slot key',
 
   // Scratch space for single-threaded math: overwritten before every read.
-  'ecs/base/transform/euler_rotation.dart:_scratch': 'scratch',
-  'ecs/base/transform/transform_component.dart:_scratch': 'scratch',
-  'ecs/base/transform/transform_component.dart:_scratchTurn': 'scratch',
-  'ecs/base/transform/hierarchy_math.dart:_qa': 'scratch',
-  'ecs/base/transform/hierarchy_math.dart:_qb': 'scratch',
-  'ecs/base/transform/hierarchy_math.dart:_v': 'scratch',
-  'subsystems/camera/camera_system.dart:_zero': 'a constant vector',
-  'subsystems/camera/camera_system.dart:_one': 'a constant vector',
+  'ecs/transform/euler_rotation.dart:_scratch': 'scratch',
+  'ecs/transform/transform_component.dart:_scratch': 'scratch',
+  'ecs/transform/transform_component.dart:_scratchTurn': 'scratch',
+  'ecs/transform/hierarchy_math.dart:_qa': 'scratch',
+  'ecs/transform/hierarchy_math.dart:_qb': 'scratch',
+  'ecs/transform/hierarchy_math.dart:_v': 'scratch',
+  'camera/output_camera.dart:_zero': 'a constant vector',
+  'camera/output_camera.dart:_one': 'a constant vector',
   'physics_3d/physics_system_3d.dart:_zero': 'a constant vector',
   'physics_3d/physics_system_3d.dart:_scratch': 'scratch',
 
   // Paints for debug outlines: configured once, never changed.
-  'ecs/systems/gameplay/checkpoint_system.dart:_inactivePaint': 'paint',
-  'ecs/systems/gameplay/checkpoint_system.dart:_activatedPaint': 'paint',
-  'ecs/systems/physics/physics_system.dart:_debugStaticPaint': 'paint',
-  'ecs/systems/physics/physics_system.dart:_debugDynamicPaint': 'paint',
-  'ecs/systems/physics/physics_system.dart:_debugSensorPaint': 'paint',
-  'ecs/systems/physics/physics_system.dart:_debugKinematicPaint': 'paint',
-  'ecs/systems/physics/physics_system.dart:_debugSleepingPaint': 'paint',
-  'ecs/systems/physics/physics_system.dart:_debugCharacterPaint': 'paint',
-  'ecs/systems/physics/physics_system.dart:_debugCharacterAirPaint': 'paint',
+  'gameplay/checkpoint_system.dart:_inactivePaint': 'paint',
+  'gameplay/checkpoint_system.dart:_activatedPaint': 'paint',
+  'physics_2d/physics_system.dart:_debugStaticPaint': 'paint',
+  'physics_2d/physics_system.dart:_debugDynamicPaint': 'paint',
+  'physics_2d/physics_system.dart:_debugSensorPaint': 'paint',
+  'physics_2d/physics_system.dart:_debugKinematicPaint': 'paint',
+  'physics_2d/physics_system.dart:_debugSleepingPaint': 'paint',
+  'physics_2d/physics_system.dart:_debugCharacterPaint': 'paint',
+  'physics_2d/physics_system.dart:_debugCharacterAirPaint': 'paint',
 
   // Caches keyed by object identity or type, invisible from outside.
-  'ecs/base/world.dart:_zobristKeys':
+  'ecs/world.dart:_zobristKeys':
       'per-Type query hash keys: which key a type gets varies with order, '
       'what a query returns does not',
-  'ecs/base/world.dart:_zodRng': "the zobrist keys' seeded source",
-  'subsystems/sprite_atlas/impl/atlas_animation_clip.dart:_timings':
+  'ecs/world.dart:_zodRng': "the zobrist keys' seeded source",
+  'sprites/atlas/impl/atlas_animation_clip.dart:_timings':
       'an Expando: per-clip timings, weakly held',
 
   // The renderer is the process's: whether it can filter with shaders is a
   // fact about the process, and its warning is said once per process.
-  'subsystems/rendering/shader_filter_support.dart:debugSupportedOverride':
+  'rendering/shader_filter_support.dart:debugSupportedOverride':
       'test seam for a platform capability',
-  'subsystems/rendering/shader_filter_support.dart:_warned':
+  'rendering/shader_filter_support.dart:_warned':
       'log-once for a platform capability',
 };
 

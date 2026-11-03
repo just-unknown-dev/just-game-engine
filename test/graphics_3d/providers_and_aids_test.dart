@@ -57,7 +57,7 @@ void main() {
 
   setUp(() async {
     service = Graphics3D(device: NullGpuDevice(shaders: rendererNullShaders), keepEdges: true);
-    engine = Engine(config: EngineConfig(graphics3D: service));
+    engine = Engine(config: EngineConfig(services: [service]));
     await engine.initialize();
   });
   tearDown(() => engine.dispose());

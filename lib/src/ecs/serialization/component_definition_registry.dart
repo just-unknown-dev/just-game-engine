@@ -3,7 +3,6 @@ library;
 import '../ecs.dart';
 import 'component_codec.dart';
 import 'component_definition.dart';
-import 'core_codecs.dart';
 
 /// Every component the engine can save, load, inspect, size and draw, keyed
 /// by type name, alias and Dart type.
@@ -23,14 +22,6 @@ import 'core_codecs.dart';
 class ComponentDefinitionRegistry {
   /// An empty registry.
   ComponentDefinitionRegistry();
-
-  /// A fresh registry holding the engine's own definitions — what every
-  /// `EngineContext` starts from.
-  factory ComponentDefinitionRegistry.core() {
-    final registry = ComponentDefinitionRegistry();
-    registerCoreCodecs(registry);
-    return registry;
-  }
 
   final Map<String, ComponentDefinition> _definitions = {};
   final Map<Type, ComponentDefinition> _definitionsByType = {};

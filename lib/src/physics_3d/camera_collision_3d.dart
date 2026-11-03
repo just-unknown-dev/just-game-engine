@@ -3,10 +3,10 @@ import 'dart:ui' show Offset;
 
 import 'package:just_dart/just_dart.dart';
 
-import '../ecs/components/camera/camera_rig_3d_components.dart';
+import '../camera/camera_rig_3d_components.dart';
 import '../ecs/ecs.dart';
-import '../ecs/systems/camera/camera_stage.dart';
-import '../subsystems/camera/camera_state.dart';
+import '../camera/camera_stage.dart';
+import '../camera/camera_state.dart';
 import 'physics_queries_3d.dart';
 import 'physics_system_3d.dart';
 

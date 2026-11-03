@@ -1,6 +1,5 @@
-import '../ecs/components/components.dart';
 import '../ecs/ecs.dart';
-import '../subsystems/animation/animation.dart';
+import '../animation/animation.dart';
 import 'graphics_components.dart';
 
 /// Plays an animator graph's states on a 3-D model's skeleton: an entity

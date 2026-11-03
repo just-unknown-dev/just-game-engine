@@ -223,7 +223,7 @@ Saved progress carries over: achievements, currency and inventory still save to 
 - **A switched-off parent switches off its subtree.** Queries, tag lookups and the engine's systems go by `Entity.isActiveInHierarchy`.
 - **Draw order follows `LayerComponent`** (layer, then z-order). Give entities one where order matters.
 - **`GameWidget` always draws the world.** If your overlay hook called `engine.world.render`, remove the call, or the world draws twice.
-- **`RenderSystem` draws particle emitters itself.** Remove emitters you registered with `addManagedEmitter` or `addRenderable`, or they draw twice.
+- **`RenderSystem` draws particle emitters itself.** Remove emitters you registered with `addRenderable`, or they draw twice. `addManagedEmitter` is gone: an emitter goes on an entity.
 - **`CollisionEnter2DEvent.depth` is always 0**, and its `point` is worked out from where the two bodies' bounds meet.
 
 ## Known limitations

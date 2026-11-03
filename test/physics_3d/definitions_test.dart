@@ -16,7 +16,7 @@ void main() {
     test(
       'the extension registers every component, 3-D only, with stable ids',
       () {
-        final context = EngineContext()..install(Physics3D());
+        final context = EngineContext(extensions: [BuiltInComponents.extension])..install(Physics3D());
         addTearDown(context.dispose);
         final ids = <String>{};
         for (final schema in Physics3DSchemas.all) {
@@ -134,7 +134,7 @@ void main() {
   });
 
   test('the 2-D and 3-D bodies show the same fields, grouped alike', () {
-    final context = EngineContext()..install(Physics3D());
+    final context = EngineContext(extensions: [BuiltInComponents.extension])..install(Physics3D());
     addTearDown(context.dispose);
     final two = context.definitions.definitionByType('RigidBody2DComponent')!;
     final three = context.definitions.definitionByType('RigidBody3DComponent')!;
@@ -148,7 +148,7 @@ void main() {
   });
 
   test('the 2-D and 3-D characters show the same fields, grouped alike', () {
-    final context = EngineContext()..install(Physics3D());
+    final context = EngineContext(extensions: [BuiltInComponents.extension])..install(Physics3D());
     addTearDown(context.dispose);
     final two = context.definitions.definitionByType('CharacterBody2DComponent')!;
     final three = context.definitions.definitionByType('CharacterBody3DComponent')!;

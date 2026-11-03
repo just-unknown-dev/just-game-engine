@@ -55,7 +55,7 @@ How they were counted, from the package root:
 
 `pubspec.yaml` declares Android, iOS, Linux, macOS, Windows and web. The minimum SDKs are Dart 3.11 (`^3.11.0`) and Flutter 3.47.1.
 
-- `lib/` imports `dart:io` in one file, `lib/src/memory/engine_storage_io.dart`, and only through a conditional import; nothing imports `dart:html`. The engine therefore compiles for the web with both dart2js and dart2wasm. On 2026-10-01 a small web app depending on the engine was built with `flutter build web --wasm` without errors.
+- `lib/` imports `dart:io` in one file, `lib/src/storage/engine_storage_io.dart`, and only through a conditional import; nothing imports `dart:html`. The engine therefore compiles for the web with both dart2js and dart2wasm. On 2026-10-01 a small web app depending on the engine was built with `flutter build web --wasm` without errors.
 - Physics: Box2D through FFI where its native library loads; otherwise, and always on the web, the pure-Dart backend of `just_physics_engine`.
 - Audio: on the web the audio engine starts at the first key or pointer press, because browsers keep audio suspended until a user gesture (`EngineConfig.deferAudioUntilInput`).
 - Shaders: a fragment shader used as an image filter (post-process passes, `ShaderComponent`) needs Impeller. On the web and on Skia the effect is skipped and the content draws unshaded (`ShaderFilterSupport`).

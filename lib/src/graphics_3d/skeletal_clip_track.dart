@@ -1,4 +1,4 @@
-import '../subsystems/timeline/timeline.dart';
+import '../timeline/timeline.dart';
 import 'graphics_components.dart';
 
 /// A timeline track playing clips on the bound entity's 3-D model (its

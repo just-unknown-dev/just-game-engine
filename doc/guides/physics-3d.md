@@ -24,8 +24,8 @@ Future<Engine> createEngine() async {
   final engine = Engine(
     config: EngineConfig(
       defaultSystems: DefaultSystems.all,
-      // Null where Jolt cannot run, such as the web.
-      physics3D: Physics3D.isSupported ? Physics3D() : null,
+      // Left out where Jolt cannot run, such as the web.
+      services: [if (Physics3D.isSupported) Physics3D()],
     ),
   );
   await engine.initialize();

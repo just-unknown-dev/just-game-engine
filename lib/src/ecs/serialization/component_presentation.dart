@@ -10,7 +10,7 @@ import 'dart:ui';
 import 'package:just_dart/just_dart.dart' show Aabb3;
 
 import '../../interfaces/game_camera.dart';
-import '../../subsystems/rendering/frame_view.dart';
+import '../../interfaces/frame_view.dart';
 import '../ecs.dart';
 
 /// The size a component implies, and how to change it.

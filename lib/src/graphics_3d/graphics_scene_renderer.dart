@@ -11,9 +11,8 @@ import 'package:just_graphics_engine/gpu.dart';
 import 'package:just_graphics_engine/renderer.dart';
 
 import '../core/core.dart';
-import '../ecs/components/components.dart';
 import '../ecs/ecs.dart';
-import '../subsystems/rendering/rendering.dart';
+import '../rendering/rendering.dart';
 import 'animation_system.dart';
 import 'graphics_components.dart';
 import 'graphics_models.dart';

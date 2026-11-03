@@ -81,12 +81,14 @@ Do not change `pubspec.yaml` to a path dependency. If your pull request needs a 
 
 Run every command from the repository root. Some tests read `lib/` from disk and expect that working directory.
 
+Tests sit in the folder named after the feature they test, as in `lib/src/` (`test/timeline/` tests `lib/src/timeline/`); `test/perf/` holds the timing checks, and only the tests about the whole package (the public library, the guides, the process-state guard) sit in `test/` itself. Put a new test in its feature's folder.
+
 ```bash
 # The whole suite.
 flutter test
 
 # One file.
-flutter test test/engine_lifecycle_test.dart
+flutter test test/core/engine_lifecycle_test.dart
 ```
 
 **The process-state guard.** `test/no_process_state_test.dart` fails when a `static` field that is not `const` appears under `lib/src` and is not on the test's allow-list. A static field is shared by every engine and every test in the process, so per-engine state belongs in `EngineContext` (a registry, or `context.slot(...)` for a package's own state) and per-world state in `World`. Add a field to the allow-list only when it really is immutable, and write down why next to it.
@@ -101,7 +103,7 @@ flutter test test/no_process_state_test.dart
 flutter test test/perf/transform_hot_path_test.dart
 ```
 
-`test/performance_test.dart` holds further timing checks (engine start-up, rendering, physics, particles, ECS queries, the frame scheduler); it runs with the rest of the suite.
+`test/perf/performance_test.dart` holds further timing checks (engine start-up, rendering, physics, particles, ECS queries, the frame scheduler); it runs with the rest of the suite.
 
 ---
 
@@ -114,7 +116,7 @@ flutter test test/perf/transform_hot_path_test.dart
   ```
 
 - **Analysis.** `flutter analyze` must report no issues at all — errors, warnings or infos. The rules are in `analysis_options.yaml`: `flutter_lints` plus a few additions.
-- **Web and WebAssembly.** The engine runs on every Flutter platform, including web builds compiled to JavaScript and to WebAssembly. Nothing in `lib/` may import `dart:io` or `dart:html` directly. Platform-specific code goes in a pair of files chosen by a conditional import, the way `lib/src/memory/engine_storage.dart` picks its storage:
+- **Web and WebAssembly.** The engine runs on every Flutter platform, including web builds compiled to JavaScript and to WebAssembly. Nothing in `lib/` may import `dart:io` or `dart:html` directly. Platform-specific code goes in a pair of files chosen by a conditional import, the way `lib/src/storage/engine_storage.dart` picks its storage:
 
   ```dart
   import 'engine_storage_web.dart'
@@ -122,7 +124,7 @@ flutter test test/perf/transform_hot_path_test.dart
       as platform;
   ```
 
-  Today `lib/src/memory/engine_storage_io.dart` is the only file that imports `dart:io`. Check with `grep -rnE "import 'dart:(io|html)'" lib` before you open a pull request.
+  Today `lib/src/storage/engine_storage_io.dart` is the only file that imports `dart:io`. Check with `grep -rnE "import 'dart:(io|html)'" lib` before you open a pull request.
 - **No process-wide state.** See the guard above: keep state in `EngineContext` or `World`, never in a mutable `static` field.
 - **Documentation.** Give every public API you add a `///` doc comment. If you add, rename or remove a public type, update [API.md](API.md), and describe user-visible changes in [CHANGELOG.md](CHANGELOG.md).
 - **Tests.** Add or update tests for any behaviour you change.

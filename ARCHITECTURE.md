@@ -54,8 +54,8 @@ What 2.0 changed in the architecture:
 | Flutter | `>=3.47.1` |
 | Platforms | Android, iOS, Linux, macOS, Windows, Web (declared in `pubspec.yaml`) |
 | Public libraries | `package:just_game_engine/just_game_engine.dart` (the engine and the hosting widget), `package:just_game_engine/widgets.dart` (optional screen UI), `package:just_game_engine/graphics_3d.dart` (3-D graphics, opt-in), `package:just_game_engine/physics_3d.dart` (3-D physics, opt-in) |
-| Source | `lib/`: 332 Dart files, about 56,600 lines; 64 component classes; 31 concrete systems (plus the abstract `ReactiveSystem` and `AutoSyncSystem`) |
-| Tests | `test/`: 159 test files; `flutter test`: 1,874 passed, 4 skipped (October 15, 2026) |
+| Source | `lib/`: 385 Dart files, about 78,700 lines; 64 component classes; 31 concrete systems (plus the abstract `ReactiveSystem` and `AutoSyncSystem`) |
+| Tests | `test/`: 171 test files, in folders that mirror `lib/src/`; `flutter test`: 1,958 passed, 4 skipped (November 3, 2026) |
 | Repository | https://github.com/just-unknown-dev/just-game-engine |
 
 ---
@@ -64,121 +64,92 @@ What 2.0 changed in the architecture:
 
 ### 2.1 Folders
 
+`lib/src/` is organised by feature: each folder holds a feature's components, systems, definitions and the state it keeps per engine, the way `graphics_3d/` and `physics_3d/` always were. Below the features sit the ECS core and a few leaf folders; above them, `core/` wires everything together.
+
 ```
 lib/
-├── just_game_engine.dart     the public library: the src/ barrels, plus curated `show`
-│                             re-exports of just_inputs, just_dart and just_memory
-├── widgets.dart              optional screen UI: DialogueBoxWidget, DialogueChoicesWidget,
-│                             SubtitleOverlay, LocalizedText, LocaleSelector, LocalizationBuilder,
-│                             L10nContext, GameCameraControls, and just_inputs' on-screen
-│                             controls and rebinding widgets
+├── just_game_engine.dart     the public library: one barrel per folder, plus curated `show`
+│                             re-exports of just_inputs, just_dart, just_memory and
+│                             just_game_engine_formats
+├── graphics_3d.dart          3-D graphics (opt-in): Graphics3D, models, shapes, materials
+├── physics_3d.dart           3-D physics (opt-in): Physics3D, bodies, colliders, joints, queries
+├── widgets.dart              optional screen UI: dialogue boxes, subtitles, localized text,
+│                             GameCameraControls, and just_inputs' on-screen controls
 └── src/
-    ├── core/                 the composition root: Engine, EngineConfig, EngineState,
-    │                         EngineService / ServiceHost, EnginePlugin / PluginHost, GameWidget,
-    │                         GameLayers, GameLoop, TimeManager, SystemManager,
-    │                         registerDefaultSystems, the deprecated lifecycle interfaces, offload()
-    ├── foundation/           leaves: Dimensions and SceneMode, Easings, WorldAxes
-    ├── interfaces/           leaves: GameCamera, CameraLens, ViewVolume (PlanarViewVolume,
-    │                         FrustumViewVolume), BatchableSprite, SpriteBatchRenderer
-    ├── memory/               CacheManager; the engine's own storage file (engine_storage*.dart,
-    │                         namespaced_storage.dart — not exported)
-    ├── reactive/             signals over the ECS: ComponentSignal, EntitySignal, WorldSignal,
-    │                         ReactiveSystem, AutoSyncSystem, ReactiveComponent
-    ├── ecs/
-    │   ├── ecs.dart          one library: World, Entity, Component, System, Archetype,
-    │   │                     CommandBuffer, EventBus, EntityPrefab, TagComponent, EntityTarget
-    │   ├── base/             ecs.dart's parts, plus engine_context.dart (EngineContext) and
-    │   │   │                 system_priorities.dart (SystemPriorities)
-    │   │   └── transform/    TransformComponent, EulerRotation, ParentComponent,
-    │   │                     ChildrenComponent, TransformHierarchy, HierarchyMath (not exported)
-    │   ├── components/       component classes by area: animation, audio, camera, core, culling,
-    │   │                     effects, gameplay, input, level_map, narrative, navigation, others,
-    │   │                     physics (+ joints/), rendering, shapes
-    │   ├── systems/          systems by area: animation, audio, camera (the brain, its stages/
-    │   │                     and managers/, and CameraSystem), core, culling, debug, effects,
-    │   │                     gameplay, hierarchy, input, level_map, narrative, navigation,
-    │   │                     others, physics, rendering
-    │   ├── serialization/    ComponentDefinition and its registry, field types, the engine's
-    │   │                     definitions, SceneFormat and its migrations, MigrationHooks,
-    │   │                     SceneLoader, TagLibrary
+    ├── core/                 the composition root: Engine, EngineConfig, EngineService,
+    │                         EnginePlugin, GameWidget, GameLayers, GameLoop, TimeManager,
+    │                         SystemManager, registerDefaultSystems, BuiltInComponents
+    │                         (every feature's definitions), ContextLoaders (overrideLoaders)
+    ├── ecs/                  the ECS core: World, Entity, Component, System, archetypes,
+    │   │                     command buffer, event bus, tags, EngineContext
+    │   ├── serialization/    ComponentDefinition and its registry, field types, the core's
+    │   │                     own definitions (EcsDefinitions), TagLibrary
+    │   ├── transform/        TransformComponent, ParentComponent, ChildrenComponent,
+    │   │                     the hierarchy maths and HierarchySystem
     │   └── spatial/          EntitySpatialGrid, SpatialIndex
-    └── subsystems/
-        ├── animation/        AnimatorGraph (animator/)
-        ├── assets/           AssetManager, Asset and its types, loaders, GameAssetBundle, AssetScope
-        ├── audio/            the just_audio_engine re-export (a `show` list)
-        ├── camera/           Camera (the output camera), CameraEffectManager, impulses, noise,
-        │                     lens, camera state
-        ├── effects/          deterministic effects: base/, impl/ (11 effect types), networking/
-        ├── input/            CacheInputOverrideStore
-        ├── level_map/        map and tileset data, LevelMapRuntime, chunks, TileAssets,
-        │                     BuiltInTilesets; collision/, render/, tiled/, wang/
-        ├── localization/     LocalizationManager, LocaleStringTable, LocalizationScope
-        ├── narrative/        Yarn dialogue: core/, parser/, runtime/, localization/, signals/, ui/
-        ├── parallax/         ParallaxBackground, ParallaxLayer, the deprecated ParallaxSystem
-        ├── particles/        ParticleEmitter, forces, particle renderers, presets
-        ├── physics/          the just_physics_engine re-export (a `show` list)
-        ├── post_processing/  PostProcessPass
-        ├── rendering/        RenderingEngine, FrameView, SceneRenderer, RenderHookChain,
-        │                     ShaderFilterSupport; impl/: Renderable, Sprite, SpriteBatch,
-        │                     GameTerminal
-        ├── sprite_atlas/     SpriteAtlas, atlas parsers (TexturePacker, Aseprite, grid sheets),
-        │                     SpriteAssetLoader
-        ├── subtitle/         SubtitleController, cues, tracks (the overlay is in widgets.dart)
-        └── timeline/         TimelineAsset, TimelineFormat, keys, tracks/, TimelinePlayback,
-                              TimelineSignals
+    ├── reactive/             signals over the ECS
+    ├── foundation/           leaves: Dimensions, Easings, WorldAxes, ShapePaintStyle
+    ├── interfaces/           leaves: GameCamera, CameraLens, ViewVolume, FrameView,
+    │                         BatchableSprite, SpriteBatchRenderer
+    ├── assets/               AssetManager, assets and loaders, TextReader
+    ├── storage/              CacheManager and the engine's storage file
+    ├── audio/  input/  localization/  subtitle/  navigation/
+    ├── animation/            the animator: component, system, bindings, targets
+    ├── timeline/             timelines: assets, tracks/, players, triggers, signals
+    ├── camera/               virtual cameras, the brain, stages/, managers/, the output Camera
+    ├── effects/              deterministic effects: base/, impl/, networking/
+    ├── gameplay/             health, checkpoints, spawns, lifetimes, bounds, movement
+    ├── scenes/               SceneLoader and prefabs (files, library, instance components)
+    ├── physics/              shared by 2-D and 3-D: collision layers, VelocityComponent
+    ├── physics_2d/           bodies, colliders, joints, queries, ray casting, PhysicsSystem
+    ├── physics_3d/           3-D physics (see physics_3d.dart)
+    ├── rendering/            RenderingEngine and the drawing contracts: Renderable, Sprite,
+    │   │                     the render components, culling/, post_processing/
+    │   └── system/           RenderSystem and what it drives: shape batching, the 2-D
+    │                         lighting pass, component painters
+    ├── sprites/              sprite components and systems, atlas/
+    ├── shapes_2d/  materials_2d/  lighting_2d/  parallax/  particles/  level_map/
+    └── graphics_3d/          3-D graphics (see graphics_3d.dart)
 ```
 
-Notes on places that moved in 2.0 (no public name changed):
+Notes:
 
-- **`src/foundation/`** holds three leaf files: `dimensions.dart` and `world_axes.dart` (formerly in `core/`) and `easing.dart` (the one easing table, formerly in the animation subsystem). Anything may import them; they import nothing from the engine.
-- **`ecs/base/transform/`** holds the transform, its parent and children links and the hierarchy maths, which used to be split between `ecs/components/` and `ecs/systems/hierarchy/`. The world's hierarchy pass (§7.5) needs them, so they live with the world. `system_priorities.dart` moved from `ecs/systems/` to `ecs/base/` for the same reason.
-- **`ecs/systems/camera/`** holds the camera director: `CameraBrain`, its stages and managers, target resolution, and `CameraSystem` (which owns the output camera and the brain). `subsystems/camera/` keeps only `Camera` and what it carries (effects, impulses, noise, lens).
-- **`core/`** now also holds `GameWidget` and `GameLayers` (formerly in `subsystems/rendering/impl/`) and the new `registerDefaultSystems`: they wire subsystems together, which is core's job.
-- **`ecs/base/engine_context.dart`** holds `EngineContext`, new in 2.0, there because every `World` has one (§5).
+- **A feature keeps its state on the context** through an extension of its own (`ContextTimeline`, `ContextLevelMap`, `ContextSprites`, …) backed by `EngineContext.slot` (§5). `EngineContext` itself knows no feature.
+- **Definitions live with their feature** (`ShapeDefinitions2D`, `GameplayDefinitions`, `Lighting2DDefinitions`, …). `BuiltInComponents` in `core/` lists them all, in the order an editor shows them, and an `Engine` installs it.
+- **`rendering/` is two layers.** The drawing contracts (`Renderable`, `RenderableComponent`, `LayerComponent`, culling) are below every drawable; `rendering/system/` — `RenderSystem`, which draws shapes, sprites, map layers, particles, materials and lights — is above them.
+- **The output `Camera`** (`camera/output_camera.dart`) imports only `interfaces/`, so the renderer can hold it without depending on the camera director.
 
 ### 2.2 Barrels
 
-`lib/just_game_engine.dart` exports one barrel per area (`src/core/core.dart`, `src/ecs/ecs.dart`, `src/ecs/components/components.dart`, `src/ecs/systems/systems.dart`, `src/ecs/serialization/serialization.dart`, the subsystem barrels, …). A file that only exports is a barrel; everything else imports the files it needs directly, not a barrel, so the import graph shows real dependencies. Internal files that are not meant for games are simply not exported (for example `HierarchyMath`, the engine's storage files, the parallax ownership marks).
+Each folder has one barrel, named after it (`src/timeline/timeline.dart`), which `lib/just_game_engine.dart` exports. A barrel exports only its own folder, plus the `show` lists of `just_game_engine_formats` names its feature owns (the animation barrel shows `AnimatorGraph`, the scenes barrel `SceneFormat`, `PrefabFile`, …). Inside `lib/src/`, a file imports the files it needs, or the barrel of a folder below its own (the 3-D folders, which sit above everything else, import a few) — never one that would lead back to it. A feature's context state (`TimelineContextState`, …) is public to `core/` but not exported.
 
 ### 2.3 Module structure and the import graph
 
-Folder-level dependencies, from the `import`/`export` directives in `lib/` (each `ecs/components/*` and `ecs/systems/*` folder counts on its own; a part file belongs to its library):
+Folder-level dependencies, from the `import`/`export` directives in `lib/` (a part file belongs to its library; a barrel counts on its own):
 
 ```
-lib/just_game_engine.dart, lib/widgets.dart
+lib/just_game_engine.dart, graphics_3d.dart, physics_3d.dart, widgets.dart
         │
-src/core ─────────── composition root: imports whatever it wires; nothing under src/ imports it
+src/core  ─────────────── composition root: imports whatever it wires; only the 3-D folders
+        │                 import it (they implement EngineService)
+src/graphics_3d, src/physics_3d
         │
-src/ecs/systems/*, src/ecs/spatial, src/reactive
+src/rendering/system ──── RenderSystem: draws the features below
         │
-┌───────▼──────────────────────────────────────────────────────────────────────┐
-│ the ECS core — one import cycle of 22 folders:                               │
-│   ecs/base, ecs/serialization, every ecs/components/* folder (and the        │
-│   components and shapes barrels), subsystems/effects, subsystems/level_map,  │
-│   subsystems/timeline                                                        │
-└───────┬──────────────────────────────────────────────────────────────────────┘
+features: scenes, level_map, lighting_2d, materials_2d, particles, parallax, sprites,
+          shapes_2d, physics_2d, camera, timeline, animation, gameplay, effects,
+          narrative, navigation, input, audio, localization, subtitle
         │
-subsystems/rendering ⇄ subsystems/particles (a 2-folder cycle), subsystems/camera,
-subsystems/sprite_atlas, subsystems/input, subsystems/narrative, subsystems/subtitle
+src/rendering (contracts), src/physics (shared), src/reactive
         │
-leaves (import nothing else in the engine): src/foundation, src/interfaces, src/memory,
-subsystems/{assets, audio, localization, parallax, physics, post_processing}
+src/ecs ───────────────── the ECS core: imports no feature
+        │
+leaves: src/foundation, src/interfaces, src/assets, src/storage
 ```
 
-Measured on the tree before and after the 2.0 import-graph cleanup:
+Measured on 2026-11-03: 385 Dart files in `lib/`, 1,306 import, export and part directives, 90 folder nodes and 333 folder-level edges. **No import loop crosses from one feature to another, and none reaches the ECS core.** The loops that remain are each inside one folder and its own subfolders or barrel (`level_map` with `collision/`, `render/`, `tiled/` and `wang/`; `camera` with `stages/` and `managers/`; the ECS core with `serialization/` and `transform/`), which is how a feature's parts refer to each other.
 
-| | Before | After the cleanup |
-|---|---|---|
-| Dart files in `lib/` | 304 | 316 |
-| File-level import/export edges | 855 | 887 |
-| Folder nodes (barrel files counted on their own) | 79 | 79 |
-| Folder-level edges | 260 | 235 |
-| Folder cycles | one of 41 folders | one of 22 folders, one of 2 |
-| Largest file-level cycle | 119 files | 84 files |
-
-The released tree, after a later fix pass, has 317 files (the new `subsystems/rendering/render_stats.dart`), 892 file-level edges and 238 folder-level edges, with the same two cycles (22 folders and 2) and the same 84-file largest file-level cycle. `UnsupportedFormatVersionException` lives in `src/foundation/` because every versioned format — scenes, the tag library, timelines, level maps, tilesets and animator graphs — throws it, and it imports nothing.
-
-The 41-folder cycle held `core/`, most `ecs/systems/*` folders and most subsystems. The cleanup moved files (listed in §2.1) and split a few out of their old homes — the drawing half of a definition into `component_presentation.dart`, the ECS `CameraSystem` out of `subsystems/camera/`, `SpriteAssetLoader`, `AnimatorBindings` and `RaycastColliderComponent` into files of their own — without changing a public name. Why 22 folders remain, and the rendering/particles pair, is in §20.1.
+Before the feature layout, the ECS core sat in one loop of 34 folders with most of the engine: `EngineContext` had a field for each feature, and the core's registry knew every built-in component. Both now live above the core — the fields as feature extensions on the context (§5), the built-in components in `BuiltInComponents`.
 
 ---
 
@@ -204,7 +175,7 @@ From `pubspec.yaml`:
 
 Dev dependencies: `flutter_test`, `flutter_lints ^6.0.0`.
 
-The curated re-exports decide what a game can name through `just_game_engine.dart` alone. A name the engine's own signatures use is in the list; the rest (the input asset model, `Quadtree`, just_memory's pools) needs a direct import of that package. The lists are in `lib/just_game_engine.dart`, `lib/widgets.dart` and `lib/src/subsystems/audio/audio.dart`.
+The curated re-exports decide what a game can name through `just_game_engine.dart` alone. A name the engine's own signatures use is in the list; the rest (the input asset model, `Quadtree`, just_memory's pools) needs a direct import of that package. The lists are in `lib/just_game_engine.dart`, `lib/widgets.dart` and `lib/src/audio/audio.dart`.
 
 ---
 
@@ -298,41 +269,47 @@ A disposed engine cannot be initialized again: make a new `Engine()`.
 
 ### 5.1 One per engine
 
-`EngineContext` (`lib/src/ecs/base/engine_context.dart`) holds what an engine knows that is not a subsystem. The engine makes one in its constructor (or is given one) and gives it to its world. Other worlds that work with the same scenes — the interface's screens, an editor's previews — are given the same context: `World(context: engine.context)`. A bare `World()` makes a fresh context of its own, with the core definitions registered, and disposes it with itself.
+`EngineContext` (`lib/src/ecs/engine_context.dart`) holds what an engine knows that is not a subsystem. The engine makes one in its constructor (or is given one) and gives it to its world. Other worlds that work with the same scenes — the interface's screens, an editor's previews — are given the same context: `World(context: engine.context)`. A bare `World()` makes a fresh context of its own and disposes it with itself; `World(extensions: [...])` installs extensions into that context.
 
 | Member | What it is |
 |---|---|
-| `definitions` | `ComponentDefinitionRegistry` — every component this context can save, load, inspect and draw; the core definitions are registered from the start (`registerCoreCodecs`) |
+| `definitions` | `ComponentDefinitionRegistry` — every component this context can save, load, inspect and draw; the ECS core's own (`EcsDefinitions`: transform, parent, children, tags) are registered from the start |
 | `fieldTypes` | `FieldTypeRegistry` — the kinds of field definitions are made of |
 | `migrations` | `MigrationHooks` — what packages add to the scene and timeline migrations (§9.4) |
-| `trackKinds` | `TimelineTrackKinds` — the engine's seven track kinds, plus packages' |
-| `easings` | `KeyEasings` — easings a timeline key can name |
-| `animatorBindings` | `AnimatorBindings` — what animator parameters can read; eight built in (`velocityX`, `velocityY`, `speed`, `speedX`, `speedY`, `health`, `healthFraction`, `alive`) |
-| `collisionKinds` | `MapCollisionKinds` — tile collision kinds; `solid` and `oneWay` always there |
-| `effectTypes` | `EffectTypes` — deterministic effects a snapshot can hold; eleven built in |
 | `bundle` | the `AssetBundle` files come from (`rootBundle` unless given) |
 | `assets` | the `AssetManager` (`engine.assets`) |
-| `sprites` | `SpriteAssetLoader` for sprite images and atlases (a `BundleSpriteAssetLoader` by default) |
-| `animatorGraphs` | `AnimatorGraphLoader` for `.animator.json` files |
-| `timelines` | `TimelineLoader` for `.timeline.json` files (parsed with `trackKinds` and migrated with `migrations`) |
-| `tiles` | `TileAssets` — tileset and map files, what was loaded of them, and the built-in tilesets' pictures; its `readText` is the fourth loader seam |
-| `timelineAudio` | `TimelineAudioPlayer` — how a timeline's audio track makes a sound; `TimelineAudio.viaAudioSystem` by default |
-| `signals` | `TimelineSignals` — named signals for every world on this context (a UI button emits one, a timeline listening for it starts) |
-| `localization` | `LocalizationManager?` — the game's strings; `GameWidget` provides it through a `LocalizationScope` |
+| `withBuiltIns` | whether the context started with the core's components and field types, and each feature's own kinds as a feature makes its state |
+| `slot<T>(key, create)` | the state a feature or package keeps per engine (§5.3) |
 
-The five runtime registries — `TimelineTrackKinds`, `KeyEasings`, `AnimatorBindings`, `MapCollisionKinds`, `EffectTypes` — are instance classes, each with a frozen, read-only `static builtIn` holding the engine's own entries (`register` on it throws `UnsupportedError`). `EngineContext(withBuiltIns: false)` seeds no registry and registers no core definitions — only for tests that check a registry precisely.
+**The context knows no feature.** Every feature's components come from an extension: an `Engine` installs `BuiltInComponents.extension` (in `core/`) first, then the config's extensions. A context made on its own — a bare `World()`, a test — has the ECS core's components only; give it `BuiltInComponents.extension` when it reads or writes scenes. `BuiltInComponents.registry()` is a registry with all of them, for code without a context. A kit's extension installs `BuiltInComponents.extension` itself, since its levels use the engine's components too; so does an editor scope.
+
+Each feature keeps its own state in a slot and offers it as an extension on `EngineContext`, so code reads it as before:
+
+| Extension (feature folder) | Members |
+|---|---|
+| `ContextTimeline` (`timeline/`) | `trackKinds` (`TimelineTrackKinds`: the engine's seven, plus packages'), `easings` (`KeyEasings`), `signals` (`TimelineSignals`: named signals for every world on the context), `timelineAudio` (`TimelineAudio.viaAudioSystem` by default), `timelines` (the `TimelineLoader` seam) |
+| `ContextAnimation` (`animation/`) | `animatorBindings` (eight built in: `velocityX`, `velocityY`, `speed`, `speedX`, `speedY`, `health`, `healthFraction`, `alive`), `animationTargets`, `animatorGraphs` (the `AnimatorGraphLoader` seam) |
+| `ContextLevelMap` (`level_map/`) | `collisionKinds` (`solid` and `oneWay` always there), `tiles` (`TileAssets`: tileset and map files, what was loaded, the built-in tilesets' pictures; its `readText` is a seam) |
+| `ContextEffects` (`effects/`) | `effectTypes` (eleven built in) |
+| `ContextPhysics` (`physics/`) | `physicsLayers`, `loadPhysicsLayers()` |
+| `ContextLocalization` (`localization/`) | `localization` (`LocalizationManager?`; `GameWidget` provides it through a `LocalizationScope`) |
+| `ContextSprites` (`sprites/`) | `sprites` (the `SpriteAssetLoader` seam; a `BundleSpriteAssetLoader` by default) |
+| `ContextPrefabs` (`scenes/`) | `prefabs` (the `PrefabLoader` seam) |
+| `ContextMaterials2D` (`materials_2d/`) | `material2DText` (the `TextReader` seam) |
+
+The runtime registries — `TimelineTrackKinds`, `KeyEasings`, `AnimatorBindings`, `MapCollisionKinds`, `EffectTypes` — are instance classes, each with a frozen, read-only `static builtIn` holding the engine's own entries (`register` on it throws `UnsupportedError`). `EngineContext(withBuiltIns: false)` registers no core definitions or field types, and each feature's registry starts empty — only for tests that check a registry precisely.
 
 ### 5.2 Per engine, per world
 
 | Scope | What lives there |
 |---|---|
-| The engine's `EngineContext` (shared by every world given it) | definitions, field types, migration hooks, track kinds, easings, animator bindings, collision kinds, effect types; the bundle, the `AssetManager` and the sprite, animator and timeline loaders; the tile reader and tile caches; the signal bus; the timeline audio hook; localization; package slots |
+| The engine's `EngineContext` (shared by every world given it) | definitions, field types, migration hooks, the bundle and the `AssetManager`; in slots, each feature's state: track kinds, easings, signals and the timeline audio hook, animator bindings and targets, collision kinds and tile caches, effect types, physics layers, localization, the file seams; and package slots |
 | The engine's session subsystems | rendering, physics, input, audio and music, cache, camera system (output camera and brain), deprecated parallax list, services, plugins, layers, terminal |
 | Each `World` | entities, archetypes and the query cache, the name and tag indexes, the command buffer, the event bus, the transform hierarchy, the systems, the query versions |
 | The camera brain (`engine.cameraSystem.brain`) | camera memory, noise time, the impulse bus and its seeds; reset by `CameraBrain.reset()` |
 | Each `EffectPlayer` | effect-handle ids |
 
-### 5.3 Extensions
+### 5.3 Extensions and slots
 
 A package teaches an engine through a `ContextExtension`:
 
@@ -352,13 +329,13 @@ final engine = Engine(
 );
 ```
 
-`install` runs once per context per `id` (a second install of the same id is ignored). `EngineConfig.extensions` are installed in the engine's constructor, so a context is complete before `initialize()`. `context.install(ext)`, `installAll`, `isInstalled(id)` and `installed` work at any time. An extension typically registers definitions, adds migration rules, animator bindings, collision kinds, track kinds or easings.
+`install` runs once per context per `id` (a second install of the same id is ignored). `BuiltInComponents.extension` and then `EngineConfig.extensions` are installed in the engine's constructor, so a context is complete before `initialize()`; a service that is also a `ContextExtension` (`Graphics3D`, `Physics3D`) is installed there too. `context.install(ext)`, `installAll`, `isInstalled(id)` and `installed` work at any time. An extension typically registers definitions, adds migration rules, animator bindings, collision kinds, track kinds or easings, and renames its own component types for older scenes (`context.migrations.renamedTypes`).
 
-State a package keeps per engine goes in a slot: `context.slot<T>(key, create)` makes it on first use; a value that is a `ContextResource` is disposed with the context. This is the replacement for a package-level static.
+State a package keeps per engine goes in a slot: `context.slot<T>(key, create)` makes it on first use, under a key private to the package; a value that is a `ContextResource` is disposed with the context. This is the replacement for a package-level static, and how the engine's own features keep theirs: the feature's extension on `EngineContext` reads the slot.
 
 ### 5.4 Loader overrides
 
-The four file-reading seams — `sprites`, `animatorGraphs`, `timelines` and `tiles.readText` — read the bundle by default. An authoring tool points them at a project's files, for one engine only:
+The file-reading seams — `sprites`, `animatorGraphs`, `timelines`, `tiles.readText`, `prefabs` and `material2DText` — read the bundle by default. An authoring tool points them at a project's files, for one engine only, through `ContextLoaders` (in `core/`, the one place that knows every feature):
 
 ```dart
 final override = engine.context.overrideLoaders(
@@ -373,7 +350,7 @@ override.restore(); // puts back each seam it set, if nothing replaced it since
 
 ### 5.5 Disposal
 
-`EngineContext.dispose()` closes the signal bus, disposes the tile caches (including the built-in tilesets' pictures) and the `AssetManager`, and disposes every slot that is a `ContextResource`. Registrations stay readable; a disposed context is not meant to be used again.
+`EngineContext.dispose()` disposes every slot that is a `ContextResource` — the timeline's signal bus, the level map's tile caches (including the built-in tilesets' pictures), a package's own — and then the `AssetManager`. Registrations stay readable, and so do the slots: released, not made again. A disposed context is not meant to be used again.
 
 ---
 
@@ -507,7 +484,7 @@ for each system, highest priority first:        (sorted when added)
 
 `DefaultSystems.all` is all nine; `DefaultSystems.headless` leaves out `rendering` and `audio`.
 
-Every system's priority, from the `priority` getters in `lib/src/ecs/systems/` (higher runs first):
+Every system's priority, from the `priority` getters of the systems in `lib/src/` (higher runs first):
 
 | Priority | From | System | Added by |
 |---|---|---|---|
@@ -688,7 +665,7 @@ A component is saved by its `ComponentDefinition<T>`, registered in `context.def
 
 A component saves as `{"type": ..., "fields": {...}}`. `ComponentSchema` is a definition that also writes a `customComponentId` (the shape older editor components were saved in). `ComponentCodec` is the lower-level interface (`type`, `encode`, `decode`) for a hand-written codec.
 
-`ComponentDefinitionRegistry` has `register(codec, {override})`, `registerAll(codecs, {override, ifAbsent})`, `encode(component)`, `decode(json)`, `definitionByType(typeOrAlias)`, `definitionFor(component)`, `byName`, `forComponent`, `types` and `definitions`. `registerCoreCodecs(registry)` seeds a registry with the engine's own definitions (`CoreDefinitions.all`, which includes the camera, timeline and level-map definitions, and `CoreComponentSchemas.all`); every context does this for itself, and `ComponentDefinitionRegistry.core()` makes a fresh registry with them.
+`ComponentDefinitionRegistry` has `register(codec, {override})`, `registerAll(codecs, {override, ifAbsent})`, `encode(component)`, `decode(json)`, `definitionByType(typeOrAlias)`, `definitionFor(component)`, `byName`, `forComponent`, `types` and `definitions`. Each feature's definitions are in its folder (`ShapeDefinitions2D`, `GameplayDefinitions`, `CameraDefinitions`, …); `BuiltInComponents.all` lists them all and `BuiltInComponents.registry()` makes a fresh registry with them and the ECS core's own (`EcsDefinitions`), which every context has (§5.1).
 
 ### 9.2 Field types
 
@@ -813,8 +790,9 @@ Before the ECS drew everything, games added renderables to the rendering engine 
 | Deprecated | Use instead |
 |---|---|
 | `RenderingEngine.addRenderable` / `removeRenderable`, `renderables`, `renderableCount`, `layerCount`, `markLayerOrderDirty`, `markSpatialIndexDirty`, `useSpatialIndex` | a `RenderableComponent` on an entity; `RenderSystem(cullOffscreen: true)` for culling |
-| `RenderingEngine.addManagedEmitter` / `removeManagedEmitter` / `updateManagedEmitters` | `ParticleEmitterComponent(removeEntityWhenComplete: true)` + `ParticleSystem` |
 | `Engine.parallax`, `ParallaxSystem` | `ParallaxComponent` + `ParallaxRenderSystem` |
+
+The managed particle emitters (`RenderingEngine.addManagedEmitter`, `removeManagedEmitter`, `updateManagedEmitters`) are gone: an emitter goes on an entity, `ParticleEmitterComponent(removeEntityWhenComplete: true)`, which `ParticleSystem` updates and `RenderSystem` draws.
 
 The legacy renderables draw in step 5 of the frame, with their own quadtree culling (above 200 renderables) and their own sprite batches. A background both on a component and in the deprecated list is drawn only by the system. `RenderingEngine.stats`' `renderables`, `layers` and spatial-index keys describe only this path; its draw counts cover the whole frame (§10.1).
 
@@ -860,7 +838,7 @@ Related: `PhysicsJointBindingSystem` (priority 88) makes and keeps joints from `
 
 `lib/src/physics_3d/`, public as `package:just_game_engine/physics_3d.dart`: the 3-D components and their definitions, `PhysicsSystem3D`, the queries and events, the camera's collision stage, and `Physics3D`, the only way in. The simulation is just_physics_engine's `PhysicsEngine3D` (`JoltPhysicsEngine`, on just_jolt's bindings), so the chain is just_jolt → just_physics_engine → this engine, and nothing depends the other way.
 
-**2-D games carry none of it.** Nothing outside the folder names its code: `EngineConfig.physics3D` and `Engine` hold a `Physics3D` and call it only as a `ContextExtension` and an `EngineService` (`engine.dart` and `engine_config.dart` import it `show Physics3D`, nothing else). `Physics3D`'s install registers the 3-D schemas; they are in no default list. A game that never makes a `Physics3D` gives the compiler no way to reach the folder, the Jolt engine or the bindings, and tree shaking drops them all. `test/physics_3d_boundary_test.dart` fails when anything else in `lib/src` imports the folder or calls `create3D`, `JoltPhysicsEngine`, `Physics3DSchemas` or `PhysicsSystem3D` directly; the CLI's `check release-build` fails a 2-D game's release that holds 3-D names or Jolt's library. Jolt's native code is a separate matter: tree shaking never removes native code, so just_jolt's build hook compiles nothing unless the app's pubspec asks (`hooks: user_defines: just_jolt: build: true`).
+**2-D games carry none of it.** Nothing outside the folder names its code: a game gives the engine a `Physics3D` in `EngineConfig.services`, and the engine reaches it only as a `ContextExtension` and an `EngineService`; `engine.physics3D` is an extension in the folder itself. `Physics3D`'s install registers the 3-D schemas; they are in no default list. A game that never makes a `Physics3D` gives the compiler no way to reach the folder, the Jolt engine or the bindings, and tree shaking drops them all. `test/physics_3d/physics_3d_boundary_test.dart` fails when anything else in `lib/src` imports the folder or calls `create3D`, `JoltPhysicsEngine`, `Physics3DSchemas` or `PhysicsSystem3D` directly; the CLI's `check release-build` fails a 2-D game's release that holds 3-D names or Jolt's library. Jolt's native code is a separate matter: tree shaking never removes native code, so just_jolt's build hook compiles nothing unless the app's pubspec asks (`hooks: user_defines: just_jolt: build: true`).
 
 **At run time.** `Physics3D.install` (as the engine is made) registers the schemas and `CameraCollisionStage`; `start` (as it initializes) makes the physics engine — `PhysicsEngineFactory.create3D()`, which throws `Physics3DUnsupportedError` on the web or when Jolt was not built — and adds a `PhysicsSystem3D.lazy`. The world (Jolt's job system is the process's; a world brings its tables for 10,240 bodies and its temporary allocator) is made only when the first 3-D body or character appears; until then an update is one structure check, and `Physics3DQueries` find nothing. Each step sends what gameplay set, moves characters, steps, reads the moved bodies' poses in one batch (14 floats each) and drains the events once.
 
@@ -969,7 +947,7 @@ An `EffectComponent` holds an `EffectPlayer`; `EffectSystem` (65) advances it. T
 
 ## 17. Level Maps
 
-Level maps are part of the engine (`lib/src/subsystems/level_map/`, the `level_map` component and system folders). A map's layers hold tiles; the things on a level are entities, and a child of the map entity can belong to one of its layers. A scene has one map. `just_tiled` is used only to read and write Tiled's own files.
+Level maps are part of the engine (`lib/src/level_map/`). A map's layers hold tiles; the things on a level are entities, and a child of the map entity can belong to one of its layers. A scene has one map. `just_tiled` is used only to read and write Tiled's own files.
 
 ### The parts
 
@@ -1060,7 +1038,7 @@ A `SceneRenderer` renders its scene into a texture and draws the image over the 
 
 ### 3-D graphics (`lib/graphics_3d.dart`)
 
-`Graphics3D` is opt-in, like `Physics3D`: one object that is both the `ContextExtension` (it registers the 3-D components, the skeletal animation target and the skeletal clip track) and the `EngineService` (it makes the renderer and draws). `EngineConfig.graphics3D` installs it as the engine is made and starts it before the game's own services, so they can load models. The renderer is just_graphics_engine's (`Renderer3D` on a `GpuDevice` over Flutter GPU); the engine reaches it only through that package's public libraries, whose web branch has no flutter_gpu, so the engine stays web-safe (`test/graphics_3d/graphics_3d_boundary_test.dart`). Without a `Graphics3D` the 3-D components are unknown, and a scene holding one fails to load with `UnknownComponentTypeException`, whose `builtInHint` names the switch.
+`Graphics3D` is opt-in, like `Physics3D`: one object that is both the `ContextExtension` (it registers the 3-D components, the skeletal animation target and the skeletal clip track) and the `EngineService` (it makes the renderer and draws). Given in `EngineConfig.services`, it is installed as the engine is made and started in the order the services are listed — first, so the game's own services can load models; `engine.graphics3D` is an extension in `graphics_3d.dart`. The renderer is just_graphics_engine's (`Renderer3D` on a `GpuDevice` over Flutter GPU); the engine reaches it only through that package's public libraries, whose web branch has no flutter_gpu, so the engine stays web-safe (`test/graphics_3d/graphics_3d_boundary_test.dart`). Without a `Graphics3D` the 3-D components are unknown, and a scene holding one fails to load with `UnknownComponentTypeException`, whose `builtInHint` names the switch.
 
 - **Components** (`src/graphics_3d/`): `ModelComponent`, `Light3DComponent`, `EnvironmentComponent`, `AnimationPlayerComponent` and `SocketComponent` are plain data, and their definitions (`GraphicsSchemas`) mark them `Dimensions.threeD`. They import nothing from the GPU or the renderer, so scene files holding them load on every platform. `Graphics3D` is a `RefreshableExtension`, so an editor picks up new fields after a hot reload.
 - **Start.** `Renderer3D.tryCreate` makes the device and the renderer. When there is no GPU, or the renderer can't start, `Graphics3D` logs the reason once, calls `onUnsupported` and runs on a `NullGpuDevice` instead. Scene loading, model loading and bounds keep working, and the frame shows a short note in place of the 3-D view. It registers a model loader with the engine's `AssetManager`, adds the scene renderer to the frame and an `AnimationSystem3D` to the world.
@@ -1087,7 +1065,7 @@ The 3-D scene renderer re-adds every model instance when it rebuilds, which is f
 `pubspec.yaml` declares Android, iOS, Linux, macOS, Windows and Web. The engine's `lib/` is WASM-ready: it imports no `dart:html`, no `package:web` and no `dart:js_interop`, and exactly one file imports `dart:io`:
 
 ```dart
-// lib/src/memory/engine_storage.dart
+// lib/src/storage/engine_storage.dart
 import 'engine_storage_web.dart'
     if (dart.library.io) 'engine_storage_io.dart'
     as platform;

@@ -222,8 +222,7 @@ Adding renderables to the rendering engine directly, as 1.x games did, still wor
 | Deprecated | Use instead |
 |---|---|
 | `engine.rendering.addRenderable`, `removeRenderable`, `useSpatialIndex` and the other spatial-index members | An entity with a `RenderableComponent`; `cullOffscreen` for culling |
-| `addManagedEmitter`, `removeManagedEmitter`, `updateManagedEmitters` | `ParticleEmitterComponent` with `ParticleSystem` |
 | `engine.parallax`, `ParallaxSystem` | `ParallaxComponent` and `ParallaxRenderSystem` |
 | `onRenderOverlay`, `onRenderBackground` | `overlayHooks`, `backgroundHooks` |
 
-> **Warning:** `RenderSystem` now draws particle emitters itself, and `GameWidget` always draws the world. Remove `addManagedEmitter` calls for emitters that are also on entities, and any `engine.world.render` call from your own overlay hook, or they draw twice.
+> **Warning:** `RenderSystem` now draws particle emitters itself, and `GameWidget` always draws the world. Remove any `engine.world.render` call from your own overlay hook, or the world draws twice. The managed emitters (`addManagedEmitter` and the rest) are gone: an emitter goes on an entity, with `ParticleEmitterComponent` and `ParticleSystem`.

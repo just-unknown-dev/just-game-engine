@@ -54,9 +54,9 @@ void main() {
     final world = World();
     final error = _loadError(world, {'type': 'ModelComponent'});
     expect(error, isA<UnknownComponentTypeException>());
-    expect('$error', contains('EngineConfig(graphics3D: Graphics3D())'));
+    expect('$error', contains('EngineConfig(services: [Graphics3D()])'));
     final physics = _loadError(world, {'type': 'RigidBody3DComponent'});
-    expect('$physics', contains('EngineConfig(physics3D: Physics3D())'));
+    expect('$physics', contains('EngineConfig(services: [Physics3D()])'));
     final other = _loadError(world, {'type': 'NoSuchThing'});
     expect('$other', contains("Install the owning package's extension"));
   });
@@ -66,8 +66,10 @@ void main() {
     final probe = _Probe();
     final engine = Engine(
       config: EngineConfig(
-        graphics3D: Graphics3D(onUnsupported: reasons.add),
-        services: [probe],
+        services: [
+          Graphics3D(onUnsupported: reasons.add),
+          probe,
+        ],
       ),
       context: EngineContext(bundle: TestBundle({cubePath: cubeGlb()})),
     );

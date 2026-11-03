@@ -2,14 +2,15 @@ import 'package:just_physics_engine/physics_3d.dart';
 
 import '../core/engine.dart';
 import '../core/engine_service.dart';
-import '../ecs/base/engine_context.dart';
-import '../ecs/systems/camera/camera_brain.dart';
+import '../ecs/engine_context.dart';
+import '../camera/camera_brain.dart';
 import 'camera_collision_3d.dart';
 import 'collider_shapes_3d.dart';
 import 'physics_components_3d.dart';
 import 'physics_definitions_3d.dart';
 import 'physics_queries_3d.dart';
 import 'physics_system_3d.dart';
+import '../physics/physics_context.dart';
 
 /// 3-D physics for an engine. Give one to the engine and its 3-D physics
 /// components — [RigidBody3DComponent], [Collider3DComponent], [CharacterBody3DComponent] and the
@@ -17,7 +18,7 @@ import 'physics_system_3d.dart';
 /// simulated:
 ///
 /// ```dart
-/// Engine(config: EngineConfig(physics3D: Physics3D()));
+/// Engine(config: EngineConfig(services: [Physics3D()]));
 /// ```
 ///
 /// with Jolt built into the app, in its pubspec:
@@ -132,7 +133,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
 
   static const String _notStarted =
       'Physics3D has not started: give it to the engine '
-      '(EngineConfig(physics3D: ...)) and initialize the engine.';
+      '(EngineConfig(services: [Physics3D()])) and initialize the engine.';
 
   // ── ContextExtension ──────────────────────────────────────────────────
 
@@ -182,13 +183,19 @@ final class Physics3D implements RefreshableExtension, EngineService {
     _engine = physics;
     _system = system;
     _queries = Physics3DQueries(system);
+    game.assets.reloadListeners.add(_reloaded);
     if (addSystem) game.world.addSystem(system);
   }
+
+  /// A file was loaded again: colliders made from it, if it is a model,
+  /// take its new triangles.
+  void _reloaded(String path) => reloadModel(path);
 
   @override
   Future<void> stop() async {
     final game = _game;
     final system = _system;
+    game?.assets.reloadListeners.remove(_reloaded);
     if (game != null && system != null && addSystem) {
       // Takes out everything it made while the world still exists.
       game.world.removeSystem(system);
@@ -199,4 +206,12 @@ final class Physics3D implements RefreshableExtension, EngineService {
     _system = null;
     _queries = null;
   }
+}
+
+/// The engine's 3-D physics.
+extension EnginePhysics3D on Engine {
+  /// The [Physics3D] given in `EngineConfig.services`, or null for a 2-D
+  /// game. Its world, system and queries are there once the engine has
+  /// initialized.
+  Physics3D? get physics3D => maybeService<Physics3D>();
 }

@@ -51,7 +51,7 @@ void main() {
       cubePath: cubeGlb(),
     });
     engine = Engine(
-      config: EngineConfig(graphics3D: service),
+      config: EngineConfig(services: [service]),
       context: EngineContext(bundle: bundle),
     );
     await engine.initialize();

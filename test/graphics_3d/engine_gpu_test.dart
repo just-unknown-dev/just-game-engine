@@ -23,7 +23,7 @@ void main() {
   test('a red cube in a scene file is drawn in front of the sky', () async {
     final service = Graphics3D();
     final engine = Engine(
-      config: EngineConfig(graphics3D: service),
+      config: EngineConfig(services: [service]),
       context: EngineContext(bundle: TestBundle({cubePath: cubeGlb()})),
     );
     await engine.initialize();

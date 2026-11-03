@@ -34,9 +34,9 @@ export 'package:just_inputs/just_inputs.dart'
         RebindRow,
         rebindRows;
 
-export 'src/subsystems/camera/camera_controls.dart' show GameCameraControls;
-export 'src/subsystems/localization/localization_widget.dart'
+export 'src/camera/camera_controls.dart' show GameCameraControls;
+export 'src/localization/localization_widget.dart'
     show L10nContext, LocaleSelector, LocalizationBuilder, LocalizedText;
-export 'src/subsystems/narrative/ui/dialogue_box_widget.dart';
-export 'src/subsystems/narrative/ui/dialogue_choices_widget.dart';
-export 'src/subsystems/subtitle/subtitle_overlay.dart';
+export 'src/narrative/ui/dialogue_box_widget.dart';
+export 'src/narrative/ui/dialogue_choices_widget.dart';
+export 'src/subtitle/subtitle_overlay.dart';
