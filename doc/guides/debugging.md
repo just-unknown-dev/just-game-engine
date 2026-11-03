@@ -19,7 +19,7 @@ GameWidget(
 - **`showDebug`** adds a `ColliderDebuggerSystem` to the world, which outlines every physics body and every `RaycastColliderComponent` through the main camera. It also sets `engine.rendering.debugMode`, which prints the rendering figures (render time, draws, culled objects) in the top left corner. Both go away when `showDebug` turns off.
 - **`showTerminal`** enables the developer terminal (below).
 
-In 2.0.0-dev.2, `PhysicsSystem` no longer draws collider outlines unless asked. Turn them on with `engine.world.getSystem<PhysicsSystem>()?.drawsOutlines = true`, and narrow them with `outlineFilter`; a collider's own `showDebugOutline` has the last word. Release builds never draw them.
+In 2.0.0-dev.2, `Physics2DSystem` no longer draws collider outlines unless asked. Turn them on with `engine.world.getSystem<Physics2DSystem>()?.drawsOutlines = true`, and narrow them with `outlineFilter`; a collider's own `showDebugOutline` has the last word. Release builds never draw them.
 
 ## The developer terminal
 
@@ -62,7 +62,7 @@ A handler gets the words after the command name and returns a line to print, or 
 | `deltaTime` | The `dt` of the last step: the fixed step times the time scale. |
 | `lastUpdateMs` | Milliseconds the last step's update tasks took together. |
 | `budgetRemainingMs`, `isOverBudget` | The last step measured against a 16.67 ms frame. |
-| `systemTimesMs` | Milliseconds per update task: `input`, `parallax`, `particles`, `ecs`, and any you registered. Physics is inside `ecs`. |
+| `systemTimesMs` | Milliseconds per update task: `input`, `parallax`, `ecs`, and any you registered. Physics is inside `ecs`. |
 | `scheduler` | `engine.systemManager.schedulerStats`: task count and timings. |
 
 The subsystems' own figures exist only between `initialize()` and `dispose()`; check `engine.isInitialized` first when that can happen.
@@ -106,6 +106,6 @@ The overlay shows no update or physics timings; draw your own from these maps, f
 | `UnknownComponentTypeException` loading a level | The package that defines the component was not given to `EngineConfig(extensions: ...)`. |
 | The player falls through a map on the first frame | Call `await LevelMaps.preload(world)` after loading the scene. |
 | Your system reads stale input or runs after physics | Its priority: character control belongs at `SystemPriorities.playerControl` (95). |
-| No collider outlines in a debug build | Set `PhysicsSystem.drawsOutlines`, or use `GameWidget(showDebug: true)`. |
+| No collider outlines in a debug build | Set `Physics2DSystem.drawsOutlines`, or use `GameWidget(showDebug: true)`. |
 | Every timing reads 0 | A release build: see the note above. |
 | No sound on the web until the first click | Expected: browsers keep audio silent until the player interacts. |

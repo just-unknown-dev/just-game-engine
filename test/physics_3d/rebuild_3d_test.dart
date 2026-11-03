@@ -1,4 +1,4 @@
-// PhysicsSystem3D when a body is made again (a changed scale or collider):
+// Physics3DSystem when a body is made again (a changed scale or collider):
 // no second enter and no lost exit, on the fake backend and on Jolt; scale
 // noise makes nothing again; joints made again hold where they held; a body
 // refused for its layer is tried again once the layer is fixed; collider
@@ -22,11 +22,11 @@ final _backends = <String, PhysicsWorld3D Function()>{
   'Jolt': () => JoltPhysicsEngine().createWorld(PhysicsWorldSettings3D()),
 };
 
-({World world, PhysicsWorld3D physics, PhysicsSystem3D system}) _setUp(
+({World world, PhysicsWorld3D physics, Physics3DSystem system}) _setUp(
   PhysicsWorld3D physics, {
   ColliderGeometry3D? geometry,
 }) {
-  final system = PhysicsSystem3D(physics, geometry: geometry);
+  final system = Physics3DSystem(physics, geometry: geometry);
   final world = World()..initialize();
   world.addSystem(system);
   addTearDown(() {

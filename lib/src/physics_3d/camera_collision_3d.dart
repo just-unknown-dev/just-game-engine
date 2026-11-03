@@ -8,7 +8,7 @@ import '../ecs/ecs.dart';
 import '../camera/camera_stage.dart';
 import '../camera/camera_state.dart';
 import 'physics_queries_3d.dart';
-import 'physics_system_3d.dart';
+import 'physics_3d_system.dart';
 
 /// Keeps a virtual camera out of walls: on the same entity as an
 /// `OrbitFollowComponent` (or any body stage), it pulls the camera in
@@ -59,7 +59,7 @@ class CameraCollisionStage extends CameraStage<CameraCollision3DComponent> {
     double dt,
   ) {
     final target = context.targetPosition3;
-    final system = context.world.getSystem<PhysicsSystem3D>();
+    final system = context.world.getSystem<Physics3DSystem>();
     if (target == null || system == null) return state;
     final pivot =
         context.entity.getComponent<OrbitFollowComponent>()?.pivot ??

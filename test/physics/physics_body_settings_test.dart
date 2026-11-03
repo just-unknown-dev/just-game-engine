@@ -448,7 +448,7 @@ void main() {
     });
   });
 
-  group('PhysicsSystem', () {
+  group('Physics2DSystem', () {
     late PhysicsEngine physics;
     late World world;
 
@@ -456,7 +456,7 @@ void main() {
       physics = PhysicsEngine()..initialize();
       physics.setGravity(0, 2200);
       world = World()..initialize();
-      world.addSystem(PhysicsSystem(physics));
+      world.addSystem(Physics2DSystem(physics));
     });
     tearDown(() {
       world.dispose();
@@ -624,7 +624,7 @@ void main() {
       world.update(1 / 60);
       double massOf(Entity e) => e.getComponent<PhysicsBodyRefComponent>()!.body.mass;
       expect(massOf(square), closeTo(1000, 1e-6), reason: 'a 1 m square weighs what a 1 m cube does');
-      expect(massOf(ball), closeTo(math.pi * 100 * PhysicsSystem.autoMassPerSquareUnit, 1e-6));
+      expect(massOf(ball), closeTo(math.pi * 100 * Physics2DSystem.autoMassPerSquareUnit, 1e-6));
       expect(massOf(set), 3, reason: 'a mass that is set is kept');
     });
 
@@ -697,7 +697,7 @@ void main() {
         ..on<CollisionEnter2DEvent>(enters.add)
         ..on<SensorEnter2DEvent>(sensors.add)
         ..on<CollisionStay2DEvent>(stays.add);
-      world.getSystem<PhysicsSystem>()!.reportContactStay = true;
+      world.getSystem<Physics2DSystem>()!.reportContactStay = true;
       run(b, 90);
       expect(sensors.single.other, b);
       expect(sensors.single.sensor.name, 'zone');
@@ -711,14 +711,14 @@ void main() {
       RigidBody2DComponent b(BodyType t, {bool sensor = false}) => RigidBody2DComponent(bodyType: t, isSensor: sensor);
       final kinds = {
         for (final t in BodyType.values)
-          t: PhysicsSystem.debugPaintFor(b(t)).color,
+          t: Physics2DSystem.debugPaintFor(b(t)).color,
       };
       expect(kinds.values.toSet(), hasLength(3));
       expect(
-        PhysicsSystem.debugPaintFor(b(BodyType.static, sensor: true)).color,
+        Physics2DSystem.debugPaintFor(b(BodyType.static, sensor: true)).color,
         isNot(kinds[BodyType.static]),
       );
-      expect(PhysicsSystem.debugPaintFor(null).color, kinds[BodyType.static], reason: 'a collider alone is static');
+      expect(Physics2DSystem.debugPaintFor(null).color, kinds[BodyType.static], reason: 'a collider alone is static');
     });
   });
 }

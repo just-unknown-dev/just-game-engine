@@ -9,7 +9,7 @@
 ///   ([Primitive3DComponent]: [Cube3DComponent] to [Polygon3DComponent]). Plain data, so scenes
 ///   holding them load everywhere, the web included.
 /// - [GraphicsSceneRenderer], which draws the world from the engine's
-///   camera; [GraphicsModels], the loaded models; [AnimationSystem3D],
+///   camera; [GraphicsModels], the loaded models; [Animation3DSystem],
 ///   which plays clips.
 /// - just_graphics_engine itself, re-exported: the renderer
 ///   ([Renderer3D], [RenderScene]), model loading, the GPU layer and
@@ -20,7 +20,8 @@ library;
 
 export 'package:just_graphics_engine/just_graphics_engine.dart';
 
-export 'src/graphics_3d/animation_system.dart' hide PlayerScratch, samplePlayer;
+export 'src/graphics_3d/animation_3d_system.dart'
+    hide PlayerScratch, samplePlayer;
 export 'src/graphics_3d/graphics_3d.dart';
 export 'src/graphics_3d/graphics_components.dart';
 export 'src/graphics_3d/graphics_definitions.dart';

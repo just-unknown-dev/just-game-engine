@@ -1,7 +1,7 @@
 import 'package:just_physics_engine/physics_3d.dart';
 
 import '../ecs/ecs.dart';
-import 'physics_system_3d.dart';
+import 'physics_3d_system.dart';
 
 /// A query's hit, with the entity whose body it hit.
 final class PhysicsHit3D {
@@ -16,7 +16,7 @@ final class PhysicsHit3D {
     this.depth = 0,
   });
 
-  /// The entity hit; null for a body no [PhysicsSystem3D] made.
+  /// The entity hit; null for a body no [Physics3DSystem] made.
   final Entity? entity;
 
   /// The body hit.
@@ -55,7 +55,7 @@ final class Physics3DQueries {
   Physics3DQueries(this.system);
 
   /// Steps the world asked, and knows which entity owns which body.
-  final PhysicsSystem3D system;
+  final Physics3DSystem system;
 
   /// The world, or null while the system has none yet.
   PhysicsWorld3D? get _world => system.hasWorld ? system.physics : null;

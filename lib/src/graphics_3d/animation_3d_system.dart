@@ -173,9 +173,9 @@ double _cycleOf(
 /// there — so it is drawn between the two, in the hand, not ahead of it.
 /// Each parent is posed once an update, however many sockets it carries.
 /// Added to the world by `Graphics3D`.
-final class AnimationSystem3D extends System {
+final class Animation3DSystem extends System {
   /// A system reading clip lengths and skeletons from [models].
-  AnimationSystem3D(this.models) {
+  Animation3DSystem(this.models) {
     priority = SystemPriorities.animation;
   }
 

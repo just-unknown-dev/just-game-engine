@@ -27,7 +27,7 @@ final class PhysicsContextState {
 /// An engine's collision layers, on its [EngineContext].
 extension ContextPhysics on EngineContext {
   /// The project's collision layers: their names and which collide. Every
-  /// `PhysicsSystem` on this context filters its bodies by it, and refilters
+  /// `Physics2DSystem` on this context filters its bodies by it, and refilters
   /// them when it is replaced — so an editor changing the grid changes a
   /// running game.
   ///

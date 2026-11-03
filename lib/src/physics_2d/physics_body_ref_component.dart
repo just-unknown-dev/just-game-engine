@@ -2,7 +2,7 @@
 ///
 /// Attach this component to any entity that also has a [TransformComponent]
 /// and should be driven by the subsystem [PhysicsEngine].
-/// `PhysicsSystem` keeps them in sync each frame.
+/// `Physics2DSystem` keeps them in sync each frame.
 library;
 
 import '../ecs/ecs.dart';
@@ -13,7 +13,7 @@ class PhysicsBodyRefComponent extends Component {
   /// The subsystem physics body managed by [PhysicsEngine].
   final PhysicsBody body;
 
-  /// A link to [body]. `PhysicsSystem` attaches one when it adds an
+  /// A link to [body]. `Physics2DSystem` attaches one when it adds an
   /// entity's body to the physics engine.
   PhysicsBodyRefComponent(this.body);
 

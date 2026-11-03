@@ -209,7 +209,7 @@ void main() {
       addTearDown(physics.dispose);
       final world = World()..initialize();
       addTearDown(world.dispose);
-      world.addSystem(PhysicsSystem(physics));
+      world.addSystem(Physics2DSystem(physics));
       final e = world.createEntityWithComponents([
         TransformComponent(
           position: Vector3(0, 0, 42),

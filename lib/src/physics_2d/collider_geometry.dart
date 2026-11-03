@@ -13,7 +13,7 @@ import '../ecs/ecs.dart';
 import '../ecs/serialization/component_definition_registry.dart';
 
 /// The collider a [Collider2DComponent] stands for, in its body's own space: what
-/// `PhysicsSystem` gives the simulation, what the debug outline draws, what
+/// `Physics2DSystem` gives the simulation, what the debug outline draws, what
 /// an editor puts handles on.
 ///
 /// The saved shape is in the entity's own space; the simulated one is
@@ -292,7 +292,7 @@ abstract final class ColliderGeometry {
   /// works it out from the shapes it is given; the pure-Dart engine is told
   /// this, so both turn alike. A rounded polygon counts as its bounds, and a
   /// line (a segment or a chain), which has no area, as its bounds at least
-  /// a unit each way — as `PhysicsSystem.massOf` weighs it. Zero for no
+  /// a unit each way — as `Physics2DSystem.massOf` weighs it. Zero for no
   /// mass.
   static double inertiaOf(CollisionShape shape, double mass) {
     if (!(mass > 0)) return 0.0;

@@ -14,7 +14,7 @@ import '../../ecs/ecs.dart';
 /// .visible` set false by `ViewCullingSystem`, and shown again when it comes
 /// back — so `RenderSystem` skips drawing it with no extra wiring), while
 /// [isActive] uses a larger radius so simulation (this
-/// engine's `MovementSystem`/`PhysicsSystem`, and any game-specific system
+/// engine's `MovementSystem`/`Physics2DSystem`, and any game-specific system
 /// that checks it, e.g. AI) keeps running for entities approaching the
 /// screen — they arrive already moving instead of snapping to life right at
 /// the visible edge.
@@ -28,7 +28,7 @@ class CullStateComponent extends Component {
   bool isVisible = false;
 
   /// Within the larger active/simulation radius this frame. Built-in
-  /// `MovementSystem`/`PhysicsSystem` skip entities where this is `false`.
+  /// `MovementSystem`/`Physics2DSystem` skip entities where this is `false`.
   ///
   /// Defaults to `true` so a freshly-spawned entity still simulates for the
   /// one frame (if any) before `ViewCullingSystem` next runs and corrects it.

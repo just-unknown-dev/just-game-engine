@@ -27,7 +27,7 @@ final _backends = <String, PhysicsEngine Function()>{
   final physics = engine..initialize();
   physics.setGravity(0, gravityY);
   final world = World()..initialize();
-  world.addSystem(PhysicsSystem(physics));
+  world.addSystem(Physics2DSystem(physics));
   if (joints) world.addSystem(PhysicsJointBindingSystem(physics));
   addTearDown(() {
     world.dispose();
@@ -306,7 +306,7 @@ void main() {
       physics.dispose();
     });
     world
-      ..addSystem(PhysicsSystem(physics))
+      ..addSystem(Physics2DSystem(physics))
       ..addSystem(ColliderDebuggerSystem());
     for (final collider in [
       Collider2DComponent(shape: ColliderShape2D.capsule),

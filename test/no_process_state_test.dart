@@ -59,19 +59,19 @@ const Map<String, String> _allowed = {
   'ecs/transform/hierarchy_math.dart:_v': 'scratch',
   'camera/output_camera.dart:_zero': 'a constant vector',
   'camera/output_camera.dart:_one': 'a constant vector',
-  'physics_3d/physics_system_3d.dart:_zero': 'a constant vector',
-  'physics_3d/physics_system_3d.dart:_scratch': 'scratch',
+  'physics_3d/physics_3d_system.dart:_zero': 'a constant vector',
+  'physics_3d/physics_3d_system.dart:_scratch': 'scratch',
 
   // Paints for debug outlines: configured once, never changed.
   'gameplay/checkpoint_system.dart:_inactivePaint': 'paint',
   'gameplay/checkpoint_system.dart:_activatedPaint': 'paint',
-  'physics_2d/physics_system.dart:_debugStaticPaint': 'paint',
-  'physics_2d/physics_system.dart:_debugDynamicPaint': 'paint',
-  'physics_2d/physics_system.dart:_debugSensorPaint': 'paint',
-  'physics_2d/physics_system.dart:_debugKinematicPaint': 'paint',
-  'physics_2d/physics_system.dart:_debugSleepingPaint': 'paint',
-  'physics_2d/physics_system.dart:_debugCharacterPaint': 'paint',
-  'physics_2d/physics_system.dart:_debugCharacterAirPaint': 'paint',
+  'physics_2d/physics_2d_system.dart:_debugStaticPaint': 'paint',
+  'physics_2d/physics_2d_system.dart:_debugDynamicPaint': 'paint',
+  'physics_2d/physics_2d_system.dart:_debugSensorPaint': 'paint',
+  'physics_2d/physics_2d_system.dart:_debugKinematicPaint': 'paint',
+  'physics_2d/physics_2d_system.dart:_debugSleepingPaint': 'paint',
+  'physics_2d/physics_2d_system.dart:_debugCharacterPaint': 'paint',
+  'physics_2d/physics_2d_system.dart:_debugCharacterAirPaint': 'paint',
 
   // Caches keyed by object identity or type, invisible from outside.
   'ecs/world.dart:_zobristKeys':

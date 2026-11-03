@@ -11,7 +11,7 @@ import 'physics_components_3d.dart';
 import 'physics_events_3d.dart';
 
 /// Steps a [PhysicsWorld3D] and keeps it in step with the ECS: the 3-D
-/// counterpart of the engine's 2-D `PhysicsSystem` (a 3-D game leaves that
+/// counterpart of the engine's 2-D `Physics2DSystem` (a 3-D game leaves that
 /// one out).
 ///
 /// Each update it
@@ -30,10 +30,10 @@ import 'physics_events_3d.dart';
 /// It runs at [SystemPriorities.physics] (90), after input and player
 /// control. Taking it out of its world or disposing it removes everything
 /// it made from [physics]; the world itself belongs to whoever made it.
-class PhysicsSystem3D extends System {
+class Physics3DSystem extends System {
   /// A system stepping [physics]; mesh and hull colliders take their
   /// triangles from [geometry].
-  PhysicsSystem3D(PhysicsWorld3D physics, {ColliderGeometry3D? geometry})
+  Physics3DSystem(PhysicsWorld3D physics, {ColliderGeometry3D? geometry})
     : _physics = physics,
       _create = null,
       shapes = ColliderShapes3D(geometry: geometry) {
@@ -45,7 +45,7 @@ class PhysicsSystem3D extends System {
   /// check and nothing else, and there is no world at all — no worker
   /// threads, no tables sized for thousands of bodies — so a game whose 3-D
   /// scenes come later (a 2-D menu first) pays nothing for them.
-  PhysicsSystem3D.lazy(
+  Physics3DSystem.lazy(
     PhysicsWorld3D Function() create, {
     ColliderGeometry3D? geometry,
   }) : _physics = null,
@@ -57,12 +57,12 @@ class PhysicsSystem3D extends System {
   PhysicsWorld3D? _physics;
   final PhysicsWorld3D Function()? _create;
 
-  /// The world it steps; a [PhysicsSystem3D.lazy] system makes it now if it
+  /// The world it steps; a [Physics3DSystem.lazy] system makes it now if it
   /// has not yet.
   PhysicsWorld3D get physics => _physics ??= _create!();
 
   /// Whether the world exists (always, unless made with
-  /// [PhysicsSystem3D.lazy] and still waiting for its first body).
+  /// [Physics3DSystem.lazy] and still waiting for its first body).
   bool get hasWorld => _physics != null;
 
   /// Turns colliders into shapes.
@@ -1155,11 +1155,11 @@ final class _BodyLink {
       _heightCount == c.heights.length &&
       _fieldSize == c.heightFieldSize;
 
-  /// Whether [now] is within [PhysicsSystem3D.scaleTolerance] of [made].
+  /// Whether [now] is within [Physics3DSystem.scaleTolerance] of [made].
   static bool _near(double made, double now) =>
       made == now ||
       (now - made).abs() <=
-          PhysicsSystem3D.scaleTolerance * math.max(made.abs(), now.abs());
+          Physics3DSystem.scaleTolerance * math.max(made.abs(), now.abs());
 
   void savePrevious() {
     _px = _x;
@@ -1184,7 +1184,7 @@ final class _BodyLink {
     restitution = r?.restitution ?? 0;
     gravityFactor = r?.gravityScale ?? 1;
     layer = r?.layer ?? 0;
-    motionQuality = PhysicsSystem3D._quality(r);
+    motionQuality = Physics3DSystem._quality(r);
   }
 
   bool matches(RigidBody3DComponent? r) =>
@@ -1203,7 +1203,7 @@ final class _BodyLink {
   bool failedWith(RigidBody3DComponent? r) =>
       matches(r) &&
       layer == (r?.layer ?? 0) &&
-      motionQuality == PhysicsSystem3D._quality(r);
+      motionQuality == Physics3DSystem._quality(r);
 
   static final Quaternion _scratch = Quaternion.identity();
 
@@ -1220,7 +1220,7 @@ final class _BodyLink {
   }
 
   bool isAt(Vector3 p, Quaternion q) {
-    const e = PhysicsSystem3D.moveEpsilon;
+    const e = Physics3DSystem.moveEpsilon;
     if ((p.x - _x).abs() > e || (p.y - _y).abs() > e || (p.z - _z).abs() > e) {
       return false;
     }
@@ -1293,7 +1293,7 @@ final class _CharacterLink {
   }
 
   bool isAt(Vector3 p) {
-    const e = PhysicsSystem3D.moveEpsilon;
+    const e = Physics3DSystem.moveEpsilon;
     return (p.x - _x).abs() <= e &&
         (p.y - _y).abs() <= e &&
         (p.z - _z).abs() <= e;

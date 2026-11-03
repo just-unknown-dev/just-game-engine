@@ -5,7 +5,7 @@ import 'package:just_graphics_engine/renderer.dart';
 import '../core/core.dart';
 import '../assets/assets.dart';
 import '../timeline/timeline.dart';
-import 'animation_system.dart';
+import 'animation_3d_system.dart';
 import 'graphics_components.dart';
 import 'graphics_definitions.dart';
 import 'graphics_models.dart';
@@ -36,7 +36,7 @@ import '../animation/animation_context.dart';
 /// initializes it makes the GPU device and the renderer
 /// (just_graphics_engine), loads models for the asset manager
 /// ([AssetType.model]), adds a [GraphicsSceneRenderer] to the engine's
-/// frame and an [AnimationSystem3D] to its world.
+/// frame and an [Animation3DSystem] to its world.
 ///
 /// Where Flutter GPU can't draw — the web, Impeller turned off, Android on
 /// OpenGL ES, a plain `flutter test` — the game runs anyway: scenes and
@@ -91,7 +91,7 @@ final class Graphics3D implements RefreshableExtension, EngineService {
   Renderer3D? _renderer;
   GraphicsModels? _models;
   GraphicsSceneRenderer? _scene;
-  AnimationSystem3D? _animations;
+  Animation3DSystem? _animations;
   GraphicsModelLoader? _loader;
   String? _unsupportedReason;
 
@@ -147,7 +147,7 @@ final class Graphics3D implements RefreshableExtension, EngineService {
   /// Makes the GPU device (or, without one, a null device), the renderer
   /// and the models; registers the model loader with the asset manager;
   /// adds a [GraphicsSceneRenderer] to the engine's frame and an
-  /// [AnimationSystem3D] to its world.
+  /// [Animation3DSystem] to its world.
   @override
   Future<void> start(ServiceContext context) async {
     final engine = _engine = context.engine;
@@ -182,7 +182,7 @@ final class Graphics3D implements RefreshableExtension, EngineService {
       unsupportedReason: _unsupportedReason,
     )..renderScale = renderScale;
     engine.rendering.addSceneRenderer(scene);
-    engine.world.addSystem(_animations = AnimationSystem3D(models));
+    engine.world.addSystem(_animations = Animation3DSystem(models));
   }
 
   /// A model was loaded again: the engine's `ModelAsset` takes the new

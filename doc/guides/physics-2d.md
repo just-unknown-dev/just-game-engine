@@ -6,7 +6,7 @@ _Gameplay_ · Give entities bodies and shapes with RigidBody2DComponent and Coll
 
 ## How it fits together
 
-`PhysicsSystem` is one of the default systems (`DefaultSystem.physics`, part of `DefaultSystems.all`). Each fixed step it makes a body for every entity with a `Collider2DComponent`, applies the forces and velocities you asked for, steps `engine.physics`, writes the results back to `TransformComponent` and `VelocityComponent`, and fires collision and sensor events on `world.events`. It runs at `SystemPriorities.physics` (90), after input (100) and player control (95), so a velocity you set in a step moves the body in that same step. See [ECS](/docs/ecs) for how priorities work.
+`Physics2DSystem` is one of the default systems (`DefaultSystem.physics`, part of `DefaultSystems.all`). Each fixed step it makes a body for every entity with a `Collider2DComponent`, applies the forces and velocities you asked for, steps `engine.physics`, writes the results back to `TransformComponent` and `VelocityComponent`, and fires collision and sensor events on `world.events`. It runs at `SystemPriorities.physics` (90), after input (100) and player control (95), so a velocity you set in a step moves the body in that same step. See [ECS](/docs/ecs) for how priorities work.
 
 Units are world units (pixels in a 2D game) and +Y is down: gravity points along +Y and a jump is −Y. The default gravity is 981 units/s², real gravity at 1 unit = 1 cm. Platformers usually want more, for example `engine.physics.setGravity(0, 2000)`.
 
@@ -78,7 +78,7 @@ void buildPlayground(Engine engine) {
 
 | Field | Default | What it does |
 |---|---|---|
-| `mass` | 0 | Mass in kg. 0 works it out from the collider's area: a 100 × 100 box weighs 1000 kg (`PhysicsSystem.autoMassPerSquareUnit`). |
+| `mass` | 0 | Mass in kg. 0 works it out from the collider's area: a 100 × 100 box weighs 1000 kg (`Physics2DSystem.autoMassPerSquareUnit`). |
 | `friction` | 0.5 | Grip, from 0 (ice) up. A contact uses both bodies' friction. |
 | `restitution` | 0 | Bounce, 0 to 1. |
 | `linearDamping` | 0.05 | Speed a dynamic body loses on its own each second. |
@@ -93,7 +93,7 @@ void buildPlayground(Engine engine) {
 
 A platformer character usually wants `friction: 0`, so it slides down walls instead of sticking to them, and `lockRotation: true`. Friction, bounce and damping you change while the game runs take effect on every platform.
 
-After each step `PhysicsSystem` fills in `linearVelocity`, `angularVelocity`, `isAwake`, `isGrounded`, `groundEntity` and `groundNormal`. `isGrounded` stays true for as long as a contact from below lasts.
+After each step `Physics2DSystem` fills in `linearVelocity`, `angularVelocity`, `isAwake`, `isGrounded`, `groundEntity` and `groundNormal`. `isGrounded` stays true for as long as a contact from below lasts.
 
 ## Collider shapes
 
@@ -186,7 +186,7 @@ Listen on `world.events`. Events are per pair of entities, so a chain collider s
 | `SensorEnter2DEvent` | something enters a sensor | `sensor`, `other` |
 | `SensorExit2DEvent` | something leaves a sensor | `sensor`, `other` |
 
-Stay events are off so that nothing pays for them unasked. Turn them on with `engine.world.getSystem<PhysicsSystem>()?.reportContactStay = true`.
+Stay events are off so that nothing pays for them unasked. Turn them on with `engine.world.getSystem<Physics2DSystem>()?.reportContactStay = true`.
 
 ## Queries
 
@@ -197,7 +197,7 @@ Stay events are off so that nothing pays for them unasked. Turn them on with `en
 bool canSeePlayer(Engine engine, Entity guard) {
   final queries = Physics2DQueries(
     engine.physics,
-    engine.world.getSystem<PhysicsSystem>()!,
+    engine.world.getSystem<Physics2DSystem>()!,
   );
   final eyes = guard.getComponent<TransformComponent>()!.position;
   final hit = queries.raycast(

@@ -297,7 +297,7 @@ In `main`, after `initialize()`: `await loadInput(engine);`, `engine.world.addSy
 
 ## 5. Physics
 
-Physics in 2-D is the same model as in 3-D, with a `2D` suffix: a `RigidBody2DComponent` says how a body moves, a `Collider2DComponent` gives it its shape. A collider alone is a static body. `PhysicsSystem` (a default system) steps `engine.physics`, writes the results back to the entity's `TransformComponent` and `VelocityComponent`, and fires events on `world.events`.
+Physics in 2-D is the same model as in 3-D, with a `2D` suffix: a `RigidBody2DComponent` says how a body moves, a `Collider2DComponent` gives it its shape. A collider alone is a static body. `Physics2DSystem` (a default system) steps `engine.physics`, writes the results back to the entity's `TransformComponent` and `VelocityComponent`, and fires events on `world.events`.
 
 ```dart
 import 'package:flutter/material.dart';
@@ -427,7 +427,7 @@ A character's own body is kinematic, so sensors see it and dynamic bodies bump i
 - Collision layers: put a body on a layer from 0 (the default) to 15, name the layers and say which collide in `assets/project/physics.json` (a `PhysicsLayers`; the editor's Physics Layers dock writes it), and list that file under `flutter: assets:`. A body's own `collidesWith` overrides the grid.
 - `isGrounded`, `groundEntity`, `groundNormal`, `linearVelocity` and `angularVelocity` on `RigidBody2DComponent` are kept up to date for you.
 - Push from code with `addForce`, `addImpulse`, `addTorque`, `addAngularImpulse`, `setVelocity` and `setAngularVelocity`; they apply at the next step.
-- Events: `CollisionEnter2DEvent` (the two entities, the contact `point` and `normal`) when a contact begins, `CollisionExit2DEvent` when it ends, `CollisionStay2DEvent` every step in between once you set `PhysicsSystem.reportContactStay`, and `SensorEnter2DEvent` / `SensorExit2DEvent` (`sensor` and `other`) for sensors.
+- Events: `CollisionEnter2DEvent` (the two entities, the contact `point` and `normal`) when a contact begins, `CollisionExit2DEvent` when it ends, `CollisionStay2DEvent` every step in between once you set `Physics2DSystem.reportContactStay`, and `SensorEnter2DEvent` / `SensorExit2DEvent` (`sensor` and `other`) for sensors.
 - Queries: `Physics2DQueries(engine.physics, physicsSystem)` casts rays and circles and finds overlaps, filtered by layer.
 - To teleport a body, write its `TransformComponent`. The physics system moves the body to match.
 - Debug builds draw every collider's outline over the game; `showDebugOutline: false` on the collider hides one. Release builds never draw them.

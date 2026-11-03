@@ -15,7 +15,7 @@ void main() {
     physics = PhysicsEngine()..initialize();
     physics.setGravity(0, 2200);
     world = World()..initialize();
-    world.addSystem(PhysicsSystem(physics));
+    world.addSystem(Physics2DSystem(physics));
   });
   tearDown(() {
     world.dispose();

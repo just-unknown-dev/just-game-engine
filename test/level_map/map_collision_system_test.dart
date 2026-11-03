@@ -40,7 +40,7 @@ TilesetData _tileset() =>
     world.dispose();
     _physics.dispose();
   });
-  world.addSystem(PhysicsSystem(_physics));
+  world.addSystem(Physics2DSystem(_physics));
   registerLevelMapSystems(world);
   final map = LevelMapData(tileWidth: 16, tileHeight: 16);
   map.addTileset('test/t.tileset.json');

@@ -10,7 +10,7 @@ Scene files saved by earlier versions still load: they are migrated in memory wh
 
 - [ ] Raise the constraints: `just_game_engine: ^2.0.0-dev.1`, Flutter 3.47.1 or newer ([Dependencies](#dependencies)).
 - [ ] Create the engine with `Engine(config: ...)`, `await initialize()` before `runApp`, and dispose it once. Replace `Engine.instance` with a reference you pass around ([Engine setup](#engine-setup-and-lifecycle)).
-- [ ] Add the standard systems through `EngineConfig.defaultSystems`, or give `PhysicsSystem` the engine's physics ([Systems](#systems)).
+- [ ] Add the standard systems through `EngineConfig.defaultSystems`, or give `Physics2DSystem` the engine's physics ([Systems](#systems)).
 - [ ] Physics bodies: `PhysicsBodyComponent` becomes a `RigidBody2DComponent` and a `Collider2DComponent`, with 3-D's names and defaults; `bodyType` instead of `isStatic`, a layer number instead of a layer bit, colliders that follow scale, and the `...2D` events ([Physics bodies](#physics-bodies)).
 - [ ] If you used achievements, sign-in, leaderboards, currency, inventory or ads: add `just_game_services` ([Game services](#game-services)).
 - [ ] `transform.rotation` becomes `transform.angle` ([Transforms](#transforms)).
@@ -241,7 +241,7 @@ final engine = Engine(
 );
 ```
 
-`DefaultSystems.all` adds `InputSystem`, `PhysicsSystem` (with `PhysicsJointBindingSystem`), `MovementSystem`, `AudioSystem`, `RenderSystem` and `ParallaxRenderSystem`, the sprite, animator and timeline systems, `LevelMapSystem`, `MapCollisionSystem` and the camera systems. `DefaultSystems.headless` leaves out rendering and audio. Pick single ones with a set of `DefaultSystem` values. Nothing is added twice: a system you added yourself, configured your way, is kept. The same function is public as `registerDefaultSystems(world, engine)`.
+`DefaultSystems.all` adds `InputSystem`, `Physics2DSystem` (with `PhysicsJointBindingSystem`), `MovementSystem`, `AudioSystem`, `RenderSystem` and `ParallaxRenderSystem`, the sprite, animator and timeline systems, `LevelMapSystem`, `MapCollisionSystem` and the camera systems. `DefaultSystems.headless` leaves out rendering and audio. Pick single ones with a set of `DefaultSystem` values. Nothing is added twice: a system you added yourself, configured your way, is kept. The same function is public as `registerDefaultSystems(world, engine)`.
 
 `ParticleSystem`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `EffectSystem` and the rest are not defaults: add the ones you use.
 
@@ -251,8 +251,8 @@ A game that keeps adding its systems itself needs no change here, apart from the
 
 | 1.6 | 2.0 |
 |---|---|
-| `PhysicsSystem()` — its own simple solver, with `gravity` and `broadPhaseCellSize` | `PhysicsSystem(engine.physics, camera: ...)` steps and syncs the engine's physics (Box2D on native, pure Dart on the web); set gravity with `engine.physics.setGravity(x, y)` |
-| `PhysicsBridgeSystem` next to it | removed: `PhysicsSystem` syncs bodies itself |
+| `PhysicsSystem()` — its own simple solver, with `gravity` and `broadPhaseCellSize` | `Physics2DSystem(engine.physics, camera: ...)` steps and syncs the engine's physics (Box2D on native, pure Dart on the web); set gravity with `engine.physics.setGravity(x, y)` |
+| `PhysicsBridgeSystem` next to it | removed: `Physics2DSystem` syncs bodies itself |
 | `InputSystem(engine.input)..buttonMappings = {...}` | `InputSystem(engine.input, maps: ['player'])` (see [Input](#input)) |
 | `CheckpointSystem(playerTag: ...)` | also takes `camera:` for its debug drawing |
 
@@ -272,7 +272,7 @@ final camera = engine.cameraSystem.mainCamera;
 engine.physics.setGravity(0, 980);
 engine.world
   ..addSystem(RenderSystem(camera: camera))
-  ..addSystem(PhysicsSystem(engine.physics, camera: camera));
+  ..addSystem(Physics2DSystem(engine.physics, camera: camera));
 ```
 
 `PhysicsBodyComponent` is now two components; see [Physics bodies](#physics-bodies).
@@ -343,7 +343,7 @@ To make a body collide with nothing for a while — a platform that crumbles —
 | `SensorEnterEvent` (`sensor`, `visitor`) | `SensorEnter2DEvent` (`sensor`, `other`) |
 | `SensorExitEvent` (`sensor`, `visitor`) | `SensorExit2DEvent` (`sensor`, `other`) |
 
-`CollisionStay2DEvent` is new: every step two bodies keep touching, once `PhysicsSystem.reportContactStay` is on (it is off, so nothing pays for it unasked).
+`CollisionStay2DEvent` is new: every step two bodies keep touching, once `Physics2DSystem.reportContactStay` is on (it is off, so nothing pays for it unasked).
 
 **Queries.** `Physics2DQueries(engine.physics, physicsSystem)` casts rays (`raycast`, `raycastAll`) and circles (`circleCast`) and finds overlaps (`overlapCircle`, `overlapBox`), filtered by layer, answering with entities (`PhysicsHit2D`).
 
@@ -878,12 +878,12 @@ void addMinimap(Engine engine) {
 
 ### Debug drawing takes a camera
 
-`PhysicsSystem` and `CheckpointSystem` draw collider outlines and checkpoint radii. Without the camera the `RenderSystem` uses, they land at their world coordinates read as screen pixels. Pass it:
+`Physics2DSystem` and `CheckpointSystem` draw collider outlines and checkpoint radii. Without the camera the `RenderSystem` uses, they land at their world coordinates read as screen pixels. Pass it:
 
 ```dart
 final camera = engine.cameraSystem.mainCamera;
 engine.world
-  ..addSystem(PhysicsSystem(engine.physics, camera: camera))
+  ..addSystem(Physics2DSystem(engine.physics, camera: camera))
   ..addSystem(CheckpointSystem(camera: camera));
 ```
 
@@ -1095,7 +1095,7 @@ The [CHANGELOG](CHANGELOG.md) lists every other fix.
 | `TileMapLayerComponent`, `TiledObjectComponent`, `TileMapRenderSystem`, `TiledCollisionSystem`, `TiledMapFactory`, `ComponentMapper` | `LevelMapComponent`, `LevelMapSystem`, `MapCollisionSystem`, `TiledInterop` |
 | `TextComponent`, `ButtonComponent`, `UIComponent` | `just_ui_editor` |
 | `LinearProgressComponent`, `CircularProgressComponent` | `just_ui_editor`'s `UiProgressComponent`, or a Flutter widget |
-| `PhysicsBridgeSystem` | `PhysicsSystem(engine.physics)` |
+| `PhysicsBridgeSystem` | `Physics2DSystem(engine.physics)` |
 | `PhysicsSystem.gravity`, `broadPhaseCellSize` | `engine.physics.setGravity(x, y)` |
 | `PhysicsBodyComponent` | `RigidBody2DComponent` and `Collider2DComponent` ([physics bodies](#physics-bodies)) |
 | `CollisionEvent`, `ContactExitEvent`, `SensorEnterEvent`, `SensorExitEvent` | `CollisionEnter2DEvent`, `CollisionExit2DEvent`, `SensorEnter2DEvent`, `SensorExit2DEvent` ([physics bodies](#physics-bodies)) |
@@ -1125,6 +1125,7 @@ The [CHANGELOG](CHANGELOG.md) lists every other fix.
 | `EngineState.error` | `EngineState.failed` |
 | `Engine.getSystem<T>()` | `Engine.subsystem<T>()` |
 | `SystemPriorities.tileMap` | `SystemPriorities.levelMap` |
+| `PhysicsSystem` | `Physics2DSystem`: 2-D and 3-D twins are named `X2DSystem` and `X3DSystem` (its constructor changed too: see [Systems](#systems)) |
 | `DistanceJointComponent`, `WeldJointComponent`, `PrismaticJointComponent`, `WheelJointComponent` | `DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent`, `WheelJoint2DComponent` ([physics bodies](#physics-bodies)) |
 
 ## Deprecated APIs
@@ -1133,7 +1134,7 @@ These still work in 2.0 and go in 3.0. Each deprecation message names the replac
 
 - `Engine.getSystem<T>()` → `subsystem<T>()`.
 - `Engine.parallax` and `ParallaxSystem` → `ParallaxComponent`.
-- `RenderingEngine.addRenderable`, `removeRenderable`, `renderables`, `renderableCount`, `layerCount`, `markLayerOrderDirty`, `markSpatialIndexDirty`, `useSpatialIndex`, `addManagedEmitter`, `removeManagedEmitter`, `updateManagedEmitters` → entities (see [The legacy render path](#the-legacy-render-path)).
+- `RenderingEngine.addRenderable`, `removeRenderable`, `renderables`, `renderableCount`, `layerCount`, `markLayerOrderDirty`, `markSpatialIndexDirty`, `useSpatialIndex` → entities (see [The legacy render path](#the-legacy-render-path)).
 - `RenderingEngine.onRenderOverlay` / `onRenderBackground` → `overlayHooks` / `backgroundHooks`.
 - `TagComponent.tag` → `tags`.
 - `HierarchySystem` → nothing: every world runs the hierarchy.

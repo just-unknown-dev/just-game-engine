@@ -7,7 +7,7 @@ import 'dart:ui';
 import 'package:just_physics_engine/just_physics_engine.dart';
 
 import '../ecs/ecs.dart';
-import 'physics_system.dart';
+import 'physics_2d_system.dart';
 
 /// What a 2-D query hit.
 final class PhysicsHit2D {
@@ -21,7 +21,7 @@ final class PhysicsHit2D {
     required this.fraction,
   });
 
-  /// The entity hit; null for a body no [PhysicsSystem] made.
+  /// The entity hit; null for a body no [Physics2DSystem] made.
   final Entity? entity;
 
   /// The body hit.
@@ -49,7 +49,7 @@ final class PhysicsHit2D {
 /// whether sensors count.
 ///
 /// ```dart
-/// final queries = Physics2DQueries(engine.physics, world.getSystem<PhysicsSystem>()!);
+/// final queries = Physics2DQueries(engine.physics, world.getSystem<Physics2DSystem>()!);
 /// final hit = queries.raycast(eyes, const Offset(1, 0), maxDistance: 300, ignore: guard);
 /// if (hit?.entity?.hasTag('player') ?? false) chase();
 /// ```
@@ -61,7 +61,7 @@ final class Physics2DQueries {
   final PhysicsEngine physics;
 
   /// What made the bodies, and knows their entities.
-  final PhysicsSystem system;
+  final Physics2DSystem system;
 
   /// The first thing a ray from [origin] along [direction] hits within
   /// [maxDistance], or null.

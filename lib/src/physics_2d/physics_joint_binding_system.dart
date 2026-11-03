@@ -4,7 +4,7 @@ import 'package:flutter/painting.dart';
 import 'package:just_physics_engine/just_physics_engine.dart';
 
 import '../ecs/ecs.dart';
-import 'physics_system.dart';
+import 'physics_2d_system.dart';
 import 'joints_2d.dart';
 import 'physics_body_ref_component.dart';
 
@@ -12,7 +12,7 @@ import 'physics_body_ref_component.dart';
 /// [WheelJoint2DComponent]) in the physics engine, between the body of the entity a
 /// joint is on and the body of its [Joint2DComponent.connectedBody].
 ///
-/// Both entities need a body — `PhysicsSystem` gives each a
+/// Both entities need a body — `Physics2DSystem` gives each a
 /// [PhysicsBodyRefComponent]. A joint is made once and kept until its
 /// component changes, either body is replaced, or either entity goes; the
 /// entities carrying joints are found again only when the world's structure
@@ -101,7 +101,7 @@ class PhysicsJointBindingSystem extends System {
         _bindings.remove(comp);
         continue;
       }
-      final physicsSystem = world.getSystem<PhysicsSystem>();
+      final physicsSystem = world.getSystem<Physics2DSystem>();
       _bindings[comp] = created
         ..target = target
         ..owner = physicsSystem
@@ -407,7 +407,7 @@ sealed class _JointBinding {
   Entity? target;
 
   /// The physics system whose bodies these are, if one was in the world.
-  PhysicsSystem? owner;
+  Physics2DSystem? owner;
 
   /// The update that last wanted this joint.
   int frame = 0;

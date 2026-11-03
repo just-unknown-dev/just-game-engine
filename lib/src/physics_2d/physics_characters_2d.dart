@@ -13,8 +13,8 @@ import '../rendering/culling/cull_state_component.dart';
 import 'physics_components_2d.dart';
 import '../physics/physics_context.dart';
 
-/// The [CharacterBody2DComponent] side of `PhysicsSystem`, which owns one and runs
-/// it each update before stepping — as the 3-D `PhysicsSystem3D`
+/// The [CharacterBody2DComponent] side of `Physics2DSystem`, which owns one and runs
+/// it each update before stepping — as the 3-D `Physics3DSystem`
 /// moves its characters.
 ///
 /// Each character is moved by [CharacterMover2D] through the world as it was

@@ -207,11 +207,11 @@ class Engine {
   /// The physics simulation — Box2D FFI on native platforms, pure-Dart on
   /// web, or whatever [EngineConfig.createPhysics] makes.
   /// [PhysicsEngine.initialize] runs in [initialize], so bodies can be
-  /// added before any [PhysicsSystem] exists, but **stepping**
-  /// (`physics.update`) is owned by [PhysicsSystem] when one is registered
+  /// added before any [Physics2DSystem] exists, but **stepping**
+  /// (`physics.update`) is owned by [Physics2DSystem] when one is registered
   /// in [world], not by this `Engine`'s own update loop — that keeps a
   /// frame's gameplay-set velocity reaching the physics step the same frame
-  /// it was set instead of lagging a frame behind. If no [PhysicsSystem] is
+  /// it was set instead of lagging a frame behind. If no [Physics2DSystem] is
   /// in [world], bodies added here simply won't advance.
   PhysicsEngine get physics => _ready(_physics, 'physics');
 
@@ -570,7 +570,7 @@ class Engine {
           parallax.update(deltaTime, cameraSystem.mainCamera.position),
     );
     // No standalone 'physics' task here — see the doc comment on [physics]
-    // above. PhysicsSystem steps it inline within the 'ecs' task below.
+    // above. Physics2DSystem steps it inline within the 'ecs' task below.
     systems.registerUpdateTask('ecs', (deltaTime) => world.update(deltaTime));
     // Systems that also move once per rendered frame (see FrameSystem).
     systems.registerFrameTask('ecs', world.frame);

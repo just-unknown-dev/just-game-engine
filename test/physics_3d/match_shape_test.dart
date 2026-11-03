@@ -33,11 +33,11 @@ class _Look extends Component implements SolidShapeSource {
 void main() {
   late World world;
   late FakePhysicsWorld3D physics;
-  late PhysicsSystem3D system;
+  late Physics3DSystem system;
 
   setUp(() {
     physics = FakePhysicsWorld3D(PhysicsWorldSettings3D());
-    system = PhysicsSystem3D(physics);
+    system = Physics3DSystem(physics);
     world = World()..initialize();
     world.addSystem(system);
   });

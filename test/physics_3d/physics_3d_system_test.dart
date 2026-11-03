@@ -1,4 +1,4 @@
-// PhysicsSystem3D against the fake backend: bodies, characters and joints
+// Physics3DSystem against the fake backend: bodies, characters and joints
 // follow their components, gameplay reaches the world, and what happens
 // comes back as transforms and events.
 
@@ -12,13 +12,13 @@ import 'package:just_physics_engine/testing.dart';
 
 const _dt = 1 / 60;
 
-({World world, FakePhysicsWorld3D physics, PhysicsSystem3D system}) _setUp({
+({World world, FakePhysicsWorld3D physics, Physics3DSystem system}) _setUp({
   bool stay = false,
 }) {
   final physics = FakePhysicsWorld3D(
     PhysicsWorldSettings3D(reportContactStay: stay),
   );
-  final system = PhysicsSystem3D(physics);
+  final system = Physics3DSystem(physics);
   final world = World()..initialize();
   world.addSystem(system);
   addTearDown(() {

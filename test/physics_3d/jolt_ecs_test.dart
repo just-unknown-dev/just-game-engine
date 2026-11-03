@@ -1,4 +1,4 @@
-// The 3-D components and PhysicsSystem3D on Jolt: what a 3-D game does.
+// The 3-D components and Physics3DSystem on Jolt: what a 3-D game does.
 // This package's pubspec asks for Jolt to be built (hooks: user_defines).
 
 @Tags(['physics3d'])
@@ -14,7 +14,7 @@ final _backend = JoltPhysicsEngine();
 World _world({void Function(PhysicsWorld3D)? withPhysics}) {
   final physics = _backend.createWorld(PhysicsWorldSettings3D());
   final world = World()..initialize();
-  world.addSystem(PhysicsSystem3D(physics));
+  world.addSystem(Physics3DSystem(physics));
   withPhysics?.call(physics);
   addTearDown(() {
     world.dispose();
@@ -149,7 +149,7 @@ void main() {
     expect(hinge.angle, closeTo(1, 0.05));
   });
 
-  test('500 bodies through PhysicsSystem3D on Jolt', () {
+  test('500 bodies through Physics3DSystem on Jolt', () {
     final world = _world();
     _static(world, Vector3(0, 0.5, 0), Vector3(60, 1, 60));
     for (var i = 0; i < 500; i++) {
@@ -175,7 +175,7 @@ void main() {
     final ms = watch.elapsedMicroseconds / 1000 / frames;
     // ignore: avoid_print
     print(
-      'just_jolt + PhysicsSystem3D perf, 500 bodies: ${ms.toStringAsFixed(3)} ms per update',
+      'just_jolt + Physics3DSystem perf, 500 bodies: ${ms.toStringAsFixed(3)} ms per update',
     );
     expect(ms, lessThan(16));
   });

@@ -7,7 +7,7 @@
 /// - Components: [RigidBody3DComponent], [Collider3DComponent], [CharacterBody3DComponent], and the
 ///   joints [FixedJoint3DComponent], [PointJoint3DComponent], [HingeJoint3DComponent],
 ///   [SliderJoint3DComponent], [DistanceJoint3DComponent], [SixDofJoint3DComponent].
-/// - [PhysicsSystem3D], which steps the world.
+/// - [Physics3DSystem], which steps the world.
 /// - Events on the world's bus: [CollisionEnter3DEvent],
 ///   [CollisionStay3DEvent], [CollisionExit3DEvent], [SensorEnter3DEvent],
 ///   [SensorExit3DEvent].
@@ -27,4 +27,4 @@ export 'src/physics_3d/physics_components_3d.dart';
 export 'src/physics_3d/physics_definitions_3d.dart';
 export 'src/physics_3d/physics_events_3d.dart';
 export 'src/physics_3d/physics_queries_3d.dart';
-export 'src/physics_3d/physics_system_3d.dart';
+export 'src/physics_3d/physics_3d_system.dart';

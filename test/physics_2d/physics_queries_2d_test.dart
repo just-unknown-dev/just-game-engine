@@ -8,14 +8,14 @@ import 'package:just_game_engine/just_game_engine.dart';
 void main() {
   late PhysicsEngine physics;
   late World world;
-  late PhysicsSystem system;
+  late Physics2DSystem system;
   late Physics2DQueries queries;
 
   setUp(() {
     physics = PhysicsEngine()..initialize();
     physics.setGravity(0, 0);
     world = World()..initialize();
-    world.addSystem(system = PhysicsSystem(physics));
+    world.addSystem(system = Physics2DSystem(physics));
     queries = Physics2DQueries(physics, system);
   });
   tearDown(() {

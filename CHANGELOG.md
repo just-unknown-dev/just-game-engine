@@ -17,6 +17,7 @@ The guides ship with the package, so each version carries the guides written for
 - **Removed**: `RenderingEngine.addManagedEmitter`, `removeManagedEmitter` and `updateManagedEmitters`, and the engine's `particles` update task: an emitter goes on an entity (`ParticleEmitterComponent`), which `ParticleSystem` updates.
 - `VelocityComponent` lives in `physics/` (shared by 2-D physics, movement, cameras and animators), `AnimationEvent` in `sprites/`, `FrameView` in `interfaces/`, `ShapePaintStyle` in `foundation/`, `TextReader` in `assets/`; `SceneLoader` and the prefab files are in `scenes/`.
 - **Breaking**: `ParticleSystemECS` is now `ParticleSystem` and `EffectSystemECS` is now `EffectSystem`, named like every other system (files `particle_system.dart` and `effect_system.dart`).
+- **Breaking**: systems follow the components' 2-D/3-D naming: twins are `X2DSystem` and `X3DSystem`, and a one-dimension system puts its tag before `System`. `PhysicsSystem` is `Physics2DSystem`, `PhysicsSystem3D` is `Physics3DSystem` and `AnimationSystem3D` is `Animation3DSystem` (files `physics_2d_system.dart`, `physics_3d_system.dart` and `animation_3d_system.dart`). Scenes are unaffected: they save no system names.
 
 ## [2.0.0-dev.3] - 2026-10-24
 

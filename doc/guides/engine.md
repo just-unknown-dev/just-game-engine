@@ -116,7 +116,7 @@ The subsystem getters throw `EngineNotReadyError` (a `StateError` naming the mem
 | `DefaultSystem` | Systems |
 |---|---|
 | `input` | `InputSystem` (the `player` map's actions onto each `InputComponent`) |
-| `physics` | `PhysicsSystem`, `PhysicsJointBindingSystem` |
+| `physics` | `Physics2DSystem`, `PhysicsJointBindingSystem` |
 | `movement` | `MovementSystem` |
 | `audio` | `AudioSystem` |
 | `rendering` | `RenderSystem`, `ParallaxRenderSystem` |
@@ -137,7 +137,7 @@ These exist between `initialize()` and `dispose()`:
 |---|---|---|
 | `engine.world` | `World` | Entities, components and systems; see [World, entities & systems](/docs/ecs). |
 | `engine.rendering` | `RenderingEngine` | Draws the frame: background colour, render hooks, post-processing, `stats`. |
-| `engine.physics` | `PhysicsEngine` | 2-D physics, stepped by `PhysicsSystem`; see [2D physics](/docs/physics-2d). |
+| `engine.physics` | `PhysicsEngine` | 2-D physics, stepped by `Physics2DSystem`; see [2D physics](/docs/physics-2d). |
 | `engine.input` | `InputService` | Actions, devices and players; see [Input](/docs/input). |
 | `engine.audio`, `engine.music`, `engine.sfx` | `AudioEngine`, `MusicManager`, `SoundEffectManager` | Sound; see [Audio](/docs/audio). |
 | `engine.cache` | `CacheManager` | Strings, JSON and binary data kept between runs. |
@@ -157,7 +157,7 @@ These work in every state: `engine.config`, `engine.context`, `engine.assets` (t
 - `engine.pause()` stops the steps. The screen still draws and input still updates every frame, so a pause menu keeps working. `resume()` drops the time that passed while paused instead of catching up.
 - Drawing happens once per display frame, between steps. Moving physics bodies are drawn between their last two steps (`engine.gameLoop.interpolation`), so they stay smooth on a 120 Hz screen.
 
-Each step runs the engine's update tasks in order: `input`, `parallax`, `particles` and `ecs`. The `ecs` task is `world.update(deltaTime)`, and `PhysicsSystem` steps the physics inside it, so a velocity your system sets reaches the same step's simulation. Add a task of your own with `engine.systemManager.registerUpdateTask('autosave', (dt) { ... })`; it runs after the engine's, task names must be unique, and `unregisterUpdateTask` removes it.
+Each step runs the engine's update tasks in order: `input`, `parallax`, `particles` and `ecs`. The `ecs` task is `world.update(deltaTime)`, and `Physics2DSystem` steps the physics inside it, so a velocity your system sets reaches the same step's simulation. Add a task of your own with `engine.systemManager.registerUpdateTask('autosave', (dt) { ... })`; it runs after the engine's, task names must be unique, and `unregisterUpdateTask` removes it.
 
 After a frame's steps, systems that also implement `FrameSystem` run their `frame(deltaTime, alpha)` once per rendered frame, for things that must move at the display's rate rather than the simulation's.
 

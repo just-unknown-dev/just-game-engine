@@ -6,7 +6,7 @@ import '../ecs/ecs.dart';
 // that hold them load everywhere, the web included (where nothing simulates
 // them). Units are metres; +Y is down.
 
-/// Makes its entity a rigid body that [PhysicsSystem3D] simulates. It needs
+/// Makes its entity a rigid body that [Physics3DSystem] simulates. It needs
 /// a [Collider3DComponent] on the same entity for its shape.
 ///
 /// Gameplay moves a dynamic body with forces, impulses or a velocity — all

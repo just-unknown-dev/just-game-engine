@@ -90,7 +90,7 @@ Future<void> loadFirstLevel(Engine engine) async {
 | `DefaultSystem` | Systems |
 |---|---|
 | `input` | `InputSystem` (the `player` map's actions onto each `InputComponent`) |
-| `physics` | `PhysicsSystem`, `PhysicsJointBindingSystem` |
+| `physics` | `Physics2DSystem`, `PhysicsJointBindingSystem` |
 | `movement` | `MovementSystem` |
 | `audio` | `AudioSystem` |
 | `rendering` | `RenderSystem`, `ParallaxRenderSystem` |
@@ -161,11 +161,11 @@ void addCameras(Engine engine) {
 
 ### Physics
 
-- The same model as 3-D (`package:just_game_engine/physics_3d.dart`), with a `2D` suffix (but `PhysicsSystem` and `BodyType`, which keep their 1.x names): `RigidBody2DComponent` is how a body moves (static, kinematic or dynamic; mass, friction, bounce, damping, gravity scale, sensor, layer and filter) and `Collider2DComponent` its shape (box, circle, capsule, polygon, segment, chain, or *match shape*: whatever the entity draws; offset, rotation, one-way). A collider alone is a static body. `PhysicsSystem` steps `engine.physics` and syncs transforms and velocities back.
+- The same model as 3-D (`package:just_game_engine/physics_3d.dart`), with a `2D` suffix (but `Physics2DSystem` and `BodyType`, which keep their 1.x names): `RigidBody2DComponent` is how a body moves (static, kinematic or dynamic; mass, friction, bounce, damping, gravity scale, sensor, layer and filter) and `Collider2DComponent` its shape (box, circle, capsule, polygon, segment, chain, or *match shape*: whatever the entity draws; offset, rotation, one-way). A collider alone is a static body. `Physics2DSystem` steps `engine.physics` and syncs transforms and velocities back.
 - Push a body from code with `addForce`, `addImpulse`, `addTorque`, `setVelocity` and the rest on `RigidBody2DComponent`; it reports `isGrounded`, `groundNormal` and its velocities after each step.
 - `CharacterBody2DComponent` is a character gameplay moves instead (3-D's `CharacterBody3DComponent`): set its `moveVelocity`, call `jump`, and it walks slopes, climbs steps, rides platforms and stands on one-way ones, the same on every platform. It needs no rigid body or collider.
 - Physics comes from `just_physics_engine`: Box2D v3 through FFI where its native library loads, and a pure-Dart engine with the same API on the web or wherever it does not.
-- Joints (`DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent`, `WheelJoint2DComponent`), queries through `Physics2DQueries` (raycast, circle cast, overlaps, by layer), and ECS events: `CollisionEnter2DEvent`, `CollisionStay2DEvent` (opt in with `PhysicsSystem.reportContactStay`), `CollisionExit2DEvent`, `SensorEnter2DEvent`, `SensorExit2DEvent`. Some joint options wait on the physics engine; see the [known limitations](MIGRATION.md#known-limitations-in-200).
+- Joints (`DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent`, `WheelJoint2DComponent`), queries through `Physics2DQueries` (raycast, circle cast, overlaps, by layer), and ECS events: `CollisionEnter2DEvent`, `CollisionStay2DEvent` (opt in with `Physics2DSystem.reportContactStay`), `CollisionExit2DEvent`, `SensorEnter2DEvent`, `SensorExit2DEvent`. Some joint options wait on the physics engine; see the [known limitations](MIGRATION.md#known-limitations-in-200).
 
 
 ### 3-D graphics

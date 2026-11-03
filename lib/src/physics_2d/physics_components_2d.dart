@@ -9,10 +9,10 @@ import '../ecs/ecs.dart';
 
 // The 2-D physics components, in step with the 3-D ones:
 // `RigidBody2DComponent` ↔ `RigidBody3DComponent`, `Collider2DComponent` ↔ `Collider3DComponent`, with the same
-// field names wherever the meaning is the same. `PhysicsSystem` simulates
+// field names wherever the meaning is the same. `Physics2DSystem` simulates
 // them. Units are the world's (pixels in a 2-D game); +Y is down.
 
-/// Makes its entity a body that `PhysicsSystem` simulates: how it moves,
+/// Makes its entity a body that `Physics2DSystem` simulates: how it moves,
 /// how heavy it is, what it is made of. It needs a [Collider2DComponent] on the same
 /// entity for its shape; a collider without one is a static body.
 ///
@@ -47,7 +47,7 @@ class RigidBody2DComponent extends Component {
   BodyType bodyType;
 
   /// Mass in kg; 0 works it out from the collider's area, as a 3-D body
-  /// does from its volume (see `PhysicsSystem.autoMassPerSquareUnit`: a
+  /// does from its volume (see `Physics2DSystem.autoMassPerSquareUnit`: a
   /// 100 × 100 square weighs 1000 kg). Only a dynamic body's mass matters.
   double mass;
 
@@ -129,7 +129,7 @@ class RigidBody2DComponent extends Component {
   bool isAwake = false;
 
   /// Whether it rests on a surface: true for as long as a contact from
-  /// below lasts, not just its first frame. Kept by `PhysicsSystem` from
+  /// below lasts, not just its first frame. Kept by `Physics2DSystem` from
   /// contacts — what a platformer's controller reads.
   bool isGrounded = false;
 
@@ -290,8 +290,8 @@ class Collider2DComponent extends Component {
   /// Which side [oneWay] makes it solid from.
   OneWayDirection oneWayDirection;
 
-  /// Whether `PhysicsSystem` draws its outline when outlines are drawn
-  /// (`PhysicsSystem.drawsOutlines`: in the editor while a scene is edited).
+  /// Whether `Physics2DSystem` draws its outline when outlines are drawn
+  /// (`Physics2DSystem.drawsOutlines`: in the editor while a scene is edited).
   bool showDebugOutline;
 
   @override

@@ -52,8 +52,8 @@ void main() {
   });
   tearDown(() => engine.dispose());
 
-  AnimationSystem3D system() =>
-      engine.world.systems.whereType<AnimationSystem3D>().single;
+  Animation3DSystem system() =>
+      engine.world.systems.whereType<Animation3DSystem>().single;
 
   Entity character(AnimationPlayerComponent player) =>
       engine.world.createEntityWithComponents([

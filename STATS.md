@@ -35,7 +35,7 @@ The top-level snapshot. Covers the most recent fixed update step.
 | `lastUpdateMs` | `double` | Wall-clock milliseconds of the last update cycle: every update task (§2) together. |
 | `budgetRemainingMs` | `double` | `16.67 − lastUpdateMs`. Positive = headroom; negative = over budget. |
 | `isOverBudget` | `bool` | `lastUpdateMs > 16.67`. This is one step measured against a 60 Hz frame; a frame that runs two steps to catch up spends twice that. |
-| `systemTimesMs` | `Map<String, double>` | Milliseconds per update task, as in `schedulerStats['taskTimesMs']`. The engine's tasks, in order: `input`, `camera`, `parallax`, `particles`, `ecs` — plus any registered with `registerUpdateTask`. (`audio` runs once per rendered frame, a frame task after `ecs`, not here.) There is no `physics` task: `PhysicsSystem` steps the physics engine inside `ecs` (see `World.stats` for per-system times). |
+| `systemTimesMs` | `Map<String, double>` | Milliseconds per update task, as in `schedulerStats['taskTimesMs']`. The engine's tasks, in order: `input`, `parallax`, `ecs` — plus any registered with `registerUpdateTask`. (`audio` runs once per rendered frame, a frame task after `ecs`, not here.) There is no `physics` task: `Physics2DSystem` steps the physics engine inside `ecs` (see `World.stats` for per-system times). |
 | `scheduler` | `Map<String, dynamic>` | `SystemManager.schedulerStats` (see §2); an empty map before the first update step and when the engine has no system manager (before `initialize()`, after `dispose()`). |
 
 **Example:**
@@ -272,7 +272,7 @@ GameWidget(
 
 `GameWidget` may be built before `initialize()` has completed: it starts drawing the engine and applies `showDebug` as soon as the engine is ready (it listens to `Engine.stateListenable`).
 
-Apart from `GameWidget`, debug builds (`kDebugMode`) draw collider outlines from `PhysicsSystem` (for bodies whose `Collider2DComponent.showDebugOutline` is true, the default) and checkpoint radii from `CheckpointSystem`, each through the camera it was given.
+Apart from `GameWidget`, debug builds (`kDebugMode`) draw collider outlines from `Physics2DSystem` (for bodies whose `Collider2DComponent.showDebugOutline` is true, the default) and checkpoint radii from `CheckpointSystem`, each through the camera it was given.
 
 The HUD shows no update or physics timings. For those, draw your own from the maps above — for example `performanceStats['lastUpdateMs']`, `world.stats['systemTimesMs']` and `physics.stats['lastStepMs']`.
 

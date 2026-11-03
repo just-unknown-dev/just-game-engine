@@ -29,7 +29,7 @@ import 'physics_components_2d.dart';
 import '../physics/physics_context.dart';
 
 /// Physics system — the ECS front end for [PhysicsEngine], in step with
-/// the 3-D `PhysicsSystem3D`.
+/// the 3-D `Physics3DSystem`.
 ///
 /// Owns the [PhysicsBody] lifecycle for every entity with a [Collider2DComponent]:
 /// its [RigidBody2DComponent] says how it moves (a collider alone is a static body).
@@ -63,7 +63,7 @@ import '../physics/physics_context.dart';
 /// [World.clearSystems]) or disposing it removes every body it made from
 /// [physics]. The engine is shared, and bodies left behind went on
 /// colliding as invisible ghosts.
-class PhysicsSystem extends System {
+class Physics2DSystem extends System {
   /// [physics] is the single physics implementation this system drives —
   /// pass `engine.physics`. On native platforms that's the Box2D FFI
   /// backend; on web, the pure-Dart backend. Both share the same API.
@@ -71,7 +71,7 @@ class PhysicsSystem extends System {
   /// Pass the same [camera] as the `RenderSystem`, or the collider outlines
   /// ([drawsOutlines]) land at their world coordinates read as screen
   /// pixels — away from the entities they outline.
-  PhysicsSystem(this.physics, {this.camera, this.reportContactStay = false});
+  Physics2DSystem(this.physics, {this.camera, this.reportContactStay = false});
 
   /// The subsystem physics engine this system steps and syncs against.
   final PhysicsEngine physics;
@@ -1189,7 +1189,7 @@ class PhysicsSystem extends System {
   );
 }
 
-/// What [PhysicsSystem] keeps per entity: the components it reads every
+/// What [Physics2DSystem] keeps per entity: the components it reads every
 /// frame — looked up once, when the world's structure changes, instead of
 /// every frame — and the entity's body, once made.
 final class _BodyLink {
@@ -1226,8 +1226,8 @@ final class _BodyLink {
   bool syncOutPending = false;
 
   // What the body was built from: the collider's shape and placement and
-  // the entity's scale ([PhysicsSystem._scaleKey]) — the scale within
-  // [PhysicsSystem.scaleTolerance] of it. Any of them changing builds it
+  // the entity's scale ([Physics2DSystem._scaleKey]) — the scale within
+  // [Physics2DSystem.scaleTolerance] of it. Any of them changing builds it
   // again, as does the look a matching collider follows ([sameLook]).
   ColliderShape2D? _shape;
   double _w = 0, _h = 0, _radius = 0, _height = 0, _corner = 0, _thickness = 0;
@@ -1286,11 +1286,11 @@ final class _BodyLink {
     return true;
   }
 
-  /// Whether [now] is within [PhysicsSystem.scaleTolerance] of [built].
+  /// Whether [now] is within [Physics2DSystem.scaleTolerance] of [built].
   static bool _near(double built, double now) =>
       built == now ||
       (now - built).abs() <=
-          PhysicsSystem.scaleTolerance * math.max(built.abs(), now.abs());
+          Physics2DSystem.scaleTolerance * math.max(built.abs(), now.abs());
 
   // The look of the entity, for a collider matching it — the components it
   // draws a shape with, in its order, and those with a size (a sprite) —

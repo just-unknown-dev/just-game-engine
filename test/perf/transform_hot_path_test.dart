@@ -64,7 +64,7 @@ void main() {
     physics.setGravity(0, 0);
     final world = World()..initialize();
     addTearDown(world.dispose);
-    world.addSystem(PhysicsSystem(physics));
+    world.addSystem(Physics2DSystem(physics));
     for (var i = 0; i < 2000; i++) {
       world.createEntityWithComponents([
         TransformComponent(

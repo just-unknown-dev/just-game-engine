@@ -101,7 +101,7 @@ lib/
     ├── gameplay/             health, checkpoints, spawns, lifetimes, bounds, movement
     ├── scenes/               SceneLoader and prefabs (files, library, instance components)
     ├── physics/              shared by 2-D and 3-D: collision layers, VelocityComponent
-    ├── physics_2d/           bodies, colliders, joints, queries, ray casting, PhysicsSystem
+    ├── physics_2d/           bodies, colliders, joints, queries, ray casting, Physics2DSystem
     ├── physics_3d/           3-D physics (see physics_3d.dart)
     ├── rendering/            RenderingEngine and the drawing contracts: Renderable, Sprite,
     │   │                     the render components, culling/, post_processing/
@@ -446,9 +446,9 @@ Ticker (GameWidget, vsync) ─ engine.isInitialized? otherwise nothing
 | `parallax` | the deprecated `engine.parallax` list scrolls |
 | `particles` | the deprecated managed emitters update |
 | `audio` | `audio.update()` |
-| `ecs` | `world.update(dt)` — every system, including `PhysicsSystem`, which steps `engine.physics` inline |
+| `ecs` | `world.update(dt)` — every system, including `Physics2DSystem`, which steps `engine.physics` inline |
 
-There is no physics task. `PhysicsSystem` steps the physics engine inside the ECS pass, so velocity a player-control system sets this step reaches this step's simulation. Without a `PhysicsSystem` in the world, bodies do not move.
+There is no physics task. `Physics2DSystem` steps the physics engine inside the ECS pass, so velocity a player-control system sets this step reaches this step's simulation. Without a `Physics2DSystem` in the world, bodies do not move.
 
 `engine.systemManager.registerUpdateTask(name, task)` adds a task after these six; names must be unique. Timings are in `performanceStats` (see [STATS.md](STATS.md)).
 
@@ -473,7 +473,7 @@ for each system, highest priority first:        (sorted when added)
 | `DefaultSystem` | Adds |
 |---|---|
 | `input` | `InputSystem(engine.input, maps: inputMaps)` — `inputMaps` is `['player']` by default |
-| `physics` | `PhysicsSystem(engine.physics, camera: camera)` |
+| `physics` | `Physics2DSystem(engine.physics, camera: camera)` |
 | `movement` | `MovementSystem()` |
 | `audio` | `AudioSystem(engine: engine.audio)` |
 | `rendering` | `RenderSystem(camera: camera, statsSink: engine.rendering)` and `ParallaxRenderSystem(backgroundHooks: engine.rendering.backgroundHooks, camera: camera)` |
@@ -493,7 +493,7 @@ Every system's priority, from the `priority` getters of the systems in `lib/src/
 | 105 | `parallax` | `ParallaxRenderSystem` | `rendering` |
 | 100 | `input` | `InputSystem` | `input` |
 | 91 | literal | `ViewCullingSystem` | — |
-| 90 | `physics` | `PhysicsSystem` | `physics` |
+| 90 | `physics` | `Physics2DSystem` | `physics` |
 | 88 | `physics − 2` | `PhysicsJointBindingSystem` | — |
 | 86 | literal | `FlowFieldSystem` | — |
 | 81 | `movement + 1` | `SimpleMovementSystem` | — |
@@ -564,7 +564,7 @@ Only entities with children are visited, so a world without a hierarchy pays not
  8  debug text                         when rendering.debugMode
 ```
 
-The overlay hooks run after the canvas has left the camera transform, so an ECS system draws in screen space and applies its camera itself. That is why `RenderSystem`, `PhysicsSystem` and `ColliderDebuggerSystem` take a `camera`: without one, world coordinates are drawn as screen pixels. `RenderHookChain` runs hooks in ascending `order`, ties in the order added; `addIfAbsent` makes wiring idempotent.
+The overlay hooks run after the canvas has left the camera transform, so an ECS system draws in screen space and applies its camera itself. That is why `RenderSystem`, `Physics2DSystem` and `ColliderDebuggerSystem` take a `camera`: without one, world coordinates are drawn as screen pixels. `RenderHookChain` runs hooks in ascending `order`, ties in the order added; `addIfAbsent` makes wiring idempotent.
 
 ---
 
@@ -600,7 +600,7 @@ Archetypes are found by a Zobrist hash of their type set: each `Type` gets a ran
 
 `world.queryArchetypes(types)` returns the matching archetypes, for systems that walk columns directly (`getColumn(type)`, `entityIds`, `entityAt(row)`). It does **not** leave out switched-off entities: the caller checks `archetype.entityAt(row).isActiveInHierarchy`. `getColumn` and `entityIds` are the live lists and marked `@internal`; game code reads rows with `getComponent`, `getComponentByType` and `entityAt`.
 
-`world.queryVersion(types)` is each cached query's own version. It moves on only when what that query matches may have changed: an entity with all of the types is created or destroyed, gains or loses any component, has one replaced, or is switched on or off (itself or through a parent), or a new matching archetype appears. Changes to entities the query cannot match leave it alone. Versions are unique within the world and only go up, so a system reading several queries compares the largest. `RenderSystem`, `ComponentPainterPass`, `PhysicsSystem`, `PhysicsSystem3D`, the 2-D character and joint-binding systems, `GraphicsSceneRenderer`, `AnimationSystem3D`, `ViewCullingSystem`, `LevelMapSystem` and the sprite and timeline systems keep what they built per entity until one of their own queries' versions moves. There is no world-wide structure counter.
+`world.queryVersion(types)` is each cached query's own version. It moves on only when what that query matches may have changed: an entity with all of the types is created or destroyed, gains or loses any component, has one replaced, or is switched on or off (itself or through a parent), or a new matching archetype appears. Changes to entities the query cannot match leave it alone. Versions are unique within the world and only go up, so a system reading several queries compares the largest. `RenderSystem`, `ComponentPainterPass`, `Physics2DSystem`, `Physics3DSystem`, the 2-D character and joint-binding systems, `GraphicsSceneRenderer`, `Animation3DSystem`, `ViewCullingSystem`, `LevelMapSystem` and the sprite and timeline systems keep what they built per entity until one of their own queries' versions moves. There is no world-wide structure counter.
 
 ### 8.4 isActive and isAlive
 
@@ -637,7 +637,7 @@ Entity ids count up for the life of the world and are never reused, not even aft
 
 ### 8.8 Events
 
-`world.events` is an `EventBus`. `on<T extends GameEvent>(callback)` returns an `EventSubscription` (`cancel()`); `fire(event)` calls the subscribers of the event's exact runtime type, at once, synchronously. The bus is cleared with the world. The engine fires `CollisionEnter2DEvent`, `CollisionStay2DEvent`, `CollisionExit2DEvent`, `SensorEnter2DEvent` and `SensorExit2DEvent` from `PhysicsSystem`, and `TileChangedEvent` from level maps, among others.
+`world.events` is an `EventBus`. `on<T extends GameEvent>(callback)` returns an `EventSubscription` (`cancel()`); `fire(event)` calls the subscribers of the event's exact runtime type, at once, synchronously. The bus is cleared with the world. The engine fires `CollisionEnter2DEvent`, `CollisionStay2DEvent`, `CollisionExit2DEvent`, `SensorEnter2DEvent` and `SensorExit2DEvent` from `Physics2DSystem`, and `TileChangedEvent` from level maps, among others.
 
 ### 8.9 The reactive layer
 
@@ -772,7 +772,7 @@ Scenes, timelines, maps, tilesets, the tag library and animator graphs throw `Un
 ### 10.4 Culling
 
 - `RenderSystem(cullOffscreen: true)` (off by default) reads the visible area from the canvas once a frame (`getLocalClipBounds`) and skips renderables whose bounds miss it. Render items and particle emitters are always drawn. It is only as good as each renderable's `getBounds`.
-- `ViewCullingSystem` (opt-in, priority 91) marks entities near the camera on their `CullStateComponent`: outside the render radius the renderable is hidden (only on the edge crossing, and only what it hid itself is shown again); outside the larger active radius `MovementSystem` and `PhysicsSystem` skip the entity.
+- `ViewCullingSystem` (opt-in, priority 91) marks entities near the camera on their `CullStateComponent`: outside the render radius the renderable is hidden (only on the edge crossing, and only what it hid itself is shown again); outside the larger active radius `MovementSystem` and `Physics2DSystem` skip the entity.
 
 ### 10.5 Shaders
 
@@ -809,9 +809,9 @@ The legacy renderables draw in step 5 of the frame, with their own quadtree cull
 
 Both have the same API: bodies (`PhysicsBody`, with `CircleShape`, `RectangleShape`, `PolygonShape`, `CapsuleShape` and more), joints, ray and shape casts, `setGravity`, and contact and sensor events. Default gravity is `(0, 981)`. The engine re-exports the names games need with a `show` list.
 
-### 11.2 PhysicsSystem
+### 11.2 Physics2DSystem
 
-`PhysicsSystem(engine.physics, camera: …)` (priority 90) is the ECS front end. It owns a body for every entity with a `TransformComponent` and a `Collider2DComponent`. The collider is the body's shape; the entity's `RigidBody2DComponent`, if it has one, says how it moves, and without one the body is static — the model 3-D physics has (`lib/src/physics_3d/`), with the same names. Each update it:
+`Physics2DSystem(engine.physics, camera: …)` (priority 90) is the ECS front end. It owns a body for every entity with a `TransformComponent` and a `Collider2DComponent`. The collider is the body's shape; the entity's `RigidBody2DComponent`, if it has one, says how it moves, and without one the body is static — the model 3-D physics has (`lib/src/physics_3d/`), with the same names. Each update it:
 
 1. **syncs in** — makes bodies for new entities (and adds a `PhysicsBodyRefComponent`), removes bodies of entities that left, rebuilds a body whose collider changed (for `matchShape`, whose drawn shape changed), and copies settings, velocities, teleports and the forces, impulses and velocities queued on `RigidBody2DComponent` into the bodies;
 2. **steps** `physics.update(dt)` — inline, in the ECS pass (§7.2);
@@ -826,21 +826,21 @@ Details:
 - **Removal.** Taking the system out of its world, or disposing it, removes every body it made, so none stay behind colliding as ghosts.
 - `MovementSystem` skips entities with a `Collider2DComponent`: physics moves them.
 - In debug builds it draws collider outlines (per collider, `Collider2DComponent.showDebugOutline`) through its `camera`.
-- `Physics2DQueries` casts rays and circles and finds overlaps through the physics engine, answering with entities; `PhysicsSystem.bodyOf(entity)` is the way from an entity to its body.
-- **Characters.** Before stepping, `PhysicsCharacters2D` moves every `CharacterBody2DComponent` with just_physics_engine's `CharacterMover2D` through the world as the last step left it — the recipe `PhysicsSystem3D` uses: on the ground it moves with the ground (and jumps from it), in the air it keeps its vertical speed, then gravity and `moveVelocity`. A detectable character keeps a kinematic body where it is, registered as its entity's, so sensors and rays see it and its contacts with dynamic bodies are its collision events. `MovementSystem` skips characters as it skips colliders.
+- `Physics2DQueries` casts rays and circles and finds overlaps through the physics engine, answering with entities; `Physics2DSystem.bodyOf(entity)` is the way from an entity to its body.
+- **Characters.** Before stepping, `PhysicsCharacters2D` moves every `CharacterBody2DComponent` with just_physics_engine's `CharacterMover2D` through the world as the last step left it — the recipe `Physics3DSystem` uses: on the ground it moves with the ground (and jumps from it), in the air it keeps its vertical speed, then gravity and `moveVelocity`. A detectable character keeps a kinematic body where it is, registered as its entity's, so sensors and rays see it and its contacts with dynamic bodies are its collision events. `MovementSystem` skips characters as it skips colliders.
 
-Related: `PhysicsJointBindingSystem` (priority 88) makes and keeps joints from `DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent` and `WheelJoint2DComponent`, each joined to the body its `connectedBody` (an `EntityTarget`) names (where native wheel joints are missing, a wheel is the physics engine's own Dart wheel joint); what they cannot pass to the physics engine yet is in §20.6. `RaycastSystem` answers `castRay`, `castRayAll` and `hasLineOfSight` against `RaycastColliderComponent`s; it has no per-frame work. `PhysicsSystem.entityForBody(body)` maps a body back to its entity.
+Related: `PhysicsJointBindingSystem` (priority 88) makes and keeps joints from `DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent` and `WheelJoint2DComponent`, each joined to the body its `connectedBody` (an `EntityTarget`) names (where native wheel joints are missing, a wheel is the physics engine's own Dart wheel joint); what they cannot pass to the physics engine yet is in §20.6. `RaycastSystem` answers `castRay`, `castRayAll` and `hasLineOfSight` against `RaycastColliderComponent`s; it has no per-frame work. `Physics2DSystem.entityForBody(body)` maps a body back to its entity.
 
 ---
 
 
 ### 3-D physics
 
-`lib/src/physics_3d/`, public as `package:just_game_engine/physics_3d.dart`: the 3-D components and their definitions, `PhysicsSystem3D`, the queries and events, the camera's collision stage, and `Physics3D`, the only way in. The simulation is just_physics_engine's `PhysicsEngine3D` (`JoltPhysicsEngine`, on just_jolt's bindings), so the chain is just_jolt → just_physics_engine → this engine, and nothing depends the other way.
+`lib/src/physics_3d/`, public as `package:just_game_engine/physics_3d.dart`: the 3-D components and their definitions, `Physics3DSystem`, the queries and events, the camera's collision stage, and `Physics3D`, the only way in. The simulation is just_physics_engine's `PhysicsEngine3D` (`JoltPhysicsEngine`, on just_jolt's bindings), so the chain is just_jolt → just_physics_engine → this engine, and nothing depends the other way.
 
-**2-D games carry none of it.** Nothing outside the folder names its code: a game gives the engine a `Physics3D` in `EngineConfig.services`, and the engine reaches it only as a `ContextExtension` and an `EngineService`; `engine.physics3D` is an extension in the folder itself. `Physics3D`'s install registers the 3-D schemas; they are in no default list. A game that never makes a `Physics3D` gives the compiler no way to reach the folder, the Jolt engine or the bindings, and tree shaking drops them all. `test/physics_3d/physics_3d_boundary_test.dart` fails when anything else in `lib/src` imports the folder or calls `create3D`, `JoltPhysicsEngine`, `Physics3DSchemas` or `PhysicsSystem3D` directly; the CLI's `check release-build` fails a 2-D game's release that holds 3-D names or Jolt's library. Jolt's native code is a separate matter: tree shaking never removes native code, so just_jolt's build hook compiles nothing unless the app's pubspec asks (`hooks: user_defines: just_jolt: build: true`).
+**2-D games carry none of it.** Nothing outside the folder names its code: a game gives the engine a `Physics3D` in `EngineConfig.services`, and the engine reaches it only as a `ContextExtension` and an `EngineService`; `engine.physics3D` is an extension in the folder itself. `Physics3D`'s install registers the 3-D schemas; they are in no default list. A game that never makes a `Physics3D` gives the compiler no way to reach the folder, the Jolt engine or the bindings, and tree shaking drops them all. `test/physics_3d/physics_3d_boundary_test.dart` fails when anything else in `lib/src` imports the folder or calls `create3D`, `JoltPhysicsEngine`, `Physics3DSchemas` or `Physics3DSystem` directly; the CLI's `check release-build` fails a 2-D game's release that holds 3-D names or Jolt's library. Jolt's native code is a separate matter: tree shaking never removes native code, so just_jolt's build hook compiles nothing unless the app's pubspec asks (`hooks: user_defines: just_jolt: build: true`).
 
-**At run time.** `Physics3D.install` (as the engine is made) registers the schemas and `CameraCollisionStage`; `start` (as it initializes) makes the physics engine — `PhysicsEngineFactory.create3D()`, which throws `Physics3DUnsupportedError` on the web or when Jolt was not built — and adds a `PhysicsSystem3D.lazy`. The world (Jolt's job system is the process's; a world brings its tables for 10,240 bodies and its temporary allocator) is made only when the first 3-D body or character appears; until then an update is one structure check, and `Physics3DQueries` find nothing. Each step sends what gameplay set, moves characters, steps, reads the moved bodies' poses in one batch (14 floats each) and drains the events once.
+**At run time.** `Physics3D.install` (as the engine is made) registers the schemas and `CameraCollisionStage`; `start` (as it initializes) makes the physics engine — `PhysicsEngineFactory.create3D()`, which throws `Physics3DUnsupportedError` on the web or when Jolt was not built — and adds a `Physics3DSystem.lazy`. The world (Jolt's job system is the process's; a world brings its tables for 10,240 bodies and its temporary allocator) is made only when the first 3-D body or character appears; until then an update is one structure check, and `Physics3DQueries` find nothing. Each step sends what gameplay set, moves characters, steps, reads the moved bodies' poses in one batch (14 floats each) and drains the events once.
 
 ## 12. Input
 
@@ -1041,11 +1041,11 @@ A `SceneRenderer` renders its scene into a texture and draws the image over the 
 `Graphics3D` is opt-in, like `Physics3D`: one object that is both the `ContextExtension` (it registers the 3-D components, the skeletal animation target and the skeletal clip track) and the `EngineService` (it makes the renderer and draws). Given in `EngineConfig.services`, it is installed as the engine is made and started in the order the services are listed — first, so the game's own services can load models; `engine.graphics3D` is an extension in `graphics_3d.dart`. The renderer is just_graphics_engine's (`Renderer3D` on a `GpuDevice` over Flutter GPU); the engine reaches it only through that package's public libraries, whose web branch has no flutter_gpu, so the engine stays web-safe (`test/graphics_3d/graphics_3d_boundary_test.dart`). Without a `Graphics3D` the 3-D components are unknown, and a scene holding one fails to load with `UnknownComponentTypeException`, whose `builtInHint` names the switch.
 
 - **Components** (`src/graphics_3d/`): `ModelComponent`, `Light3DComponent`, `EnvironmentComponent`, `AnimationPlayerComponent` and `SocketComponent` are plain data, and their definitions (`GraphicsSchemas`) mark them `Dimensions.threeD`. They import nothing from the GPU or the renderer, so scene files holding them load on every platform. `Graphics3D` is a `RefreshableExtension`, so an editor picks up new fields after a hot reload.
-- **Start.** `Renderer3D.tryCreate` makes the device and the renderer. When there is no GPU, or the renderer can't start, `Graphics3D` logs the reason once, calls `onUnsupported` and runs on a `NullGpuDevice` instead. Scene loading, model loading and bounds keep working, and the frame shows a short note in place of the 3-D view. It registers a model loader with the engine's `AssetManager`, adds the scene renderer to the frame and an `AnimationSystem3D` to the world.
+- **Start.** `Renderer3D.tryCreate` makes the device and the renderer. When there is no GPU, or the renderer can't start, `Graphics3D` logs the reason once, calls `onUnsupported` and runs on a `NullGpuDevice` instead. Scene loading, model loading and bounds keep working, and the frame shows a short note in place of the 3-D view. It registers a model loader with the engine's `AssetManager`, adds the scene renderer to the frame and an `Animation3DSystem` to the world.
 - **Shapes** (`src/graphics_3d/shapes/`): `Primitive3DComponent` and its eleven subclasses are plain data too. Each builds its own mesh on the CPU (a `ShapeMesh`, in engine axes: no axis correction) through just_graphics_engine's `MeshBuilder`, which winds every triangle to face the way its vertices' normals point, so a generator only has to get its normals right. A test checks every shape is closed and encloses its expected volume (positive: facing out). `Primitive3DComponent.componentType` is `Primitive3DComponent`, so all shapes share one archetype column and an entity has one, as a 2-D entity has one renderable. A shape is also a `SolidShapeSource`: its convex parts (a box per step of a staircase, a hull per segment of an arch or a ring, the convex pieces of a concave outline, triangulated by ear clipping, then merged Hertel–Mehlhorn style), which 3-D physics matches.
 - **`GraphicsShapes`** is their GPU side: meshes by `shapeKey` (and, for a texture tiled per metre, the entity's scale rounded to a millimetre), materials by `materialKey`. Equal shapes share both, so they instance. A texture loads in the background; materials made before it arrives are made again with it (`revision`). Whatever no shape used for 300 frames is let go.
 - **`GraphicsModels`** loads each model path once: it reads through the engine's bundle (relative `.gltf` URIs resolve next to the file), prefers a cooked `<model>.jmodel` the bundle's manifest lists, parses in an isolate and uploads. `GraphicsModelAsset` is the engine-side `ModelAsset`. Its bounds and triangles are in engine axes; a mesh used by several nodes gives one triangle set per placement.
-- **Animation.** `AnimationPlayerComponent` saves the clip, speed, loop and crossfade; `AnimationSystem3D` (priority `animation`) moves time on. The scene renderer samples each animated entity at `FrameView.interpolation` between its last two updates. `SocketComponent` pins a child entity to a joint: each update the system writes the joint's frame as the child's world transform (`parent · G · joint · G`, where G is `gltfToEngine`, so a model hung there is not turned twice), and the hierarchy works the local offset out from it.
+- **Animation.** `AnimationPlayerComponent` saves the clip, speed, loop and crossfade; `Animation3DSystem` (priority `animation`) moves time on. The scene renderer samples each animated entity at `FrameView.interpolation` between its last two updates. `SocketComponent` pins a child entity to a joint: each update the system writes the joint's frame as the child's world transform (`parent · G · joint · G`, where G is `gltfToEngine`, so a model hung there is not turned twice), and the hierarchy works the local offset out from it.
 - **`GraphicsSceneRenderer`** (a `SceneRenderer`, order -100) runs inside the frame:
   1. **Extract.** It rebuilds the `RenderScene`'s instances only when the world changes identity or its model or shape query's version moves, a model finishes loading, or a `ModelComponent.model` path changes. Otherwise it only compares each entity's transform with the last one and moves that entity's instances. Each instance keeps its entity-from-primitive matrix (`gltfToEngine` x node), so following is one multiply. A shape has one instance; each frame its keys are compared with the last, and a change of size or look swaps the instance's primitive or material.
   2. **Lights.** Lights and the environment are re-read every frame; they are few. The first directional light is the sun. A scene with no lights at all gets a default sun, so a dropped-in model is readable. Colours are authored in sRGB and converted to linear.

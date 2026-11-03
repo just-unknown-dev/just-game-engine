@@ -1,4 +1,4 @@
-// CharacterBody2DComponent through PhysicsSystem: the 2-D twin of the 3-D
+// CharacterBody2DComponent through Physics2DSystem: the 2-D twin of the 3-D
 // CharacterBody3DComponent — gravity and the ground, walking and jumping, platforms,
 // one-way platforms, sensors seeing it, teleports, and saving.
 
@@ -23,7 +23,7 @@ void _suite(PhysicsEngine Function() make) {
     physics = make();
     physics.setGravity(0, 2000);
     world = World()..initialize();
-    world.addSystem(PhysicsSystem(physics));
+    world.addSystem(Physics2DSystem(physics));
   });
   tearDown(() {
     world.dispose();
@@ -151,8 +151,8 @@ void _suite(PhysicsEngine Function() make) {
       run(60);
       expect(seen, isEmpty, reason: 'nothing of it in the world');
       expect(of(ghost).isGrounded, isTrue, reason: 'it still stands');
-      expect(world.getSystem<PhysicsSystem>()!.bodyOf(h), isNotNull);
-      expect(world.getSystem<PhysicsSystem>()!.bodyOf(ghost), isNull);
+      expect(world.getSystem<Physics2DSystem>()!.bodyOf(h), isNotNull);
+      expect(world.getSystem<Physics2DSystem>()!.bodyOf(ghost), isNull);
     },
   );
 
@@ -172,14 +172,14 @@ void _suite(PhysicsEngine Function() make) {
   test('its body goes with the component', () {
     final h = hero();
     run(1);
-    final body = world.getSystem<PhysicsSystem>()!.bodyOf(h)!;
+    final body = world.getSystem<Physics2DSystem>()!.bodyOf(h)!;
     expect(physics.bodies, contains(body));
     h.removeComponent<CharacterBody2DComponent>();
     run(1);
     expect(physics.bodies, isNot(contains(body)));
   });
 
-  test('MovementSystem leaves it to PhysicsSystem, which fills its velocity component', () {
+  test('MovementSystem leaves it to Physics2DSystem, which fills its velocity component', () {
     world.addSystem(MovementSystem());
     floor();
     final h = hero(y: 70)

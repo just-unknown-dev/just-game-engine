@@ -133,7 +133,7 @@ void main() {
     test('physics makes a body for a collider added after unrelated churn', () {
       final physics = PhysicsEngine()..initialize();
       addTearDown(physics.dispose);
-      world.addSystem(PhysicsSystem(physics));
+      world.addSystem(Physics2DSystem(physics));
       world.update(1 / 60);
       final other = world.createEntityWithComponents([Other()]);
       other.addComponent(Unrelated());

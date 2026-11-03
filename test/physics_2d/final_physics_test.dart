@@ -17,7 +17,7 @@ const _frame = 1 / 60;
   physics.setGravity(0, 0);
   final world = World()..initialize();
   world
-    ..addSystem(PhysicsSystem(physics))
+    ..addSystem(Physics2DSystem(physics))
     ..addSystem(PhysicsJointBindingSystem(physics));
   addTearDown(() {
     world.dispose();

@@ -22,13 +22,13 @@ class MovementSystem extends System {
   void update(double deltaTime) {
     // Direct column iteration — avoids per-entity getComponent lookups.
     for (final archetype in world.queryArchetypes(requiredComponents)) {
-      // PhysicsSystem owns transform/velocity integration for any entity
+      // Physics2DSystem owns transform/velocity integration for any entity
       // that also carries a Collider2DComponent (it delegates to Engine.physics,
       // which does its own position integration internally) — integrating
       // here too would double-move them every frame. Only archetypes that
       // actually add Collider2DComponent pay for this check, same opt-in-cost
       // pattern as the CullStateComponent check below. A CharacterBody2DComponent is
-      // moved by PhysicsSystem too.
+      // moved by Physics2DSystem too.
       if (archetype.types.contains(Collider2DComponent) ||
           archetype.types.contains(CharacterBody2DComponent)) {
         continue;

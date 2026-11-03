@@ -1,4 +1,4 @@
-// PhysicsSystem and PhysicsJointBindingSystem: bodies leave the shared engine
+// Physics2DSystem and PhysicsJointBindingSystem: bodies leave the shared engine
 // with the system, riders stop standing on what is gone, a resting body may
 // sleep and anything the game does wakes it, and joints are made once and
 // never destroyed twice.
@@ -18,7 +18,7 @@ const _frame = 1 / 60;
   final physics = (engine ?? PhysicsEngine())..initialize();
   physics.setGravity(0, gravityY);
   final world = World()..initialize();
-  world.addSystem(PhysicsSystem(physics));
+  world.addSystem(Physics2DSystem(physics));
   if (joints) world.addSystem(PhysicsJointBindingSystem(physics));
   addTearDown(() {
     world.dispose();
@@ -84,7 +84,7 @@ void main() {
       final (:world, :physics) = _setUp();
       _box(world);
       _step(world);
-      world.removeSystem(world.getSystem<PhysicsSystem>()!);
+      world.removeSystem(world.getSystem<Physics2DSystem>()!);
       expect(physics.stats['bodyCount'], 0);
     });
 
@@ -93,7 +93,7 @@ void main() {
       final box = _box(world, y: 100);
       _step(world);
       world.clearSystems();
-      world.addSystem(PhysicsSystem(physics));
+      world.addSystem(Physics2DSystem(physics));
       _step(world);
       expect(physics.stats['bodyCount'], 1);
       expect(box.hasComponent<PhysicsBodyRefComponent>(), isTrue);
@@ -425,7 +425,7 @@ void main() {
       _step(world);
       final joint = physics.joints.single as Box2DJoint;
 
-      world.removeSystem(world.getSystem<PhysicsSystem>()!);
+      world.removeSystem(world.getSystem<Physics2DSystem>()!);
       _step(world); // the joint system finds its bodies gone
       expect(physics.joints, isEmpty);
       expect(joint.isDestroyed, isTrue);

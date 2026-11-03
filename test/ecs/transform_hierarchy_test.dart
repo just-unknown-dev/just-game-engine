@@ -293,7 +293,7 @@ void main() {
         ..addComponent(
           Collider2DComponent(shape: ColliderShape2D.circle, radius: 2, showDebugOutline: false),
         );
-      world.addSystem(PhysicsSystem(physics));
+      world.addSystem(Physics2DSystem(physics));
       for (var i = 0; i < 30; i++) {
         world.update(1 / 60);
       }

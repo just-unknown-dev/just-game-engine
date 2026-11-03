@@ -236,7 +236,7 @@ void main() {
       // Add systems
       engine.world.addSystem(MovementSystem());
       engine.world.addSystem(RenderSystem());
-      engine.world.addSystem(PhysicsSystem(engine.physics));
+      engine.world.addSystem(Physics2DSystem(engine.physics));
 
       // Create 500 entities with components
       for (int i = 0; i < 500; i++) {
@@ -524,7 +524,7 @@ void main() {
       final taskTimes = scheduler['taskTimesMs'] as Map<String, double>;
 
       // Tasks registered in Engine._registerSystems must be present. No
-      // standalone 'physics' task — PhysicsSystem steps engine.physics
+      // standalone 'physics' task — Physics2DSystem steps engine.physics
       // inline from within the 'ecs' task instead (see Engine.physics'
       // doc comment for why).
       // Audio is a frame task: it places sounds once the frame has moved

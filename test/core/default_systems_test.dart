@@ -25,7 +25,7 @@ void main() {
       final world = engine.world;
       for (final has in [
         world.hasSystem<InputSystem>,
-        world.hasSystem<PhysicsSystem>,
+        world.hasSystem<Physics2DSystem>,
         world.hasSystem<MovementSystem>,
         world.hasSystem<AudioSystem>,
         world.hasSystem<RenderSystem>,
@@ -41,8 +41,8 @@ void main() {
       }
       final camera = engine.cameraSystem.mainCamera;
       expect(world.getSystem<RenderSystem>()!.camera, same(camera));
-      expect(world.getSystem<PhysicsSystem>()!.camera, same(camera));
-      expect(world.getSystem<PhysicsSystem>()!.physics, same(engine.physics));
+      expect(world.getSystem<Physics2DSystem>()!.camera, same(camera));
+      expect(world.getSystem<Physics2DSystem>()!.physics, same(engine.physics));
       expect(world.getSystem<InputSystem>()!.input, same(engine.input));
     },
   );
@@ -51,7 +51,7 @@ void main() {
     final engine = await engineWith(DefaultSystems.headless);
     expect(engine.world.hasSystem<RenderSystem>(), isFalse);
     expect(engine.world.hasSystem<AudioSystem>(), isFalse);
-    expect(engine.world.hasSystem<PhysicsSystem>(), isTrue);
+    expect(engine.world.hasSystem<Physics2DSystem>(), isTrue);
   });
 
   test("each at most once; a game's own instance is kept", () async {

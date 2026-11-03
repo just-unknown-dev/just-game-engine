@@ -9,7 +9,7 @@ import 'collider_shapes_3d.dart';
 import 'physics_components_3d.dart';
 import 'physics_definitions_3d.dart';
 import 'physics_queries_3d.dart';
-import 'physics_system_3d.dart';
+import 'physics_3d_system.dart';
 import '../physics/physics_context.dart';
 
 /// 3-D physics for an engine. Give one to the engine and its 3-D physics
@@ -102,7 +102,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
 
   Engine? _game;
   PhysicsEngine3D? _engine;
-  PhysicsSystem3D? _system;
+  Physics3DSystem? _system;
   Physics3DQueries? _queries;
 
   /// Whether the engine started it.
@@ -112,7 +112,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
   PhysicsEngine3D get engine => _engine ?? (throw StateError(_notStarted));
 
   /// The system stepping the world; throws before it starts.
-  PhysicsSystem3D get system => _system ?? (throw StateError(_notStarted));
+  Physics3DSystem get system => _system ?? (throw StateError(_notStarted));
 
   /// Rays, sweeps and overlaps, answered in entities; throws before it
   /// starts. They find nothing while there is no world yet.
@@ -126,7 +126,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
   PhysicsWorld3D get world => system.physics;
 
   /// The model at [model] was loaded again (its file changed): its mesh and
-  /// hull colliders take its new triangles ([PhysicsSystem3D.reloadModel]).
+  /// hull colliders take its new triangles ([Physics3DSystem.reloadModel]).
   /// Call once the engine's `ModelAsset` at that path answers with them — a
   /// renderer does, when it reloads a model. Does nothing before it starts.
   void reloadModel(String model) => _system?.reloadModel(model);
@@ -167,7 +167,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
     if (reason != null) throw Physics3DUnsupportedError(reason);
     final game = context.engine;
     final engineContext = context.context;
-    final system = PhysicsSystem3D.lazy(() {
+    final system = Physics3DSystem.lazy(() {
       final layers = engineContext.physicsLayers;
       return physics.createWorld(
         PhysicsWorldSettings3D(

@@ -15,8 +15,8 @@ const List<String> _forbiddenCalls = [
   'create3D(',
   'JoltPhysicsEngine(',
   'Physics3DSchemas.',
-  'PhysicsSystem3D(',
-  'PhysicsSystem3D.lazy(',
+  'Physics3DSystem(',
+  'Physics3DSystem.lazy(',
 ];
 
 String _path(FileSystemEntity f) => f.path.replaceAll(r'\', '/');

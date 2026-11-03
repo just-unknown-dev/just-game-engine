@@ -33,7 +33,7 @@ void main() {
     setUp(() {
       physics = PhysicsEngine()..initialize();
       world = World()..initialize();
-      world.addSystem(PhysicsSystem(physics));
+      world.addSystem(Physics2DSystem(physics));
     });
     tearDown(() {
       world.dispose();

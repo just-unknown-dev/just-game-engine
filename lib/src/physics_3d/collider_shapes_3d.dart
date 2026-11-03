@@ -405,7 +405,7 @@ final class ColliderShapes3D {
   /// Forgets the shapes made from [model], and what [geometry] kept of it
   /// when that is an [AssetColliderGeometry3D]: after the model was loaded
   /// again, its colliders take its new triangles
-  /// (`PhysicsSystem3D.reloadModel` calls this).
+  /// (`Physics3DSystem.reloadModel` calls this).
   void forgetModel(String model) {
     _models.removeWhere((key, _) => key.$2 == model);
     final source = geometry;

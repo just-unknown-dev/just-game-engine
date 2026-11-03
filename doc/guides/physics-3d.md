@@ -36,7 +36,7 @@ Future<Engine> createEngine() async {
 }
 ```
 
-As the engine is made, `Physics3D` registers the 3D components, so scenes holding them load and save, and adds a camera stage that keeps cameras out of walls. As the engine initializes, it starts Jolt and adds `PhysicsSystem3D` to the world. The physics world itself is made only when the first 3D body or character appears, so a game whose 3D scenes come later pays nothing until then. `engine.physics3D` is the `Physics3D` you passed, or null.
+As the engine is made, `Physics3D` registers the 3D components, so scenes holding them load and save, and adds a camera stage that keeps cameras out of walls. As the engine initializes, it starts Jolt and adds `Physics3DSystem` to the world. The physics world itself is made only when the first 3D body or character appears, so a game whose 3D scenes come later pays nothing until then. `engine.physics3D` is the `Physics3D` you passed, or null.
 
 ## Where it runs
 

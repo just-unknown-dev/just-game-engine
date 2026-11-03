@@ -13,7 +13,7 @@ import 'package:just_graphics_engine/renderer.dart';
 import '../core/core.dart';
 import '../ecs/ecs.dart';
 import '../rendering/rendering.dart';
-import 'animation_system.dart';
+import 'animation_3d_system.dart';
 import 'graphics_components.dart';
 import 'graphics_models.dart';
 import 'graphics_shapes.dart';

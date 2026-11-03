@@ -1,4 +1,4 @@
-// What PhysicsSystem3D itself costs with 500 bodies: the ECS side of a
+// What Physics3DSystem itself costs with 500 bodies: the ECS side of a
 // step (sync in, read back, events) on a backend that does almost nothing.
 // Prints the number; fails only when something is badly wrong.
 
@@ -11,13 +11,13 @@ import 'package:just_game_engine/physics_3d.dart';
 import 'package:just_physics_engine/testing.dart';
 
 void main() {
-  test('500 bodies through PhysicsSystem3D', () {
+  test('500 bodies through Physics3DSystem', () {
     final physics = FakePhysicsWorld3D(
       PhysicsWorldSettings3D(gravity: Vector3(0, 0.5, 0)),
       collisions: false,
     );
     final world = World()..initialize();
-    world.addSystem(PhysicsSystem3D(physics));
+    world.addSystem(Physics3DSystem(physics));
     addTearDown(() {
       world.dispose();
       physics.dispose();

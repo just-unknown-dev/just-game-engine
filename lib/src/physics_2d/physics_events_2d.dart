@@ -47,7 +47,7 @@ class CollisionEnter2DEvent extends GameEvent {
 }
 
 /// Two bodies are still touching, each step after [CollisionEnter2DEvent]
-/// — only when `PhysicsSystem.reportContactStay` is on.
+/// — only when `Physics2DSystem.reportContactStay` is on.
 class CollisionStay2DEvent extends GameEvent {
   /// [entityA] and [entityB] still touching.
   CollisionStay2DEvent({

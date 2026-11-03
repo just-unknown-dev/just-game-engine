@@ -23,7 +23,7 @@ import 'cull_state_component.dart';
 ///   sets its `RenderableComponent.renderable.visible` to false, so
 ///   `RenderSystem` skips drawing it — no extra wiring needed.
 /// - [activeRadiusMultiplier] (default `2.0`) — a larger radius used for
-///   simulation. This engine's `MovementSystem`/`PhysicsSystem` skip any
+///   simulation. This engine's `MovementSystem`/`Physics2DSystem` skip any
 ///   entity whose `CullStateComponent.isActive` is `false`, and game-specific
 ///   systems (AI, etc.) should check the same flag. The gap between the two
 ///   radii means entities approaching the screen are already moving by the
@@ -96,7 +96,7 @@ class ViewCullingSystem extends System {
   });
 
   @override
-  int get priority => 91; // above PhysicsSystem(90)/MovementSystem(80) so they see this frame's fresh flags
+  int get priority => 91; // above Physics2DSystem(90)/MovementSystem(80) so they see this frame's fresh flags
 
   @override
   List<Type> get requiredComponents => const [

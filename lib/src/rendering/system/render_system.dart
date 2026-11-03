@@ -209,7 +209,7 @@ class RenderSystem extends System implements FrameSystem {
   /// — ending the camera transform — immediately *before* invoking
   /// `onRenderOverlay`, which is where `World.render` runs. ECS systems
   /// therefore draw in **screen space** and each must apply the camera itself,
-  /// which is exactly what [ColliderDebuggerSystem] and [PhysicsSystem.camera]
+  /// which is exactly what [ColliderDebuggerSystem] and [Physics2DSystem.camera]
   /// do.
   ///
   /// So: pass [camera] to this system. Leaving it null makes every entity draw

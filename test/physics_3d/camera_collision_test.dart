@@ -21,7 +21,7 @@ void main() {
   setUp(() {
     final physics = FakePhysicsWorld3D(PhysicsWorldSettings3D());
     world = World()..initialize();
-    world.addSystem(PhysicsSystem3D(physics));
+    world.addSystem(Physics3DSystem(physics));
     addTearDown(() {
       world.dispose();
       physics.dispose();

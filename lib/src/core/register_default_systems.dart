@@ -12,7 +12,7 @@ import '../input/input_system.dart';
 import '../level_map/level_map_system.dart';
 import '../level_map/map_collision_system.dart';
 import '../physics_2d/physics_joint_binding_system.dart';
-import '../physics_2d/physics_system.dart';
+import '../physics_2d/physics_2d_system.dart';
 import '../parallax/parallax_render_system.dart';
 import '../rendering/system/render_system.dart';
 
@@ -21,7 +21,7 @@ enum DefaultSystem {
   /// `InputSystem`: the engine's input actions onto input components.
   input,
 
-  /// `PhysicsSystem`: steps the engine's physics and syncs bodies; and
+  /// `Physics2DSystem`: steps the engine's physics and syncs bodies; and
   /// `PhysicsJointBindingSystem`: the joints between them.
   physics,
 
@@ -103,8 +103,11 @@ void registerDefaultSystems(
   }
 
   add(DefaultSystem.input, () => InputSystem(engine.input, maps: inputMaps));
-  add(DefaultSystem.physics, () => PhysicsSystem(engine.physics, camera: view));
-  // The 2-D joints, between the bodies PhysicsSystem makes.
+  add(
+    DefaultSystem.physics,
+    () => Physics2DSystem(engine.physics, camera: view),
+  );
+  // The 2-D joints, between the bodies Physics2DSystem makes.
   add(DefaultSystem.physics, () => PhysicsJointBindingSystem(engine.physics));
   add(DefaultSystem.movement, MovementSystem.new);
   add(

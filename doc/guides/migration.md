@@ -10,7 +10,7 @@ This page condenses the [full migration guide](https://github.com/just-unknown-d
 
 1. Raise the constraints: `just_game_engine: ^2.0.0-dev.2` and Flutter 3.47.1 or newer. `^2.0.0` alone does not pick up dev releases.
 2. Create the engine with `Engine(config: ...)`, `await initialize()` before `runApp`, and dispose it once. Replace `Engine.instance` with a reference you pass around.
-3. Add the standard systems through `EngineConfig.defaultSystems`, or give `PhysicsSystem` the engine's physics.
+3. Add the standard systems through `EngineConfig.defaultSystems`, or give `Physics2DSystem` the engine's physics.
 4. Replace `PhysicsBodyComponent` with a `RigidBody2DComponent` and a `Collider2DComponent`, and the collision events with the `...2D` events.
 5. Using achievements, sign-in, leaderboards, currency, inventory or ads? Add `just_game_services`.
 6. Rename `transform.rotation` to `transform.angle`, drop `HierarchySystem`, and rename `ParentComponent.localOffset` to `localPosition`.
@@ -53,7 +53,7 @@ Future<void> main() async {
 
 - **A widget that owns its engine** disposes it in `State.dispose`; not awaiting `dispose()` there is safe. A `GameWidget` given an engine that is still initializing starts it once it is ready, and your own code can follow it through `engine.stateListenable`.
 - **Default systems.** `DefaultSystems.all` adds input, physics, movement, audio, rendering, sprites, level maps, map collision and cameras; `DefaultSystems.headless` leaves out rendering and audio. A system you added yourself is kept, not added twice. `ParticleSystem`, `EffectSystem`, `HealthSystem`, `LifetimeSystem` and `CheckpointSystem` are not defaults: add the ones you use.
-- **Changed constructors.** `PhysicsSystem()` is `PhysicsSystem(engine.physics, camera: ...)`, and gravity is `engine.physics.setGravity(x, y)`. `PhysicsBridgeSystem` is gone. `InputSystem(engine.input)..buttonMappings` is `InputSystem(engine.input, maps: ['player'])`.
+- **Changed constructors.** `PhysicsSystem()` is `Physics2DSystem(engine.physics, camera: ...)`, and gravity is `engine.physics.setGravity(x, y)`. `PhysicsBridgeSystem` is gone. `InputSystem(engine.input)..buttonMappings` is `InputSystem(engine.input, maps: ['player'])`.
 - **Your own components in scenes** need a `ComponentDefinition`, installed through a `ContextExtension` in `EngineConfig(extensions: [...])`. See [Scenes](/docs/scenes).
 
 ## Physics bodies
@@ -216,6 +216,7 @@ Saved progress carries over: achievements, currency and inventory still save to 
 | `Sprite.fromAsset(path)` | `Sprite.fromAsset(path, assets: engine.assets)` |
 | `AssetBundle` (the engine's), `typedef Easing` | `GameAssetBundle`, `EasingFunction` |
 | `SystemPriorities.tileMap` | `SystemPriorities.levelMap` |
+| `PhysicsSystem` | `Physics2DSystem` |
 
 ## Behaviour you may notice
 

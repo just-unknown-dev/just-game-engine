@@ -1,4 +1,4 @@
-// PhysicsSystem's enter and exit events on both 2-D backends: a body made
+// Physics2DSystem's enter and exit events on both 2-D backends: a body made
 // again (a changed scale or shape) sends no second enter, and an exit only
 // when its new body no longer touches; tiny scale noise makes nothing again;
 // a static sensor over static ground sees nothing; a chain's many shapes
@@ -19,7 +19,7 @@ final _backends = <String, PhysicsEngine Function()>{
   final physics = engine..initialize();
   physics.setGravity(0, 981);
   final world = World()..initialize();
-  world.addSystem(PhysicsSystem(physics));
+  world.addSystem(Physics2DSystem(physics));
   addTearDown(() {
     world.dispose();
     physics.dispose();

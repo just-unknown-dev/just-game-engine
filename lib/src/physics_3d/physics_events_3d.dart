@@ -3,7 +3,7 @@ import 'package:just_dart/just_dart.dart';
 import '../ecs/ecs.dart';
 
 /// Two entities' bodies started touching. Fired on the world's event bus by
-/// [PhysicsSystem3D] after the step:
+/// [Physics3DSystem] after the step:
 ///
 /// ```dart
 /// world.events.on<CollisionEnter3DEvent>((e) {
