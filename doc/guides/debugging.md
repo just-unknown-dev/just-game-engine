@@ -102,7 +102,7 @@ The overlay shows no update or physics timings; draw your own from these maps, f
 | Things appear in the wrong place | +Y is down, and the camera's position is the world point in the middle of the screen. |
 | A sprite does not show | The file is not listed under `flutter: assets:`, or the atlas image is not beside its JSON. |
 | An animator never changes state | It needs a `SpriteAnimationComponent` on the same entity. A parameter whose `binding` is not registered in `engine.context.animatorBindings` silently keeps its default. |
-| Particles do not move | `ParticleSystemECS` was not added; it is not a default system. |
+| Particles do not move | `ParticleSystem` was not added; it is not a default system. |
 | `UnknownComponentTypeException` loading a level | The package that defines the component was not given to `EngineConfig(extensions: ...)`. |
 | The player falls through a map on the first frame | Call `await LevelMaps.preload(world)` after loading the scene. |
 | Your system reads stale input or runs after physics | Its priority: character control belongs at `SystemPriorities.playerControl` (95). |

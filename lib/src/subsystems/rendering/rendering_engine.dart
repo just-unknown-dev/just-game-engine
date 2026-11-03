@@ -381,7 +381,7 @@ class RenderingEngine implements RenderStatsSink {
   /// automatically during [updateManagedEmitters].
   @Deprecated(
     'Add a ParticleEmitterComponent (removeEntityWhenComplete: true) to '
-    'an entity; ParticleSystemECS updates it and RenderSystem draws it. '
+    'an entity; ParticleSystem updates it and RenderSystem draws it. '
     'Removed in 3.0.',
   )
   void addManagedEmitter(ParticleEmitter emitter) {
@@ -410,7 +410,7 @@ class RenderingEngine implements RenderStatsSink {
   /// are removed from the list and unregistered from rendering.
   @Deprecated(
     'Emitters on entities (ParticleEmitterComponent) are updated by '
-    'ParticleSystemECS. Removed in 3.0.',
+    'ParticleSystem. Removed in 3.0.',
   )
   void updateManagedEmitters(double deltaTime) {
     // Iterate backwards so index removal is safe

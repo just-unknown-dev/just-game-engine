@@ -32,7 +32,7 @@ class _EffectEntry {
 
 /// Per-entity deterministic effect queue.
 ///
-/// Owned by [EffectComponent]. [EffectSystemECS] calls [advanceTo] once per
+/// Owned by [EffectComponent]. [EffectSystem] calls [advanceTo] once per
 /// game-loop tick, passing the current absolute tick number. The player
 /// computes each effect's relative elapsed count and calls
 /// [DeterministicEffect.applyTick] with `(prevElapsed, currElapsed)`.

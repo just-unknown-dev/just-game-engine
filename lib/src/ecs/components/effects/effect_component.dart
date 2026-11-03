@@ -6,7 +6,7 @@ import '../../../subsystems/effects/base/effect_player.dart';
 /// ECS component that attaches an [EffectPlayer] to an entity.
 ///
 /// Add this component to any entity you want to drive with [DeterministicEffect]s.
-/// [EffectSystemECS] queries for this component every tick and advances the
+/// [EffectSystem] queries for this component every tick and advances the
 /// [player] with the current absolute tick number.
 ///
 /// You usually never create this manually — [EffectRuntime.scheduleEffect]

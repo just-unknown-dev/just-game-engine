@@ -101,7 +101,7 @@ Future<void> loadFirstLevel(Engine engine) async {
 
 `DefaultSystems.all` is every one; `DefaultSystems.headless` leaves out `rendering` and `audio` (for a server, a simulation or a test). `registerDefaultSystems(world, engine, include: ...)` adds them to any world and skips systems it already has, so a game can add its own configured instance first.
 
-Add these yourself when you use them: `ParticleSystemECS`, `EffectSystemECS`, `PostProcessSystem`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `RaycastSystem`, `DialogueSystem`, `ViewCullingSystem`. Systems run in priority order (`SystemPriorities`), not in the order they were added.
+Add these yourself when you use them: `ParticleSystem`, `EffectSystem`, `PostProcessSystem`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `RaycastSystem`, `DialogueSystem`, `ViewCullingSystem`. Systems run in priority order (`SystemPriorities`), not in the order they were added.
 
 ## Features
 
@@ -216,8 +216,8 @@ Future<Engine> start3D() async {
 
 ### Particles, effects and post-processing
 
-- `ParticleEmitter` with forces, sub-emitters and renderers; `ParticleEffects` has presets (explosion, fire, smoke, rain, snow, …). Put one on an entity with `ParticleEmitterComponent` and add `ParticleSystemECS`.
-- Deterministic, tick-based effects (`MoveEffect`, `ScaleEffect`, `FadeEffect`, `ShakeEffect`, `SequenceEffect`, …) that serialize for networking and rollback; run by `EffectSystemECS`.
+- `ParticleEmitter` with forces, sub-emitters and renderers; `ParticleEffects` has presets (explosion, fire, smoke, rain, snow, …). Put one on an entity with `ParticleEmitterComponent` and add `ParticleSystem`.
+- Deterministic, tick-based effects (`MoveEffect`, `ScaleEffect`, `FadeEffect`, `ShakeEffect`, `SequenceEffect`, …) that serialize for networking and rollback; run by `EffectSystem`.
 - Fragment-shader passes over the frame (`PostProcessPass`) and per entity (`ShaderComponent`). They need Impeller; on the web and on Skia they are skipped and the content draws unshaded.
 - Parallax backgrounds: `ParallaxComponent`, drawn by `ParallaxRenderSystem`.
 
@@ -329,7 +329,7 @@ The engine is built on `just_physics_engine`, `just_graphics_engine`, `just_inpu
 
 - Website: <https://engine.justunknown.com/>
 - Examples, written for 1.x: <https://examples.engine.justunknown.com> and <https://github.com/just-unknown-dev/just-game-engine-examples>
-- Discord: <https://discord.gg/VXFxVj4Y>
+- Discord: <https://discord.gg/NtexTJ9S77>
 - Issues: <https://github.com/just-unknown-dev/just-game-engine/issues>
 
 ## License

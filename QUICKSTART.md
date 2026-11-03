@@ -862,7 +862,7 @@ void tagsAndTargets(World world) {
 
 ## 11. Particles and effects
 
-A `ParticleEmitterComponent` puts an emitter on an entity. `ParticleEffects` has presets: `explosion`, `fire`, `smoke`, `sparkle`, `rain`, `snow`, `portal`, `magic` and more. `ParticleSystemECS` updates emitters. It is **not** a default system, so add it once.
+A `ParticleEmitterComponent` puts an emitter on an entity. `ParticleEffects` has presets: `explosion`, `fire`, `smoke`, `sparkle`, `rain`, `snow`, `portal`, `magic` and more. `ParticleSystem` updates emitters. It is **not** a default system, so add it once.
 
 Effects are small tick-based animations — `MoveEffect`, `ScaleEffect`, `RotateEffect`, `FadeEffect`, `ShakeEffect`, `ColorTintEffect`, `PathEffect`, combined with `SequenceEffect`, `ParallelEffect`, `DelayEffect` and `RepeatEffect`. They count fixed steps (60 a second), so they play the same on every machine and can be sent over a network.
 
@@ -871,8 +871,8 @@ import 'package:just_game_engine/just_game_engine.dart';
 
 /// A one-shot explosion; the entity goes when its last particle does.
 void explode(World world, Vector3 at) {
-  if (!world.hasSystem<ParticleSystemECS>()) {
-    world.addSystem(ParticleSystemECS());
+  if (!world.hasSystem<ParticleSystem>()) {
+    world.addSystem(ParticleSystem());
   }
   world.createEntityWithComponents([
     TransformComponent(position: at),
@@ -885,9 +885,9 @@ void explode(World world, Vector3 at) {
 
 /// A hit: a short shake, then a fade out.
 void hit(World world, Entity enemy) {
-  var effects = world.getSystem<EffectSystemECS>();
+  var effects = world.getSystem<EffectSystem>();
   if (effects == null) {
-    effects = EffectSystemECS();
+    effects = EffectSystem();
     world.addSystem(effects);
   }
   effects.scheduleEffect(
@@ -1162,7 +1162,7 @@ void main() {
 | Things appear in the wrong place | +Y is down, and the camera's position is the world point in the middle of the screen. |
 | A sprite does not show | The file is not listed under `flutter: assets:`, or the atlas image is not beside its JSON. |
 | An animator never changes state | It needs a `SpriteAnimationComponent` on the same entity. A parameter whose `binding` is not registered in `engine.context.animatorBindings` silently keeps its default. |
-| Particles do not move | `ParticleSystemECS` was not added; it is not a default system. |
+| Particles do not move | `ParticleSystem` was not added; it is not a default system. |
 | `UnknownComponentTypeException` loading a level | The package that defines the component was not given to `EngineConfig(extensions: ...)`. |
 | The player falls through a map on the first frame | Call `await LevelMaps.preload(world)` after loading the scene. |
 | Your system reads stale input or runs after physics | Its priority: character control belongs at `SystemPriorities.playerControl` (95). |

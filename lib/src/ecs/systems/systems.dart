@@ -77,10 +77,10 @@ export 'culling/view_culling_system.dart';
 export 'navigation/flow_field_system.dart';
 
 // Deterministic Effects system
-export 'effects/effect_system_ecs.dart';
+export 'effects/effect_system.dart';
 
 // Particle system
-export 'rendering/particle_system_ecs.dart';
+export 'rendering/particle_system.dart';
 
 // Narrative / Dialogue system
 export 'narrative/dialogue_system.dart';

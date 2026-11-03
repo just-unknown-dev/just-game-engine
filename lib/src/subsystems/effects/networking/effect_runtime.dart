@@ -6,13 +6,13 @@ part of '../effect_system.dart';
 
 /// Pluggable multiplayer coordination interface for deterministic effects.
 ///
-/// [EffectSystemECS] implements this interface directly (used for both
+/// [EffectSystem] implements this interface directly (used for both
 /// single-player and lock-step multiplayer). For client-side prediction with
 /// rollback use [PredictionEffectRuntime] instead.
 ///
 /// ```dart
-/// // Lock-step (default) — use EffectSystemECS directly:
-/// final effectSystem = world.getSystem<EffectSystemECS>()!;
+/// // Lock-step (default) — use EffectSystem directly:
+/// final effectSystem = world.getSystem<EffectSystem>()!;
 /// effectSystem.scheduleEffect(
 ///   entity: e,
 ///   effect: MoveEffect(to: Vector3(300, 0, 0), durationTicks: 60),
@@ -26,7 +26,7 @@ abstract interface class EffectRuntime {
   /// Schedule [effect] on [entity] starting at [startTick].
   ///
   /// * [startTick] defaults to `currentTick` — the effect fires on the
-  ///   next [EffectSystemECS.update] when `currentTick - startTick > 0`.
+  ///   next [EffectSystem.update] when `currentTick - startTick > 0`.
   /// * Pass a future tick to pre-schedule effects received from a server.
   /// * Pass a past server tick to fast-forward the effect to its current
   ///   state (reconnect / late-join scenario).
@@ -46,7 +46,7 @@ abstract interface class EffectRuntime {
 
   /// Restore state from [snapshot] on the given [world].
   ///
-  /// Re-populates [EffectPlayer]s so [EffectSystemECS] continues from the
+  /// Re-populates [EffectPlayer]s so [EffectSystem] continues from the
   /// correct tick without re-applying already-processed deltas.
   void restoreSnapshot(EffectSnapshot snapshot, World world);
 }
@@ -67,7 +67,7 @@ abstract interface class EffectRuntime {
 ///    component-snapshot system.
 /// 2. Wire [rollbackTo] from your server-correction message handler.
 /// 3. Call [advanceTick] each physics frame to keep [currentTick] in sync
-///    (instead of relying on [EffectSystemECS] to drive the counter).
+///    (instead of relying on [EffectSystem] to drive the counter).
 class PredictionEffectRuntime implements EffectRuntime {
   /// Maximum number of past ticks retained in the rollback log.
   final int rollbackWindowTicks;
@@ -88,7 +88,7 @@ class PredictionEffectRuntime implements EffectRuntime {
   /// Advance the internal tick counter by one.
   ///
   /// In a standalone prediction setup call this each physics frame instead of
-  /// relying on [EffectSystemECS.update] to drive the counter.
+  /// relying on [EffectSystem.update] to drive the counter.
   void advanceTick() {
     _currentTick++;
     _pruneLog();
@@ -111,7 +111,7 @@ class PredictionEffectRuntime implements EffectRuntime {
   }
 
   /// Roll back to [targetTick]: cancel post-correction effects and re-queue
-  /// them so [EffectSystemECS] fast-forwards on the next update.
+  /// them so [EffectSystem] fast-forwards on the next update.
   ///
   /// **Caller responsibility:** restore authoritative component snapshots
   /// (position, health, …) before calling this.

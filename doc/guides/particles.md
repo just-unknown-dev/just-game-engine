@@ -6,9 +6,9 @@ Three tools for things that burst, move and glow: particle emitters, tick-based 
 
 ## Particle emitters
 
-A `ParticleEmitterComponent` puts a `ParticleEmitter` on an entity. `ParticleSystemECS` (priority 48) updates every emitter, keeps it at its entity (`syncPositionFromTransform`, on by default) and, with `removeEntityWhenComplete`, destroys the entity once the emitter has finished. `RenderSystem` draws emitters in layer order, like any renderable.
+A `ParticleEmitterComponent` puts a `ParticleEmitter` on an entity. `ParticleSystem` (priority 48) updates every emitter, keeps it at its entity (`syncPositionFromTransform`, on by default) and, with `removeEntityWhenComplete`, destroys the entity once the emitter has finished. `RenderSystem` draws emitters in layer order, like any renderable.
 
-`ParticleSystemECS` is not a default system, so add it once. Emitters are not saved in scenes either: add them in code.
+`ParticleSystem` is not a default system, so add it once. Emitters are not saved in scenes either: add them in code.
 
 `ParticleEffects` has ready-made emitters, each taking the `position` to start at: `explosion`, `fire`, `smoke`, `sparkle`, `rain`, `snow`, `portal`, `magic`, `bloodSplatter`, `dustKick`, `electricSparks`, `waterSplash`, `healAura`, `confetti` and `lavaEmbers`. Some take more, such as `explosion`'s `particleCount` and `color`.
 
@@ -20,8 +20,8 @@ import 'package:just_game_engine/just_game_engine.dart';
 
 /// A one-shot explosion; the entity goes when its last particle does.
 void explode(World world, Vector3 at) {
-  if (!world.hasSystem<ParticleSystemECS>()) {
-    world.addSystem(ParticleSystemECS());
+  if (!world.hasSystem<ParticleSystem>()) {
+    world.addSystem(ParticleSystem());
   }
   world.createEntityWithComponents([
     TransformComponent(position: at),
@@ -72,7 +72,7 @@ While it runs, `burst(count)` emits at once, setting `isEmitting` to false stops
 
 ## Deterministic effects
 
-Effects are small animations on an entity. They count fixed steps (ticks, 60 a second) rather than seconds, so they play exactly the same on every machine and can be sent over a network. `EffectSystemECS` (priority 65) advances them one tick per update; it is not a default system, so add it once.
+Effects are small animations on an entity. They count fixed steps (ticks, 60 a second) rather than seconds, so they play exactly the same on every machine and can be sent over a network. `EffectSystem` (priority 65) advances them one tick per update; it is not a default system, so add it once.
 
 `scheduleEffect(entity: ..., effect: ...)` starts an effect on the next tick, or at `startTick`, and returns an `EffectHandle`. Pass that to `cancelEffect(entity, handle)` to stop the effect early.
 
@@ -96,10 +96,10 @@ The single effects take `durationTicks` (30 by default, 60 for `PathEffect`) and
 import 'package:flutter/material.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
-EffectSystemECS effectsOf(World world) {
-  var effects = world.getSystem<EffectSystemECS>();
+EffectSystem effectsOf(World world) {
+  var effects = world.getSystem<EffectSystem>();
   if (effects == null) {
-    effects = EffectSystemECS();
+    effects = EffectSystem();
     world.addSystem(effects);
   }
   return effects;

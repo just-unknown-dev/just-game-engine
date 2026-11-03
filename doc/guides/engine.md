@@ -127,7 +127,7 @@ The subsystem getters throw `EngineNotReadyError` (a `StateError` naming the mem
 
 `DefaultSystems.all` is every one. `DefaultSystems.headless` leaves out `rendering` and `audio`, for a server, a simulation or a test.
 
-`registerDefaultSystems(world, engine, include: ...)` adds the same systems to any world. It skips a system type the world already has, so you can add your own configured instance first. Add these yourself when you use them: `ParticleSystemECS`, `EffectSystemECS`, `PostProcessSystem`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `RaycastSystem`, `DialogueSystem` and `ViewCullingSystem`.
+`registerDefaultSystems(world, engine, include: ...)` adds the same systems to any world. It skips a system type the world already has, so you can add your own configured instance first. Add these yourself when you use them: `ParticleSystem`, `EffectSystem`, `PostProcessSystem`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `RaycastSystem`, `DialogueSystem` and `ViewCullingSystem`.
 
 ## Subsystems
 

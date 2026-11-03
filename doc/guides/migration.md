@@ -52,7 +52,7 @@ Future<void> main() async {
 | `EngineState.error`; `engine.getSystem<T>()` | `EngineState.failed`; `engine.subsystem<T>()` (`getSystem` is deprecated) |
 
 - **A widget that owns its engine** disposes it in `State.dispose`; not awaiting `dispose()` there is safe. A `GameWidget` given an engine that is still initializing starts it once it is ready, and your own code can follow it through `engine.stateListenable`.
-- **Default systems.** `DefaultSystems.all` adds input, physics, movement, audio, rendering, sprites, level maps, map collision and cameras; `DefaultSystems.headless` leaves out rendering and audio. A system you added yourself is kept, not added twice. `ParticleSystemECS`, `EffectSystemECS`, `HealthSystem`, `LifetimeSystem` and `CheckpointSystem` are not defaults: add the ones you use.
+- **Default systems.** `DefaultSystems.all` adds input, physics, movement, audio, rendering, sprites, level maps, map collision and cameras; `DefaultSystems.headless` leaves out rendering and audio. A system you added yourself is kept, not added twice. `ParticleSystem`, `EffectSystem`, `HealthSystem`, `LifetimeSystem` and `CheckpointSystem` are not defaults: add the ones you use.
 - **Changed constructors.** `PhysicsSystem()` is `PhysicsSystem(engine.physics, camera: ...)`, and gravity is `engine.physics.setGravity(x, y)`. `PhysicsBridgeSystem` is gone. `InputSystem(engine.input)..buttonMappings` is `InputSystem(engine.input, maps: ['player'])`.
 - **Your own components in scenes** need a `ComponentDefinition`, installed through a `ContextExtension` in `EngineConfig(extensions: [...])`. See [Scenes](/docs/scenes).
 

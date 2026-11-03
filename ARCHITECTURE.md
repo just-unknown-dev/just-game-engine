@@ -526,12 +526,12 @@ Every system's priority, from the `priority` getters in `lib/src/ecs/systems/` (
 | 70 | `animation` | `AnimatorSystem` | `sprites` |
 | 69 | `animation − 1` | `SpriteLoadSystem` | `sprites` |
 | 68 | `animation − 2` | `SpriteAnimationSystem` | `sprites` |
-| 65 | `effects` | `EffectSystemECS` | — |
+| 65 | `effects` | `EffectSystem` | — |
 | 60 | `gameplay` | `HealthSystem`, `LifetimeSystem` | — |
 | 59 | `dialogue` (`gameplay − 1`) | `DialogueSystem` | — |
 | 58 | `checkpoint` | `CheckpointSystem` | — |
 | 50 | `hierarchy` | the world's `TransformHierarchy` (not a system); the deprecated `HierarchySystem` | every world |
-| 48 | `particles` | `ParticleSystemECS` | — |
+| 48 | `particles` | `ParticleSystem` | — |
 | 47 | `camera + 2` | `CameraTargetGroupSystem` | `cameras` |
 | 46 | `camera + 1` | `CameraTriggerSystem` | `cameras` |
 | 45 | `camera` | `CameraBrainSystem` | `cameras` |
@@ -542,7 +542,7 @@ Every system's priority, from the `priority` getters in `lib/src/ecs/systems/` (
 | 0 | `System` default | `RaycastSystem` (queries only) | — |
 | −10 | `audio` | `AudioSystem` | `audio` |
 
-`SystemPriorities` also names slots for packages: `playerControl` (95), `movingPlatform` (92) and `genreRules` (59), used by `just_platformer_kit`. `ParticleSystemECS` is in no default set: a game that uses `ParticleEmitterComponent`s adds it.
+`SystemPriorities` also names slots for packages: `playerControl` (95), `movingPlatform` (92) and `genreRules` (59), used by `just_platformer_kit`. `ParticleSystem` is in no default set: a game that uses `ParticleEmitterComponent`s adds it.
 
 ### 7.5 The transform hierarchy
 
@@ -798,7 +798,7 @@ A `ShaderComponent` draws its entity through a fragment shader (an offscreen lay
 
 ### 10.6 Particles and parallax
 
-- **Particles.** A `ParticleEmitterComponent` holds a `ParticleEmitter`. `ParticleSystemECS` (priority 48, not a default) updates it, keeps it at its entity, and can destroy the entity when the emitter completes (`removeEntityWhenComplete`). `RenderSystem` draws it in layer order.
+- **Particles.** A `ParticleEmitterComponent` holds a `ParticleEmitter`. `ParticleSystem` (priority 48, not a default) updates it, keeps it at its entity, and can destroy the entity when the emitter completes (`removeEntityWhenComplete`). `RenderSystem` draws it in layer order.
 - **Parallax.** A `ParallaxComponent` holds a `ParallaxBackground` of `ParallaxLayer`s. `ParallaxRenderSystem` (priority 105, part of `DefaultSystem.rendering`) scrolls it and draws it through `backgroundHooks` in screen space, behind the world, with the camera's position at draw time.
 
 ### 10.7 The deprecated legacy path
@@ -808,7 +808,7 @@ Before the ECS drew everything, games added renderables to the rendering engine 
 | Deprecated | Use instead |
 |---|---|
 | `RenderingEngine.addRenderable` / `removeRenderable`, `renderables`, `renderableCount`, `layerCount`, `markLayerOrderDirty`, `markSpatialIndexDirty`, `useSpatialIndex` | a `RenderableComponent` on an entity; `RenderSystem(cullOffscreen: true)` for culling |
-| `RenderingEngine.addManagedEmitter` / `removeManagedEmitter` / `updateManagedEmitters` | `ParticleEmitterComponent(removeEntityWhenComplete: true)` + `ParticleSystemECS` |
+| `RenderingEngine.addManagedEmitter` / `removeManagedEmitter` / `updateManagedEmitters` | `ParticleEmitterComponent(removeEntityWhenComplete: true)` + `ParticleSystem` |
 | `Engine.parallax`, `ParallaxSystem` | `ParallaxComponent` + `ParallaxRenderSystem` |
 
 The legacy renderables draw in step 5 of the frame, with their own quadtree culling (above 200 renderables) and their own sprite batches. A background both on a component and in the deprecated list is drawn only by the system. `RenderingEngine.stats`' `renderables`, `layers` and spatial-index keys describe only this path; its draw counts cover the whole frame (§10.1).
@@ -958,7 +958,7 @@ A `TimelineAsset` (`.timeline.json`, format 2, or inline in a component) is a se
 
 ### 16.4 Deterministic effects
 
-An `EffectComponent` holds an `EffectPlayer`; `EffectSystemECS` (65) advances it. The eleven effect types — `MoveEffect`, `ScaleEffect`, `RotateEffect`, `FadeEffect`, `ColorTintEffect`, `ShakeEffect`, `PathEffect`, `SequenceEffect`, `ParallelEffect`, `DelayEffect`, `RepeatEffect` — are tick-based, so the same inputs give the same result on every machine. `EffectSerializer` (with `context.effectTypes`) and `EffectSnapshot` save and restore running effects. Easings come from `Easings` through `EasingType`.
+An `EffectComponent` holds an `EffectPlayer`; `EffectSystem` (65) advances it. The eleven effect types — `MoveEffect`, `ScaleEffect`, `RotateEffect`, `FadeEffect`, `ColorTintEffect`, `ShakeEffect`, `PathEffect`, `SequenceEffect`, `ParallelEffect`, `DelayEffect`, `RepeatEffect` — are tick-based, so the same inputs give the same result on every machine. `EffectSerializer` (with `context.effectTypes`) and `EffectSnapshot` save and restore running effects. Easings come from `Easings` through `EasingType`.
 
 ---
 
@@ -1145,6 +1145,6 @@ Also deprecated, for removal in 3.0: `Engine.getSystem` (use `subsystem`), `Hier
 
 - Logging is `debugPrint`, about seventy calls, with no hook for a game's own logger.
 - The engine's loop runs at 60 updates a second; `EngineConfig` has no setting for it.
-- `ParticleSystemECS` is not a default system; a game with particle emitter components adds it.
+- `ParticleSystem` is not a default system; a game with particle emitter components adds it.
 - Waiting on `just_physics_engine`: joint anchors (`anchor` / `connectedAnchor` of distance and fixed joints) are not passed to it; with `collideConnected` off the pure-Dart backend still pushes jointed bodies apart (the engine only keeps their contact events back); native Box2D queries skip bodies whose collision mask is 0. Joint springs are hertz and damping ratio everywhere: `PhysicsJointBindingSystem.dartSpring` converts them for the Dart backend.
 - Waiting on `just_audio_engine`: a stream is not routed through `AudioStreamComponent.channel`'s volume, and a playing sound's pitch, pan, speed and loop cannot change.

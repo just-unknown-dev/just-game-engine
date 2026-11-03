@@ -5,7 +5,7 @@ import '../../../subsystems/particles/particles.dart';
 
 /// ECS component that attaches a [ParticleEmitter] to an entity.
 ///
-/// When used with [ParticleSystemECS], the emitter is updated every frame and
+/// When used with [ParticleSystem], the emitter is updated every frame and
 /// can optionally track the entity's [TransformComponent] position.
 ///
 /// ## Example
@@ -22,7 +22,7 @@ class ParticleEmitterComponent extends Component {
   /// The particle emitter managed by this component.
   final ParticleEmitter emitter;
 
-  /// When `true`, [ParticleSystemECS] copies the entity's [TransformComponent]
+  /// When `true`, [ParticleSystem] copies the entity's [TransformComponent]
   /// world position to `emitter.position` each frame before calling
   /// [ParticleEmitter.update].
   ///
@@ -31,7 +31,7 @@ class ParticleEmitterComponent extends Component {
   final bool syncPositionFromTransform;
 
   /// When `true` and the emitter has finished (no more emissions and no live
-  /// particles), [ParticleSystemECS] destroys the entity via
+  /// particles), [ParticleSystem] destroys the entity via
   /// `world.commands.destroy(entity)`.
   ///
   /// Useful for one-shot effects like explosions that should be cleaned up

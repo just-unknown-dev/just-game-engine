@@ -222,7 +222,7 @@ Adding renderables to the rendering engine directly, as 1.x games did, still wor
 | Deprecated | Use instead |
 |---|---|
 | `engine.rendering.addRenderable`, `removeRenderable`, `useSpatialIndex` and the other spatial-index members | An entity with a `RenderableComponent`; `cullOffscreen` for culling |
-| `addManagedEmitter`, `removeManagedEmitter`, `updateManagedEmitters` | `ParticleEmitterComponent` with `ParticleSystemECS` |
+| `addManagedEmitter`, `removeManagedEmitter`, `updateManagedEmitters` | `ParticleEmitterComponent` with `ParticleSystem` |
 | `engine.parallax`, `ParallaxSystem` | `ParallaxComponent` and `ParallaxRenderSystem` |
 | `onRenderOverlay`, `onRenderBackground` | `overlayHooks`, `backgroundHooks` |
 

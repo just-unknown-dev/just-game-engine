@@ -243,7 +243,7 @@ final engine = Engine(
 
 `DefaultSystems.all` adds `InputSystem`, `PhysicsSystem` (with `PhysicsJointBindingSystem`), `MovementSystem`, `AudioSystem`, `RenderSystem` and `ParallaxRenderSystem`, the sprite, animator and timeline systems, `LevelMapSystem`, `MapCollisionSystem` and the camera systems. `DefaultSystems.headless` leaves out rendering and audio. Pick single ones with a set of `DefaultSystem` values. Nothing is added twice: a system you added yourself, configured your way, is kept. The same function is public as `registerDefaultSystems(world, engine)`.
 
-`ParticleSystemECS`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `EffectSystemECS` and the rest are not defaults: add the ones you use.
+`ParticleSystem`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `EffectSystem` and the rest are not defaults: add the ones you use.
 
 A game that keeps adding its systems itself needs no change here, apart from the constructors below.
 
@@ -764,7 +764,7 @@ The legacy animation system is gone: `engine.animation` (`AnimationSystem`), `An
 | `SpriteAnimation` / `AtlasSpriteAnimation` in `engine.animation` | `SpriteAnimationComponent` on an entity |
 | `animationState.play('run')` | `spriteAnimation.switchClip('run')`, or an `AnimatorComponent` graph |
 | a frame of a sprite sheet | `SpriteComponent(spritePath:, atlasPath:, region:)` |
-| `PositionTween`, `RotationTween`, `ScaleTween`, `OpacityTween`, `ColorTween` | `MoveEffect`, `RotateEffect`, `ScaleEffect`, `FadeEffect`, `ColorTintEffect` through `EffectSystemECS`, or a timeline |
+| `PositionTween`, `RotationTween`, `ScaleTween`, `OpacityTween`, `ColorTween` | `MoveEffect`, `RotateEffect`, `ScaleEffect`, `FadeEffect`, `ColorTintEffect` through `EffectSystem`, or a timeline |
 | `AnimationSequence`, `AnimationGroup` | `SequenceEffect`, `ParallelEffect`, or one timeline |
 | top-level `linear`, `easeInQuad`, … | `Easings.linear`, `Easings.easeInQuad`, … |
 | `typedef Easing` | `EasingFunction` |
@@ -804,8 +804,8 @@ Entity spawnHero(World world) => world.createEntityWithComponents([
 ], name: 'Hero');
 
 void slideDoor(World world, Entity door) {
-  final effects = world.getSystem<EffectSystemECS>() ?? EffectSystemECS();
-  if (!world.hasSystem<EffectSystemECS>()) world.addSystem(effects);
+  final effects = world.getSystem<EffectSystem>() ?? EffectSystem();
+  if (!world.hasSystem<EffectSystem>()) world.addSystem(effects);
   effects.scheduleEffect(
     entity: door,
     effect: MoveEffect(
@@ -896,7 +896,7 @@ Drawing outside the ECS still works in 2.0 but is deprecated, to be removed in 3
 | Deprecated | Use instead |
 |---|---|
 | `engine.rendering.addRenderable(r)` / `removeRenderable(r)` | an entity with `RenderableComponent(renderable: r)`; `RenderSystem` draws it in layer order |
-| `addManagedEmitter(e)` / `removeManagedEmitter` / `updateManagedEmitters` | an entity with `ParticleEmitterComponent(emitter: e, removeEntityWhenComplete: true)`, and `ParticleSystemECS` in the world |
+| `addManagedEmitter(e)` / `removeManagedEmitter` / `updateManagedEmitters` | an entity with `ParticleEmitterComponent(emitter: e, removeEntityWhenComplete: true)`, and `ParticleSystem` in the world |
 | `engine.parallax`, `ParallaxSystem` | an entity with `ParallaxComponent(background: ...)`; `ParallaxRenderSystem` (a default system) scrolls and draws it |
 | `useSpatialIndex`, `markSpatialIndexDirty`, `markLayerOrderDirty`, `renderables`, `renderableCount`, `layerCount` | `RenderSystem(cullOffscreen: true)`; nothing else is needed |
 
@@ -913,8 +913,8 @@ void addBackgroundAndSparks(World world, ParallaxBackground sky) {
       removeEntityWhenComplete: true,
     ),
   ]);
-  if (!world.hasSystem<ParticleSystemECS>()) {
-    world.addSystem(ParticleSystemECS()); // not a default system
+  if (!world.hasSystem<ParticleSystem>()) {
+    world.addSystem(ParticleSystem()); // not a default system
   }
 }
 ```

@@ -306,7 +306,7 @@ Also: `MusicManager`, `SoundEffectManager`, `AudioStreamComponent`, `AudioReques
 
 ## Particles and effects
 
-A `ParticleEmitter` goes on an entity through `ParticleEmitterComponent`; `ParticleSystemECS` updates it (not a default system: add it) and `RenderSystem` draws it. Effects are deterministic tick-based tweens queued per entity.
+A `ParticleEmitter` goes on an entity through `ParticleEmitterComponent`; `ParticleSystem` updates it (not a default system: add it) and `RenderSystem` draws it. Effects are deterministic tick-based tweens queued per entity.
 
 - **`ParticleEmitter`** — emits and draws particles.
   - `void burst(int count)`
@@ -318,10 +318,10 @@ A `ParticleEmitter` goes on an entity through `ParticleEmitterComponent`; `Parti
   - `static ParticleEmitter explosion({required Vector3 position, …})`
 - **`ParticleEmitterComponent`** — an emitter on an entity.
   - `ParticleEmitterComponent({required ParticleEmitter emitter, …})`
-- **`EffectSystemECS`** — runs `EffectComponent` queues; snapshots.
+- **`EffectSystem`** — runs `EffectComponent` queues; snapshots.
   - `EffectHandle scheduleEffect({required Entity entity, required DeterministicEffect effect, int? startTick})`
 
-Also: `ParticleSystemECS`, `EffectComponent`, `EffectSerializer`, `EffectTypes`; forces `GravityForce`, `WindForce`, `DragForce`, `VortexForce`; effects `SequenceEffect`, `MoveEffect`, `ScaleEffect`, `RotateEffect`, `FadeEffect`, `ShakeEffect`, `PathEffect`, `ParallelEffect`, `RepeatEffect`.
+Also: `ParticleSystem`, `EffectComponent`, `EffectSerializer`, `EffectTypes`; forces `GravityForce`, `WindForce`, `DragForce`, `VortexForce`; effects `SequenceEffect`, `MoveEffect`, `ScaleEffect`, `RotateEffect`, `FadeEffect`, `ShakeEffect`, `PathEffect`, `ParallelEffect`, `RepeatEffect`.
 
 ## Tags, targets and spawners
 
@@ -416,14 +416,14 @@ Also: `L10nContext`, `DialogueChoicesWidget`, `SubtitleOverlay`, `LocaleSelector
 | 70 | `animation` | `AnimatorSystem` | `sprites` |
 | 69 | `animation - 1` | `SpriteLoadSystem` | `sprites` |
 | 68 | `animation - 2` | `SpriteAnimationSystem` | `sprites` |
-| 65 | `effects` | `EffectSystemECS` |  |
+| 65 | `effects` | `EffectSystem` |  |
 | 60 | `gameplay` | `HealthSystem` |  |
 | 60 | `gameplay` | `LifetimeSystem` |  |
 | 59 | `dialogue` | `DialogueSystem` |  |
 | 59 | `genreRules` | (genre packages) |  |
 | 58 | `checkpoint` | `CheckpointSystem` |  |
 | 50 | `hierarchy` | `HierarchySystem` |  |
-| 48 | `particles` | `ParticleSystemECS` |  |
+| 48 | `particles` | `ParticleSystem` |  |
 | 47 | `camera + 2` | `CameraTargetGroupSystem` | `cameras` |
 | 46 | `camera + 1` | `CameraTriggerSystem` | `cameras` |
 | 45 | `camera` | `CameraBrainSystem` | `cameras` |

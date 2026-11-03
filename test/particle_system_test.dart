@@ -508,15 +508,15 @@ void main() {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ECS integration — ParticleSystemECS
+  // ECS integration — ParticleSystem
   // ═══════════════════════════════════════════════════════════════════════════
 
-  group('ParticleSystemECS', () {
+  group('ParticleSystem', () {
     late World world;
 
     setUp(() {
       world = World();
-      world.addSystem(ParticleSystemECS());
+      world.addSystem(ParticleSystem());
     });
 
     tearDown(() => world.dispose());

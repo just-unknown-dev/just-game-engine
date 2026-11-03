@@ -230,7 +230,7 @@ class ParticleEmitter extends Renderable {
   /// Advance the emitter by [deltaTime] seconds.
   ///
   /// Must be called once per frame.  Both [RenderingEngine.updateManagedEmitters]
-  /// and [ParticleSystemECS] call this automatically.
+  /// and [ParticleSystem] call this automatically.
   void update(double deltaTime) {
     final startedAt = _totalTime;
     _totalTime += deltaTime;

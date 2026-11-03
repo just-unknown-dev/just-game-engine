@@ -13,7 +13,7 @@ import '../../../subsystems/effects/effects.dart';
 /// networking layers.
 ///
 /// ```dart
-/// final effectSystem = EffectSystemECS();
+/// final effectSystem = EffectSystem();
 /// world.addSystem(effectSystem);
 ///
 /// // Schedule an effect (start on next tick):
@@ -32,7 +32,7 @@ import '../../../subsystems/effects/effects.dart';
 ///   startTick: serverTick,
 /// );
 /// ```
-class EffectSystemECS extends System implements EffectRuntime {
+class EffectSystem extends System implements EffectRuntime {
   int _currentTick = 0;
 
   // ── System overrides ────────────────────────────────────────────────────

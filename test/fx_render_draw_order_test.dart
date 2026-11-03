@@ -223,7 +223,7 @@ void main() {
         ParticleEmitterComponent(emitter: emitter),
         LayerComponent(layer: 1),
       ]);
-      world.addSystem(ParticleSystemECS());
+      world.addSystem(ParticleSystem());
       world.update(0);
       emitter.burst(3);
 
@@ -256,7 +256,7 @@ void main() {
 
     test('the emitter takes a copy of the transform position', () {
       final emitter = ParticleEmitter(maxParticles: 2, emissionRate: 0);
-      world.addSystem(ParticleSystemECS());
+      world.addSystem(ParticleSystem());
       final entity = world.createEntityWithComponents([
         TransformComponent(position: Vector3(5, 6, 0)),
         ParticleEmitterComponent(emitter: emitter),

@@ -20,7 +20,7 @@
 /// ## Usage
 ///
 /// ```dart
-/// final effectSystem = EffectSystemECS();
+/// final effectSystem = EffectSystem();
 /// world.addSystem(effectSystem);
 ///
 /// // Schedule a move followed by a shake:

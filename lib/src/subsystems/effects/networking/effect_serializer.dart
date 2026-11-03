@@ -61,7 +61,7 @@ final class EffectTypes {
 /// JSON serialiser for [DeterministicEffect] instances.
 ///
 /// Reads the types in [types] — the engine's own ([EffectTypes.builtIn])
-/// when none are given; an [EffectSystemECS] reads with its world's
+/// when none are given; an [EffectSystem] reads with its world's
 /// (`world.context.effectTypes`).
 ///
 /// ```dart

@@ -18,7 +18,7 @@ import '../../base/system_priorities.dart';
 /// ## Registration
 /// ```dart
 /// final world = World();
-/// world.addSystem(ParticleSystemECS());
+/// world.addSystem(ParticleSystem());
 /// // Also add RenderSystem: it draws every ParticleEmitterComponent's
 /// // emitter, sorted by the entity's LayerComponent like any renderable.
 /// ```
@@ -27,7 +27,7 @@ import '../../base/system_priorities.dart';
 /// Runs at [SystemPriorities.particles] (48), which is:
 ///   - **after** `hierarchy` (50) — so parent-propagated positions are final
 ///   - **before** [render] (40) — so particle state is current when drawn
-class ParticleSystemECS extends System {
+class ParticleSystem extends System {
   @override
   int get priority => SystemPriorities.particles;
 

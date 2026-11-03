@@ -8,6 +8,7 @@ The guides ship with the package, so each version carries the guides written for
 
 - **Guides in the package**: `doc/guides/` holds the docs site's 29 guides as Markdown, listed in order in `doc/guides/README.md`. `just game mcp` (just_game_engine_cli) serves them to AI assistants from the version a game resolved; a test keeps the list, the pages and the libraries they import in step.
 - `tool/llms_txt.dart` writes the docs site's `llms.txt`, `llms-full.txt` and a Markdown page per guide (`/docs/<slug>.md`), so AI tools can read the docs: the site itself is a Flutter app that a plain fetch sees only as its loading shell.
+- **Breaking**: `ParticleSystemECS` is now `ParticleSystem` and `EffectSystemECS` is now `EffectSystem`, named like every other system (files `particle_system.dart` and `effect_system.dart`).
 
 ## [2.0.0-dev.3] - 2026-10-24
 
