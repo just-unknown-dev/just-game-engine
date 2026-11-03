@@ -8,7 +8,7 @@ export 'lifetime_component.dart';
 export 'movement_system.dart';
 export 'health_system.dart';
 export 'checkpoint_system.dart';
-export 'checkpoint_event.dart';
+export 'checkpoint_events.dart';
 export 'lifetime_system.dart';
 export 'boundary_system.dart';
 export 'gameplay_definitions.dart';

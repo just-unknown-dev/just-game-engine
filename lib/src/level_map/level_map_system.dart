@@ -3,7 +3,7 @@ library;
 
 import 'dart:async';
 
-import 'render/map_layer_painter.dart';
+import 'map_layer_painter.dart';
 import 'level_map_data.dart';
 import 'level_map_runtime.dart';
 import '../ecs/ecs.dart';

@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import '../ecs/ecs.dart';
 import '../ecs/serialization/component_definition.dart' show SchemaField;
 import 'timeline_asset.dart';
-import 'timeline_player.dart';
+import 'timeline_playback.dart';
 import 'tracks/block_tracks.dart';
 import 'tracks/event_track.dart';
 import 'tracks/property_track.dart';

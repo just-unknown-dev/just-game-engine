@@ -20,11 +20,11 @@ library;
 
 export 'package:just_physics_engine/physics_3d.dart' hide Quaternion, Vector3;
 
-export 'src/physics_3d/camera_collision_3d.dart';
-export 'src/physics_3d/collider_shapes_3d.dart';
+export 'src/physics_3d/camera_collision_3d_component.dart';
+export 'src/physics_3d/collider_3d_shapes.dart';
 export 'src/physics_3d/physics_3d.dart';
-export 'src/physics_3d/physics_components_3d.dart';
-export 'src/physics_3d/physics_definitions_3d.dart';
-export 'src/physics_3d/physics_events_3d.dart';
-export 'src/physics_3d/physics_queries_3d.dart';
+export 'src/physics_3d/physics_3d_components.dart';
+export 'src/physics_3d/physics_3d_definitions.dart';
+export 'src/physics_3d/physics_3d_events.dart';
+export 'src/physics_3d/physics_3d_queries.dart';
 export 'src/physics_3d/physics_3d_system.dart';

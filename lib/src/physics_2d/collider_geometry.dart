@@ -7,7 +7,7 @@ import 'dart:ui';
 
 import 'package:just_physics_engine/just_physics_engine.dart';
 
-import 'physics_components_2d.dart';
+import 'physics_2d_components.dart';
 import '../shapes_2d/shapes_2d.dart';
 import '../ecs/ecs.dart';
 import '../ecs/serialization/component_definition_registry.dart';

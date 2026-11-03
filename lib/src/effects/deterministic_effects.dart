@@ -40,36 +40,36 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import '../foundation/easing.dart';
+import '../foundation/easings.dart';
 import '../ecs/ecs.dart';
 import '../rendering/renderable_component.dart';
 import 'effect_component.dart';
 import 'package:just_dart/just_dart.dart';
 
-import 'base/effect_handle.dart';
-import 'base/effect_context.dart';
-import 'base/effect_player.dart';
-import 'base/deterministic_effect.dart';
+import 'effect_handle.dart';
+import 'effect_context.dart';
+import 'effect_player.dart';
+import 'deterministic_effect.dart';
 
-export 'base/effect_handle.dart';
-export 'base/effect_context.dart';
-export 'base/effect_player.dart';
-export 'base/deterministic_effect.dart';
+export 'effect_handle.dart';
+export 'effect_context.dart';
+export 'effect_player.dart';
+export 'deterministic_effect.dart';
 export 'effect_component.dart';
 
-part 'base/easing_type.dart';
+part 'easing_type.dart';
 
-part 'impl/move_effect.dart';
-part 'impl/scale_effect.dart';
-part 'impl/rotate_effect.dart';
-part 'impl/fade_effect.dart';
-part 'impl/color_tint_effect.dart';
-part 'impl/sequence_effect.dart';
-part 'impl/parallel_effect.dart';
-part 'impl/delay_effect.dart';
-part 'impl/repeat_effect.dart';
-part 'impl/shake_effect.dart';
-part 'impl/path_effect.dart';
+part 'built_in/move_effect.dart';
+part 'built_in/scale_effect.dart';
+part 'built_in/rotate_effect.dart';
+part 'built_in/fade_effect.dart';
+part 'built_in/color_tint_effect.dart';
+part 'built_in/sequence_effect.dart';
+part 'built_in/parallel_effect.dart';
+part 'built_in/delay_effect.dart';
+part 'built_in/repeat_effect.dart';
+part 'built_in/shake_effect.dart';
+part 'built_in/path_effect.dart';
 
 part 'networking/effect_runtime.dart';
 part 'networking/effect_snapshot.dart';

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:just_dart/just_dart.dart' show Vector3;
 
-import '../ecs/engine_context.dart';
 import '../ecs/ecs.dart';
 import 'package:just_game_engine_formats/just_game_engine_formats.dart';
 import 'scene_loader.dart';

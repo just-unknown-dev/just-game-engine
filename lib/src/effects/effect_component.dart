@@ -1,7 +1,7 @@
 library;
 
 import '../ecs/ecs.dart';
-import 'base/effect_player.dart';
+import 'effect_player.dart';
 
 /// ECS component that attaches an [EffectPlayer] to an entity.
 ///

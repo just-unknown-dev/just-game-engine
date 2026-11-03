@@ -78,7 +78,7 @@ const Map<String, String> _allowed = {
       'per-Type query hash keys: which key a type gets varies with order, '
       'what a query returns does not',
   'ecs/world.dart:_zodRng': "the zobrist keys' seeded source",
-  'sprites/atlas/impl/atlas_animation_clip.dart:_timings':
+  'sprites/atlas/atlas_animation_clip.dart:_timings':
       'an Expando: per-clip timings, weakly held',
 
   // The renderer is the process's: whether it can filter with shaders is a

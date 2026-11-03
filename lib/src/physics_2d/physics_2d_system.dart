@@ -15,8 +15,8 @@ import '../ecs/serialization/component_presentation.dart';
 import '../physics/physics_layers.dart';
 import 'collider_geometry.dart';
 import 'contact_pairs.dart';
-import 'physics_characters_2d.dart';
-import 'physics_events_2d.dart';
+import 'physics_2d_characters.dart';
+import 'physics_2d_events.dart';
 import '../physics/velocity_component.dart';
 import '../rendering/culling/cull_state_component.dart';
 import '../shapes_2d/capsule_2d_component.dart';
@@ -25,7 +25,7 @@ import '../shapes_2d/line_2d_component.dart';
 import '../shapes_2d/polygon_2d_component.dart';
 import '../shapes_2d/rectangle_2d_component.dart';
 import 'physics_body_ref_component.dart';
-import 'physics_components_2d.dart';
+import 'physics_2d_components.dart';
 import '../physics/physics_context.dart';
 
 /// Physics system — the ECS front end for [PhysicsEngine], in step with
@@ -42,7 +42,7 @@ import '../physics/physics_context.dart';
 /// [SensorExit2DEvent] on [World.events].
 ///
 /// It moves every [CharacterBody2DComponent] too, before stepping
-/// ([PhysicsCharacters2D]): a character's own body is a kinematic one, so its
+/// ([Physics2DCharacters]): a character's own body is a kinematic one, so its
 /// events are those of a kinematic body.
 ///
 /// [physics] is stepped *here*, inline, rather than as a separate `Engine`
@@ -234,7 +234,7 @@ class Physics2DSystem extends System {
       _linkByEntity[entity]?.body ?? _characters.bodyOf(entity);
 
   /// The characters this system moves.
-  late final PhysicsCharacters2D _characters = PhysicsCharacters2D(
+  late final Physics2DCharacters _characters = Physics2DCharacters(
     physics,
     onBody: (body, entity) => _bodyEntityMap[body] = entity,
     onBodyGone: (body, {required rebuilt}) =>

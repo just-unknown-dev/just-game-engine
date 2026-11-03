@@ -4,11 +4,11 @@ import '../core/engine.dart';
 import '../core/engine_service.dart';
 import '../ecs/engine_context.dart';
 import '../camera/camera_brain.dart';
-import 'camera_collision_3d.dart';
-import 'collider_shapes_3d.dart';
-import 'physics_components_3d.dart';
-import 'physics_definitions_3d.dart';
-import 'physics_queries_3d.dart';
+import 'camera_collision_3d_component.dart';
+import 'collider_3d_shapes.dart';
+import 'physics_3d_components.dart';
+import 'physics_3d_definitions.dart';
+import 'physics_3d_queries.dart';
 import 'physics_3d_system.dart';
 import '../physics/physics_context.dart';
 
@@ -70,7 +70,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
   /// them load and save — for tools that read and write 3-D scenes without
   /// simulating them. Giving the engine a [Physics3D] does this already.
   static void registerSchemas(EngineContext context) =>
-      context.definitions.registerAll(Physics3DSchemas.all, ifAbsent: true);
+      context.definitions.registerAll(Physics3DDefinitions.all, ifAbsent: true);
 
   /// Whether 3-D physics can run here, so a game can show something else
   /// instead of failing to start.
@@ -151,7 +151,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
 
   @override
   void refresh(EngineContext context) {
-    context.definitions.refresh(Physics3DSchemas.all);
+    context.definitions.refresh(Physics3DDefinitions.all);
     CameraRegistries.of(
       context,
     ).stages.register(const CameraCollisionStage(), override: true);
@@ -178,7 +178,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
           reportActivation: reportActivation,
         ),
       );
-    }, geometry: AssetColliderGeometry3D(game.assets));
+    }, geometry: AssetCollider3DGeometry(game.assets));
     _game = game;
     _engine = physics;
     _system = system;

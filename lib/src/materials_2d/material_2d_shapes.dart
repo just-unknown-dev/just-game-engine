@@ -9,7 +9,7 @@ import 'package:flutter/painting.dart';
 import 'package:just_dart/just_dart.dart' show Vector3;
 
 import '../ecs/ecs.dart';
-import '../rendering/impl/renderable.dart';
+import '../rendering/renderable.dart';
 
 /// What a shape drawn through a 2-D material is drawn from: the shape drawn
 /// into an image in its own space, its box ([bounds]) and how many image

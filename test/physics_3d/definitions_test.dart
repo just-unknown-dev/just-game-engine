@@ -19,7 +19,7 @@ void main() {
         final context = EngineContext(extensions: [BuiltInComponents.extension])..install(Physics3D());
         addTearDown(context.dispose);
         final ids = <String>{};
-        for (final schema in Physics3DSchemas.all) {
+        for (final schema in Physics3DDefinitions.all) {
           expect(context.definitions.definitionByType(schema.type), isNotNull);
           expect(
             schema.hints.dimensions,
@@ -108,7 +108,7 @@ void main() {
         ),
       ];
       for (final component in samples) {
-        final schema = Physics3DSchemas.all.firstWhere(
+        final schema = Physics3DDefinitions.all.firstWhere(
           (s) => s.type == component.runtimeType.toString(),
         );
         final saved = schema.encode(component);
@@ -124,7 +124,7 @@ void main() {
     });
 
     test('a joint to nobody saves nothing and loads as the world', () {
-      final schema = Physics3DSchemas.hingeJoint;
+      final schema = Physics3DDefinitions.hingeJoint;
       final loaded = schema.decode(
         jsonDecode(jsonEncode(schema.encode(HingeJoint3DComponent())))
             as Map<String, dynamic>,
@@ -165,7 +165,7 @@ void main() {
   });
 
   group('collider shapes', () {
-    final shapes = ColliderShapes3D();
+    final shapes = Collider3DShapes();
 
     test('a box takes its size and the entity scale, as half extents', () {
       final shape = shapes.build(
@@ -224,7 +224,7 @@ void main() {
       'a mesh is shared by bodies of the same model and scale, and a mirror turns it back',
       () {
         final geometry = _Geometry();
-        final meshes = ColliderShapes3D(geometry: geometry);
+        final meshes = Collider3DShapes(geometry: geometry);
         final collider = Collider3DComponent(
           shape: ColliderShape3D.mesh,
           model: 'a.glb',
@@ -244,7 +244,7 @@ void main() {
 
     test('a mesh waits for its triangles', () {
       final geometry = _Geometry()..ready = false;
-      final meshes = ColliderShapes3D(geometry: geometry);
+      final meshes = Collider3DShapes(geometry: geometry);
       final collider = Collider3DComponent(
         shape: ColliderShape3D.convexHull,
         model: 'a.glb',
@@ -274,7 +274,7 @@ void main() {
     });
 
     test('merged geometry renumbers each part\'s indices', () {
-      final merged = AssetColliderGeometry3D.merge([
+      final merged = AssetCollider3DGeometry.merge([
         ModelGeometry(
           Float32List.fromList([0, 0, 0, 1, 0, 0, 0, 1, 0]),
           Uint32List.fromList([0, 1, 2]),
@@ -290,7 +290,7 @@ void main() {
   });
 }
 
-final class _Geometry implements ColliderGeometry3D {
+final class _Geometry implements Collider3DGeometry {
   bool ready = true;
 
   @override

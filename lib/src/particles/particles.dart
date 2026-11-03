@@ -28,7 +28,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:just_memory/just_memory.dart';
-import '../rendering/impl/renderable.dart';
+import '../rendering/renderable.dart';
 import '../rendering/shader_filter_support.dart';
 import 'package:just_dart/just_dart.dart';
 export 'particle_emitter_component.dart';

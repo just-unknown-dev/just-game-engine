@@ -24,15 +24,15 @@ export 'src/graphics_3d/animation_3d_system.dart'
     hide PlayerScratch, samplePlayer;
 export 'src/graphics_3d/graphics_3d.dart';
 export 'src/graphics_3d/graphics_components.dart';
-export 'src/graphics_3d/graphics_definitions.dart';
+export 'src/graphics_3d/graphics_3d_definitions.dart';
 export 'src/graphics_3d/graphics_models.dart';
 export 'src/graphics_3d/graphics_scene_renderer.dart';
 export 'src/graphics_3d/graphics_shapes.dart';
-export 'src/graphics_3d/material_library.dart';
+export 'src/graphics_3d/material_3d_library.dart';
 export 'src/graphics_3d/material_slots.dart';
 export 'src/graphics_3d/render_providers.dart';
 export 'src/graphics_3d/shapes/primitive_3d.dart';
 export 'src/graphics_3d/shapes/shape_components.dart';
-export 'src/graphics_3d/shapes/shape_definitions.dart';
+export 'src/graphics_3d/shapes/shape_3d_definitions.dart';
 export 'src/graphics_3d/skeletal_animation_target.dart';
 export 'src/graphics_3d/skeletal_clip_track.dart';

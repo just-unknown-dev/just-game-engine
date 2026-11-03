@@ -210,7 +210,7 @@ bool canSeePlayer(Engine engine, Entity guard) {
 }
 ```
 
-`raycastAll` returns every hit, nearest first, and `circleCast` sweeps a circle. `overlapCircle` and `overlapBox` (a `Rect`) return the entities they touch. A hit (`PhysicsHit2D`) carries `entity`, `body`, `point`, `normal`, `distance` and `fraction`.
+`raycastAll` returns every hit, nearest first, and `circleCast` sweeps a circle. `overlapCircle` and `overlapBox` (a `Rect`) return the entities they touch. A hit (`Physics2DHit`) carries `entity`, `body`, `point`, `normal`, `distance` and `fraction`.
 
 ## Two backends
 

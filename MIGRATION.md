@@ -345,7 +345,7 @@ To make a body collide with nothing for a while — a platform that crumbles —
 
 `CollisionStay2DEvent` is new: every step two bodies keep touching, once `Physics2DSystem.reportContactStay` is on (it is off, so nothing pays for it unasked).
 
-**Queries.** `Physics2DQueries(engine.physics, physicsSystem)` casts rays (`raycast`, `raycastAll`) and circles (`circleCast`) and finds overlaps (`overlapCircle`, `overlapBox`), filtered by layer, answering with entities (`PhysicsHit2D`).
+**Queries.** `Physics2DQueries(engine.physics, physicsSystem)` casts rays (`raycast`, `raycastAll`) and circles (`circleCast`) and finds overlaps (`overlapCircle`, `overlapBox`), filtered by layer, answering with entities (`Physics2DHit`).
 
 **Joints** are 3-D's names with a `2D` suffix, and point at the other body with an `EntityTarget` (a name, a tag or `self`) instead of a name string:
 

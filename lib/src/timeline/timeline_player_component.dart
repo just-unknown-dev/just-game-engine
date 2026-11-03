@@ -1,7 +1,7 @@
 library;
 
 import 'timeline_asset.dart';
-import 'timeline_player.dart';
+import 'timeline_playback.dart';
 import '../ecs/ecs.dart';
 
 /// Which wrap a player uses.

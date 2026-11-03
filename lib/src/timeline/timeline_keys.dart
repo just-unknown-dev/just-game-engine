@@ -2,7 +2,7 @@
 /// time into a value.
 library;
 
-import '../foundation/easing.dart';
+import '../foundation/easings.dart';
 
 /// How a key reaches the next one.
 enum KeyInterpolation {

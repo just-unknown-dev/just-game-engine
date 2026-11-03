@@ -43,6 +43,9 @@ library;
 // Core Engine - Main engine, game loop, and time management
 export 'src/core/core.dart';
 
+// Foundation - world axes, dimensions, easings, shape paint style
+export 'src/foundation/foundation.dart';
+
 // Shared Interfaces - Abstract contracts between ECS and subsystems
 export 'src/interfaces/interfaces.dart';
 
@@ -154,7 +157,7 @@ export 'package:just_dart/just_dart.dart'
 // returns (MemoryScope, profile snapshots) and the process-wide diagnostics
 // (MemoryProfiler, PoolManager). Pools, arenas and budgeted caches for a
 // game's own use: import just_memory.
-export 'src/storage/cache_manager.dart';
+export 'src/storage/storage.dart';
 export 'package:just_memory/just_memory.dart'
     show
         ArenaStats,

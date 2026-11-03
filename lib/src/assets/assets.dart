@@ -4,5 +4,5 @@
 /// This module provides asset loading, caching, and resource management.
 library;
 
-export 'asset_management.dart';
+export 'asset_manager.dart';
 export 'text_reader.dart';

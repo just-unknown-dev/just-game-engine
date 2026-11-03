@@ -102,22 +102,22 @@ void main() {
 
   group('parts', () {
     test('each kind, scaled', () {
-      expect(ColliderShapes3D.solidPart(const SolidSphere(1, x: 1), 2, 1, 1), const TransformedShape3D(SphereShape3D(2), x: 2));
-      expect(ColliderShapes3D.solidPart(const SolidCylinder(1, 0.5), 2, 3, 1), const CylinderShape3D(3, 1));
-      expect(ColliderShapes3D.solidPart(const SolidCapsule(1, 0.5), 1, 2, 1), const CapsuleShape3D(2.5, 0.5));
-      expect(ColliderShapes3D.solidPart(const SolidCapsule(0, 0.5), 1, 1, 1), const SphereShape3D(0.5));
-      final hull = ColliderShapes3D.solidPart(
+      expect(Collider3DShapes.solidPart(const SolidSphere(1, x: 1), 2, 1, 1), const TransformedShape3D(SphereShape3D(2), x: 2));
+      expect(Collider3DShapes.solidPart(const SolidCylinder(1, 0.5), 2, 3, 1), const CylinderShape3D(3, 1));
+      expect(Collider3DShapes.solidPart(const SolidCapsule(1, 0.5), 1, 2, 1), const CapsuleShape3D(2.5, 0.5));
+      expect(Collider3DShapes.solidPart(const SolidCapsule(0, 0.5), 1, 1, 1), const SphereShape3D(0.5));
+      final hull = Collider3DShapes.solidPart(
         SolidHull(Float32List.fromList([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1])),
         2,
         -1,
         1,
       )! as ConvexHullShape3D;
       expect(hull.points, [0, 0, 0, 2, 0, 0, 0, -1, 0, 0, 0, 1]);
-      expect(ColliderShapes3D.solidPart(SolidHull(Float32List(9)), 1, 1, 1), isNull, reason: 'three points are no hull');
+      expect(Collider3DShapes.solidPart(SolidHull(Float32List(9)), 1, 1, 1), isNull, reason: 'three points are no hull');
     });
 
     test('the collider\'s own offset still applies', () {
-      final shapes = ColliderShapes3D();
+      final shapes = Collider3DShapes();
       final collider = Collider3DComponent(shape: ColliderShape3D.matchShape, offset: Vector3(0, -1, 0));
       final shape = shapes.build(collider, Vector3(1, 1, 1), source: _Look(size: 2));
       expect(shape, const TransformedShape3D(BoxShape3D(1, 1, 1), y: -1));

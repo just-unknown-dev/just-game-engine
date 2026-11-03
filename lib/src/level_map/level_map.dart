@@ -1,7 +1,7 @@
 /// Level maps: data, geometry, brushes, terrain, collision and Tiled files.
 library;
 
-export 'render/map_layer_painter.dart';
+export 'map_layer_painter.dart';
 export 'built_in_tilesets.dart';
 export 'tile_assets.dart';
 export 'level_map_runtime.dart';
@@ -15,7 +15,7 @@ export 'level_map_files.dart';
 export 'map_geometry.dart';
 export 'tile_properties.dart';
 export 'tile_stamp.dart';
-export 'tiled/tiled_interop.dart';
+export 'tiled_interop.dart';
 export 'tileset_data.dart';
 export 'wang/wang_filler.dart';
 export 'wang/wang_templates.dart';

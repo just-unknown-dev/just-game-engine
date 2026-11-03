@@ -3,8 +3,8 @@
 /// Converts a tokenized Yarn Spinner file into a [DialogueGraph] AST.
 library;
 
-import '../core/dialogue_graph.dart';
-import '../core/dialogue_statement.dart';
+import '../graph/dialogue_graph.dart';
+import '../graph/dialogue_statement.dart';
 import 'yarn_tokenizer.dart';
 
 // ---------------------------------------------------------------------------

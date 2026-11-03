@@ -1,7 +1,7 @@
 /// Registry for named Dart condition predicates used in Yarn dialogue.
 library;
 
-import '../core/dialogue_variable_store.dart';
+import '../graph/dialogue_variable_store.dart';
 
 /// A Dart function used as a named dialogue condition in Yarn `<<if>>` blocks.
 ///

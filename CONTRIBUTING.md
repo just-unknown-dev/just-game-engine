@@ -81,7 +81,7 @@ Do not change `pubspec.yaml` to a path dependency. If your pull request needs a 
 
 Run every command from the repository root. Some tests read `lib/` from disk and expect that working directory.
 
-Tests sit in the folder named after the feature they test, as in `lib/src/` (`test/timeline/` tests `lib/src/timeline/`); `test/perf/` holds the timing checks, and only the tests about the whole package (the public library, the guides, the process-state guard) sit in `test/` itself. Put a new test in its feature's folder.
+Tests sit in the folder named after the feature they test, as in `lib/src/` (`test/timeline/` tests `lib/src/timeline/`); `test/perf/` holds the timing checks, and only the tests about the whole package (the public library, the guides, the process-state guard) sit in `test/` itself. Put a new test in its feature's folder, and name it after what it tests (`timeline_playback_test.dart`), not after the review that found the bug; a test of several fixes from one review is `<feature>_audit_fixes_test.dart`.
 
 ```bash
 # The whole suite.

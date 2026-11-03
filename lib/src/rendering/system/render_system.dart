@@ -11,17 +11,17 @@ import 'package:just_game_engine_formats/just_game_engine_formats.dart'
 import '../../ecs/ecs.dart';
 import '../../interfaces/interfaces.dart';
 import '../../particles/particles.dart';
-import '../impl/renderable.dart';
-import '../impl/sprite_batching.dart';
+import '../renderable.dart';
+import '../sprite_batching.dart';
 import '../../interfaces/frame_view.dart';
 import '../render_stats.dart';
 import '../shader_filter_support.dart';
 import '../../materials_2d/material_2d_batch.dart';
 import '../../materials_2d/material_2d_library.dart';
 import '../../materials_2d/material_2d_shapes.dart';
-import '../../level_map/render/map_layer_painter.dart'
+import '../../level_map/map_layer_painter.dart'
     show MapLayerPainter, MapLayerRenderItem;
-import '../impl/sprite.dart';
+import '../sprite.dart';
 import '../../ecs/serialization/component_presentation.dart';
 import 'render_pass.dart';
 import 'shape_batch.dart';

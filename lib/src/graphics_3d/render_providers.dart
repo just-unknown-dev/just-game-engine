@@ -1,7 +1,6 @@
 import 'package:just_dart/just_dart.dart' show Matrix4;
 import 'package:just_graphics_engine/renderer.dart';
 
-import '../ecs/engine_context.dart';
 import '../ecs/ecs.dart';
 import 'graphics_models.dart';
 import 'graphics_shapes.dart';

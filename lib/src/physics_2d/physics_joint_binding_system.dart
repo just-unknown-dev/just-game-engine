@@ -5,7 +5,7 @@ import 'package:just_physics_engine/just_physics_engine.dart';
 
 import '../ecs/ecs.dart';
 import 'physics_2d_system.dart';
-import 'joints_2d.dart';
+import 'joint_2d_components.dart';
 import 'physics_body_ref_component.dart';
 
 /// Makes the 2-D joints ([DistanceJoint2DComponent], [FixedJoint2DComponent], [SliderJoint2DComponent],

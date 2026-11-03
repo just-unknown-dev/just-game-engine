@@ -317,10 +317,10 @@ The engine is built on `just_physics_engine`, `just_graphics_engine`, `just_inpu
 
 ## Documentation
 
-- [QUICKSTART.md](QUICKSTART.md): a first game, step by step.
+- [QUICKSTART.md](QUICKSTART.md): a first game, step by step, on to physics, sprites, levels, cameras and sound; [Your first game](doc/guides/quick-start.md) is the short start.
 - [MIGRATION.md](MIGRATION.md): upgrading from 1.x.
 - [ARCHITECTURE.md](ARCHITECTURE.md): how the engine is put together.
-- [ESP_ARCHITECTURE.md](ESP_ARCHITECTURE.md): a suggested app structure (Engine · Signal · Presentation).
+- [App structure](doc/guides/app-structure.md): a suggested app structure (Engine · Signal · Presentation).
 - [CHANGELOG.md](CHANGELOG.md).
 - [API map](https://github.com/just-unknown-dev/just-game-engine/blob/main/API.md): the public API by area (in the repository, not in the package).
 - [API reference](https://pub.dev/documentation/just_game_engine/latest/).

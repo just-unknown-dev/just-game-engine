@@ -10,7 +10,7 @@ import 'package:just_tiled/just_tiled.dart' as tiled;
 import 'built_in_tilesets.dart';
 import 'collision/map_collision_kinds.dart';
 import 'level_map_data.dart';
-import 'tiled/tiled_interop.dart';
+import 'tiled_interop.dart';
 import 'tileset_data.dart';
 import '../assets/text_reader.dart';
 

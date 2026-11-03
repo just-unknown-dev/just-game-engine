@@ -165,6 +165,6 @@ A motor is `MotorState3D.off`, `velocity` (a target speed) or `position` (a targ
 
 The events fire on `world.events` after the step, with the 2D fields: `CollisionEnter3DEvent` and `CollisionStay3DEvent` (`entityA`, `entityB`, `point`, `normal`, `depth`), `CollisionExit3DEvent`, and `SensorEnter3DEvent` and `SensorExit3DEvent` (`sensor`, `other`). Stay events fire only with `Physics3D(reportContactStay: true)`.
 
-`engine.physics3D!.queries` is a `Physics3DQueries`: `raycast`, `raycastAll`, `sphereCast`, `shapeCast`, `overlapSphere`, `overlapBox` and `overlap`. Like the 2D queries, each takes `layerMask`, `ignore` and `includeSensors`, and a hit (`PhysicsHit3D`) names its `entity`, `point`, `normal` and `distance`. For example, `queries.raycast(Vector3(0, -10, 0), Vector3(0, 1, 0), maxDistance: 50)` looks straight down (+Y is down). Until the first 3D body exists every query finds nothing.
+`engine.physics3D!.queries` is a `Physics3DQueries`: `raycast`, `raycastAll`, `sphereCast`, `shapeCast`, `overlapSphere`, `overlapBox` and `overlap`. Like the 2D queries, each takes `layerMask`, `ignore` and `includeSensors`, and a hit (`Physics3DHit`) names its `entity`, `point`, `normal` and `distance`. For example, `queries.raycast(Vector3(0, -10, 0), Vector3(0, 1, 0), maxDistance: 50)` looks straight down (+Y is down). Until the first 3D body exists every query finds nothing.
 
 To keep a third-person camera out of walls, add `CameraCollision3DComponent` to the camera entity beside its `OrbitFollowComponent`; see [Cameras](/docs/cameras).

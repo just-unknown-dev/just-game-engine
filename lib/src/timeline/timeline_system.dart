@@ -5,7 +5,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint;
 
 import 'timeline_asset.dart';
-import 'timeline_player.dart';
+import 'timeline_playback.dart';
 import 'timeline_player_component.dart';
 import '../ecs/ecs.dart';
 import 'timeline_context.dart';

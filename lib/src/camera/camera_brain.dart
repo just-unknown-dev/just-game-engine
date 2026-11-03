@@ -5,14 +5,13 @@ import 'package:flutter/painting.dart' show Offset, Size;
 import 'package:just_dart/just_dart.dart';
 
 import '../ecs/ecs.dart';
-import '../ecs/engine_context.dart';
 import 'camera_impulse.dart';
 import 'camera_manager.dart';
 import 'camera_stage.dart';
 import 'camera_state.dart';
 import 'output_camera.dart';
 import 'camera_targets.dart';
-import 'managers/built_in_managers.dart';
+import 'built_in_camera_managers.dart';
 import 'stages/dolly_stage.dart';
 import 'stages/extension_stages.dart';
 import 'stages/framing_stage.dart';

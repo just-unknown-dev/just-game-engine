@@ -14,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 const List<String> _forbiddenCalls = [
   'create3D(',
   'JoltPhysicsEngine(',
-  'Physics3DSchemas.',
+  'Physics3DDefinitions.',
   'Physics3DSystem(',
   'Physics3DSystem.lazy(',
 ];

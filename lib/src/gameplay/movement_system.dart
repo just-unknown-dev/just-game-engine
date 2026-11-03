@@ -1,7 +1,7 @@
 library;
 
 import '../ecs/ecs.dart';
-import '../physics_2d/physics_components_2d.dart';
+import '../physics_2d/physics_2d_components.dart';
 import '../rendering/culling/cull_state_component.dart';
 import '../physics/velocity_component.dart';
 

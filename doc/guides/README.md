@@ -53,6 +53,7 @@ Each guide is `<slug>.md` (the site's page is `/docs/<slug>`): a `# Title`, then
 ## Flutter & shipping
 
 - [UI over the game](game-widget.md): Host the game in a GameWidget, draw a HUD with its overlay, put menus and text fields on engine.layers, and use the ready-made widgets.
+- [App structure](app-structure.md): Structure an app in three layers, the engine, signals and the widgets that show them, the way the subtitle and dialogue widgets are built.
 - [Services & plugins](services.md): Run your own code beside the engine with EngineService, observe a running engine with EnginePlugin, and add achievements, currency and more from just_game_services.
 - [Debugging & stats](debugging.md): Read the engine's performance and per-subsystem stats, switch on the debug overlay and the developer terminal, and fix the most common problems.
 - [Testing](testing.md): Test game logic with a bare World or a headless Engine, step time yourself, and load scenes and assets without a device.

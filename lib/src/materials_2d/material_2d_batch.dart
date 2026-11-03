@@ -8,8 +8,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
 import 'package:just_game_engine_formats/just_game_engine_formats.dart';
 
-import '../rendering/impl/sprite.dart';
-import '../sprites/atlas/sprite_atlas_subsystem.dart' show AtlasRegionSprite;
+import '../rendering/sprite.dart';
+import '../sprites/atlas/atlas.dart' show AtlasRegionSprite;
 import 'material_2d_library.dart';
 import 'material_2d_shader.dart';
 

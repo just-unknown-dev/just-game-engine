@@ -8,8 +8,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import '../ecs/ecs.dart';
-import '../ecs/engine_context.dart';
-import 'render/map_layer_painter.dart';
+import 'map_layer_painter.dart';
 import 'tile_assets.dart';
 import 'tile_cell.dart';
 import 'tile_chunks.dart';

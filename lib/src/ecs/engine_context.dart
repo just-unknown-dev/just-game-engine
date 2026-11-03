@@ -4,7 +4,7 @@ library;
 
 import 'package:flutter/services.dart' show AssetBundle, rootBundle;
 
-import '../assets/asset_management.dart';
+import '../assets/asset_manager.dart';
 import 'serialization/component_definition_registry.dart';
 import 'serialization/ecs_definitions.dart';
 import 'serialization/field_type.dart';

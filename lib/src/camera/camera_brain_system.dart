@@ -4,7 +4,6 @@ library;
 import 'camera_brain.dart';
 import 'camera_system.dart';
 import '../ecs/ecs.dart';
-import 'camera_target_systems.dart';
 import 'virtual_camera_component.dart';
 
 /// Evaluates the camera brain once per ECS update — or, with the brain's
@@ -47,16 +46,4 @@ class CameraBrainSystem extends System implements FrameSystem {
     if (brain.updateMode != CameraUpdateMode.frame) return;
     brain.evaluate(world, deltaTime, alpha: alpha);
   }
-}
-
-/// Adds every system the camera needs to [world]. Call it from boot, where
-/// the game registers its other systems.
-///
-/// In frame order: target groups find their centre, triggers switch
-/// cameras, then the brain picks and blends.
-void registerCameraSystems(World world, CameraSystem cameraSystem) {
-  world
-    ..addSystem(CameraTargetGroupSystem())
-    ..addSystem(CameraTriggerSystem())
-    ..addSystem(CameraBrainSystem(cameraSystem: cameraSystem));
 }

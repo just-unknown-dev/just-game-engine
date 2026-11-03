@@ -9,7 +9,7 @@ import 'package:just_graphics_engine/assets.dart';
 import 'package:just_graphics_engine/gpu.dart';
 import 'package:just_graphics_engine/renderer.dart';
 
-import 'material_library.dart';
+import 'material_3d_library.dart';
 import 'shapes/primitive_3d.dart';
 
 /// The GPU side of the shapes ([Primitive3DComponent]): meshes made from their sizes
@@ -33,7 +33,7 @@ final class GraphicsShapes {
 
   /// The material files a shape may be drawn with ([Primitive3DComponent.material]);
   /// without one, every shape is drawn with its own look.
-  final MaterialLibrary? library;
+  final Material3DLibrary? library;
 
   /// The meshes and materials drawn now, asked for only when old ones are
   /// let go: these are kept however long ago they were asked for. A

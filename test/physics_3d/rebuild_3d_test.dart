@@ -24,7 +24,7 @@ final _backends = <String, PhysicsWorld3D Function()>{
 
 ({World world, PhysicsWorld3D physics, Physics3DSystem system}) _setUp(
   PhysicsWorld3D physics, {
-  ColliderGeometry3D? geometry,
+  Collider3DGeometry? geometry,
 }) {
   final system = Physics3DSystem(physics, geometry: geometry);
   final world = World()..initialize();
@@ -247,14 +247,14 @@ void main() {
   });
 
   test('collider shapes are kept within their limits', () {
-    final shapes = ColliderShapes3D(geometry: _Geometry());
+    final shapes = Collider3DShapes(geometry: _Geometry());
     final mesh = Collider3DComponent(shape: ColliderShape3D.mesh, model: 'a.glb');
     final first = shapes.build(mesh, Vector3(1, 1, 1));
-    for (var i = 0; i < ColliderShapes3D.modelLimit * 2; i++) {
+    for (var i = 0; i < Collider3DShapes.modelLimit * 2; i++) {
       shapes.build(mesh, Vector3(1, 1, 1));
       shapes.build(mesh, Vector3(2 + i.toDouble(), 1, 1));
     }
-    expect(shapes.length, ColliderShapes3D.modelLimit);
+    expect(shapes.length, Collider3DShapes.modelLimit);
     expect(
       shapes.build(mesh, Vector3(1, 1, 1)),
       same(first),
@@ -265,7 +265,7 @@ void main() {
   });
 }
 
-final class _Geometry implements ColliderGeometry3D {
+final class _Geometry implements Collider3DGeometry {
   bool ready = true;
   double size = 10;
 

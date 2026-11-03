@@ -7,7 +7,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart';
 
-import '../impl/renderable.dart';
+import '../renderable.dart';
 import '../../shapes_2d/circle_2d_component.dart';
 import '../../shapes_2d/rectangle_2d_component.dart';
 import '../../shapes_2d/shape_paint_cache.dart';

@@ -7,6 +7,7 @@ import '../ecs/ecs.dart';
 import 'register_sprite_systems.dart';
 import '../audio/audio_system.dart';
 import '../camera/camera_brain_system.dart';
+import '../camera/register_camera_systems.dart';
 import '../gameplay/movement_system.dart';
 import '../input/input_system.dart';
 import '../level_map/level_map_system.dart';

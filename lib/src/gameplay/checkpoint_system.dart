@@ -8,7 +8,7 @@ import '../interfaces/interfaces.dart';
 import '../ecs/ecs.dart';
 import '../ecs/serialization/tag_library.dart' show EngineTags;
 import 'package:just_dart/just_dart.dart';
-import 'checkpoint_event.dart';
+import 'checkpoint_events.dart';
 import 'checkpoint_component.dart';
 
 /// Checkpoint / respawn system.

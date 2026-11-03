@@ -17,6 +17,8 @@ import 'package:flutter/foundation.dart'
 import 'package:meta/meta.dart' show internal;
 
 import 'engine_context.dart';
+
+export 'engine_context.dart';
 import 'transform/children_component.dart';
 import 'transform/parent_component.dart';
 import 'transform/transform_hierarchy.dart';

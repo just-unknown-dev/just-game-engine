@@ -4,9 +4,9 @@ library;
 
 import 'dart:ui' as ui;
 
-import '../../assets/asset_management.dart';
-import '../../rendering/impl/sprite.dart';
-import 'sprite_atlas_subsystem.dart';
+import '../../assets/asset_manager.dart';
+import '../../rendering/sprite.dart';
+import 'atlas.dart';
 
 /// Where sprite images and atlases come from.
 ///

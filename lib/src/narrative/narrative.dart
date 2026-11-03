@@ -23,11 +23,11 @@
 library;
 
 // Core data model
-export 'core/dialogue_graph.dart';
-export 'core/dialogue_statement.dart';
-export 'core/dialogue_line.dart';
-export 'core/dialogue_choice.dart';
-export 'core/dialogue_variable_store.dart';
+export 'graph/dialogue_graph.dart';
+export 'graph/dialogue_statement.dart';
+export 'graph/dialogue_line.dart';
+export 'graph/dialogue_choice.dart';
+export 'graph/dialogue_variable_store.dart';
 
 // Parser
 export 'parser/yarn_tokenizer.dart';
@@ -40,10 +40,10 @@ export 'runtime/dialogue_command_registry.dart';
 export 'runtime/dialogue_runner.dart';
 
 // Localization
-export 'localization/dialogue_localizer.dart';
+export 'dialogue_localizer.dart';
 
 // Reactive signals
-export 'signals/narrative_signals.dart';
+export 'narrative_signals.dart';
 
 // Manager (facade)
 export 'dialogue_manager.dart';

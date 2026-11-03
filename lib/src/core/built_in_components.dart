@@ -16,9 +16,9 @@ import '../level_map/level_map_definitions.dart';
 import '../lighting_2d/lighting_2d_definitions.dart';
 import '../materials_2d/material_2d_definitions.dart';
 import '../physics/physics_definitions.dart';
-import '../physics_2d/physics_definitions_2d.dart';
+import '../physics_2d/physics_2d_definitions.dart';
 import '../rendering/rendering_definitions.dart';
-import '../shapes_2d/shape_definitions_2d.dart';
+import '../shapes_2d/shape_2d_definitions.dart';
 import '../sprites/sprite_definitions.dart';
 import '../timeline/timeline_definitions.dart';
 
@@ -47,14 +47,14 @@ abstract final class BuiltInComponents {
 
   /// Every feature's definitions, in the order an editor lists them.
   static List<ComponentCodec> get all => [
-    ShapeDefinitions2D.rectangle,
-    ShapeDefinitions2D.circle,
-    ShapeDefinitions2D.capsule,
+    Shape2DDefinitions.rectangle,
+    Shape2DDefinitions.circle,
+    Shape2DDefinitions.capsule,
     PhysicsDefinitions.velocity,
     GameplayDefinitions.health,
     GameplayDefinitions.lifetime,
     SpriteDefinitions.sprite,
-    ...PhysicsDefinitions2D.all,
+    ...Physics2DDefinitions.all,
     ...CameraDefinitions.all,
     ...TimelineDefinitions.all,
     ...LevelMapDefinitions.all,
@@ -69,8 +69,8 @@ abstract final class BuiltInComponents {
     Lighting2DDefinitions.lighting2D,
     Lighting2DDefinitions.shadowCaster2D,
     GameplayDefinitions.checkpoint,
-    ShapeDefinitions2D.line,
-    ShapeDefinitions2D.polygon,
+    Shape2DDefinitions.line,
+    Shape2DDefinitions.polygon,
     SpriteDefinitions.spriteAnimation,
     AnimationDefinitions.animator,
     AudioDefinitions.audioSource,

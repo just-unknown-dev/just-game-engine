@@ -320,7 +320,7 @@ void main() {
         ..castShadows = false
         ..visible = false;
     }
-    final byType = {for (final s in ShapeSchemas.all) s.type: s};
+    final byType = {for (final s in Shape3DDefinitions.all) s.type: s};
     expect(byType, hasLength(11));
     for (final shape in shapes) {
       final schema = byType[shape.runtimeType.toString()]!;

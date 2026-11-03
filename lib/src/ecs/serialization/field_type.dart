@@ -1,11 +1,11 @@
 library;
 
-import 'field_type_impls.dart';
-import 'field_type_shape_impls.dart';
+import 'built_in_field_types.dart';
+import 'physics_field_types.dart';
 import 'material_overrides_field_type.dart';
 
-export 'field_type_impls.dart';
-export 'field_type_shape_impls.dart';
+export 'built_in_field_types.dart';
+export 'physics_field_types.dart';
 export 'material_overrides_field_type.dart';
 
 /// Bounds and parsers a field applies while decoding.

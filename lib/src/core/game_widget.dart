@@ -14,7 +14,7 @@ import '../physics_2d/collider_debugger_system.dart';
 import 'engine.dart';
 import '../localization/localization_widget.dart';
 import 'game_layers.dart';
-import '../rendering/impl/game_terminal.dart';
+import 'game_terminal.dart';
 import '../localization/localization_context.dart';
 
 /// Main game widget that renders the game

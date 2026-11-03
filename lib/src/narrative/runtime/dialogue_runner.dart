@@ -5,13 +5,13 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 
-import '../core/dialogue_choice.dart';
-import '../core/dialogue_graph.dart';
-import '../core/dialogue_line.dart';
-import '../core/dialogue_statement.dart';
-import '../core/dialogue_variable_store.dart';
-import '../localization/dialogue_localizer.dart';
-import '../signals/narrative_signals.dart';
+import '../graph/dialogue_choice.dart';
+import '../graph/dialogue_graph.dart';
+import '../graph/dialogue_line.dart';
+import '../graph/dialogue_statement.dart';
+import '../graph/dialogue_variable_store.dart';
+import '../dialogue_localizer.dart';
+import '../narrative_signals.dart';
 import 'dialogue_command_registry.dart';
 import 'dialogue_condition_registry.dart';
 import 'expression_evaluator.dart';

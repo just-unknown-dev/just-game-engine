@@ -2,7 +2,7 @@
 
 This guide takes a Flutter developer from an empty app to a small game: shapes on screen, a player you steer, physics, sprites, levels loaded from JSON, cameras, timelines, particles, sound and UI. Most steps have one complete Dart file: paste it into your project and call its functions from the `main` of step 2, after `await engine.initialize()`.
 
-It is written for **just_game_engine 2.0.0-dev.1** (Flutter 3.47.1 or newer). Coming from 1.x? Read [MIGRATION.md](MIGRATION.md) first.
+It is written for **just_game_engine 2.0.0-dev.1** (Flutter 3.47.1 or newer). Coming from 1.x? Read [MIGRATION.md](MIGRATION.md) first. For the short version, read [Your first game](doc/guides/quick-start.md).
 
 1. [Install](#1-install)
 2. [Your first game](#2-your-first-game)

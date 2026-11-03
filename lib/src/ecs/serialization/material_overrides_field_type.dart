@@ -4,7 +4,7 @@ library;
 
 import 'package:just_game_engine_formats/just_game_engine_formats.dart';
 
-import 'field_type_impls.dart';
+import 'built_in_field_types.dart';
 
 /// An entity's own values for its material — `Material2DComponent.overrides`,
 /// `ScreenMaterialComponent.overrides`, `MaterialOverrides3DComponent.values` — saved as a map

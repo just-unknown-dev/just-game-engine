@@ -3,7 +3,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../rendering/renderable_component.dart';
-import '../rendering/impl/renderable.dart';
+import '../rendering/renderable.dart';
 import 'shape_paint_cache.dart';
 import '../foundation/shape_paint_style.dart';
 

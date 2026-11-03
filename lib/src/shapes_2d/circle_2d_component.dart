@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:meta/meta.dart' show internal;
 
 import '../rendering/renderable_component.dart';
-import '../rendering/impl/renderable.dart';
+import '../rendering/renderable.dart';
 import 'shape_paint_cache.dart';
 import '../foundation/shape_paint_style.dart';
 import 'shape_renderable.dart';

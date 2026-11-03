@@ -3,7 +3,7 @@ library;
 
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 
-import '../core/dialogue_variable_store.dart';
+import '../graph/dialogue_variable_store.dart';
 import 'dialogue_condition_registry.dart';
 
 // ---------------------------------------------------------------------------

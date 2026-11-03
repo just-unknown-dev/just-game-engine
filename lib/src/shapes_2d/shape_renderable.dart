@@ -3,7 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../rendering/impl/renderable.dart';
+import '../rendering/renderable.dart';
 
 /// A [CustomRenderable] that can skip the canvas transform.
 ///

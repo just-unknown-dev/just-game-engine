@@ -5,8 +5,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart' show debugPrint;
 
-import '../rendering/impl/sprite.dart';
-import 'atlas/sprite_atlas.dart';
+import '../rendering/sprite.dart';
+import 'atlas/atlas.dart';
 import '../ecs/ecs.dart';
 import 'animation_event.dart';
 import '../rendering/renderable_component.dart';

@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import '../../ecs/ecs.dart';
 import '../../audio/audio_system.dart';
 import '../timeline_asset.dart';
-import '../timeline_player.dart';
+import '../timeline_playback.dart';
 import '../timeline_track.dart';
 import '../../camera/virtual_camera_component.dart';
 import '../../sprites/sprite_animation_component.dart';

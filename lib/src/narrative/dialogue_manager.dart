@@ -6,14 +6,14 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:just_signals/just_signals.dart';
 
-import 'core/dialogue_graph.dart';
-import 'core/dialogue_variable_store.dart';
-import 'localization/dialogue_localizer.dart';
+import 'graph/dialogue_graph.dart';
+import 'graph/dialogue_variable_store.dart';
+import 'dialogue_localizer.dart';
 import 'parser/yarn_parser.dart';
 import 'runtime/dialogue_command_registry.dart';
 import 'runtime/dialogue_condition_registry.dart';
 import 'runtime/dialogue_runner.dart';
-import 'signals/narrative_signals.dart';
+import 'narrative_signals.dart';
 
 /// Central service for the Narrative/Dialogue System.
 ///

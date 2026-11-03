@@ -17,7 +17,7 @@ import 'animation_3d_system.dart';
 import 'graphics_components.dart';
 import 'graphics_models.dart';
 import 'graphics_shapes.dart';
-import 'material_library.dart';
+import 'material_3d_library.dart';
 import 'render_providers.dart';
 import 'shapes/primitive_3d.dart';
 
@@ -123,7 +123,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
 
   /// The material files shapes and models are drawn with
   /// ([Primitive3DComponent.material], [ModelComponent.materials]).
-  late final MaterialLibrary materials = MaterialLibrary(
+  late final Material3DLibrary materials = Material3DLibrary(
     renderer.uploader,
     models.read,
   );

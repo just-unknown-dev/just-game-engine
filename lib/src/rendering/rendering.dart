@@ -2,10 +2,9 @@
 library;
 
 export 'rendering_engine.dart';
-export 'impl/renderable.dart';
-export 'impl/sprite.dart';
-export 'impl/game_terminal.dart';
-export 'impl/ray_renderable.dart';
+export 'renderable.dart';
+export 'sprite.dart';
+export 'ray_renderable.dart';
 export 'render_hook_chain.dart';
 export 'shader_filter_support.dart';
 export 'screen_pass.dart';

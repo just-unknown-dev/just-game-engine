@@ -11,7 +11,7 @@ export 'package:just_game_engine_formats/just_game_engine_formats.dart'
         TimelineV1ToV2,
         TimelineV2ToV3;
 export 'timeline_keys.dart';
-export 'timeline_player.dart';
+export 'timeline_playback.dart';
 export 'timeline_signals.dart';
 export 'timeline_track.dart';
 export 'tracks/block_tracks.dart';

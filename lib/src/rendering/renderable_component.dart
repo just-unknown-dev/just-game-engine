@@ -1,7 +1,7 @@
 library;
 
 import '../ecs/ecs.dart';
-import 'impl/renderable.dart';
+import 'renderable.dart';
 
 /// Renderable component - Links to a Renderable object
 class RenderableComponent extends Component {

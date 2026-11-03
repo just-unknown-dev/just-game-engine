@@ -14,6 +14,7 @@ export 'camera_target_components.dart';
 export 'camera_manager_components.dart';
 export 'camera_rig_3d_components.dart';
 export 'camera_brain_system.dart';
+export 'register_camera_systems.dart';
 export 'camera_target_systems.dart';
 export 'camera_system.dart';
 export 'camera_brain.dart';
@@ -25,7 +26,7 @@ export 'stages/group_framing_stage.dart';
 export 'stages/dolly_stage.dart';
 export 'stages/rig_3d_stages.dart';
 export 'camera_manager.dart';
-export 'managers/built_in_managers.dart';
+export 'built_in_camera_managers.dart';
 export 'camera_definitions.dart';
 
 // GameCameraControls, a widget, is in package:just_game_engine/widgets.dart.

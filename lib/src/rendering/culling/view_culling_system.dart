@@ -10,7 +10,7 @@ import '../../ecs/serialization/component_definition_registry.dart';
 import '../../ecs/serialization/component_presentation.dart'
     show ComponentExtent;
 import '../../interfaces/interfaces.dart';
-import '../impl/renderable.dart' show Renderable;
+import '../renderable.dart' show Renderable;
 import '../renderable_component.dart';
 import 'cull_state_component.dart';
 

@@ -238,12 +238,12 @@ Also: `MapCollisionSystem`, `TileChangedEvent`, `TileAssets`, `LevelMapData`, `M
   - `void setGravity(double gx, double gy)`
   - `void applyLinearImpulse(PhysicsBody body, double ix, double iy)`
   - `RayBodyHit? castRay(Ray ray, {Set<PhysicsBody>? exclude})`
-- **`CharacterBody2DComponent`** — a character gameplay moves rather than the simulation (the 3-D `CharacterBody3DComponent`, field for field): a capsule or a box (`CharacterShape2D`) that walks slopes, climbs steps, keeps to the floor, rides platforms and pushes bodies. It needs no rigid body or collider. `Physics2DSystem` moves it before each step (`PhysicsCharacters2D`).
+- **`CharacterBody2DComponent`** — a character gameplay moves rather than the simulation (the 3-D `CharacterBody3DComponent`, field for field): a capsule or a box (`CharacterShape2D`) that walks slopes, climbs steps, keeps to the floor, rides platforms and pushes bodies. It needs no rigid body or collider. `Physics2DSystem` moves it before each step (`Physics2DCharacters`).
   - `CharacterBody2DComponent({CharacterShape2D shape, double radius, double width, double height, Offset offset, double maxSlopeAngle, double stepHeight, double stickToFloor, …, int layer, int? collidesWith, bool detectable})`
   - `Offset moveVelocity`, `void jump(double speed)`; after each step `velocity`, `groundState` (`GroundState2D`), `isGrounded`, `groundNormal`, `groundVelocity`, `groundEntity`
 - **`Physics2DQueries`** — rays, casts and overlaps, answering with entities.
   - `Physics2DQueries(PhysicsEngine physics, Physics2DSystem system)`
-  - `PhysicsHit2D? raycast(Offset origin, Offset direction, {double maxDistance, int layerMask, Entity? ignore, bool includeSensors})`, `List<PhysicsHit2D> raycastAll(…)`, `PhysicsHit2D? circleCast(…)`
+  - `Physics2DHit? raycast(Offset origin, Offset direction, {double maxDistance, int layerMask, Entity? ignore, bool includeSensors})`, `List<Physics2DHit> raycastAll(…)`, `Physics2DHit? circleCast(…)`
   - `List<Entity> overlapCircle(…)`, `overlapBox(…)`
 - **`CollisionEnter2DEvent`** — fired on `world.events`.
   - `Entity entityA`
@@ -252,7 +252,7 @@ Also: `MapCollisionSystem`, `TileChangedEvent`, `TileAssets`, `LevelMapData`, `M
   - `Offset normal`
   - `double depth`
 
-Also: `RaycastSystem`, `RaycastColliderComponent` (rays without physics); `CollisionStay2DEvent`, `CollisionExit2DEvent`, `SensorEnter2DEvent`, `SensorExit2DEvent`; `PhysicsHit2D`; joints `Joint2DComponent`, `DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent`, `WheelJoint2DComponent`, `PhysicsJointBindingSystem`; `PhysicsDefinitions2D`; shapes `RectangleShape`, `CircleShape`, `CapsuleShape`, `PolygonShape`.
+Also: `RaycastSystem`, `RaycastColliderComponent` (rays without physics); `CollisionStay2DEvent`, `CollisionExit2DEvent`, `SensorEnter2DEvent`, `SensorExit2DEvent`; `Physics2DHit`; joints `Joint2DComponent`, `DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent`, `WheelJoint2DComponent`, `PhysicsJointBindingSystem`; `Physics2DDefinitions`; shapes `RectangleShape`, `CircleShape`, `CapsuleShape`, `PolygonShape`.
 
 
 ## 3-D physics
@@ -265,10 +265,10 @@ Also: `RaycastSystem`, `RaycastColliderComponent` (rays without physics); `Colli
   - `bool get isStarted`, `PhysicsEngine3D get engine`, `Physics3DSystem get system`, `Physics3DQueries get queries`, `bool get hasWorld`, `PhysicsWorld3D get world`
 - **`engine.physics3D`** (an extension in `physics_3d.dart`) — the `Physics3D` given in `EngineConfig.services`, or null.
 - **Components**: `RigidBody3DComponent` (`bodyType`, `mass`, `friction`, `restitution`, `linearDamping`, `angularDamping`, `gravityScale`, `isSensor`, `lockRotation`, `continuousCollision`, `canSleep`, `layer`; `addForce`, `addImpulse`, `setVelocity`, …), `Collider3DComponent` (`shape`: `ColliderShape3D`), `CharacterBody3DComponent` (`moveVelocity`, `jump`, `isGrounded`, `groundVelocity`, …), joints `FixedJoint3DComponent`, `PointJoint3DComponent`, `HingeJoint3DComponent`, `SliderJoint3DComponent`, `DistanceJoint3DComponent`, `SixDofJoint3DComponent` (`Joint3DComponent`), `CameraCollision3DComponent`.
-- **`Physics3DSystem`** — steps the world: `Physics3DSystem(PhysicsWorld3D physics, {ColliderGeometry3D? geometry})`, `Physics3DSystem.lazy(PhysicsWorld3D Function() create, …)`; `entityOf`, `bodyOf`, `characterOf`.
+- **`Physics3DSystem`** — steps the world: `Physics3DSystem(PhysicsWorld3D physics, {Collider3DGeometry? geometry})`, `Physics3DSystem.lazy(PhysicsWorld3D Function() create, …)`; `entityOf`, `bodyOf`, `characterOf`.
 - **Events**: `CollisionEnter3DEvent`, `CollisionStay3DEvent`, `CollisionExit3DEvent`, `SensorEnter3DEvent`, `SensorExit3DEvent`.
-- **`Physics3DQueries`** — `raycast`, `raycastAll`, `sphereCast`, `shapeCast`, `overlapSphere`, `overlapBox`, `overlap` (`PhysicsHit3D`).
-- Also: `Physics3DSchemas`, `ColliderShapes3D`, `ColliderGeometry3D`, `AssetColliderGeometry3D`, `CameraCollisionStage`, and just_physics_engine's 3-D side: `PhysicsEngine3D`, `PhysicsWorld3D`, `JoltPhysicsEngine`, `PhysicsEngineFactory`, `Physics3DUnsupportedError`, the shapes (`BoxShape3D` … `CompoundShape3D`), settings, poses, hits and events.
+- **`Physics3DQueries`** — `raycast`, `raycastAll`, `sphereCast`, `shapeCast`, `overlapSphere`, `overlapBox`, `overlap` (`Physics3DHit`).
+- Also: `Physics3DDefinitions`, `Collider3DShapes`, `Collider3DGeometry`, `AssetCollider3DGeometry`, `CameraCollisionStage`, and just_physics_engine's 3-D side: `PhysicsEngine3D`, `PhysicsWorld3D`, `JoltPhysicsEngine`, `PhysicsEngineFactory`, `Physics3DUnsupportedError`, the shapes (`BoxShape3D` … `CompoundShape3D`), settings, poses, hits and events.
 
 ## Input
 

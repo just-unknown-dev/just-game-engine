@@ -152,13 +152,13 @@ void main() {
   });
 
   test('a layered material: its layers tiled as each says', () {
-    final data = MaterialLibrary.dataOf(
+    final data = Material3DLibrary.dataOf(
       const MaterialFile(kind: MaterialKind.layered, layers: [_tiles, _red]),
       layers: const [MaterialFile(tilingX: 4), MaterialFile(tilingX: 0.5)],
     );
     expect(data.layered, isTrue);
     expect(data.layerTiling, (4.0, 0.5, 1.0, 1.0));
-    final world = MaterialLibrary.dataOf(
+    final world = Material3DLibrary.dataOf(
       const MaterialFile(
         uv: MaterialUv.world,
         alpha: MaterialAlpha.blend,
@@ -171,14 +171,14 @@ void main() {
   });
 
   test('transparency as the file says; maps moved and turned', () {
-    final solid = MaterialLibrary.dataOf(const MaterialFile(opacity: 0.5));
+    final solid = Material3DLibrary.dataOf(const MaterialFile(opacity: 0.5));
     expect(
       solid.alphaMode,
       AlphaMode.opaque,
       reason: 'opacity counts only when it blends',
     );
     expect(solid.baseColor.$4, 1);
-    final cut = MaterialLibrary.dataOf(
+    final cut = Material3DLibrary.dataOf(
       const MaterialFile(
         alpha: MaterialAlpha.cutout,
         alphaCutoff: 0.3,

@@ -6,9 +6,9 @@ import 'package:just_physics_engine/physics_3d.dart';
 import '../shapes_2d/solid_shape.dart';
 import '../ecs/ecs.dart';
 import '../physics_2d/contact_pairs.dart';
-import 'collider_shapes_3d.dart';
-import 'physics_components_3d.dart';
-import 'physics_events_3d.dart';
+import 'collider_3d_shapes.dart';
+import 'physics_3d_components.dart';
+import 'physics_3d_events.dart';
 
 /// Steps a [PhysicsWorld3D] and keeps it in step with the ECS: the 3-D
 /// counterpart of the engine's 2-D `Physics2DSystem` (a 3-D game leaves that
@@ -33,10 +33,10 @@ import 'physics_events_3d.dart';
 class Physics3DSystem extends System {
   /// A system stepping [physics]; mesh and hull colliders take their
   /// triangles from [geometry].
-  Physics3DSystem(PhysicsWorld3D physics, {ColliderGeometry3D? geometry})
+  Physics3DSystem(PhysicsWorld3D physics, {Collider3DGeometry? geometry})
     : _physics = physics,
       _create = null,
-      shapes = ColliderShapes3D(geometry: geometry) {
+      shapes = Collider3DShapes(geometry: geometry) {
     priority = SystemPriorities.physics;
   }
 
@@ -47,10 +47,10 @@ class Physics3DSystem extends System {
   /// scenes come later (a 2-D menu first) pays nothing for them.
   Physics3DSystem.lazy(
     PhysicsWorld3D Function() create, {
-    ColliderGeometry3D? geometry,
+    Collider3DGeometry? geometry,
   }) : _physics = null,
        _create = create,
-       shapes = ColliderShapes3D(geometry: geometry) {
+       shapes = Collider3DShapes(geometry: geometry) {
     priority = SystemPriorities.physics;
   }
 
@@ -66,7 +66,7 @@ class Physics3DSystem extends System {
   bool get hasWorld => _physics != null;
 
   /// Turns colliders into shapes.
-  final ColliderShapes3D shapes;
+  final Collider3DShapes shapes;
 
   /// One collision pass per this much of a step; a longer step gets more.
   static const double collisionStep = 1 / 60;

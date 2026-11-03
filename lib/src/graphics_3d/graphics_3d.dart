@@ -3,15 +3,16 @@ import 'package:just_graphics_engine/gpu.dart';
 import 'package:just_graphics_engine/renderer.dart';
 
 import '../core/core.dart';
+import '../ecs/engine_context.dart';
 import '../assets/assets.dart';
 import '../timeline/timeline.dart';
 import 'animation_3d_system.dart';
 import 'graphics_components.dart';
-import 'graphics_definitions.dart';
+import 'graphics_3d_definitions.dart';
 import 'graphics_models.dart';
 import 'graphics_scene_renderer.dart';
 import 'shapes/shape_components.dart';
-import 'shapes/shape_definitions.dart';
+import 'shapes/shape_3d_definitions.dart';
 import 'skeletal_animation_target.dart';
 import 'skeletal_clip_track.dart';
 import '../animation/animation_context.dart';
@@ -58,8 +59,8 @@ final class Graphics3D implements RefreshableExtension, EngineService {
   /// drawing them. Giving the engine a [Graphics3D] does this already.
   static void registerSchemas(EngineContext context) {
     context.definitions
-      ..registerAll(GraphicsSchemas.all, ifAbsent: true)
-      ..registerAll(ShapeSchemas.all, ifAbsent: true);
+      ..registerAll(Graphics3DDefinitions.all, ifAbsent: true)
+      ..registerAll(Shape3DDefinitions.all, ifAbsent: true);
     _registerPlayback(context);
   }
 
@@ -137,8 +138,8 @@ final class Graphics3D implements RefreshableExtension, EngineService {
   @override
   void refresh(EngineContext context) {
     context.definitions
-      ..refresh(GraphicsSchemas.all)
-      ..refresh(ShapeSchemas.all);
+      ..refresh(Graphics3DDefinitions.all)
+      ..refresh(Shape3DDefinitions.all);
     _registerPlayback(context);
   }
 
