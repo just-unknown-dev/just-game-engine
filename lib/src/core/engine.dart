@@ -229,10 +229,12 @@ class Engine implements GameEngine {
   /// actions — the game loads its asset after [initialize]. Updated once per
   /// fixed step, and every frame while paused so menus and rebinding still
   /// hear it.
+  @override
   InputService get input => _ready(_input, 'input');
 
   /// Sound and music. On the web it starts at the first key or pointer
   /// press (see [EngineConfig.deferAudioUntilInput]).
+  @override
   AudioEngine get audio => _ready(_audio, 'audio');
 
   /// Background music — play, fade, pause, stop — played through [audio].
@@ -245,6 +247,7 @@ class Engine implements GameEngine {
   CacheManager get cache => _ready(_cache, 'cache');
 
   /// The output camera and the brain that drives it.
+  @override
   CameraEngine get camera => _ready(_cameraEngine, 'camera');
 
   /// The ECS world the game runs in, reading from [context].
