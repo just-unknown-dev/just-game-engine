@@ -8,24 +8,24 @@ void main() {
   test('the physics shape field type reads back every kind of shape', () {
     const type = PhysicsDefinitions.shapeType;
     const triangle = [Offset(0, 0), Offset(10, 0), Offset(0, 10)];
-    final shapes = <CollisionShape>[
-      CircleShape(5, center: const Offset(1, 2)),
-      RoundedPolygonShape(triangle, 2),
-      RectangleShape(8, 4),
-      PolygonShape(triangle),
-      CapsuleShape(
+    final shapes = <Shape2D>[
+      Circle2DShape(5, center: const Offset(1, 2)),
+      RoundedPolygon2DShape(triangle, 2),
+      Rectangle2DShape(8, 4),
+      Polygon2DShape(triangle),
+      Capsule2DShape(
         center1: const Offset(0, -5),
         center2: const Offset(0, 5),
         radius: 2,
       ),
-      SegmentShape(Offset.zero, const Offset(10, 0), thickness: 3),
-      ChainShape(triangle, loop: true, thickness: 1),
+      Segment2DShape(Offset.zero, const Offset(10, 0), thickness: 3),
+      Chain2DShape(triangle, loop: true, thickness: 1),
     ];
     for (final shape in shapes) {
       final json = type.encode(shape);
       final back = type.decode(json, FieldConstraints.none);
       expect(back.runtimeType, shape.runtimeType, reason: '$json');
-      expect(type.encode(back as CollisionShape), json);
+      expect(type.encode(back as Shape2D), json);
     }
     expect(type.decode({'kind': 'nope'}, FieldConstraints.none), isNull);
     expect(

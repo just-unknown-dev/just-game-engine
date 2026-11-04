@@ -205,7 +205,7 @@ void main() {
 
   group('physics keeps the third dimension', () {
     test('a stepped 2-D body keeps its z and tilt', () {
-      final physics = PhysicsEngine.pureDart()..initialize();
+      final physics = Physics2DEngine.pureDart()..initialize();
       addTearDown(physics.dispose);
       final world = World()..initialize();
       addTearDown(world.dispose);

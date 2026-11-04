@@ -71,7 +71,7 @@ void main() {
             _asV10(defs, TransformComponent(), 'TransformComponent'),
             _asV10(
               defs,
-              RigidBody2DComponent(bodyType: BodyType.kinematic),
+              RigidBody2DComponent(bodyType: Body2DType.kinematic),
               'RigidBody2D',
             ),
             _asV10(defs, Collider2DComponent(), 'Collider2D'),
@@ -94,7 +94,7 @@ void main() {
     final ball = made.first;
     expect(
       ball.getComponent<RigidBody2DComponent>()!.bodyType,
-      BodyType.kinematic,
+      Body2DType.kinematic,
     );
     expect(ball.hasComponent<Collider2DComponent>(), isTrue);
     // Shapes are filed as the entity's RenderableComponent.

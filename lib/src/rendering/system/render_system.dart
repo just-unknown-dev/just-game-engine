@@ -169,7 +169,7 @@ class RenderSystem extends System implements PerFrame {
   /// transform — before it runs its overlay hooks, which is where
   /// `World.render` runs. ECS systems therefore draw in **screen space** and
   /// each must apply the camera itself, which is exactly what
-  /// [ColliderDebuggerSystem] does.
+  /// [Collider2DDebuggerSystem] does.
   ///
   /// So: pass [camera] to this system. Leaving it null makes every entity draw
   /// at its world coordinates interpreted as raw screen pixels — the scene

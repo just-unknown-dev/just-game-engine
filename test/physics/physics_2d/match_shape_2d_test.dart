@@ -8,9 +8,9 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
-final _backends = <String, PhysicsEngine Function()>{
-  'native': PhysicsEngine.new,
-  'pure Dart': PhysicsEngine.pureDart,
+final _backends = <String, Physics2DEngine Function()>{
+  'native': Physics2DEngine.new,
+  'pure Dart': Physics2DEngine.pureDart,
 };
 
 /// Something with a size but no outline, as a sprite is.
@@ -28,7 +28,7 @@ class _SizedExtent extends ComponentExtent {
   }
 }
 
-({World world, Physics2DQueries queries}) _setUp(PhysicsEngine engine) {
+({World world, Physics2DQueries queries}) _setUp(Physics2DEngine engine) {
   final physics = engine..initialize();
   physics.setGravity(0, 0);
   final world = World()..initialize();
@@ -67,7 +67,7 @@ void main() {
           TransformComponent(),
           look,
           ...extra,
-          RigidBody2DComponent(bodyType: BodyType.static),
+          RigidBody2DComponent(bodyType: Body2DType.static),
           Collider2DComponent(shape: Collider2DShape.matchShape),
         ]);
         world.update(1 / 60);
@@ -147,7 +147,7 @@ void main() {
           Polygon2DComponent(
             vertices: const [Offset(0, -10), Offset(30, 0), Offset(0, 10)],
           ),
-          RigidBody2DComponent(bodyType: BodyType.static),
+          RigidBody2DComponent(bodyType: Body2DType.static),
           Collider2DComponent(shape: Collider2DShape.matchShape),
         ]);
         world.update(1 / 60);

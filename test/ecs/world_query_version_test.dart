@@ -131,7 +131,7 @@ void main() {
     });
 
     test('physics makes a body for a collider added after unrelated churn', () {
-      final physics = PhysicsEngine()..initialize();
+      final physics = Physics2DEngine()..initialize();
       addTearDown(physics.dispose);
       world.addSystem(Physics2DSystem(physics));
       world.update(1 / 60);
@@ -143,10 +143,10 @@ void main() {
         Collider2DComponent(size: Vector2(4, 4)),
       ]);
       world.update(1 / 60);
-      expect(box.hasComponent<PhysicsBodyRefComponent>(), isTrue);
+      expect(box.hasComponent<Physics2DBodyRefComponent>(), isTrue);
       box.removeComponent<Collider2DComponent>();
       world.update(1 / 60);
-      expect(box.hasComponent<PhysicsBodyRefComponent>(), isFalse);
+      expect(box.hasComponent<Physics2DBodyRefComponent>(), isFalse);
     });
   });
 }

@@ -11,7 +11,7 @@ void main() {
   const view = Size(800, 600);
 
   test('screen ↔ world round-trips under zoom and roll', () {
-    final camera = Camera(
+    final camera = OutputCamera(
       position: const Offset(120, -40),
       zoom: 2.5,
       rotation: 0.7,
@@ -28,7 +28,7 @@ void main() {
   });
 
   test('applyTransform draws where worldToScreen says', () {
-    final camera = Camera(
+    final camera = OutputCamera(
       position: const Offset(50, 80),
       zoom: 1.5,
       rotation: -0.3,
@@ -50,7 +50,7 @@ void main() {
   });
 
   test('visible bounds shrink with zoom and centre on the position', () {
-    final camera = Camera(
+    final camera = OutputCamera(
       position: const Offset(1000, 500),
       zoom: 2,
       viewportSize: view,
@@ -64,7 +64,10 @@ void main() {
   });
 
   test('zoomToPoint keeps the point under the cursor', () {
-    final camera = Camera(position: const Offset(10, 20), viewportSize: view);
+    final camera = OutputCamera(
+      position: const Offset(10, 20),
+      viewportSize: view,
+    );
     const cursor = Offset(650, 120);
     final world = camera.screenToWorld(cursor);
     camera.zoomToPoint(world, 3);
@@ -75,7 +78,7 @@ void main() {
   });
 
   test('state and apply are inverses, within the zoom limits', () {
-    final camera = Camera(viewportSize: view, maxZoom: 4);
+    final camera = OutputCamera(viewportSize: view, maxZoom: 4);
     const state = CameraState(
       position: Offset(3, 4),
       zoom: 2,

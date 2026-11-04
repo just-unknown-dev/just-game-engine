@@ -52,7 +52,7 @@ void main() {
 
   late World world;
   late RenderHookChain hooks;
-  late Camera camera;
+  late OutputCamera camera;
   late ParallaxRenderSystem system;
   late ui.Image sky;
   late ui.Image hills;
@@ -60,7 +60,7 @@ void main() {
   setUp(() async {
     world = World();
     hooks = RenderHookChain();
-    camera = Camera();
+    camera = OutputCamera();
     system = ParallaxRenderSystem(backgroundHooks: hooks, camera: camera);
     world.addSystem(system);
     sky = await _image(8, 4);

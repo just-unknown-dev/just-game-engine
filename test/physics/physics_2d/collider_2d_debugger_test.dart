@@ -1,4 +1,4 @@
-// ColliderDebuggerSystem, the one collider drawer (the game's debug view and
+// Collider2DDebuggerSystem, the one collider drawer (the game's debug view and
 // the editor's): one outline per collider, coloured by its body; the
 // characters too; a collider's own showDebugOutline and the outline filter
 // are heeded; switched-off entities are not drawn; and outlines are listed
@@ -50,14 +50,14 @@ class _Counter extends TestRecordingCanvas {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  late PhysicsEngine physics;
+  late Physics2DEngine physics;
   late World world;
-  late ColliderDebuggerSystem debugger;
+  late Collider2DDebuggerSystem debugger;
 
   setUp(() {
-    physics = PhysicsEngine.pureDart()..initialize();
+    physics = Physics2DEngine.pureDart()..initialize();
     world = World()..initialize();
-    debugger = ColliderDebuggerSystem();
+    debugger = Collider2DDebuggerSystem();
     world
       ..addSystem(Physics2DSystem(physics))
       ..addSystem(debugger);
@@ -73,7 +73,7 @@ void main() {
     return canvas;
   }
 
-  test('one outline per collider, character and ray collider', () {
+  test('one outline per collider and character', () {
     world.createEntityWithComponents([
       TransformComponent(),
       Collider2DComponent(size: Vector2(10, 10)),
@@ -97,14 +97,10 @@ void main() {
       TransformComponent(),
       CharacterBody2DComponent(),
     ]);
-    world.createEntityWithComponents([
-      TransformComponent(),
-      RaycastColliderComponent(width: 10, radius: 4),
-    ]);
 
     // Drawn from their components before any step has made a body.
     final before = draw();
-    expect(before.rects, 2, reason: 'the box, and the ray collider');
+    expect(before.rects, 1, reason: 'the box');
     expect(before.circles, 1);
     expect(before.paths, hasLength(3), reason: 'capsule, chain, character');
 
@@ -116,7 +112,7 @@ void main() {
   test('a body is coloured by its kind; a character too', () {
     world.createEntityWithComponents([
       TransformComponent(),
-      RigidBody2DComponent(bodyType: BodyType.kinematic),
+      RigidBody2DComponent(bodyType: Body2DType.kinematic),
       Collider2DComponent(size: Vector2(10, 10)),
     ]);
     world.update(1 / 60);
@@ -164,7 +160,7 @@ void main() {
   test('static or moving bodies can be left out', () {
     final world = World()..initialize();
     addTearDown(world.dispose);
-    final debugger = ColliderDebuggerSystem(includeDynamicBodies: false);
+    final debugger = Collider2DDebuggerSystem(includeDynamicBodies: false);
     world.addSystem(debugger);
     world.createEntityWithComponents([
       TransformComponent(),

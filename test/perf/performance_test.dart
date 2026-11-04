@@ -22,7 +22,7 @@ int _median(List<int> samples) {
 
 /// A world of [count] circle shapes moving with a velocity, drawn by a
 /// RenderSystem through [camera].
-World _shapes(int count, Camera camera) {
+World _shapes(int count, OutputCamera camera) {
   final world = World(extensions: [BuiltInComponents.extension])
     ..addSystem(MovementSystem())
     ..addSystem(RenderSystem(camera: camera));
@@ -76,13 +76,13 @@ void main() {
       // Add 50 physics bodies
       for (int i = 0; i < 50; i++) {
         engine.physics.addBody(
-          PhysicsBody(
+          Physics2DBody(
             position: Vector2(i * 20.0, i * 10.0),
             velocity: Vector2(
               (i % 2 == 0 ? 1 : -1) * 50.0,
               (i % 3 == 0 ? 1 : -1) * 30.0,
             ),
-            shape: CircleShape(15),
+            shape: Circle2DShape(15),
             mass: 1.0,
           ),
         );
@@ -115,10 +115,10 @@ void main() {
       for (int i = 0; i < 30; i++) {
         for (int j = 0; j < 30; j++) {
           engine.physics.addBody(
-            PhysicsBody(
+            Physics2DBody(
               position: Vector2(i * 40.0, j * 40.0),
               velocity: Vector2.zero(),
-              shape: CircleShape(15),
+              shape: Circle2DShape(15),
             ),
           );
         }
@@ -204,7 +204,7 @@ void main() {
     });
 
     test('ECS system update and draw with 500 entities', () async {
-      final camera = Camera(viewportSize: const Size(800, 600));
+      final camera = OutputCamera(viewportSize: const Size(800, 600));
       final world = _shapes(500, camera);
       addTearDown(world.dispose);
 
@@ -226,7 +226,7 @@ void main() {
     });
 
     test('Camera transformation performance', () async {
-      final camera = Camera(viewportSize: const Size(800, 600));
+      final camera = OutputCamera(viewportSize: const Size(800, 600));
 
       final stopwatch = Stopwatch()..start();
 
@@ -274,7 +274,7 @@ void main() {
 
   group('Scalability Tests', () {
     test('Drawing scales about linearly with the entity count', () {
-      final camera = Camera(viewportSize: const Size(800, 600));
+      final camera = OutputCamera(viewportSize: const Size(800, 600));
       final medians = <int, int>{};
       for (final count in [100, 1000]) {
         final world = _shapes(count, camera);

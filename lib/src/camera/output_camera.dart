@@ -1,4 +1,4 @@
-/// Camera System
+/// Output camera
 ///
 /// The output camera — what everything renders through. The brain that
 /// decides what it shows (`camera_brain.dart`), and the `CameraEngine` that
@@ -18,7 +18,7 @@ import 'camera_effects.dart';
 import '../interfaces/camera_lens.dart';
 import 'camera_state.dart';
 
-// ─── Camera ──────────────────────────────────────────────────────────────────
+// ─── OutputCamera ────────────────────────────────────────────────────────────
 
 /// The output camera: a view of the world and the maths to draw through it.
 ///
@@ -44,10 +44,10 @@ import 'camera_state.dart';
 /// with +Y down. Its orientation is `qY(yaw) · qX(pitch) · qZ(−roll)` — the
 /// roll negated, because [rotation] turns the *view*, the opposite of
 /// turning the camera.
-class Camera implements GameCamera {
+class OutputCamera implements GameCamera {
   /// A [zoom] of zero, a negative one or one that is not a number starts
   /// at [minZoom] instead — see [zoom].
-  Camera({
+  OutputCamera({
     this.position = Offset.zero,
     double zoom = 1.0,
     this.rotation = 0.0,

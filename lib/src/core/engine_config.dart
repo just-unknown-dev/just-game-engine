@@ -2,7 +2,7 @@
 library;
 
 import 'package:just_physics_engine/just_physics_engine.dart'
-    show PhysicsEngine;
+    show Physics2DEngine;
 
 import 'register_default_systems.dart';
 import '../audio/audio.dart';
@@ -70,7 +70,7 @@ class EngineConfig {
   /// Makes the 2-D physics engine (`engine.physics`). Null makes the
   /// standard one: native Box2D where the platform has it, the pure-Dart
   /// engine on the web. A world with no 2-D bodies costs nothing per step.
-  final PhysicsEngine Function()? createPhysics;
+  final Physics2DEngine Function()? createPhysics;
 
   /// Whether audio starts at the first key or pointer press rather than in
   /// [Engine.initialize]. Browsers keep an audio context made before any

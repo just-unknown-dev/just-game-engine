@@ -30,8 +30,8 @@ abstract final class Collider2DGeometry {
   /// A circle grows by the larger factor and a rounded corner by the
   /// smaller; a capsule's radius by the factor across its axis. A mirrored
   /// polygon or chain keeps its winding.
-  static CollisionShape build(
-    CollisionShape shape, {
+  static Shape2D build(
+    Shape2D shape, {
     Offset offset = Offset.zero,
     double rotation = 0,
     double sx = 1,
@@ -57,26 +57,32 @@ abstract final class Collider2DGeometry {
     }
 
     return switch (shape) {
-      CircleShape s => CircleShape(
+      Circle2DShape s => Circle2DShape(
         s.radius * math.max(ax, ay),
         center: place(s.center),
       ),
-      RoundedPolygonShape s => RoundedPolygonShape(
+      RoundedPolygon2DShape s => RoundedPolygon2DShape(
         placeAll(s.vertices),
         s.cornerRadius * math.min(ax, ay),
       ),
-      RectangleShape s when offset == Offset.zero && rotation == 0 =>
-        RectangleShape(s.width * ax, s.height * ay),
+      Rectangle2DShape s when offset == Offset.zero && rotation == 0 =>
+        Rectangle2DShape(s.width * ax, s.height * ay),
       // Off-centre or turned, a box is a polygon: the native backend builds
-      // a RectangleShape as an upright box about the body's centre.
-      PolygonShape s => PolygonShape(placeAll(s.vertices)),
-      CapsuleShape s => _capsule(s, place(s.center1), place(s.center2), ax, ay),
-      SegmentShape s => SegmentShape(
+      // a Rectangle2DShape as an upright box about the body's centre.
+      Polygon2DShape s => Polygon2DShape(placeAll(s.vertices)),
+      Capsule2DShape s => _capsule(
+        s,
+        place(s.center1),
+        place(s.center2),
+        ax,
+        ay,
+      ),
+      Segment2DShape s => Segment2DShape(
         place(s.point1),
         place(s.point2),
         thickness: s.thickness * math.max(ax, ay),
       ),
-      ChainShape s => ChainShape(
+      Chain2DShape s => Chain2DShape(
         placeAll(s.vertices),
         loop: s.loop,
         thickness: s.thickness * math.max(ax, ay),
@@ -90,7 +96,7 @@ abstract final class Collider2DGeometry {
   /// three points, a collider matching the shape of an entity that draws
   /// none. A collider matching its entity's shape needs the [entity] (and
   /// the [definitions] to size a sprite or anything else by).
-  static CollisionShape? shapeOf(
+  static Shape2D? shapeOf(
     Collider2DComponent collider, {
     Entity? entity,
     ComponentDefinitionRegistry? definitions,
@@ -111,36 +117,38 @@ abstract final class Collider2DGeometry {
           math.min(w, h) / 2 - 1e-3,
         );
         return r > 0
-            ? RoundedPolygonShape.rect(
+            ? RoundedPolygon2DShape.rect(
                 width: w - 2 * r,
                 height: h - 2 * r,
                 cornerRadius: r,
               )
-            : RectangleShape(w, h);
+            : Rectangle2DShape(w, h);
       case Collider2DShape.circle:
-        return CircleShape(
+        return Circle2DShape(
           math.max(collider.radius.abs() * math.max(ax, ay), 1e-3),
         );
       case Collider2DShape.capsule:
         final r = math.max(collider.radius.abs() * ax, 1e-3);
         final h = math.max(collider.height.abs() * ay, 2 * r);
-        return CapsuleShape.vertical(height: h, radius: r);
+        return Capsule2DShape.vertical(height: h, radius: r);
       case Collider2DShape.polygon:
         if (collider.points.length < 3) return null;
         final points = scaled(collider.points);
         final r = collider.cornerRadius.abs() * math.min(ax, ay);
-        return r > 0 ? RoundedPolygonShape(points, r) : PolygonShape(points);
+        return r > 0
+            ? RoundedPolygon2DShape(points, r)
+            : Polygon2DShape(points);
       case Collider2DShape.segment:
         if (collider.points.length < 2) return null;
         final points = scaled(collider.points.take(2).toList());
-        return SegmentShape(
+        return Segment2DShape(
           points[0],
           points[1],
           thickness: collider.thickness * math.max(ax, ay),
         );
       case Collider2DShape.chain:
         if (collider.points.length < 2) return null;
-        return ChainShape(
+        return Chain2DShape(
           scaled(collider.points),
           loop: collider.loop,
           thickness: collider.thickness * math.max(ax, ay),
@@ -154,7 +162,7 @@ abstract final class Collider2DGeometry {
 
   /// [collider]'s collider for an entity with [transform] (none: unscaled):
   /// what the simulation gets. Null when it has no shape (see [shapeOf]).
-  static CollisionShape? of(
+  static Shape2D? of(
     Collider2DComponent collider, [
     TransformComponent? transform,
     Entity? entity,
@@ -177,7 +185,7 @@ abstract final class Collider2DGeometry {
   /// Polygon or Line; see [shapeOfSolid]) — and otherwise a box round
   /// anything that has a size (a sprite), the largest, sized by
   /// [definitions]. Null when it draws nothing with a size.
-  static CollisionShape? visualShapeOf(
+  static Shape2D? visualShapeOf(
     Entity entity, {
     ComponentDefinitionRegistry? definitions,
   }) {
@@ -187,26 +195,26 @@ abstract final class Collider2DGeometry {
       if (solid != null) return shapeOfSolid(solid);
     }
     final size = largestSize(entity, definitions);
-    return size == null ? null : RectangleShape(size.width, size.height);
+    return size == null ? null : Rectangle2DShape(size.width, size.height);
   }
 
   /// The collision shape of [solid], in its entity's own space: a circle, a
   /// capsule upright or lying as its box is, a box (a rounded one for
   /// rounded corners), a polygon, or a line as thick as it is drawn.
-  static CollisionShape shapeOfSolid(SolidShape2D solid) {
+  static Shape2D shapeOfSolid(SolidShape2D solid) {
     switch (solid) {
       case SolidCircle2D(:final radius):
-        return CircleShape(math.max(radius, 1e-3));
+        return Circle2DShape(math.max(radius, 1e-3));
       case SolidCapsule2D(:final width, :final height):
         final r = math.max(math.min(width, height) / 2, 1e-3);
         final half = math.max(math.max(width, height) / 2 - r, 0.0);
         return height >= width
-            ? CapsuleShape(
+            ? Capsule2DShape(
                 center1: Offset(0, -half),
                 center2: Offset(0, half),
                 radius: r,
               )
-            : CapsuleShape(
+            : Capsule2DShape(
                 center1: Offset(-half, 0),
                 center2: Offset(half, 0),
                 radius: r,
@@ -215,16 +223,16 @@ abstract final class Collider2DGeometry {
         final w = math.max(width, 1e-3), h = math.max(height, 1e-3);
         final r = math.min(cornerRadius, math.min(w, h) / 2 - 1e-3);
         return r > 0
-            ? RoundedPolygonShape.rect(
+            ? RoundedPolygon2DShape.rect(
                 width: w - 2 * r,
                 height: h - 2 * r,
                 cornerRadius: r,
               )
-            : RectangleShape(w, h);
+            : Rectangle2DShape(w, h);
       case SolidPolygon2D(:final points):
-        return PolygonShape([...points]);
+        return Polygon2DShape([...points]);
       case SolidLine2D(:final start, :final end, :final width):
-        return SegmentShape(start, end, thickness: math.max(width, 1e-3));
+        return Segment2DShape(start, end, thickness: math.max(width, 1e-3));
     }
   }
 
@@ -258,67 +266,67 @@ abstract final class Collider2DGeometry {
   /// — then only the size of a scale matters, not its sign, and a body
   /// flipped to face the other way need not be built again.
   static bool isMirrorSymmetric(
-    CollisionShape shape,
+    Shape2D shape,
     Offset offset, [
     double rotation = 0,
   ]) {
     if (offset != Offset.zero || rotation != 0) return false;
     return switch (shape) {
-      CircleShape s => s.center == Offset.zero,
-      RoundedPolygonShape() => false,
-      RectangleShape() => true,
-      CapsuleShape s =>
+      Circle2DShape s => s.center == Offset.zero,
+      RoundedPolygon2DShape() => false,
+      Rectangle2DShape() => true,
+      Capsule2DShape s =>
         s.center1 == -s.center2 && (s.center1.dx == 0 || s.center1.dy == 0),
       _ => false,
     };
   }
 
   /// [shape]'s bounds in its body's space.
-  static Rect boundsOf(CollisionShape shape) => shape.getBounds(Offset.zero);
+  static Rect boundsOf(Shape2D shape) => shape.getBounds(Offset.zero);
 
   /// [body]'s shapes as the distance and cast tests see them — convex
   /// cores with a radius, in the world, turned with the body and moved by
   /// [shift]: a circle as one point, a capsule or segment as two, a polygon
   /// as its corners, a chain as one piece per link. As the physics engine's
   /// own overlap and cast queries take them.
-  static List<ShapeProxy2D> proxiesOf(
-    PhysicsBody body, {
+  static List<Shape2DProxy> proxiesOf(
+    Physics2DBody body, {
     Offset shift = Offset.zero,
   }) {
     final c = math.cos(body.angle), s = math.sin(body.angle);
     final px = body.position.x + shift.dx, py = body.position.y + shift.dy;
     Offset at(Offset p) =>
         Offset(c * p.dx - s * p.dy + px, s * p.dx + c * p.dy + py);
-    final out = <ShapeProxy2D>[];
-    void add(CollisionShape shape) {
+    final out = <Shape2DProxy>[];
+    void add(Shape2D shape) {
       switch (shape) {
-        case CircleShape():
-          out.add(ShapeProxy2D([at(shape.center)], shape.radius));
-        case CapsuleShape():
+        case Circle2DShape():
+          out.add(Shape2DProxy([at(shape.center)], shape.radius));
+        case Capsule2DShape():
           out.add(
-            ShapeProxy2D([at(shape.center1), at(shape.center2)], shape.radius),
+            Shape2DProxy([at(shape.center1), at(shape.center2)], shape.radius),
           );
-        case RoundedPolygonShape():
+        case RoundedPolygon2DShape():
           out.add(
-            ShapeProxy2D([
+            Shape2DProxy([
               for (final v in shape.vertices) at(v),
             ], shape.cornerRadius),
           );
-        case PolygonShape():
+        case Polygon2DShape():
           if (shape.vertices.isNotEmpty) {
-            out.add(ShapeProxy2D([for (final v in shape.vertices) at(v)], 0));
+            out.add(Shape2DProxy([for (final v in shape.vertices) at(v)], 0));
           }
-        case SegmentShape():
+        case Segment2DShape():
           out.add(
-            ShapeProxy2D([at(shape.point1), at(shape.point2)], shape.thickness),
+            Shape2DProxy([at(shape.point1), at(shape.point2)], shape.thickness),
           );
-        case ChainShape():
+        case Chain2DShape():
           final v = shape.vertices;
           if (v.length < 2) break;
           final n = shape.loop && v.length > 2 ? v.length : v.length - 1;
           for (var i = 0; i < n; i++) {
             out.add(
-              ShapeProxy2D([
+              Shape2DProxy([
                 at(v[i]),
                 at(v[(i + 1) % v.length]),
               ], shape.thickness),
@@ -344,7 +352,7 @@ abstract final class Collider2DGeometry {
   /// [autoMassPerSquareUnit] for each square unit of [shape]. A line (a
   /// segment or a chain) counts its bounds, at least a unit each way, as a
   /// 3-D shape with no volume does.
-  static double massOf(RigidBody2DComponent rigid, CollisionShape shape) {
+  static double massOf(RigidBody2DComponent rigid, Shape2D shape) {
     if (rigid.isStatic) return 0.0;
     if (rigid.mass > 0) return rigid.mass;
     var area = shape.area;
@@ -361,7 +369,7 @@ abstract final class Collider2DGeometry {
   /// this, so both turn alike. A rounded polygon counts as its bounds, and a
   /// line (a segment or a chain), which has no area, as its bounds at least
   /// a unit each way — as [massOf] weighs it. Zero for no mass.
-  static double inertiaOf(CollisionShape shape, double mass) {
+  static double inertiaOf(Shape2D shape, double mass) {
     if (!(mass > 0)) return 0.0;
     double box(Rect b, {double least = 0}) {
       final w = math.max(b.width, least), h = math.max(b.height, least);
@@ -370,14 +378,14 @@ abstract final class Collider2DGeometry {
     }
 
     final perMass = switch (shape) {
-      CircleShape s =>
+      Circle2DShape s =>
         0.5 * s.radius * s.radius +
             s.center.dx * s.center.dx +
             s.center.dy * s.center.dy,
-      RoundedPolygonShape s => box(s.getBounds(Offset.zero)),
-      PolygonShape s =>
+      RoundedPolygon2DShape s => box(s.getBounds(Offset.zero)),
+      Polygon2DShape s =>
         _polygonInertia(s.vertices) ?? box(s.getBounds(Offset.zero)),
-      CapsuleShape s => _capsuleInertia(s.center1, s.center2, s.radius),
+      Capsule2DShape s => _capsuleInertia(s.center1, s.center2, s.radius),
       _ => box(shape.getBounds(Offset.zero), least: 1),
     };
     return mass * perMass;
@@ -428,7 +436,7 @@ abstract final class Collider2DGeometry {
   /// collider debugger) lists their points into a native path only once.
   static void paint(
     Canvas canvas,
-    CollisionShape shape,
+    Shape2D shape,
     Paint paint, {
     Expando<Path>? paths,
   }) {
@@ -438,15 +446,15 @@ abstract final class Collider2DGeometry {
     }
 
     switch (shape) {
-      case CircleShape s:
+      case Circle2DShape s:
         canvas.drawCircle(s.center, s.radius, paint);
-      case RoundedPolygonShape s:
+      case RoundedPolygon2DShape s:
         // The core polygon and its rounding.
         canvas.drawPath(pathOf(() => _polygon(s.vertices)), paint);
         for (final v in s.vertices) {
           canvas.drawCircle(v, s.cornerRadius, paint);
         }
-      case RectangleShape s:
+      case Rectangle2DShape s:
         // Upright in its body's space: no path needed.
         canvas.drawRect(
           Rect.fromCenter(
@@ -456,16 +464,16 @@ abstract final class Collider2DGeometry {
           ),
           paint,
         );
-      case PolygonShape s:
+      case Polygon2DShape s:
         canvas.drawPath(pathOf(() => _polygon(s.vertices)), paint);
-      case CapsuleShape s:
+      case Capsule2DShape s:
         canvas.drawPath(
           pathOf(() => capsulePath(s.center1, s.center2, s.radius)),
           paint,
         );
-      case SegmentShape s:
+      case Segment2DShape s:
         canvas.drawLine(s.point1, s.point2, paint);
-      case ChainShape s:
+      case Chain2DShape s:
         canvas.drawPath(pathOf(() => _chain(s.vertices, s.loop)), paint);
     }
   }
@@ -526,8 +534,8 @@ abstract final class Collider2DGeometry {
   /// the scale across it: its ends pushed out so its caps reach as far as
   /// the scale stretches them, as a collider's own scale stretches its
   /// height — a capsule 64 tall at a scale of 2 up it is 128 tall, not 96.
-  static CapsuleShape _capsule(
-    CapsuleShape s,
+  static Capsule2DShape _capsule(
+    Capsule2DShape s,
     Offset p1,
     Offset p2,
     double ax,
@@ -538,13 +546,13 @@ abstract final class Collider2DGeometry {
     final d = p2 - p1;
     final after = d.distance;
     if (before < 1e-9 || after < 1e-9) {
-      return CapsuleShape(center1: p1, center2: p2, radius: radius);
+      return Capsule2DShape(center1: p1, center2: p2, radius: radius);
     }
     // Each end: the cap reached s.radius past its centre, stretched as the
     // length was; less the new radius, and never past the middle.
     final push = math.max(s.radius * after / before - radius, -after / 2);
     final out = d * (push / after);
-    return CapsuleShape(center1: p1 - out, center2: p2 + out, radius: radius);
+    return Capsule2DShape(center1: p1 - out, center2: p2 + out, radius: radius);
   }
 
   /// The scale across a capsule's axis (its placed ends [a] and [b]): its

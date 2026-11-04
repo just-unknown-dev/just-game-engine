@@ -133,7 +133,7 @@ class CameraBrain {
     : registries = registries ?? CameraRegistries();
 
   /// The camera everything renders through.
-  final Camera output;
+  final OutputCamera output;
 
   /// The stages and managers this brain runs.
   final CameraRegistries registries;

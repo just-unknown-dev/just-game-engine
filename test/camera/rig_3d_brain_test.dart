@@ -23,7 +23,7 @@ import 'package:just_game_engine/just_game_engine.dart';
     ),
     ...stages,
   ], name: 'Cam');
-  final output = Camera(
+  final output = OutputCamera(
     position: Offset.zero,
     viewportSize: const Size(800, 600),
   );
@@ -137,7 +137,7 @@ void main() {
       isA<OrbitFollowStage>(),
     );
     // A brain on its own keeps a set of its own.
-    final alone = CameraBrain(Camera(position: Offset.zero));
+    final alone = CameraBrain(OutputCamera(position: Offset.zero));
     expect(alone.registries, isNot(same(registries)));
     expect(alone.stages.stageFor(LookAtComponent()), isA<LookAtStage>());
   });

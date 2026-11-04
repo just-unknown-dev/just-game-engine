@@ -196,7 +196,10 @@ _Recorder _paint(World world, Entity e, int layerId, Offset position) {
     RenderContext(
       world: world,
       size: const Size(400, 300),
-      camera: Camera(position: position, viewportSize: const Size(400, 300)),
+      camera: OutputCamera(
+        position: position,
+        viewportSize: const Size(400, 300),
+      ),
     ),
     e,
     layerId,

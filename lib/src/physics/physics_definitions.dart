@@ -71,7 +71,7 @@ abstract final class PhysicsDefinitions {
       PhysicsLayerMaskFieldType();
 
   /// A 2-D collision shape, stored as `{kind, ...dimensions}`.
-  static const PhysicsShapeFieldType shapeType = PhysicsShapeFieldType();
+  static const Shape2DFieldType shapeType = Shape2DFieldType();
 
   /// The physics field types, registered into a context with the engine's
   /// definitions (`BuiltInComponents.extension`); 3-D physics registers the

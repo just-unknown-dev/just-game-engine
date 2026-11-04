@@ -11,8 +11,8 @@ import 'model_components.dart';
 import 'graphics_3d_definitions.dart';
 import 'lighting/lighting_3d_definitions.dart';
 import 'materials/material_3d_definitions.dart';
-import 'graphics_models.dart';
-import 'graphics_scene_renderer.dart';
+import 'graphics_3d_models.dart';
+import 'graphics_3d_scene_renderer.dart';
 import 'shapes/shape_3d_components.dart';
 import 'shapes/shape_3d_definitions.dart';
 import 'skeletal_animation_target.dart';
@@ -38,7 +38,7 @@ import '../../animation/animation_context.dart';
 /// graphs and timelines play clips on a model's skeleton. As the engine
 /// initializes it makes the GPU device and the renderer
 /// (just_graphics_engine), loads models for the asset manager
-/// ([AssetType.model]), adds a [GraphicsSceneRenderer] to the engine's
+/// ([AssetType.model]), adds a [Graphics3DSceneRenderer] to the engine's
 /// frame and an [Animation3DSystem] to its world.
 ///
 /// Where Flutter GPU can't draw — the web, Impeller turned off, Android on
@@ -92,7 +92,7 @@ final class Graphics3D implements RefreshableExtension, SceneCacheService {
   final GpuDevice? _device;
 
   /// Fraction of the physical resolution rendered; see
-  /// [GraphicsSceneRenderer.renderScale].
+  /// [Graphics3DSceneRenderer.renderScale].
   final double renderScale;
 
   /// Told once, as the engine initializes, why 3-D is not drawn here.
@@ -105,10 +105,10 @@ final class Graphics3D implements RefreshableExtension, SceneCacheService {
 
   Engine? _engine;
   Renderer3D? _renderer;
-  GraphicsModels? _models;
-  GraphicsSceneRenderer? _scene;
+  Graphics3DModels? _models;
+  Graphics3DSceneRenderer? _scene;
   Animation3DSystem? _animations;
-  GraphicsModelLoader? _loader;
+  Graphics3DModelLoader? _loader;
   String? _unsupportedReason;
 
   /// Why 3-D is not drawn, or null when it is (or the engine has not
@@ -123,7 +123,7 @@ final class Graphics3D implements RefreshableExtension, SceneCacheService {
   bool get isStarted => _models != null;
 
   /// Lets go of the models, 3-D material files and maps nothing in the
-  /// engine's world draws with ([GraphicsSceneRenderer.releaseUnused]);
+  /// engine's world draws with ([Graphics3DSceneRenderer.releaseUnused]);
   /// `Engine.releaseUnused` asks, after a level change. Nothing before the
   /// engine starts it.
   @override
@@ -133,10 +133,10 @@ final class Graphics3D implements RefreshableExtension, SceneCacheService {
   Renderer3D get renderer => _renderer ?? (throw StateError(_notStarted));
 
   /// The engine's models; throws before the engine initializes.
-  GraphicsModels get models => _models ?? (throw StateError(_notStarted));
+  Graphics3DModels get models => _models ?? (throw StateError(_notStarted));
 
   /// What draws the engine's world; throws before the engine initializes.
-  GraphicsSceneRenderer get sceneRenderer =>
+  Graphics3DSceneRenderer get sceneRenderer =>
       _scene ?? (throw StateError(_notStarted));
 
   static const String _notStarted =
@@ -171,7 +171,7 @@ final class Graphics3D implements RefreshableExtension, SceneCacheService {
 
   /// Makes the GPU device (or, without one, a null device), the renderer
   /// and the models; registers the model loader with the asset manager;
-  /// adds a [GraphicsSceneRenderer] to the engine's frame and an
+  /// adds a [Graphics3DSceneRenderer] to the engine's frame and an
   /// [Animation3DSystem] to its world.
   @override
   Future<void> start(ServiceContext context) async {
@@ -191,17 +191,17 @@ final class Graphics3D implements RefreshableExtension, SceneCacheService {
       onUnsupported?.call(why);
     }
     _renderer = renderer..uploader.keepEdges = keepEdges;
-    final models = _models = GraphicsModels(
+    final models = _models = Graphics3DModels(
       engine.assets.bundle,
       renderer.uploader,
     );
     engine.assets.registerLoader(
       AssetType.model,
-      _loader = GraphicsModelLoader(models),
+      _loader = Graphics3DModelLoader(models),
     );
-    context.context.graphicsModels = models;
+    context.context.graphics3DModels = models;
     models.reloadListeners.add(_modelReloaded);
-    final scene = _scene = GraphicsSceneRenderer(
+    final scene = _scene = Graphics3DSceneRenderer(
       world: () => engine.world,
       renderer: renderer,
       models: models,
@@ -212,13 +212,13 @@ final class Graphics3D implements RefreshableExtension, SceneCacheService {
     engine.world.addSystem(_animations = Animation3DSystem(models));
   }
 
-  /// A model [GraphicsModels.reload] asked for has loaded again: the
+  /// A model [Graphics3DModels.reload] asked for has loaded again: the
   /// engine's `ModelAsset` takes the new file, then 3-D physics rebuilds
   /// the colliders made from it — once a reload.
   Future<void> _modelReloaded(String path) async {
     final engine = _engine;
     if (engine == null) return;
-    final asset = engine.assets.get<GraphicsModelAsset>(path);
+    final asset = engine.assets.get<Graphics3DModelAsset>(path);
     if (asset != null) {
       try {
         await asset.reload();
@@ -254,8 +254,8 @@ final class Graphics3D implements RefreshableExtension, SceneCacheService {
     final models = _models;
     if (models != null) {
       models.reloadListeners.remove(_modelReloaded);
-      if (identical(engine?.context.graphicsModels, models)) {
-        engine?.context.graphicsModels = null;
+      if (identical(engine?.context.graphics3DModels, models)) {
+        engine?.context.graphics3DModels = null;
       }
       // The model assets the engine still holds keep the models: their GPU
       // side goes now.

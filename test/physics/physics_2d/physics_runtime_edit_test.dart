@@ -8,11 +8,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
 void main() {
-  late PhysicsEngine physics;
+  late Physics2DEngine physics;
   late World world;
 
   setUp(() {
-    physics = PhysicsEngine()..initialize();
+    physics = Physics2DEngine()..initialize();
     physics.setGravity(0, 2200);
     world = World()..initialize();
     world.addSystem(Physics2DSystem(physics));
@@ -25,7 +25,7 @@ void main() {
   Entity box({required bool sensor}) => world.createEntityWithComponents([
     TransformComponent(position: Vector3(0, 0, 0)),
     RigidBody2DComponent(
-      bodyType: BodyType.static,
+      bodyType: Body2DType.static,
       isSensor: sensor,
       restitution: 0,
     ),
@@ -73,13 +73,13 @@ void main() {
 
   test('a solid body made after a sensor in a disposed world is solid', () {
     // A sensor in another world, gone before this one starts.
-    final other = PhysicsEngine()..initialize();
+    final other = Physics2DEngine()..initialize();
     other.addBody(
-      PhysicsBody(
+      Physics2DBody(
         position: Vector2(0, 0),
-        shape: RectangleShape(200, 20),
+        shape: Rectangle2DShape(200, 20),
         mass: 0,
-        bodyType: BodyType.static,
+        bodyType: Body2DType.static,
         isSensor: true,
       ),
     );

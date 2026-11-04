@@ -17,13 +17,13 @@ import 'package:just_physics_engine/testing.dart';
 
 const _dt = 1 / 60;
 
-final _backends = <String, PhysicsWorld3D Function()>{
-  'fake': () => FakePhysicsWorld3D(PhysicsWorldSettings3D()),
-  'Jolt': () => JoltPhysicsEngine().createWorld(PhysicsWorldSettings3D()),
+final _backends = <String, Physics3DWorld Function()>{
+  'fake': () => FakePhysics3DWorld(Physics3DWorldSettings()),
+  'Jolt': () => JoltPhysicsEngine().createWorld(Physics3DWorldSettings()),
 };
 
-({World world, PhysicsWorld3D physics, Physics3DSystem system}) _setUp(
-  PhysicsWorld3D physics, {
+({World world, Physics3DWorld physics, Physics3DSystem system}) _setUp(
+  Physics3DWorld physics, {
   Collider3DGeometry? geometry,
 }) {
   final system = Physics3DSystem(physics, geometry: geometry);
@@ -52,7 +52,7 @@ Entity _crate(World world, {double x = 0}) => world.createEntityWithComponents([
 Entity _zone(World world) => world.createEntityWithComponents([
   TransformComponent(position: Vector3(0, -1, 0)),
   Collider3DComponent(size: Vector3(4, 2, 4)),
-  RigidBody3DComponent(bodyType: BodyType3D.static, isSensor: true),
+  RigidBody3DComponent(bodyType: Body3DType.static, isSensor: true),
 ], name: 'Zone');
 
 void _run(World world, int frames, [void Function(int frame)? each]) {
@@ -151,17 +151,17 @@ void main() {
 
   group('on the fake backend', () {
     test('a joint made again with a body holds it where it held it', () {
-      final physics = FakePhysicsWorld3D(PhysicsWorldSettings3D());
+      final physics = FakePhysics3DWorld(Physics3DWorldSettings());
       final (:world, physics: _, :system) = _setUp(physics);
       final frame = world.createEntityWithComponents([
         TransformComponent(position: Vector3.zero()),
         Collider3DComponent(),
-        RigidBody3DComponent(bodyType: BodyType3D.kinematic),
+        RigidBody3DComponent(bodyType: Body3DType.kinematic),
       ], name: 'Frame');
       final door = world.createEntityWithComponents([
         TransformComponent(position: Vector3(1, 0, 0)),
         Collider3DComponent(),
-        RigidBody3DComponent(bodyType: BodyType3D.kinematic),
+        RigidBody3DComponent(bodyType: Body3DType.kinematic),
         PointJoint3DComponent(
           connectedBody: const EntityTarget.name('Frame'),
           anchor: Vector3(-0.5, 0, 0),
@@ -196,7 +196,7 @@ void main() {
 
     test('a body refused for its layer is made once the layer is fixed', () {
       final (:world, :physics, :system) = _setUp(
-        FakePhysicsWorld3D(PhysicsWorldSettings3D()),
+        FakePhysics3DWorld(Physics3DWorldSettings()),
       );
       final rigid = RigidBody3DComponent(layer: 20);
       final box = world.createEntityWithComponents([
@@ -213,7 +213,7 @@ void main() {
 
     test('a reloaded model gives its colliders its new triangles', () {
       final geometry = _Geometry();
-      final physics = FakePhysicsWorld3D(PhysicsWorldSettings3D());
+      final physics = FakePhysics3DWorld(Physics3DWorldSettings());
       final (:world, physics: _, :system) = _setUp(
         physics,
         geometry: geometry,
@@ -226,7 +226,7 @@ void main() {
       final log = _Log(world);
       _run(world, 2);
       final first = system.bodyOf(ground);
-      final shape = physics.bodies[first]!.shape as MeshShape3D;
+      final shape = physics.bodies[first]!.shape as Mesh3DShape;
       expect(shape.positions[3], 10);
 
       // Loading again: the old shape meanwhile.
@@ -241,7 +241,7 @@ void main() {
       _run(world, 2);
       final now = system.bodyOf(ground);
       expect(now, isNot(first));
-      expect((physics.bodies[now]!.shape as MeshShape3D).positions[3], 20);
+      expect((physics.bodies[now]!.shape as Mesh3DShape).positions[3], 20);
       expect(log.exits, 0);
     });
   });

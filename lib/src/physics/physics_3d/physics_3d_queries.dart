@@ -41,7 +41,7 @@ final class Physics3DHit {
   String toString() => 'Physics3DHit(${entity?.name ?? body} at $point)';
 }
 
-/// Rays, sweeps and overlaps against a [PhysicsWorld3D], answered in
+/// Rays, sweeps and overlaps against a [Physics3DWorld], answered in
 /// entities. `Physics3D.queries` is one.
 ///
 /// Before the system has made its world (no 3-D body yet) every query
@@ -58,10 +58,10 @@ final class Physics3DQueries {
   final Physics3DSystem system;
 
   /// The world, or null while the system has none yet.
-  PhysicsWorld3D? get _world => system.hasWorld ? system.physics : null;
+  Physics3DWorld? get _world => system.hasWorld ? system.physics : null;
 
-  QueryFilter3D _filter(int layerMask, Entity? ignore, bool sensors) =>
-      QueryFilter3D(
+  Query3DFilter _filter(int layerMask, Entity? ignore, bool sensors) =>
+      Query3DFilter(
         layerMask: layerMask,
         ignoreBody: ignore == null ? 0 : _bodyOf(ignore),
         includeSensors: sensors,
@@ -75,7 +75,7 @@ final class Physics3DQueries {
     return character == 0 || world == null ? 0 : world.characterBody(character);
   }
 
-  List<Physics3DHit> _hits(List<QueryHit3D> hits, double length) => [
+  List<Physics3DHit> _hits(List<Query3DHit> hits, double length) => [
     for (final h in hits)
       Physics3DHit(
         entity: system.entityOf(h.body),
@@ -148,7 +148,7 @@ final class Physics3DQueries {
     Entity? ignore,
     bool includeSensors = false,
   }) => shapeCast(
-    SphereShape3D(radius),
+    Sphere3DShape(radius),
     origin,
     Quaternion.identity(),
     direction,
@@ -190,7 +190,7 @@ final class Physics3DQueries {
     Entity? ignore,
     bool includeSensors = false,
   }) => overlap(
-    SphereShape3D(radius),
+    Sphere3DShape(radius),
     center,
     Quaternion.identity(),
     layerMask: layerMask,
@@ -207,7 +207,7 @@ final class Physics3DQueries {
     Entity? ignore,
     bool includeSensors = false,
   }) => overlap(
-    BoxShape3D(halfExtents.x, halfExtents.y, halfExtents.z),
+    Box3DShape(halfExtents.x, halfExtents.y, halfExtents.z),
     center,
     rotation ?? Quaternion.identity(),
     layerMask: layerMask,

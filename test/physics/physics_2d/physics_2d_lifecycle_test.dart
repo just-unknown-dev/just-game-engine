@@ -6,15 +6,15 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_physics_engine/just_physics_engine.dart'
-    show PrismaticJoint;
+    show PrismaticJoint2D;
 
 const _frame = 1 / 60;
 
-({World world, PhysicsEngine physics}) _setUp({
-  PhysicsEngine? engine,
+({World world, Physics2DEngine physics}) _setUp({
+  Physics2DEngine? engine,
   double gravityY = 981,
 }) {
-  final physics = (engine ?? PhysicsEngine())..initialize();
+  final physics = (engine ?? Physics2DEngine())..initialize();
   physics.setGravity(0, gravityY);
   final world = World()..initialize();
   world.addSystem(Physics2DSystem(physics));
@@ -29,7 +29,7 @@ const _frame = 1 / 60;
 Entity _ground(World world, {double x = 0, String name = 'Ground'}) =>
     world.createEntityWithComponents([
       TransformComponent(position: Vector3(x, 300, 0)),
-      RigidBody2DComponent(bodyType: BodyType.static, restitution: 0),
+      RigidBody2DComponent(bodyType: Body2DType.static, restitution: 0),
       Collider2DComponent(size: Vector2(2000, 40)),
     ], name: name);
 
@@ -59,8 +59,8 @@ void _step(World world, [int frames = 1]) {
   }
 }
 
-PhysicsBody _bodyOf(Entity entity) =>
-    entity.getComponent<PhysicsBodyRefComponent>()!.body;
+Physics2DBody _bodyOf(Entity entity) =>
+    entity.getComponent<Physics2DBodyRefComponent>()!.body;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -75,7 +75,7 @@ void main() {
 
       world.clearSystems();
       expect(physics.stats['bodyCount'], 0);
-      expect(box.hasComponent<PhysicsBodyRefComponent>(), isFalse);
+      expect(box.hasComponent<Physics2DBodyRefComponent>(), isFalse);
     });
 
     test('so does removing the system alone', () {
@@ -94,7 +94,7 @@ void main() {
       world.addSystem(Physics2DSystem(physics));
       _step(world);
       expect(physics.stats['bodyCount'], 1);
-      expect(box.hasComponent<PhysicsBodyRefComponent>(), isTrue);
+      expect(box.hasComponent<Physics2DBodyRefComponent>(), isTrue);
     });
   });
 
@@ -124,7 +124,7 @@ void main() {
       final second = _box(world, x: 500);
       _step(world);
 
-      final ref = second.getComponent<PhysicsBodyRefComponent>();
+      final ref = second.getComponent<Physics2DBodyRefComponent>();
       expect(ref, isNotNull);
       expect(ref!.body, isNot(same(oldBody)));
       expect(physics.stats['bodyCount'], 1);
@@ -143,7 +143,7 @@ void main() {
       box.isActive = false;
       _step(world);
       expect(physics.stats['bodyCount'], 0);
-      expect(box.hasComponent<PhysicsBodyRefComponent>(), isFalse);
+      expect(box.hasComponent<Physics2DBodyRefComponent>(), isFalse);
 
       box.getComponent<TransformComponent>()!.position.x = 90;
       box.isActive = true;
@@ -158,7 +158,7 @@ void main() {
       final (:world, physics: _) = _setUp();
       final wall = world.createEntityWithComponents([
         TransformComponent(position: Vector3(0.1, 0.3, 0)),
-        RigidBody2DComponent(bodyType: BodyType.static),
+        RigidBody2DComponent(bodyType: Body2DType.static),
         Collider2DComponent(size: Vector2(10, 10)),
       ]);
       _step(world);
@@ -190,8 +190,8 @@ void main() {
 
   group('sleep, on the pure-Dart backend', () {
     // Without gravity nothing holds a body down, so at rest it can sleep.
-    ({World world, PhysicsEngine physics}) restful() =>
-        _setUp(engine: PhysicsEngine.pureDart(), gravityY: 0);
+    ({World world, Physics2DEngine physics}) restful() =>
+        _setUp(engine: Physics2DEngine.pureDart(), gravityY: 0);
 
     test('a body at rest falls asleep', () {
       final (:world, physics: _) = restful();
@@ -239,7 +239,7 @@ void main() {
 
     test('a changed setting wakes it: gravity switched back on', () {
       final (:world, physics: _) = _setUp(
-        engine: PhysicsEngine.pureDart(),
+        engine: Physics2DEngine.pureDart(),
         gravityY: 500,
       );
       // Weightless, it rests in mid-air and sleeps.
@@ -308,7 +308,7 @@ void main() {
 
   group('joints', () {
     test('a weld on a moving body is made once, not every frame', () {
-      final (:world, :physics) = _setUp(engine: PhysicsEngine.pureDart());
+      final (:world, :physics) = _setUp(engine: Physics2DEngine.pureDart());
       _box(
         world,
         extra: [
@@ -325,7 +325,7 @@ void main() {
 
     test('a changed setting makes the joint again', () {
       final (:world, :physics) = _setUp(
-        engine: PhysicsEngine.pureDart(),
+        engine: Physics2DEngine.pureDart(),
         gravityY: 0,
       );
       final spring = DistanceJoint2DComponent(
@@ -335,19 +335,19 @@ void main() {
       _box(world, extra: [spring]);
       _box(world, x: 40, name: 'B');
       _step(world);
-      final first = physics.joints.single as DistanceJoint;
+      final first = physics.joints.single as DistanceJoint2D;
       expect(first.minLength, 40);
 
       spring.length = 60;
       _step(world);
-      final second = physics.joints.single as DistanceJoint;
+      final second = physics.joints.single as DistanceJoint2D;
       expect(second, isNot(same(first)));
       expect(second.minLength, 60);
     });
 
     test('a prismatic joint takes its limits and motor', () {
       final (:world, :physics) = _setUp(
-        engine: PhysicsEngine.pureDart(),
+        engine: Physics2DEngine.pureDart(),
         gravityY: 0,
       );
       _box(
@@ -365,7 +365,7 @@ void main() {
       );
       _box(world, x: 40, name: 'B');
       _step(world);
-      final joint = physics.joints.single as PrismaticJoint;
+      final joint = physics.joints.single as PrismaticJoint2D;
       expect(joint.limitEnabled, isTrue);
       expect((joint.lowerLimit, joint.upperLimit), (-5, 7));
       expect(joint.motorEnabled, isTrue);
@@ -374,7 +374,7 @@ void main() {
 
     test('a target renamed away loses its joint; named back, regains it', () {
       final (:world, :physics) = _setUp(
-        engine: PhysicsEngine.pureDart(),
+        engine: Physics2DEngine.pureDart(),
         gravityY: 0,
       );
       _box(

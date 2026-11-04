@@ -2,19 +2,18 @@
 // an anchor no backend takes, a wheel is for its axle (F21, PHY-2); the
 // prismatic joint's editor groups name only its
 // fields (F21); without native wheel joints a wheel is the physics engine's
-// own wheel joint, its motor spinning the wheel (F24); a ray collider with
-// no size is hit by nothing (F28); a collision event needs no penetration
-// (F29).
+// own wheel joint, its motor spinning the wheel (F24); a collision event
+// needs no penetration (F29).
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_physics_engine/just_physics_engine.dart'
-    show WheelJoint, WeldJoint;
+    show WheelJoint2D, WeldJoint2D;
 
 const _frame = 1 / 60;
 
-({World world, PhysicsEngine physics}) _setUp() {
-  final physics = PhysicsEngine.pureDart()..initialize();
+({World world, Physics2DEngine physics}) _setUp() {
+  final physics = Physics2DEngine.pureDart()..initialize();
   physics.setGravity(0, 0);
   final world = World()..initialize();
   world.addSystem(Physics2DSystem(physics));
@@ -48,7 +47,7 @@ void main() {
     _box(world, x: 30, name: 'B');
     world.update(_frame);
     final first = physics.joints.single;
-    expect(first, isA<WeldJoint>());
+    expect(first, isA<WeldJoint2D>());
 
     world.update(_frame);
     expect(physics.joints.single, same(first), reason: 'nothing changed');
@@ -106,7 +105,7 @@ void main() {
     );
     _box(world, x: 0, name: 'Wheel');
     world.update(_frame);
-    final wheel = physics.joints.single as WheelJoint;
+    final wheel = physics.joints.single as WheelJoint2D;
     // Hertz and a damping ratio, in the pure-Dart joint's own terms.
     expect((
       wheel.springStiffness,
@@ -114,36 +113,6 @@ void main() {
     ), Physics2DJoints.dartSpring(30, 0.5));
     expect(wheel.motorEnabled, isTrue);
     expect((wheel.motorSpeed, wheel.maxMotorTorque), (7.0, 90.0));
-  });
-
-  group('ray colliders', () {
-    late World world;
-    late RaycastSystem rays;
-
-    setUp(() {
-      world = World()..initialize();
-      rays = RaycastSystem();
-      world.addSystem(rays);
-    });
-    tearDown(() => world.dispose());
-
-    Entity target(RaycastColliderComponent collider) =>
-        world.createEntityWithComponents([
-          TransformComponent(position: Vector3(50, 0, 0)),
-          collider,
-        ]);
-
-    Ray rightward() => Ray(origin: Offset.zero, direction: const Offset(1, 0));
-
-    test('one with no size at all is hit by nothing', () {
-      target(RaycastColliderComponent());
-      expect(rays.raycast(rightward()), isNull);
-    });
-
-    test('one with a radius is hit', () {
-      final e = target(RaycastColliderComponent(radius: 5));
-      expect(rays.raycast(rightward())?.entity, same(e));
-    });
   });
 
   test('a collision event is made without a depth', () {

@@ -225,7 +225,9 @@ void main() {
   group('drawing', () {
     late RenderSystem render;
     setUp(() {
-      render = RenderSystem(camera: Camera(viewportSize: const Size(400, 300)));
+      render = RenderSystem(
+        camera: OutputCamera(viewportSize: const Size(400, 300)),
+      );
       world.addSystem(render);
     });
 

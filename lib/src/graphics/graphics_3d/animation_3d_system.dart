@@ -8,7 +8,7 @@ import 'package:just_graphics_engine/renderer.dart';
 
 import '../../ecs/ecs.dart';
 import 'model_components.dart';
-import 'graphics_models.dart';
+import 'graphics_3d_models.dart';
 
 /// Poses to blend through while sampling a player: one set per model. It
 /// also remembers what was last sampled, so a pose that would come out the
@@ -284,7 +284,7 @@ final class Animation3DSystem extends System {
   }
 
   /// Where models are loaded.
-  final GraphicsModels models;
+  final Graphics3DModels models;
 
   @override
   List<Type> get requiredComponents => const [AnimationPlayerComponent];

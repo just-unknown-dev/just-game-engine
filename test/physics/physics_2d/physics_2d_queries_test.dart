@@ -6,13 +6,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
 void main() {
-  late PhysicsEngine physics;
+  late Physics2DEngine physics;
   late World world;
   late Physics2DSystem system;
   late Physics2DQueries queries;
 
   setUp(() {
-    physics = PhysicsEngine()..initialize();
+    physics = Physics2DEngine()..initialize();
     physics.setGravity(0, 0);
     world = World()..initialize();
     world.addSystem(system = Physics2DSystem(physics));
@@ -27,7 +27,7 @@ void main() {
       world.createEntityWithComponents([
         TransformComponent(position: Vector3(x, 0, 0)),
         RigidBody2DComponent(
-          bodyType: BodyType.static,
+          bodyType: Body2DType.static,
           layer: layer,
           isSensor: sensor,
         ),
@@ -95,7 +95,7 @@ void main() {
   test('a box overlaps shapes, not the boxes round them', () {
     final ball = world.createEntityWithComponents([
       TransformComponent(),
-      RigidBody2DComponent(bodyType: BodyType.static),
+      RigidBody2DComponent(bodyType: Body2DType.static),
       Collider2DComponent(shape: Collider2DShape.circle, radius: 50),
     ], name: 'ball');
     world.update(1 / 60);

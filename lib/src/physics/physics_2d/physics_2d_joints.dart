@@ -9,7 +9,7 @@ import 'package:meta/meta.dart' show internal;
 
 import '../../ecs/ecs.dart';
 import 'joint_2d_components.dart';
-import 'physics_body_ref_component.dart';
+import 'physics_2d_body_ref_component.dart';
 
 /// The 2-D joints ([DistanceJoint2DComponent], [FixedJoint2DComponent],
 /// [SliderJoint2DComponent], [WheelJoint2DComponent]) side of
@@ -20,7 +20,7 @@ import 'physics_body_ref_component.dart';
 ///
 /// A joint is between the body of the entity it is on and the body of its
 /// [Joint2DComponent.connectedBody] — both need one, which
-/// `Physics2DSystem` names with a [PhysicsBodyRefComponent]. It is made
+/// `Physics2DSystem` names with a [Physics2DBodyRefComponent]. It is made
 /// once and kept until its component changes, either body is made again,
 /// or either entity goes; the entities carrying joints are found again only
 /// when the world's structure changes, and a joint's other entity is looked
@@ -34,7 +34,7 @@ import 'physics_body_ref_component.dart';
 /// here ([dartSpring]). A slider's and a wheel's axis is in the joint
 /// entity's space, turned to the world's as the joint is made.
 ///
-/// **What the backends take** (just_physics_engine 1.4.1). Its joint
+/// **What the backends take** (just_physics_engine 2.0.0). Its joint
 /// factories take no anchors and no `collideConnected`, so:
 /// - a distance joint holds the two bodies' centres apart, a fixed joint
 ///   holds the bodies where they are when it is made (welded at their
@@ -67,11 +67,11 @@ final class Physics2DJoints {
 
   /// The physics engine the joints are made in and removed from — the one
   /// that holds the entities' bodies.
-  final PhysicsEngine physics;
+  final Physics2DEngine physics;
 
   /// A joint holding `a` and `b` with `collideConnected` off was made
   /// (`joined`), or taken down.
-  final void Function(PhysicsBody a, PhysicsBody b, {required bool joined})
+  final void Function(Physics2DBody a, Physics2DBody b, {required bool joined})
   onQuiet;
 
   /// Each joint component's joint, by component.
@@ -95,7 +95,7 @@ final class Physics2DJoints {
   void sync(World world) {
     _frame++;
     final structureChanged =
-        world.queryVersion(const [PhysicsBodyRefComponent]) !=
+        world.queryVersion(const [Physics2DBodyRefComponent]) !=
         _seenStructureVersion;
     if (structureChanged) _refreshOwners(world);
 
@@ -116,7 +116,7 @@ final class Physics2DJoints {
           !_answers(target, want)) {
         target = want.resolve(world, entity);
       }
-      final bRef = target?.getComponent<PhysicsBodyRefComponent>();
+      final bRef = target?.getComponent<Physics2DBodyRefComponent>();
       if (target == null || bRef == null || identical(target, entity)) {
         continue;
       }
@@ -182,10 +182,12 @@ final class Physics2DJoints {
   /// checking an entity's joints in the order distance, fixed, slider,
   /// wheel.
   void _refreshOwners(World world) {
-    _seenStructureVersion = world.queryVersion(const [PhysicsBodyRefComponent]);
+    _seenStructureVersion = world.queryVersion(const [
+      Physics2DBodyRefComponent,
+    ]);
     _owners.clear();
     for (final archetype in world.queryArchetypes(const [
-      PhysicsBodyRefComponent,
+      Physics2DBodyRefComponent,
     ])) {
       final ids = archetype.entityIds;
       if (ids.isEmpty) continue;
@@ -193,10 +195,10 @@ final class Physics2DJoints {
         for (final type in _jointTypes) ?archetype.getColumn(type),
       ];
       if (columns.isEmpty) continue;
-      final refs = archetype.getColumn(PhysicsBodyRefComponent)!;
+      final refs = archetype.getColumn(Physics2DBodyRefComponent)!;
       for (var row = 0; row < ids.length; row++) {
         final entity = archetype.entityAt(row);
-        final ref = refs[row] as PhysicsBodyRefComponent;
+        final ref = refs[row] as Physics2DBodyRefComponent;
         for (final column in columns) {
           _owners.add(
             _JointOwner(entity, ref, column[row] as Joint2DComponent),
@@ -224,8 +226,8 @@ final class Physics2DJoints {
   _JointBinding? _create(
     Entity a,
     Entity b,
-    PhysicsBody bodyA,
-    PhysicsBody bodyB,
+    Physics2DBody bodyA,
+    Physics2DBody bodyB,
     Component comp,
   ) {
     final physics = this.physics;
@@ -240,7 +242,7 @@ final class Physics2DJoints {
           stiffness: comp.stiffness,
           damping: comp.damping,
         );
-        if (joint is DistanceJoint && comp.stiffness > 0) {
+        if (joint is DistanceJoint2D && comp.stiffness > 0) {
           final (k, c) = dartSpring(comp.stiffness, comp.damping);
           joint
             ..stiffness = k
@@ -280,11 +282,11 @@ final class Physics2DJoints {
     return null;
   }
 
-  List<JointConstraint> _createWheel(
+  List<Joint2D> _createWheel(
     Entity a,
     Entity b,
-    PhysicsBody bodyA,
-    PhysicsBody bodyB,
+    Physics2DBody bodyA,
+    Physics2DBody bodyB,
     WheelJoint2DComponent comp,
   ) {
     final axis = _worldAxis(a, comp.axis);
@@ -313,7 +315,7 @@ final class Physics2DJoints {
     // Without native wheel joints: the physics engine's own wheel joint —
     // the Dart one — sprung along the axis, its motor spinning the wheel.
     final wheel = physics.addWheelJoint(bodyA, bodyB, axis);
-    if (wheel is WheelJoint) {
+    if (wheel is WheelJoint2D) {
       final (k, c) = comp.stiffness > 0
           ? dartSpring(comp.stiffness, comp.damping)
           : (0.0, 0.0);
@@ -348,7 +350,7 @@ final class Physics2DJoints {
   }
 
   void _configurePrismaticJoint(
-    JointConstraint joint, {
+    Joint2D joint, {
     bool? enableLimit,
     double? lower,
     double? upper,
@@ -370,7 +372,7 @@ final class Physics2DJoints {
       return;
     }
 
-    if (joint is PrismaticJoint) {
+    if (joint is PrismaticJoint2D) {
       if (enableLimit != null) joint.limitEnabled = enableLimit;
       if (lower != null) joint.lowerLimit = lower;
       if (upper != null) joint.upperLimit = upper;
@@ -410,7 +412,7 @@ final class Physics2DJoints {
   /// than blowing up, and both backends settle alike.
   static (double, double) dartSpring(double hertz, double ratio) {
     if (!(hertz > 0)) return (0.0, 0.0);
-    const h = PhysicsEngine.fixedDeltaTime;
+    const h = Physics2DEngine.fixedDeltaTime;
     final omega = 2 * math.pi * hertz;
     final a1 = 2 * ratio + h * omega;
     final a2 = h * omega * a1;
@@ -425,7 +427,7 @@ final class _JointOwner {
   _JointOwner(this.entity, this.ref, this.joint);
 
   final Entity entity;
-  final PhysicsBodyRefComponent ref;
+  final Physics2DBodyRefComponent ref;
   final Joint2DComponent joint;
 }
 
@@ -438,9 +440,9 @@ bool _same(double a, double b) => a == b || (a.isNaN && b.isNaN);
 sealed class _JointBinding {
   _JointBinding(this.bodyA, this.bodyB, this.joints);
 
-  final PhysicsBody bodyA;
-  final PhysicsBody bodyB;
-  final List<JointConstraint> joints;
+  final Physics2DBody bodyA;
+  final Physics2DBody bodyB;
+  final List<Joint2D> joints;
 
   /// The entity [bodyB] belongs to, as last looked up.
   Entity? target;
@@ -512,7 +514,7 @@ final class _WeldBinding extends _JointBinding {
   /// Puts [b] back where this weld held it against [a] (or [a] against
   /// [b], when [b] cannot be moved) before the weld is made again with
   /// them.
-  void restore(PhysicsEngine physics, PhysicsBody a, PhysicsBody b) {
+  void restore(Physics2DEngine physics, Physics2DBody a, Physics2DBody b) {
     if (!b.isStatic) {
       final cos = math.cos(a.angle), sin = math.sin(a.angle);
       physics.setBodyTransform(

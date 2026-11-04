@@ -61,7 +61,7 @@ void main() {
   });
 
   test('2k physics bodies: step + transform sync', () {
-    final physics = PhysicsEngine.pureDart()..initialize();
+    final physics = Physics2DEngine.pureDart()..initialize();
     addTearDown(physics.dispose);
     physics.setGravity(0, 0);
     final world = World()..initialize();

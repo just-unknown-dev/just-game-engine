@@ -24,8 +24,8 @@ abstract final class Physics2DDefinitions {
   static const _plain = ScrubHint(step: 0.05, fractionDigits: 2);
 
   static const _bodyType = EnumFieldType(
-    BodyType.values,
-    fallback: BodyType.dynamic,
+    Body2DType.values,
+    fallback: Body2DType.dynamic,
     id: 'enum.bodyType',
   );
 
@@ -157,7 +157,7 @@ abstract final class Physics2DDefinitions {
         name: 'bodyType',
         kind: _bodyType,
         read: (c) => (c as RigidBody2DComponent).bodyType,
-        write: (c, v) => (c as RigidBody2DComponent).bodyType = v as BodyType,
+        write: (c, v) => (c as RigidBody2DComponent).bodyType = v as Body2DType,
       ),
       _d<RigidBody2DComponent>(
         'mass',
@@ -280,6 +280,7 @@ abstract final class Physics2DDefinitions {
           ],
           'Placement': ['offset', 'rotation', 'scale'],
           'One-way': ['oneWay', 'oneWayDirection'],
+          'Rays': ['reflectivity'],
           'Debug': ['showDebugOutline'],
         },
         foldedGroups: const {'Debug'},
@@ -355,6 +356,14 @@ abstract final class Physics2DDefinitions {
             label: 'Solid from',
             description: 'The side a one-way collider stops things from.',
             visibleWhen: (c) => (c as Collider2DComponent).oneWay,
+          ),
+          'reflectivity': const FieldHint(
+            label: 'Reflectivity',
+            description:
+                'How much of a traced ray (RayTracer2D) bounces off it: 0 '
+                'absorbs the ray, 1 mirrors all that is left of it.',
+            slider: true,
+            scrub: _plain,
           ),
           'showDebugOutline': const FieldHint(
             label: 'Show outline',
@@ -454,6 +463,13 @@ abstract final class Physics2DDefinitions {
           read: (c) => (c as Collider2DComponent).oneWayDirection,
           write: (c, v) =>
               (c as Collider2DComponent).oneWayDirection = v as OneWayDirection,
+        ),
+        _d<Collider2DComponent>(
+          'reflectivity',
+          (c) => c.reflectivity,
+          (c, v) => c.reflectivity = v,
+          min: 0,
+          max: 1,
         ),
         _b<Collider2DComponent>(
           'showDebugOutline',
@@ -682,7 +698,7 @@ abstract final class Physics2DDefinitions {
   ];
 
   // The anchors are saved on every joint but shown only where a backend
-  // takes them: just_physics_engine 1.4.1's distance, fixed and slider
+  // takes them: just_physics_engine 2.0.0's distance, fixed and slider
   // joints take none, and a wheel only its axle (see Physics2DJoints).
   static const Map<String, FieldHint> _jointHints = {
     'connectedBody': _connectedBodyHint,

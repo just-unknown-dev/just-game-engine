@@ -10,12 +10,12 @@ import 'package:just_game_engine/src/physics/contact_pairs.dart';
 
 const _frame = 1 / 60;
 
-final _backends = <String, PhysicsEngine Function()>{
-  'native': PhysicsEngine.new,
-  'pure Dart': PhysicsEngine.pureDart,
+final _backends = <String, Physics2DEngine Function()>{
+  'native': Physics2DEngine.new,
+  'pure Dart': Physics2DEngine.pureDart,
 };
 
-({World world, PhysicsEngine physics}) _setUp(PhysicsEngine engine) {
+({World world, Physics2DEngine physics}) _setUp(Physics2DEngine engine) {
   final physics = engine..initialize();
   physics.setGravity(0, 981);
   final world = World()..initialize();
@@ -43,7 +43,7 @@ Entity _crate(World world, {double x = 0, double y = 260}) =>
 /// A static sensor 100 wide round (0, 250).
 Entity _zone(World world) => world.createEntityWithComponents([
   TransformComponent(position: Vector3(0, 250, 0)),
-  RigidBody2DComponent(bodyType: BodyType.static, isSensor: true),
+  RigidBody2DComponent(bodyType: Body2DType.static, isSensor: true),
   Collider2DComponent(size: Vector2(100, 100)),
 ], name: 'Zone');
 
@@ -54,8 +54,8 @@ void _step(World world, [int frames = 1, void Function(int)? each]) {
   }
 }
 
-PhysicsBody _bodyOf(Entity entity) =>
-    entity.getComponent<PhysicsBodyRefComponent>()!.body;
+Physics2DBody _bodyOf(Entity entity) =>
+    entity.getComponent<Physics2DBodyRefComponent>()!.body;
 
 final class _Log {
   _Log(World world) {
@@ -170,7 +170,7 @@ void main() {
         _ground(world);
         world.createEntityWithComponents([
           TransformComponent(position: Vector3(300, 280, 0)),
-          RigidBody2DComponent(bodyType: BodyType.static, isSensor: true),
+          RigidBody2DComponent(bodyType: Body2DType.static, isSensor: true),
           Collider2DComponent(size: Vector2(100, 100)),
         ], name: 'Low zone');
         final log = _Log(world);

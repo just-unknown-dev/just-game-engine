@@ -7,7 +7,7 @@ import 'package:just_game_engine/just_game_engine.dart';
 
 const _slope = 2;
 
-late PhysicsEngine _physics;
+late Physics2DEngine _physics;
 
 TilesetData _tileset() =>
     TilesetData(
@@ -35,7 +35,7 @@ TilesetData _tileset() =>
 (World, Entity, MapLayerData) _world() {
   final world = World()..initialize();
   world.context.tiles.putTileset('test/t.tileset.json', _tileset());
-  _physics = PhysicsEngine.pureDart()..initialize();
+  _physics = Physics2DEngine.pureDart()..initialize();
   addTearDown(() {
     world.dispose();
     _physics.dispose();

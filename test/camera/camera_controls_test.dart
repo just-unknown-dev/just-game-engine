@@ -7,7 +7,7 @@ import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_game_engine/widgets.dart';
 
 void main() {
-  Widget controls(Camera camera) => MaterialApp(
+  Widget controls(OutputCamera camera) => MaterialApp(
     home: GameCameraControls(
       camera: camera,
       showZoomLevel: true,
@@ -26,7 +26,7 @@ void main() {
   testWidgets('a zoom changed elsewhere enables the buttons again', (
     tester,
   ) async {
-    final camera = Camera(minZoom: 0.5, maxZoom: 2);
+    final camera = OutputCamera(minZoom: 0.5, maxZoom: 2);
     await tester.pumpWidget(controls(camera));
     for (var i = 0; i < 10; i++) {
       await tester.tap(find.byTooltip('Zoom out'));
@@ -45,9 +45,9 @@ void main() {
   testWidgets('a camera swapped in a rebuild shows its own zoom', (
     tester,
   ) async {
-    await tester.pumpWidget(controls(Camera(zoom: 1)));
+    await tester.pumpWidget(controls(OutputCamera(zoom: 1)));
     expect(find.text('1.0x'), findsOneWidget);
-    await tester.pumpWidget(controls(Camera(zoom: 2)));
+    await tester.pumpWidget(controls(OutputCamera(zoom: 2)));
     await tester.pump();
     expect(find.text('2.0x'), findsOneWidget);
   });

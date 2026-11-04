@@ -18,8 +18,8 @@ import 'animation_3d_system.dart';
 import 'model_components.dart';
 import 'lighting/environment_component.dart';
 import 'lighting/light_3d_component.dart';
-import 'graphics_models.dart';
-import 'graphics_shapes.dart';
+import 'graphics_3d_models.dart';
+import 'graphics_3d_shapes.dart';
 import 'materials/material_3d_library.dart';
 import 'materials/material_overrides_3d_component.dart';
 import 'render_providers.dart';
@@ -27,7 +27,7 @@ import 'shapes/primitive_3d_component.dart';
 
 /// What an editor shows in its views of the scene beyond what the game
 /// draws: what it hides, the selection's outline, a view mode and a slice.
-/// Set by the editor (`GraphicsSceneRenderer.aids`), never by a game, and
+/// Set by the editor (`Graphics3DSceneRenderer.aids`), never by a game, and
 /// left out of the [plainViews] — the game's own camera seen in the editor.
 final class SceneEditorAids {
   /// Whether `entity` is drawn; null draws everything. Hidden and isolated
@@ -80,9 +80,9 @@ final class SceneEditorAids {
 /// What it draws from stays loaded — models, material files, maps — until
 /// [releaseUnused] lets go of what the world no longer draws (after a level
 /// changes, say).
-final class GraphicsSceneRenderer extends SceneRenderer {
+final class Graphics3DSceneRenderer extends SceneRenderer {
   /// Draws the world [world] gives with [renderer], models from [models].
-  GraphicsSceneRenderer({
+  Graphics3DSceneRenderer({
     required this.world,
     required this.renderer,
     required this.models,
@@ -100,7 +100,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   final Renderer3D renderer;
 
   /// Where models come from.
-  final GraphicsModels models;
+  final Graphics3DModels models;
 
   /// Why there is no GPU to draw with, or null when there is one.
   final String? unsupportedReason;
@@ -134,7 +134,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   );
 
   /// The shapes' meshes and materials.
-  late final GraphicsShapes shapes = GraphicsShapes(
+  late final Graphics3DShapes shapes = Graphics3DShapes(
     renderer.uploader,
     models.read,
     inUse: _shapesInUse,
@@ -1224,7 +1224,7 @@ final class GraphicsSceneRenderer extends SceneRenderer {
   /// A file changed on disk: the material files and maps, the shapes'
   /// textures and the skybox read from it are read again — what they were
   /// is drawn until they arrive. (A model is read again by
-  /// [GraphicsModels.reload].)
+  /// [Graphics3DModels.reload].)
   void reload(String path) {
     materials.reload(path);
     shapes.reloadTexture(path);

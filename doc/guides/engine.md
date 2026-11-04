@@ -75,7 +75,7 @@ Everything that shapes an engine is set once, in the `EngineConfig` you pass to 
 | `services` | `EngineService`s started with the engine, in the order listed, and stopped with it. 3-D is two of them: `services: [Graphics3D(), Physics3D()]` from `package:just_game_engine/just_game_engine_3d.dart` (see [3D graphics](/docs/graphics-3d) and [3D physics](/docs/physics-3d); Physics3D also needs `hooks: user_defines: just_jolt: build: true`). Without them a game is 2-D only. |
 | `createRendering` | Builds your own `RenderingEngine` subclass instead of the standard one. |
 | `createAudio` | Builds the `AudioEngine`, for example with `AudioEngine.withBackend(...)`. |
-| `createPhysics` | Builds the 2-D `PhysicsEngine`. Null gives Box2D on native platforms and the pure-Dart engine on the web. |
+| `createPhysics` | Builds the 2-D `Physics2DEngine`. Null gives Box2D on native platforms and the pure-Dart engine on the web. |
 | `deferAudioUntilInput` | Starts audio at the first key or pointer press. Null means on the web only. |
 
 `initialize(config: ...)` still accepts a config and replaces the constructor's, for code written for 1.x. Prefer `Engine(config: ...)`.
@@ -127,7 +127,7 @@ The subsystem getters throw `EngineNotReadyError` (a `StateError` naming the mem
 
 `DefaultSystems.all` is every one. `DefaultSystems.headless` leaves out `rendering` and `audio`, for a server, a simulation or a test.
 
-`registerDefaultSystems(world, engine, include: ...)` adds the same systems to any world. It skips a system type the world already has, so you can add your own configured instance first. Add these yourself when you use them: `ParticleSystem`, `EffectSystem`, `PostProcessSystem`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `RaycastSystem`, `DialogueSystem`, `ViewCullingSystem`, `BoundarySystem`, `SimpleMovementSystem` and `FlowFieldSystem`. The 3-D services add their own systems as they start: `Graphics3D` adds `Animation3DSystem`, and `Physics3D` adds `Physics3DSystem` unless it is made with `addSystem: false`.
+`registerDefaultSystems(world, engine, include: ...)` adds the same systems to any world. It skips a system type the world already has, so you can add your own configured instance first. Add these yourself when you use them: `ParticleSystem`, `EffectSystem`, `PostProcessSystem`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `DialogueSystem`, `ViewCullingSystem`, `BoundarySystem`, `SimpleMovementSystem` and `FlowFieldSystem`. The 3-D services add their own systems as they start: `Graphics3D` adds `Animation3DSystem`, and `Physics3D` adds `Physics3DSystem` unless it is made with `addSystem: false`.
 
 ## Subsystems
 
@@ -137,7 +137,7 @@ These exist between `initialize()` and `dispose()`:
 |---|---|---|
 | `engine.world` | `World` | Entities, components and systems; see [World, entities & systems](/docs/ecs). |
 | `engine.rendering` | `RenderingEngine` | Draws the frame: background colour, render hooks, post-processing, `stats`. |
-| `engine.physics` | `PhysicsEngine` | 2-D physics, stepped by `Physics2DSystem`; see [2D physics](/docs/physics-2d). |
+| `engine.physics` | `Physics2DEngine` | 2-D physics, stepped by `Physics2DSystem`; see [2D physics](/docs/physics-2d). |
 | `engine.input` | `InputService` | Actions, devices and players; see [Input](/docs/input). |
 | `engine.audio`, `engine.music`, `engine.sfx` | `AudioEngine`, `MusicManager`, `SoundEffectManager` | Sound; see [Audio](/docs/audio). |
 | `engine.cache` | `CacheManager` | Strings, JSON and binary data kept between runs. |
@@ -173,7 +173,7 @@ After a frame's steps, systems that also implement `PerFrame` run their `frame(d
 - the game's `localization` (`ContextLocalization`)
 - the `sprites` loader (`ContextSprites`), the `prefabs` loader and the `prefabLibrary` (`ContextPrefabs`), and the 2-D materials' `material2DText` loader and `material2DLibrary` (`ContextMaterials2D`)
 - the camera stages and managers every brain runs, `cameraRegistries` (`ContextCameraRegistries`)
-- with 3-D, `renderProviders` (`ContextRenderProviders`) and `graphicsModels` (`ContextGraphicsModels`), from `package:just_game_engine/just_game_engine_3d.dart`
+- with 3-D, `renderProviders` (`ContextRenderProviders`) and `graphics3DModels` (`ContextGraphics3DModels`), from `package:just_game_engine/just_game_engine_3d.dart`
 - `overrideLoaders` and `useBundle` (`ContextLoaders`)
 
 The engine makes the context in its constructor and installs `BuiltInComponents.extension` into it first, so you can fill it before `initialize()`.

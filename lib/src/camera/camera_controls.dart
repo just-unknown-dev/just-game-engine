@@ -1,14 +1,14 @@
 /// Game Camera Controls widget
 ///
 /// A Flutter widget that overlays zoom controls on top of any child widget
-/// (typically a [GameWidget]) and wires them to a [Camera].
+/// (typically a [GameWidget]) and wires them to an [OutputCamera].
 ///
 /// **Performance design**
 ///
 /// Camera mutations are applied directly to [camera] — no [State.setState] is
 /// ever called on the game child.  [GameWidget] already repaints itself every
 /// vsync frame through its own [Ticker] + `_repaintNotifier` mechanism, so it
-/// picks up the updated [Camera.zoom] automatically.
+/// picks up the updated [OutputCamera.zoom] automatically.
 ///
 /// Only the small button-column overlay is rebuilt, and only when the zoom
 /// value actually changes, via a scoped [ValueListenableBuilder].
@@ -23,7 +23,7 @@ import 'package:flutter/scheduler.dart' show SchedulerBinding;
 import 'output_camera.dart';
 
 /// A widget that wraps [child] with scroll-wheel and on-screen +/− zoom
-/// controls that operate a [Camera] without rebuilding the child.
+/// controls that operate an [OutputCamera] without rebuilding the child.
 ///
 /// ```dart
 /// GameCameraControls(
@@ -46,8 +46,8 @@ class GameCameraControls extends StatefulWidget {
     this.enablePinch = true,
   });
 
-  /// The [Camera] whose [Camera.zoom] is controlled.
-  final Camera camera;
+  /// The [OutputCamera] whose [OutputCamera.zoom] is controlled.
+  final OutputCamera camera;
 
   /// Child widget — never rebuilt when zoom changes.
   final Widget child;
@@ -178,7 +178,7 @@ class _GameCameraControlsState extends State<GameCameraControls> {
     if (_isDragging && widget.enablePan) {
       final delta = event.position - _dragLastPos;
       // The screen-space drag in world space: scaled by the zoom and turned
-      // by the camera's roll, as Camera.screenToWorld does — so the world
+      // by the camera's roll, as OutputCamera.screenToWorld does — so the world
       // follows the pointer whichever way the camera is turned.
       final camera = widget.camera;
       final dx = -delta.dx / camera.zoom, dy = -delta.dy / camera.zoom;

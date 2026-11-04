@@ -35,7 +35,7 @@ class _Counting extends EnginePlugin {
 class _MyRendering extends RenderingEngine {}
 
 RenderingEngine _rendering() => RenderingEngine()
-  ..camera = Camera(viewportSize: const Size(640, 360))
+  ..camera = OutputCamera(viewportSize: const Size(640, 360))
   ..initialize();
 
 void _frame(RenderingEngine r) =>
@@ -106,7 +106,7 @@ void main() {
       final engine = Engine();
       addTearDown(engine.dispose);
       await engine.initialize(
-        config: const EngineConfig(createPhysics: PhysicsEngine.pureDart),
+        config: const EngineConfig(createPhysics: Physics2DEngine.pureDart),
       );
       // A 3-D game asks for the cheap pure-Dart engine, never a native world.
       expect(engine.physics, isNot(isA<Box2DPhysicsEngine>()));
@@ -116,7 +116,7 @@ void main() {
 
   group('view volumes', () {
     test('a 2-D camera sees a rectangle at every depth', () {
-      final camera = Camera(viewportSize: const Size(200, 100));
+      final camera = OutputCamera(viewportSize: const Size(200, 100));
       final volume = camera.viewVolume;
       expect(volume, isA<PlanarViewVolume>());
       expect(volume.planarBounds, const Rect.fromLTRB(-100, -50, 100, 50));
@@ -131,7 +131,7 @@ void main() {
     });
 
     test('a camera in space sees a frustum', () {
-      final camera = Camera(
+      final camera = OutputCamera(
         viewportSize: const Size(100, 100),
         z: -10,
         lens: const CameraLens.perspective(fieldOfView: math.pi / 2),

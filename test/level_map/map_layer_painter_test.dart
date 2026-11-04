@@ -111,7 +111,7 @@ void main() {
     Entity e,
     LevelMapRuntime rt,
     MapLayerData layer, {
-    Camera? camera,
+    OutputCamera? camera,
     double time = 0,
   }) {
     final canvas = _Recorder();
@@ -231,7 +231,7 @@ void main() {
     final all = _drawn(paint(e, rt, layer));
     expect(all, hasLength(400));
 
-    final camera = Camera(
+    final camera = OutputCamera(
       position: rt.geometry.cellCenter(100, 0),
       viewportSize: const Size(200, 100),
     );
@@ -280,7 +280,12 @@ void main() {
     final order = [...cells]..sort(rt.geometry.compareDrawOrder);
     expect(_drawn(paint(e, rt, layer)), [for (final c in order) at(c)]);
     final drawn = _drawn(
-      paint(e, rt, layer, camera: Camera(viewportSize: const Size(4000, 4000))),
+      paint(
+        e,
+        rt,
+        layer,
+        camera: OutputCamera(viewportSize: const Size(4000, 4000)),
+      ),
     );
     expect(drawn, [for (final c in order) at(c)], reason: 'culled the same');
   });
@@ -297,7 +302,7 @@ void main() {
     // Its cell is 512-544 down, its image 448-480: in a view to 472.
     layer.cells.setCell(5, 16, TileCell.make(0, 0));
     final (e, rt) = await ready(m);
-    final camera = Camera(
+    final camera = OutputCamera(
       position: const Offset(200, 322),
       viewportSize: const Size(400, 300),
     );
@@ -320,7 +325,7 @@ void main() {
         e,
         rt,
         layer,
-        camera: Camera(
+        camera: OutputCamera(
           position: cameraAt,
           viewportSize: const Size(4000, 4000),
         ),

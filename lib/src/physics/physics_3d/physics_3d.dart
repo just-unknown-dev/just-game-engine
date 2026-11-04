@@ -34,7 +34,7 @@ import '../physics_context.dart';
 /// the 3-D code: all of it is reached through this object.
 ///
 /// As the engine is made it registers the components and the camera's
-/// collision stage ([CameraCollisionStage]); as the engine initializes it
+/// collision stage ([CameraCollision3DStage]); as the engine initializes it
 /// starts the physics engine — [PhysicsEngineFactory.create3D] (Jolt)
 /// unless [engine] was given — and adds [system]. The world itself is made
 /// only when the first 3-D body or character appears, so a game whose 3-D
@@ -55,7 +55,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
   /// cores minus one). [gravity] is (0, 9.81, 0) — down — unless given.
   /// [addSystem] false leaves adding [system] to a world to the game.
   Physics3D({
-    PhysicsEngine3D? engine,
+    Physics3DEngine? engine,
     Vector3? gravity,
     this.workerThreads = -1,
     this.maxBodies = 10240,
@@ -64,7 +64,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
     this.addSystem = true,
   }) : _given = engine,
        gravity =
-           gravity ?? Vector3(0, PhysicsWorldSettings3D.standardGravity, 0);
+           gravity ?? Vector3(0, Physics3DWorldSettings.standardGravity, 0);
 
   /// Registers the 3-D physics components into [context], with the field
   /// types they are saved through, so scenes holding them load and save —
@@ -86,7 +86,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
   static String? get unsupportedReason =>
       PhysicsEngineFactory.unavailable3DReason;
 
-  final PhysicsEngine3D? _given;
+  final Physics3DEngine? _given;
 
   /// Gravity the world starts with.
   final Vector3 gravity;
@@ -107,7 +107,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
   final bool addSystem;
 
   Engine? _game;
-  PhysicsEngine3D? _engine;
+  Physics3DEngine? _engine;
   Physics3DSystem? _system;
   Physics3DQueries? _queries;
 
@@ -115,7 +115,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
   bool get isStarted => _system != null;
 
   /// The physics engine it simulates on; throws before it starts.
-  PhysicsEngine3D get engine => _engine ?? (throw StateError(_notStarted));
+  Physics3DEngine get engine => _engine ?? (throw StateError(_notStarted));
 
   /// The system stepping the world; throws before it starts.
   Physics3DSystem get system => _system ?? (throw StateError(_notStarted));
@@ -129,7 +129,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
 
   /// The world, made now if it was still waiting for its first body; throws
   /// before it starts.
-  PhysicsWorld3D get world => system.physics;
+  Physics3DWorld get world => system.physics;
 
   /// The model at [model] was loaded again (its file changed): its mesh and
   /// hull colliders take its new triangles ([Physics3DSystem.reloadModel]).
@@ -151,7 +151,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
     registerDefinitions(context);
     // Every brain of the engine keeps its cameras out of walls.
     context.cameraRegistries.stages.register(
-      const CameraCollisionStage(),
+      const CameraCollision3DStage(),
       override: true,
     );
   }
@@ -164,7 +164,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
     );
     context.definitions.refresh(Physics3DDefinitions.all);
     context.cameraRegistries.stages.register(
-      const CameraCollisionStage(),
+      const CameraCollision3DStage(),
       override: true,
     );
   }
@@ -182,7 +182,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
     final system = Physics3DSystem.lazy(() {
       final layers = engineContext.physicsLayers;
       return physics.createWorld(
-        PhysicsWorldSettings3D(
+        Physics3DWorldSettings(
           gravity: gravity,
           layerMasks: [for (var i = 0; i < 16; i++) layers.maskOf(i)],
           maxBodies: maxBodies,

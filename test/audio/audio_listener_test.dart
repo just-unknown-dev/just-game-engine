@@ -86,7 +86,7 @@ void main() {
     }
   }
 
-  void useCamera(Camera camera) {
+  void useCamera(OutputCamera camera) {
     world
       ..removeSystem(world.systems.whereType<AudioSystem>().single)
       ..addSystem(AudioSystem(engine: audio, camera: camera));
@@ -120,8 +120,8 @@ void main() {
     expect(turned.up.y, closeTo(-1, 1e-9), reason: 'up stays -Y');
   });
 
-  Camera quarterTurnedCamera() =>
-      Camera(position: const Offset(2, -3), viewportSize: const Size(800, 600))
+  OutputCamera quarterTurnedCamera() =>
+      OutputCamera(position: const Offset(2, -3), viewportSize: const Size(800, 600))
         ..z = -8
         ..yaw = 1.5707963267948966; // turned a quarter: facing +X
 

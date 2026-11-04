@@ -8,13 +8,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
-final _backends = <String, PhysicsEngine Function()>{
-  'native': PhysicsEngine.new,
-  'pure Dart': PhysicsEngine.pureDart,
+final _backends = <String, Physics2DEngine Function()>{
+  'native': Physics2DEngine.new,
+  'pure Dart': Physics2DEngine.pureDart,
 };
 
-({World world, PhysicsEngine physics, Physics2DSystem system}) _setUp(
-  PhysicsEngine engine,
+({World world, Physics2DEngine physics, Physics2DSystem system}) _setUp(
+  Physics2DEngine engine,
 ) {
   final physics = engine..initialize();
   physics.setGravity(0, 981);
@@ -239,7 +239,7 @@ void main() {
   // ramp there leaves it with or without the ground being looked at again.
   test('running down a ramp of tiles, a body stays on the ground and on '
       'its slope', () {
-    final (:world, :physics, :system) = _setUp(PhysicsEngine.pureDart());
+    final (:world, :physics, :system) = _setUp(Physics2DEngine.pureDart());
     _ramp(world);
     final runner = _SlopeRunner(0);
     world.addSystem(runner);

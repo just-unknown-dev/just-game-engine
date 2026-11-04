@@ -11,47 +11,47 @@ import 'physics_definitions.dart';
 
 double _d(Object? v) => v is num ? v.toDouble() : 0.0;
 
-/// A 2-D physics [CollisionShape], stored as `{kind, ...dimensions}`. No
+/// A 2-D physics [Shape2D], stored as `{kind, ...dimensions}`. No
 /// engine component saves one; it is here for a game's or a kit's own
 /// components, and the editor has a field editor for it.
-class PhysicsShapeFieldType extends FieldType<CollisionShape> {
+class Shape2DFieldType extends FieldType<Shape2D> {
   /// Const constructor; the shared instance is [PhysicsDefinitions.shapeType].
-  const PhysicsShapeFieldType();
+  const Shape2DFieldType();
 
   @override
   String get id => 'physicsShape';
 
   @override
-  Object? encode(CollisionShape value) => switch (value) {
-    CircleShape s => {
+  Object? encode(Shape2D value) => switch (value) {
+    Circle2DShape s => {
       'kind': 'circle',
       'radius': s.radius,
       if (s.center != Offset.zero) 'center': _offset(s.center),
     },
-    RoundedPolygonShape s => {
+    RoundedPolygon2DShape s => {
       'kind': 'rounded_polygon',
       'vertices': _offsets(s.vertices),
       'cornerRadius': s.cornerRadius,
     },
-    RectangleShape s => {
+    Rectangle2DShape s => {
       'kind': 'rectangle',
       'width': s.width,
       'height': s.height,
     },
-    PolygonShape s => {'kind': 'polygon', 'vertices': _offsets(s.vertices)},
-    CapsuleShape s => {
+    Polygon2DShape s => {'kind': 'polygon', 'vertices': _offsets(s.vertices)},
+    Capsule2DShape s => {
       'kind': 'capsule',
       'center1': _offset(s.center1),
       'center2': _offset(s.center2),
       'radius': s.radius,
     },
-    SegmentShape s => {
+    Segment2DShape s => {
       'kind': 'segment',
       'point1': _offset(s.point1),
       'point2': _offset(s.point2),
       'thickness': s.thickness,
     },
-    ChainShape s => {
+    Chain2DShape s => {
       'kind': 'chain',
       'vertices': _offsets(s.vertices),
       'loop': s.loop,
@@ -67,29 +67,29 @@ class PhysicsShapeFieldType extends FieldType<CollisionShape> {
   }
 
   /// The shape [raw] describes, or null when it describes none.
-  static CollisionShape? decodeShape(Map raw) {
+  static Shape2D? decodeShape(Map raw) {
     switch (raw['kind']) {
       case 'circle':
-        return CircleShape(
+        return Circle2DShape(
           _d(raw['radius'] ?? 16.0),
           center: _offsetFrom(raw['center']),
         );
       case 'rectangle':
-        return RectangleShape(
+        return Rectangle2DShape(
           _d(raw['width'] ?? 64.0),
           _d(raw['height'] ?? 64.0),
         );
       case 'polygon':
         final v = _offsetsFrom(raw['vertices']);
-        return v.isEmpty ? null : PolygonShape(v);
+        return v.isEmpty ? null : Polygon2DShape(v);
       case 'capsule':
-        return CapsuleShape(
+        return Capsule2DShape(
           center1: _offsetFrom(raw['center1']),
           center2: _offsetFrom(raw['center2']),
           radius: _d(raw['radius'] ?? 8.0),
         );
       case 'segment':
-        return SegmentShape(
+        return Segment2DShape(
           _offsetFrom(raw['point1']),
           _offsetFrom(raw['point2']),
           thickness: _d(raw['thickness'] ?? 2.0),
@@ -98,7 +98,7 @@ class PhysicsShapeFieldType extends FieldType<CollisionShape> {
         final v = _offsetsFrom(raw['vertices']);
         return v.isEmpty
             ? null
-            : ChainShape(
+            : Chain2DShape(
                 v,
                 loop: raw['loop'] == true,
                 thickness: _d(raw['thickness'] ?? 2.0),
@@ -107,7 +107,7 @@ class PhysicsShapeFieldType extends FieldType<CollisionShape> {
         final v = _offsetsFrom(raw['vertices']);
         return v.isEmpty
             ? null
-            : RoundedPolygonShape(v, _d(raw['cornerRadius'] ?? 6.0));
+            : RoundedPolygon2DShape(v, _d(raw['cornerRadius'] ?? 6.0));
       default:
         return null;
     }

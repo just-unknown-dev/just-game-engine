@@ -318,7 +318,7 @@ void buildPlayground(Engine engine) {
     ),
     // Static ground. A collider alone would do, but it has no bounce, and a
     // contact bounces only as much as the less bouncy body: give it some.
-    RigidBody2DComponent(bodyType: BodyType.static, restitution: 0.7),
+    RigidBody2DComponent(bodyType: Body2DType.static, restitution: 0.7),
     // Match shape follows the rectangle.
     Collider2DComponent(shape: Collider2DShape.matchShape),
   ], name: 'Ground');
@@ -339,7 +339,7 @@ void buildPlayground(Engine engine) {
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(300, 140, 0)),
     Rectangle2DComponent(width: 80, height: 80, filled: false),
-    RigidBody2DComponent(bodyType: BodyType.static, isSensor: true),
+    RigidBody2DComponent(bodyType: Body2DType.static, isSensor: true),
     Collider2DComponent(size: Vector2(80, 80)),
   ], name: 'Goal');
 
@@ -425,7 +425,7 @@ class CharacterControlSystem extends System {
 A character's own body is kinematic, so sensors see it and dynamic bodies bump into it; it touches static ground through the mover, not through contacts — read `groundEntity` for what it stands on.
 
 - Collider shapes (`Collider2DComponent.shape`): `box` (`size`, optional `cornerRadius`), `circle` (`radius`), `capsule` (`radius`, `height`), `polygon` (`points`), `segment` and `chain` (`points`, `loop`), and `matchShape` — whatever the entity draws (a rectangle, circle, polygon or sprite), followed as it changes. Centred on the entity unless `offset` moves them; `rotation` and `scale` turn and stretch the collider itself. It also grows and shrinks with the entity's scale, as its sprite does.
-- Rigid bodies are dynamic by default. `bodyType: BodyType.static` never moves; `BodyType.kinematic` moves only by the velocity you set (moving platforms). On the collider, `oneWay: true` makes a platform you can jump up through.
+- Rigid bodies are dynamic by default. `bodyType: Body2DType.static` never moves; `Body2DType.kinematic` moves only by the velocity you set (moving platforms). On the collider, `oneWay: true` makes a platform you can jump up through.
 - The defaults are the same as in 3-D: `friction: 0.5`, `restitution: 0` (no bounce), `mass: 0` (worked out from the collider's area: a 100 × 100 box weighs 1000 kg, as a 1 m cube does in 3-D) and a little damping (`linearDamping: 0.05`, `angularDamping: 0.05`). Bounce comes from `restitution` on both bodies: a contact takes the smaller of the two, so give both some for a bouncy hit (a collider alone has none). A character usually wants `friction: 0` (so it slides down walls instead of sticking to them) and `lockRotation: true`.
 - Collision layers: put a body on a layer from 0 (the default) to 15, name the layers and say which collide in `assets/project/physics.json` (a `PhysicsLayers`; the editor's Physics Layers dock writes it), and list that file under `flutter: assets:`. A body's own `collidesWith` overrides the grid.
 - `isGrounded`, `groundEntity`, `groundNormal`, `linearVelocity` and `angularVelocity` on `RigidBody2DComponent` are kept up to date for you.
@@ -433,7 +433,7 @@ A character's own body is kinematic, so sensors see it and dynamic bodies bump i
 - Events: `CollisionEnter2DEvent` (the two entities, the contact `point` and `normal`) when a contact begins, `CollisionExit2DEvent` when it ends, `CollisionStay2DEvent` every step in between once you set `Physics2DSystem.reportContactStay`, and `SensorEnter2DEvent` / `SensorExit2DEvent` (`sensor` and `other`) for sensors.
 - Queries: `engine.world.getSystem<Physics2DSystem>()!.queries` (a `Physics2DQueries`) casts rays and circles and finds overlaps, filtered by layer.
 - To teleport a body, write its `TransformComponent`. The physics system moves the body to match.
-- Collider outlines are drawn by a `ColliderDebuggerSystem`, only while one is in the world: `GameWidget(showDebug: true)` adds one, or add your own with `engine.world.addSystem(ColliderDebuggerSystem(camera: engine.camera.mainCamera))`. Its `outlineFilter` picks the entities, and `showDebugOutline: false` on a collider hides its own.
+- Collider outlines are drawn by a `Collider2DDebuggerSystem`, only while one is in the world: `GameWidget(showDebug: true)` adds one, or add your own with `engine.world.addSystem(Collider2DDebuggerSystem(camera: engine.camera.mainCamera))`. Its `outlineFilter` picks the entities, and `showDebugOutline: false` on a collider hides its own.
 
 ---
 

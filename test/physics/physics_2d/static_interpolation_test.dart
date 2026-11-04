@@ -27,11 +27,11 @@ void main() {
   });
 
   group('a static body', () {
-    late PhysicsEngine physics;
+    late Physics2DEngine physics;
     late World world;
 
     setUp(() {
-      physics = PhysicsEngine()..initialize();
+      physics = Physics2DEngine()..initialize();
       world = World()..initialize();
       world.addSystem(Physics2DSystem(physics));
     });
@@ -44,7 +44,7 @@ void main() {
       TransformComponent(position: Vector3(-64, -214, 0)),
       Rectangle2DComponent(width: 64, height: 20),
       RigidBody2DComponent(
-        bodyType: isStatic ? BodyType.static : BodyType.dynamic,
+        bodyType: isStatic ? Body2DType.static : Body2DType.dynamic,
       ),
       Collider2DComponent(size: Vector2(64, 20)),
     ]);

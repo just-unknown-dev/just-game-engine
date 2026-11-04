@@ -118,7 +118,7 @@ void main() {
       return (e, rt);
     }
 
-    _Recorder paint(Entity e, LevelMapRuntime rt, {Camera? camera}) {
+    _Recorder paint(Entity e, LevelMapRuntime rt, {OutputCamera? camera}) {
       final canvas = _Recorder();
       rt.painter.paint(
         canvas,
@@ -160,7 +160,7 @@ void main() {
         [tall(rt, 15, 1)],
       ]);
       // Culled to the view, still in order.
-      final camera = Camera(
+      final camera = OutputCamera(
         viewportSize: const Size(200, 100),
         position: const Offset(256, 16),
       );
@@ -173,7 +173,7 @@ void main() {
     test('a rolled camera draws the chunk at its screen corner', () async {
       // The unturned view's left edge, less a tile, is on a chunk edge
       // (x = 0); the turned screen's corner is in the chunk to its left.
-      final camera = Camera(
+      final camera = OutputCamera(
         viewportSize: const Size(1600, 900),
         rotation: math.pi / 4,
         position: const Offset(816, 0),

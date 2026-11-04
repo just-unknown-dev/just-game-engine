@@ -12,7 +12,7 @@ Units are world units (pixels in a 2D game) and +Y is down: gravity points along
 
 ## Bodies and colliders
 
-A `Collider2DComponent` on its own is a static body, so floors and walls need nothing else. It behaves like `RigidBody2DComponent(bodyType: BodyType.static)` with the default settings. Add a `RigidBody2DComponent` when the body should move, or when a static body needs its own friction, bounce or layer.
+A `Collider2DComponent` on its own is a static body, so floors and walls need nothing else. It behaves like `RigidBody2DComponent(bodyType: Body2DType.static)` with the default settings. Add a `RigidBody2DComponent` when the body should move, or when a static body needs its own friction, bounce or layer.
 
 ```dart lib/playground.dart
 import 'package:flutter/material.dart';
@@ -49,7 +49,7 @@ void buildPlayground(Engine engine) {
   // A sensor reports overlaps and blocks nothing.
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(300, 140, 0)),
-    RigidBody2DComponent(bodyType: BodyType.static, isSensor: true),
+    RigidBody2DComponent(bodyType: Body2DType.static, isSensor: true),
     Collider2DComponent(size: Vector2(80, 80)),
   ], name: 'Goal');
 
@@ -62,15 +62,15 @@ void buildPlayground(Engine engine) {
 }
 ```
 
-> **Note:** A contact bounces as much as the less bouncy of its two bodies, and a collider-only body has no bounce. For a bouncy floor, give it `RigidBody2DComponent(bodyType: BodyType.static, restitution: 1)`.
+> **Note:** A contact bounces as much as the less bouncy of its two bodies, and a collider-only body has no bounce. For a bouncy floor, give it `RigidBody2DComponent(bodyType: Body2DType.static, restitution: 1)`.
 
 ## Body types
 
 | `bodyType` | Moves | Use it for |
 |---|---|---|
-| `BodyType.dynamic` (default) | by gravity, forces and collisions | crates, balls, debris |
-| `BodyType.kinematic` | only by the velocity you give it, and cannot be pushed | moving platforms, lifts |
-| `BodyType.static` | never | level geometry |
+| `Body2DType.dynamic` (default) | by gravity, forces and collisions | crates, balls, debris |
+| `Body2DType.kinematic` | only by the velocity you give it, and cannot be pushed | moving platforms, lifts |
+| `Body2DType.static` | never | level geometry |
 
 `isStatic`, `isKinematic` and `isDynamic` read the type back. A kinematic body you move by writing its transform carries what stands on it.
 
@@ -149,7 +149,7 @@ class HeroControlSystem extends System {
 }
 ```
 
-While `useGravity` is on (the default) only the sideways part of `moveVelocity` counts; the system adds gravity and the ground's own velocity. After each step read `velocity`, `groundState` (a `GroundState2D`), `isGrounded`, `groundNormal`, `groundVelocity` and `groundEntity`. The character's own body is kinematic, so sensors see it and dynamic bodies bump into it, but it touches static ground through its mover rather than through contacts: read `groundEntity` to know what it stands on. Set `detectable: false` to hide it from sensors and rays.
+While `useGravity` is on (the default) only the sideways part of `moveVelocity` counts; the system adds gravity and the ground's own velocity. After each step read `velocity`, `groundState` (a `Ground2DState`), `isGrounded`, `groundNormal`, `groundVelocity` and `groundEntity`. The character's own body is kinematic, so sensors see it and dynamic bodies bump into it, but it touches static ground through its mover rather than through contacts: read `groundEntity` to know what it stands on. Set `detectable: false` to hide it from sensors and rays.
 
 ## Joints
 
@@ -209,9 +209,30 @@ bool canSeePlayer(Engine engine, Entity guard) {
 
 `raycastAll` returns every hit, nearest first, and `circleCast` sweeps a circle. `overlapCircle` and `overlapBox` (a `Rect`) return the entities whose shapes they touch. A hit (`Physics2DHit`) carries `entity`, `body`, `point`, `normal`, `distance` and `fraction`.
 
+## Bouncing rays
+
+`RayTracer2D` traces a ray that bounces: a laser off mirrors, a ricochet. Each straight stretch is a `Physics2DQueries.raycast` with the same `layerMask`, `ignore` and `includeSensors`, so a trace hits exactly what a ray does. What happens at a hit is up to the collider's **Reflectivity** (`Collider2DComponent.reflectivity`, in the inspector's Rays group, saved with the scene): 0, the default, absorbs the ray and ends the trace; above 0, the ray is mirrored about the surface and goes on with what was left of its length times the reflectivity. A body with no collider component (a character) absorbs it. `maxBounces` (3 by default) caps the bounces, and `minReflectivity` makes a tracer ignore duller surfaces.
+
+```dart lib/laser.dart
+/// The path of a laser from [turret] along [aim], off any mirrors.
+List<(Offset, Offset)> laserPath(Engine engine, Entity turret, Offset aim) {
+  final queries = engine.world.getSystem<Physics2DSystem>()!.queries;
+  final at = turret.getComponent<TransformComponent>()!.position;
+  final trace = RayTracer2D(queries, maxBounces: 5).trace(
+    Offset(at.x, at.y),
+    aim,
+    maxDistance: 1200,
+    ignore: turret,
+  );
+  return [for (final segment in trace.segments) (segment.from, segment.to)];
+}
+```
+
+Each `RayTrace2DSegment` has `from`, `to` and the `hit` that ended it (null where the ray ran out); `trace.hits` lists what the ray struck, in order, and `totalLength` how far it went. A `RayRenderable` per segment draws the beam.
+
 ## Two backends
 
-`engine.physics` is a `PhysicsEngine` from `just_physics_engine`. On native platforms it is Box2D v3 through FFI; on the web (JavaScript and WebAssembly), or wherever the native library does not load, it is a pure-Dart engine with the same API. Your components, events and queries are the same on both. To choose the engine yourself, pass `EngineConfig(createPhysics: ...)`: for example `createPhysics: PhysicsEngine.pureDart` runs the pure-Dart engine on every platform.
+`engine.physics` is a `Physics2DEngine` from `just_physics_engine`. On native platforms it is Box2D v3 through FFI; on the web (JavaScript and WebAssembly), or wherever the native library does not load, it is a pure-Dart engine with the same API. Your components, events and queries are the same on both. To choose the engine yourself, pass `EngineConfig(createPhysics: ...)`: for example `createPhysics: Physics2DEngine.pureDart` runs the pure-Dart engine on every platform.
 
 ## Known limitations
 

@@ -13,12 +13,12 @@ const _dt = 1 / 60;
 
 void main() {
   late World world;
-  late Camera output;
+  late OutputCamera output;
   late CameraBrain brain;
 
   setUp(() {
     world = World();
-    output = Camera(viewportSize: _view);
+    output = OutputCamera(viewportSize: _view);
     brain = CameraBrain(output)..defaultBlend = CameraBlend.cut;
   });
   tearDown(() => world.dispose());

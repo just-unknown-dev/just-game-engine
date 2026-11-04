@@ -16,10 +16,10 @@ GameWidget(
 ```
 
 - **`showFPS`** shows `FPS: n` in the top right corner, from `engine.gameLoop.currentFPS`. It updates about once a second and costs the rest of the widget nothing.
-- **`showDebug`** adds a `ColliderDebuggerSystem` to the world, which outlines every 2-D collider as simulated (coloured by body kind), every 2-D character and every `RaycastColliderComponent` through the main camera. It also sets `engine.rendering.debugMode`, which prints the rendering figures (render time, draws, culled objects) in the top left corner. Both go away when `showDebug` turns off.
+- **`showDebug`** adds a `Collider2DDebuggerSystem` to the world, which outlines every 2-D collider as simulated (coloured by body kind) and every 2-D character through the main camera. It also sets `engine.rendering.debugMode`, which prints the rendering figures (render time, draws, culled objects) in the top left corner. Both go away when `showDebug` turns off.
 - **`showTerminal`** enables the developer terminal (below).
 
-`Physics2DSystem` draws nothing: collider outlines come only from a `ColliderDebuggerSystem` in the world. Without `showDebug`, add one yourself, `engine.world.addSystem(ColliderDebuggerSystem(camera: engine.camera.mainCamera))`, and narrow it with `outlineFilter`; a collider's own `showDebugOutline` has the last word. Remove it with `engine.world.removeSystem(...)` to hide them again.
+`Physics2DSystem` draws nothing: collider outlines come only from a `Collider2DDebuggerSystem` in the world. Without `showDebug`, add one yourself, `engine.world.addSystem(Collider2DDebuggerSystem(camera: engine.camera.mainCamera))`, and narrow it with `outlineFilter`; a collider's own `showDebugOutline` has the last word. Remove it with `engine.world.removeSystem(...)` to hide them again.
 
 ## The developer terminal
 
@@ -106,6 +106,6 @@ The overlay shows no update or physics timings; draw your own from these maps, f
 | `UnknownComponentTypeException` loading a level | The package that defines the component was not given to `EngineConfig(extensions: ...)`. |
 | The player falls through a map on the first frame | Call `await LevelMaps.preload(world)` after loading the scene. |
 | Your system reads stale input or runs after physics | Its priority: character control belongs at `SystemPriorities.playerControl` (95). |
-| No collider outlines | Add a `ColliderDebuggerSystem` to the world, or use `GameWidget(showDebug: true)`. |
+| No collider outlines | Add a `Collider2DDebuggerSystem` to the world, or use `GameWidget(showDebug: true)`. |
 | Every timing reads 0 | A release build: see the note above. |
 | No sound on the web until the first click | Expected: browsers keep audio silent until the player interacts. |

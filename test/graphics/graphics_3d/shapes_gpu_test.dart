@@ -17,14 +17,14 @@ void main() {
   final skip = gpuUnavailableReason();
   late GpuDevice device;
   late Renderer3D renderer;
-  late GraphicsShapes shapes;
+  late Graphics3DShapes shapes;
   final files = <String, Uint8List>{};
 
   setUpAll(() async {
     if (skip != null) return;
     device = createGpuDevice()!;
     renderer = await Renderer3D.create(device);
-    shapes = GraphicsShapes(renderer.uploader, (path) async => files[path]!);
+    shapes = Graphics3DShapes(renderer.uploader, (path) async => files[path]!);
   });
 
   RenderView camera({Vector3? eye}) {

@@ -139,7 +139,7 @@ void main() {
   testWidgets('showDebug follows the widget', (tester) async {
     final engine = await pumpGame(tester);
     bool hasDebugger() =>
-        engine.world.getSystem<ColliderDebuggerSystem>() != null;
+        engine.world.getSystem<Collider2DDebuggerSystem>() != null;
     expect(hasDebugger(), isFalse);
 
     await tester.pumpWidget(

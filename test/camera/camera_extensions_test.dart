@@ -22,12 +22,12 @@ T _roundTrip<T extends Component>(T component) =>
 
 void main() {
   late World world;
-  late Camera output;
+  late OutputCamera output;
   late CameraBrain brain;
 
   setUp(() {
     world = World();
-    output = Camera(viewportSize: _view);
+    output = OutputCamera(viewportSize: _view);
     brain = CameraBrain(output)..defaultBlend = CameraBlend.cut;
   });
   tearDown(() => world.dispose());
@@ -127,7 +127,7 @@ void main() {
     test('moves the shot, the same way every run', () {
       List<Offset> record() {
         final w = World();
-        final out = Camera(viewportSize: _view);
+        final out = OutputCamera(viewportSize: _view);
         final b = CameraBrain(out);
         w.createEntityWithComponents([
           TransformComponent(),
@@ -163,7 +163,7 @@ void main() {
     test('is measured in pixels, so a closer lens moves less of the world', () {
       double travel(double zoom) {
         final w = World();
-        final out = Camera(viewportSize: _view);
+        final out = OutputCamera(viewportSize: _view);
         final b = CameraBrain(out);
         w.createEntityWithComponents([
           TransformComponent(),

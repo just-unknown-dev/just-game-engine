@@ -13,7 +13,7 @@ import 'package:just_game_engine/just_game_engine.dart';
 void main() {
   group('zoom limits the wrong way round', () {
     test('do not throw, and keep the zoom between them', () {
-      final camera = Camera(minZoom: 5, maxZoom: 2);
+      final camera = OutputCamera(minZoom: 5, maxZoom: 2);
       expect(() => camera.setZoom(3), returnsNormally);
       expect(camera.zoom, 3);
       camera.setZoom(10);
@@ -26,7 +26,7 @@ void main() {
   });
 
   test('moving and zooming add to the pose, and reset undoes them', () {
-    final camera = Camera(minZoom: 0.5, maxZoom: 4);
+    final camera = OutputCamera(minZoom: 0.5, maxZoom: 4);
     camera.moveBy(const Offset(100, 50));
     camera.moveBy(const Offset(-20, 10));
     expect(camera.position, const Offset(80, 60));
@@ -44,7 +44,7 @@ void main() {
   });
 
   test('a camera in space sees what its corner rays hit on the plane', () {
-    final camera = Camera(
+    final camera = OutputCamera(
       position: const Offset(40, -300),
       viewportSize: const Size(800, 600),
       z: -500,
@@ -80,7 +80,7 @@ void main() {
   });
 
   test('an inside-out rectangle is culled as the box it spans', () {
-    final camera = Camera(viewportSize: const Size(800, 600));
+    final camera = OutputCamera(viewportSize: const Size(800, 600));
     // A flipped sprite half off the left edge: right before left.
     const flipped = Rect.fromLTRB(-380, -10, -420, 10);
     expect(camera.isRectVisible(flipped), isTrue);

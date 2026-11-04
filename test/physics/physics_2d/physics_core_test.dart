@@ -5,7 +5,7 @@ import 'package:just_physics_engine/just_physics_engine.dart'
     show BodyPair, SpatialGrid;
 
 // Helper to build a simple circle body at the given position.
-PhysicsBody _circle({
+Physics2DBody _circle({
   required double x,
   required double y,
   double radius = 20.0,
@@ -13,9 +13,9 @@ PhysicsBody _circle({
   bool useGravity = false,
   bool checkCollision = true,
 }) {
-  return PhysicsBody(
+  return Physics2DBody(
     position: Vector2(x, y),
-    shape: CircleShape(radius),
+    shape: Circle2DShape(radius),
     mass: mass,
     useGravity: useGravity,
     checkCollision: checkCollision,
@@ -76,25 +76,25 @@ void main() {
     });
   });
 
-  // ── CollisionShape ─────────────────────────────────────────────────────────
+  // ── Shape2D ─────────────────────────────────────────────────────────
 
-  group('CircleShape', () {
+  group('Circle2DShape', () {
     test('getBounds at origin', () {
-      final s = CircleShape(10.0);
+      final s = Circle2DShape(10.0);
       final bounds = s.getBounds(Offset.zero);
       expect(bounds, Rect.fromCircle(center: Offset.zero, radius: 10.0));
     });
 
     test('getBounds at offset position', () {
-      final s = CircleShape(5.0);
+      final s = Circle2DShape(5.0);
       final bounds = s.getBounds(const Offset(20, 30));
       expect(bounds.center, const Offset(20, 30));
       expect(bounds.width, closeTo(10.0, 1e-9));
     });
 
     test('getManifold detects circle-circle overlap', () {
-      final a = CircleShape(10.0);
-      final b = CircleShape(10.0);
+      final a = Circle2DShape(10.0);
+      final b = Circle2DShape(10.0);
       // centres 15 units apart — overlap by 5
       final manifold = a.getManifold(Offset.zero, b, const Offset(15, 0));
       expect(manifold.isColliding, isTrue);
@@ -102,26 +102,26 @@ void main() {
     });
 
     test('getManifold reports no collision when separated', () {
-      final a = CircleShape(5.0);
-      final b = CircleShape(5.0);
+      final a = Circle2DShape(5.0);
+      final b = Circle2DShape(5.0);
       final manifold = a.getManifold(Offset.zero, b, const Offset(100, 0));
       expect(manifold.isColliding, isFalse);
     });
 
     test('getManifold normal points from A to B', () {
-      final a = CircleShape(10.0);
-      final b = CircleShape(10.0);
+      final a = Circle2DShape(10.0);
+      final b = Circle2DShape(10.0);
       final manifold = a.getManifold(Offset.zero, b, const Offset(15, 0));
       expect(manifold.normal.dx, greaterThan(0));
       expect(manifold.normal.dy, closeTo(0, 1e-6));
     });
   });
 
-  group('PolygonShape', () {
+  group('Polygon2DShape', () {
     Offset v(double x, double y) => Offset(x, y);
 
     test('getBounds is correct for a box', () {
-      final box = PolygonShape([
+      final box = Polygon2DShape([
         v(-10, -10),
         v(10, -10),
         v(10, 10),
@@ -135,7 +135,7 @@ void main() {
     });
 
     test('poly-poly SAT detects overlap', () {
-      final box = PolygonShape([
+      final box = Polygon2DShape([
         v(-10, -10),
         v(10, -10),
         v(10, 10),
@@ -147,15 +147,15 @@ void main() {
     });
 
     test('poly-poly SAT reports no collision when separated', () {
-      final box = PolygonShape([v(-5, -5), v(5, -5), v(5, 5), v(-5, 5)]);
+      final box = Polygon2DShape([v(-5, -5), v(5, -5), v(5, 5), v(-5, 5)]);
       final manifold = box.getManifold(Offset.zero, box, const Offset(100, 0));
       expect(manifold.isColliding, isFalse);
     });
   });
 
-  // ── PhysicsBody ────────────────────────────────────────────────────────────
+  // ── Physics2DBody ────────────────────────────────────────────────────────────
 
-  group('PhysicsBody', () {
+  group('Physics2DBody', () {
     test('inverseMass is 1/mass', () {
       final body = _circle(x: 0, y: 0, mass: 2.0);
       expect(body.inverseMass, closeTo(0.5, 1e-9));
@@ -184,12 +184,12 @@ void main() {
     });
   });
 
-  // ── PhysicsEngine integration ──────────────────────────────────────────────
+  // ── Physics2DEngine integration ──────────────────────────────────────────────
 
-  group('PhysicsEngine', () {
-    late PhysicsEngine engine;
+  group('Physics2DEngine', () {
+    late Physics2DEngine engine;
     setUp(() {
-      engine = PhysicsEngine();
+      engine = Physics2DEngine();
       engine.initialize();
     });
 
@@ -288,10 +288,10 @@ void main() {
     late SpatialGrid grid;
     setUp(() => grid = SpatialGrid(64.0));
 
-    PhysicsBody gridBody(double x, double y, {double radius = 10}) {
-      return PhysicsBody(
+    Physics2DBody gridBody(double x, double y, {double radius = 10}) {
+      return Physics2DBody(
         position: Vector2(x, y),
-        shape: CircleShape(radius),
+        shape: Circle2DShape(radius),
         useGravity: false,
         drag: 0.0,
       );
@@ -385,24 +385,6 @@ void main() {
       final second = grid.getPotentialCollisions();
       expect(second.length, 0);
       expect(firstLength, 1); // first call was correct
-    });
-  });
-
-  // ── RigidBody ─────────────────────────────────────────────────────────────
-
-  group('RigidBody', () {
-    test('integrate advances position from applied force', () {
-      final body = RigidBody();
-      body.applyForce(10, 0);
-      body.integrate(1.0);
-      expect(body.position.x, greaterThan(0));
-    });
-
-    test('zero mass body is not moved', () {
-      final body = RigidBody()..mass = 0.0;
-      body.applyForce(1000, 0);
-      body.integrate(1.0);
-      expect(body.position.x, 0.0);
     });
   });
 }

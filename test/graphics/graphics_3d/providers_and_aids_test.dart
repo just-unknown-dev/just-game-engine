@@ -206,7 +206,7 @@ void main() {
 
   group('an editor\'s aids', () {
     late Entity low, high;
-    late GraphicsSceneRenderer renderer;
+    late Graphics3DSceneRenderer renderer;
     late SceneEditorAids aids;
     final preview = frameView(eye: Vector3(0, -3, -8));
 
@@ -276,7 +276,7 @@ void main() {
   });
 
   test('a camera told it is in space is never planar, whatever its lens', () {
-    final camera = Camera();
+    final camera = OutputCamera();
     expect(camera.isPlanar, isTrue);
     camera.inSpace = true;
     expect(camera.isPlanar, isFalse);

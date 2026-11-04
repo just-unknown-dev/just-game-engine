@@ -53,7 +53,7 @@ Future<void> main() async {
 
 - **A widget that owns its engine** disposes it in `State.dispose`; not awaiting `dispose()` there is safe. A `GameWidget` given an engine that is still initializing starts drawing it once it is ready (you still call `engine.start()`), and your own code can follow it through `engine.stateListenable`.
 - **Default systems.** `DefaultSystems.all` adds input, physics, movement, audio, rendering, sprites, the animator, timelines, level maps, map collision and cameras; `DefaultSystems.headless` leaves out rendering and audio. A system you added yourself is kept, not added twice. `ParticleSystem` and `EffectSystem` (1.6's `ParticleSystemECS` and `EffectSystemECS`), `HealthSystem`, `LifetimeSystem` and `CheckpointSystem` are not defaults: add the ones you use.
-- **Changed constructors.** `PhysicsSystem()` is `Physics2DSystem(engine.physics)`, and gravity is `engine.physics.setGravity(x, y)`. `PhysicsBridgeSystem` is gone. Collider outlines come from a `ColliderDebuggerSystem(camera: ...)` in the world (`GameWidget(showDebug: true)` adds one). `InputSystem(engine.input)..buttonMappings` is `InputSystem(engine.input, maps: ['player'])`.
+- **Changed constructors.** `PhysicsSystem()` is `Physics2DSystem(engine.physics)`, and gravity is `engine.physics.setGravity(x, y)`. `PhysicsBridgeSystem` is gone. Collider outlines come from a `Collider2DDebuggerSystem(camera: ...)` in the world (`GameWidget(showDebug: true)` adds one). `InputSystem(engine.input)..buttonMappings` is `InputSystem(engine.input, maps: ['player'])`.
 - **Your own components in scenes** need a `ComponentDefinition`, installed through a `ContextExtension` in `EngineConfig(extensions: [...])`. See [Scenes](/docs/scenes).
 
 ## Physics bodies
@@ -77,13 +77,14 @@ Collider2DComponent(size: Vector2(32, 48)),
 | `shape: RectangleShape(w, h)` | `Collider2DComponent(size: Vector2(w, h))` (a box, the default shape) |
 | `shape: CircleShape(r)` | `Collider2DComponent(shape: Collider2DShape.circle, radius: r)` |
 | a shape sized to the sprite or rectangle | `Collider2DShape.matchShape`, kept in step as the drawing changes |
-| `isStatic` | `RigidBody2DComponent.bodyType` (`BodyType.static`, `BodyType.kinematic`, or dynamic by default) |
+| `isStatic` | `RigidBody2DComponent.bodyType` (`Body2DType.static`, `Body2DType.kinematic`, or dynamic by default) |
 | `drag` | `linearDamping` |
 | `fixedRotation`, `isBullet` (pre-release 2.0, not in 1.6) | `lockRotation`, `continuousCollision` |
 | `layer` as a bit, `collisionMask` | `layer` as a number from 0 to 15, `collidesWith` |
 | `categoryBits`, `maskBits` | `layer` (a number) and `collidesWith` |
 | `CollisionEvent`, `ContactExitEvent`, `SensorEnterEvent`, `SensorExitEvent` | `CollisionEnter2DEvent`, `CollisionExit2DEvent`, `SensorEnter2DEvent`, `SensorExit2DEvent` (`visitor` is now `other`) |
 | `DistanceJointComponent`, `WeldJointComponent`, `PrismaticJointComponent`, `WheelJointComponent` (pre-release 2.0, not in 1.6) | `DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent`, `WheelJoint2DComponent` |
+| `RaycastColliderComponent`, `RaycastSystem` (`castRay`, `hasLineOfSight`), `RayTracer` | a `Collider2DComponent` (a sensor, if nothing should bump into it) and `physicsSystem.queries` (`raycast`, `raycastAll`); `RayTracer2D` for rays that bounce off a collider's `reflectivity` |
 
 - **The defaults changed** to 3D's: `friction` 0.5 (1.6 used 0.2), `restitution` 0 (1.6: 0.8, so everything bounced), `linearDamping` and `angularDamping` 0.05 (1.6's `drag` was 0.98), and `mass` 0, which works the mass out from the collider's area. Set the old values where you relied on them; scenes saved by 1.6 keep theirs.
 - **Colliders follow scale.** Scale an entity by 2 and its collider grows with it. Code that sized a shape for an entity it also scaled now sizes it unscaled.
@@ -224,11 +225,12 @@ Saved progress carries over: achievements, currency and inventory still save to 
 | `AssetBundle` (the engine's), `typedef Easing` | `GameAssetBundle`, `EasingFunction` |
 | `SystemPriorities.tileMap` | `SystemPriorities.levelMap` |
 | `PhysicsSystem` | `Physics2DSystem` |
+| just_physics_engine 1.x's types: `PhysicsEngine`, `PhysicsBody`, `CollisionShape`, `CircleShape` … `RoundedPolygonShape`, `BodyType`, `Ray`; `engine.physics.castRay`, `castRayAll`, `castCircle`; `RigidBody` | just_physics_engine 2.0's: `Physics2DEngine`, `Physics2DBody`, `Shape2D`, `Circle2DShape` … `RoundedPolygon2DShape`, `Body2DType`, `Ray2D`; `raycast`, `raycastAll`, `circleCast`; `RigidBody` is gone (its CHANGELOG lists every name) |
 | `ParticleSystemECS`, `EffectSystemECS` | `ParticleSystem`, `EffectSystem` |
 | `CameraSystem`, `engine.cameraSystem` | `CameraEngine`, `engine.camera` |
+| `Camera` (the output camera), `ColliderDebuggerSystem` | `OutputCamera`, `Collider2DDebuggerSystem` |
 | `AudioSourceComponent.is3d` | `is3D` (saved scenes are renamed as they load) |
 | `DialogueBoxWidget`, `DialogueChoicesWidget`, `L10nContext` | `DialogueBox`, `DialogueChoices`, `BuildContextLocalization` |
-| `RaycastSystem.castRay`, `castRayAll` | `raycast`, `raycastAll` |
 | `getBounds()`, `getMemoryUsage()`, `getVisibleBounds()`, `getCacheStats()`, `getSystemNames()` | the getters `bounds`, `memoryUsage`, `visibleBounds`, `cacheStats`, `systemNames` |
 | `CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent` | `Circle2DComponent`, `Rectangle2DComponent`, `Polygon2DComponent`, `Line2DComponent`, `Capsule2DComponent`; saved scenes are renamed as they load (format 11) |
 | `RectangleRenderable`, `CircleRenderable`, `LineRenderable`; `SpriteSheet` | the 2-D shape components or a `CustomRenderable`; an atlas (`SpriteAtlas.fromAsset`) |

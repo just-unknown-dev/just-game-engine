@@ -1,4 +1,4 @@
-// GraphicsModels prefers a cooked copy beside a model, and asks the bundle
+// Graphics3DModels prefers a cooked copy beside a model, and asks the bundle
 // for one only when the bundle's manifest lists it (on the web a missing
 // asset is a failed request the browser console reports). A reload tells
 // its listeners once the new model is there — once — and what a level no
@@ -48,7 +48,7 @@ Uint8List _manifest(Iterable<String> keys) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  late GraphicsModels models;
+  late Graphics3DModels models;
   late Uint8List cooked;
   final cookedPath = ModelImportSettings.cookedOf(cubePath);
 
@@ -60,9 +60,9 @@ void main() {
     );
   });
 
-  GraphicsModels modelsOn(AssetBundle bundle) {
+  Graphics3DModels modelsOn(AssetBundle bundle) {
     final device = NullGpuDevice(shaders: rendererNullShaders);
-    return GraphicsModels(
+    return Graphics3DModels(
       bundle,
       ModelUploader(device, DefaultTextures(device)),
     );
@@ -222,10 +222,10 @@ void main() {
       addTearDown(engine.dispose);
       await engine.initialize();
       final models = service.models;
-      expect(engine.context.graphicsModels, same(models));
+      expect(engine.context.graphics3DModels, same(models));
       await models.load(cubePath);
       await engine.services.remove(service);
-      expect(engine.context.graphicsModels, isNull);
+      expect(engine.context.graphics3DModels, isNull);
       expect(
         models.paths,
         isEmpty,

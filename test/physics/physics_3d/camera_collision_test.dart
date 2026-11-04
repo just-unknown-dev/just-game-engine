@@ -19,7 +19,7 @@ void main() {
   late Entity camera;
 
   setUp(() {
-    final physics = FakePhysicsWorld3D(PhysicsWorldSettings3D());
+    final physics = FakePhysics3DWorld(Physics3DWorldSettings());
     world = World()..initialize();
     world.addSystem(Physics3DSystem(physics));
     addTearDown(() {
@@ -29,7 +29,7 @@ void main() {
     world.createEntityWithComponents([
       TransformComponent(position: Vector3.zero()),
       Collider3DComponent(shape: Collider3DShape.capsule, radius: 0.3, height: 1.8),
-      RigidBody3DComponent(bodyType: BodyType3D.kinematic),
+      RigidBody3DComponent(bodyType: Body3DType.kinematic),
     ], name: 'Player');
     camera = world.createEntityWithComponents([
       TransformComponent(position: Vector3(0, -3, -8)),
@@ -40,8 +40,8 @@ void main() {
       OrbitFollowComponent(distance: 8, pitch: 0, yaw: 0, pivot: Vector3(0, -1.5, 0)),
       CameraCollision3DComponent(radius: 0.2, recover: 0.5),
     ], name: 'Cam');
-    brain = CameraBrain(Camera(position: Offset.zero, viewportSize: const Size(800, 600)));
-    brain.stages.register(const CameraCollisionStage());
+    brain = CameraBrain(OutputCamera(position: Offset.zero, viewportSize: const Size(800, 600)));
+    brain.stages.register(const CameraCollision3DStage());
   });
 
   double cameraZ({double dt = 1 / 60, bool snap = false}) {
@@ -83,7 +83,7 @@ void main() {
   test('registered for every brain of an engine by the extension', () {
     final context = EngineContext();
     Physics3D().install(context);
-    expect(context.cameraRegistries.stages.stageFor(CameraCollision3DComponent()), isA<CameraCollisionStage>());
+    expect(context.cameraRegistries.stages.stageFor(CameraCollision3DComponent()), isA<CameraCollision3DStage>());
     expect(context.definitions.definitionFor(CameraCollision3DComponent()), isNotNull);
   });
 }

@@ -16,8 +16,8 @@ import 'package:just_physics_engine/testing.dart';
 
 const _dt = 1 / 60;
 
-({World world, FakePhysicsWorld3D physics, Physics3DSystem system}) _setUp() {
-  final physics = FakePhysicsWorld3D(PhysicsWorldSettings3D());
+({World world, FakePhysics3DWorld physics, Physics3DSystem system}) _setUp() {
+  final physics = FakePhysics3DWorld(Physics3DWorldSettings());
   final system = Physics3DSystem(physics);
   final world = World()..initialize();
   world.addSystem(system);
@@ -31,7 +31,7 @@ const _dt = 1 / 60;
 void main() {
   group('rigid-body commands', () {
     late World world;
-    late FakePhysicsWorld3D physics;
+    late FakePhysics3DWorld physics;
     late Physics3DSystem system;
     late RigidBody3DComponent rigid;
     late Entity box;
@@ -119,7 +119,7 @@ void main() {
       expect(b.restitution, 0.7);
       expect(b.gravityFactor, 2);
       expect(b.layer, 3);
-      expect(b.motionQuality, MotionQuality3D.linearCast);
+      expect(b.motionQuality, Motion3DQuality.linearCast);
     });
   });
 
@@ -172,10 +172,10 @@ void main() {
         Float32List.fromList([0, 0, 0, 1, 0, 0, 0, 1, 0]),
         Uint32List.fromList([0, 1, 2]),
       );
-      final kept = Collider3DShapes.solidPart(part, 1, 1, 1)! as MeshShape3D;
+      final kept = Collider3DShapes.solidPart(part, 1, 1, 1)! as Mesh3DShape;
       expect(kept.indices, [0, 1, 2]);
       final mirrored =
-          Collider3DShapes.solidPart(part, -1, 1, 1)! as MeshShape3D;
+          Collider3DShapes.solidPart(part, -1, 1, 1)! as Mesh3DShape;
       expect(mirrored.indices, [0, 2, 1]);
       expect(mirrored.positions[3], -1, reason: 'x mirrored');
       expect(part.indices, [0, 1, 2], reason: "the source's are left alone");
@@ -188,7 +188,7 @@ void main() {
       ]);
       final shape =
           Collider3DShapes.solidPart(SolidHeightField(heights, 4, 1), 1, 2, 1)!
-              as HeightFieldShape3D;
+              as HeightField3DShape;
       expect(shape.heights[3], 6);
       expect(shape.heights[5], heights[5], reason: 'a hole, not doubled');
     });

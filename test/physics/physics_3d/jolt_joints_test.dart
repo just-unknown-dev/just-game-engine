@@ -14,7 +14,7 @@ const _dt = 1 / 60;
 final _backend = JoltPhysicsEngine();
 
 World _world() {
-  final physics = _backend.createWorld(PhysicsWorldSettings3D());
+  final physics = _backend.createWorld(Physics3DWorldSettings());
   final world = World()..initialize();
   world.addSystem(Physics3DSystem(physics));
   addTearDown(() {

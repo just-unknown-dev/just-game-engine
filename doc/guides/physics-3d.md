@@ -55,11 +55,11 @@ The component classes are plain data with no native code. Where Jolt cannot run,
 
 ## Units and settings
 
-Units are metres, seconds and radians, and +Y is down, so gravity is (0, 9.81, 0) unless you pass `Physics3D(gravity: ...)`. The other options are `workerThreads` (below 0: cores minus one, the default), `maxBodies` (10240), `reportContactStay`, `reportActivation`, `addSystem` (true; false leaves adding `system` to the game) and `engine`, a `PhysicsEngine3D` of your own.
+Units are metres, seconds and radians, and +Y is down, so gravity is (0, 9.81, 0) unless you pass `Physics3D(gravity: ...)`. The other options are `workerThreads` (below 0: cores minus one, the default), `maxBodies` (10240), `reportContactStay`, `reportActivation`, `addSystem` (true; false leaves adding `system` to the game) and `engine`, a `Physics3DEngine` of your own.
 
 ## Bodies and colliders
 
-As in 2D, a `Collider3DComponent` alone is a static body, and a `RigidBody3DComponent` beside it says how it moves. `RigidBody3DComponent` has the 2D fields: `bodyType` (`BodyType3D.static`, `kinematic` or `dynamic`, the default), `mass` (0 works it out from the collider's volume), `friction` (0.5), `restitution` (0), `linearDamping` and `angularDamping` (0.05), `gravityScale`, `isSensor`, `lockRotation`, `continuousCollision`, `canSleep`, `layer`, `initialVelocity` and `initialAngularVelocity`. Changing `bodyType`, `mass`, damping, `isSensor`, `canSleep` or `lockRotation`, or adding or removing the `RigidBody3DComponent`, rebuilds the body.
+As in 2D, a `Collider3DComponent` alone is a static body, and a `RigidBody3DComponent` beside it says how it moves. `RigidBody3DComponent` has the 2D fields: `bodyType` (`Body3DType.static`, `kinematic` or `dynamic`, the default), `mass` (0 works it out from the collider's volume), `friction` (0.5), `restitution` (0), `linearDamping` and `angularDamping` (0.05), `gravityScale`, `isSensor`, `lockRotation`, `continuousCollision`, `canSleep`, `layer`, `initialVelocity` and `initialAngularVelocity`. Changing `bodyType`, `mass`, damping, `isSensor`, `canSleep` or `lockRotation`, or adding or removing the `RigidBody3DComponent`, rebuilds the body.
 
 Push a body with `addForce` (N), `addTorque`, `addImpulse` (N·s), `addAngularImpulse`, `setVelocity`, `setAngularVelocity` and `wakeUp`, all applied before the next step. After each step it holds `linearVelocity`, `angularVelocity` and `isAwake`. Move a kinematic or static body by writing its transform. A 3D body has only a `layer`: there is no `collidesWith` or `groupIndex`, so the project's layer grid decides what collides.
 
@@ -94,7 +94,7 @@ void buildRoom(World world) {
   world.createEntityWithComponents([
     TransformComponent(position: Vector3(4, -1.2, 0)),
     Collider3DComponent(shape: Collider3DShape.sphere, radius: 0.3),
-    RigidBody3DComponent(bodyType: BodyType3D.static, isSensor: true),
+    RigidBody3DComponent(bodyType: Body3DType.static, isSensor: true),
   ], name: 'Coin');
 
   // A door on a hinge that swings to 1 radian. Jointed bodies still
@@ -110,7 +110,7 @@ void buildRoom(World world) {
     HingeJoint3DComponent(
       connectedBody: const EntityTarget.name('Frame'),
       anchor: Vector3(-0.5, 0, 0),
-      motor: MotorState3D.position,
+      motor: Motor3DState.position,
       motorTarget: 1,
     ),
   ], name: 'Door');
@@ -144,7 +144,7 @@ class Hero3DControlSystem extends System {
 }
 ```
 
-With `useGravity` on, only the horizontal part of `moveVelocity` counts; the system adds gravity and the ground's own velocity, and `jump` makes the jump. Turn it off and `moveVelocity` is the whole velocity, for flying, swimming or ladders. After each step read `velocity`, `groundState` (a `GroundState3D`), `isGrounded`, `groundNormal`, `groundVelocity` and `groundEntity`. A `detectable` character is seen by sensors and hit by rays.
+With `useGravity` on, only the horizontal part of `moveVelocity` counts; the system adds gravity and the ground's own velocity, and `jump` makes the jump. Turn it off and `moveVelocity` is the whole velocity, for flying, swimming or ladders. After each step read `velocity`, `groundState` (a `Ground3DState`), `isGrounded`, `groundNormal`, `groundVelocity` and `groundEntity`. A `detectable` character is seen by sensors and hit by rays.
 
 ## Joints
 
@@ -157,9 +157,9 @@ Every joint sits on one entity and names the other with `connectedBody`, an `Ent
 | `HingeJoint3DComponent` | turns about `axis`, with optional limits (`useLimits`, `minAngle`, `maxAngle`), `friction` and a motor; reports `angle` |
 | `SliderJoint3DComponent` | slides along `axis`, with optional limits, `friction` and a motor; reports `position` |
 | `DistanceJoint3DComponent` | keeps `anchor` and `connectedAnchor` between `minDistance` and `maxDistance`, with `springFrequency` and `springDamping` |
-| `SixDofJoint3DComponent` | each of the six axes `SixDofAxisMode3D.free`, `limited` or `fixed` |
+| `SixDofJoint3DComponent` | each of the six axes `SixDofAxis3DMode.free`, `limited` or `fixed` |
 
-A motor is `MotorState3D.off`, `velocity` (a target speed) or `position` (a target angle or position), set by `motorTarget` and capped by `motorMaxTorque` or `motorMaxForce`.
+A motor is `Motor3DState.off`, `velocity` (a target speed) or `position` (a target angle or position), set by `motorTarget` and capped by `motorMaxTorque` or `motorMaxForce`.
 
 ## Events and queries
 

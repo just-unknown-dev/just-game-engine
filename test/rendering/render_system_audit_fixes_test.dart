@@ -105,7 +105,7 @@ void main() {
 
   group('a rolled camera', () {
     test('at a quarter turn sees the box around its turned view', () {
-      final camera = Camera(
+      final camera = OutputCamera(
         viewportSize: const Size(1600, 900),
         rotation: math.pi / 2,
       );
@@ -130,7 +130,7 @@ void main() {
     });
 
     test('keeps something 10 px in from a corner at 20°', () {
-      final camera = Camera(
+      final camera = OutputCamera(
         viewportSize: const Size(1600, 900),
         rotation: 20 * math.pi / 180,
       );
@@ -168,7 +168,7 @@ void main() {
     });
 
     test('without a roll is the plain viewport over the zoom', () {
-      final camera = Camera(
+      final camera = OutputCamera(
         viewportSize: const Size(800, 600),
         position: const Offset(10, 20),
         zoom: 2,
@@ -327,7 +327,7 @@ void main() {
   });
 
   test('the frame layers open before the background is drawn', () {
-    final camera = Camera(viewportSize: const Size(100, 100));
+    final camera = OutputCamera(viewportSize: const Size(100, 100));
     camera.effectManager.addEffect(
       MotionBlurEffect(velocity: () => const Offset(1000, 0)),
     );

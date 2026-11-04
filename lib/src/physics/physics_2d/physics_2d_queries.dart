@@ -26,7 +26,7 @@ final class Physics2DHit {
   final Entity? entity;
 
   /// The body hit.
-  final PhysicsBody body;
+  final Physics2DBody body;
 
   /// Where.
   final Offset point;
@@ -63,7 +63,7 @@ final class Physics2DQueries {
   final Physics2DSystem system;
 
   /// The physics engine queried: [system]'s.
-  PhysicsEngine get physics => system.physics;
+  Physics2DEngine get physics => system.physics;
 
   /// The first thing a ray from [origin] along [direction] hits within
   /// [maxDistance], or null.
@@ -97,13 +97,13 @@ final class Physics2DQueries {
     bool includeSensors = false,
   }) {
     if (direction == Offset.zero || maxDistance <= 0) return const [];
-    final ray = Ray(
+    final ray = Ray2D(
       origin: origin,
       direction: direction,
       maxDistance: maxDistance,
     );
     return [
-      for (final hit in physics.castRayAll(ray, exclude: _exclude(ignore)))
+      for (final hit in physics.raycastAll(ray, exclude: _exclude(ignore)))
         if (_passes(hit.body, layerMask, includeSensors))
           Physics2DHit(
             entity: system.entityOf(hit.body),
@@ -133,7 +133,7 @@ final class Physics2DQueries {
     final exclude = {..._exclude(ignore)};
     // Bodies that do not pass are looked through, one at a time.
     while (true) {
-      final hit = physics.castCircle(origin, radius, motion, exclude: exclude);
+      final hit = physics.circleCast(origin, radius, motion, exclude: exclude);
       if (hit == null) return null;
       if (_passes(hit.body, layerMask, includeSensors)) {
         return Physics2DHit(
@@ -172,7 +172,7 @@ final class Physics2DQueries {
     Entity? ignore,
     bool includeSensors = false,
   }) {
-    final box = ShapeProxy2D([
+    final box = Shape2DProxy([
       rect.topLeft,
       rect.topRight,
       rect.bottomRight,
@@ -190,25 +190,25 @@ final class Physics2DQueries {
   }
 
   /// Whether a shape of [body]'s overlaps (or touches) [box].
-  static bool _overlaps(PhysicsBody body, ShapeProxy2D box) {
+  static bool _overlaps(Physics2DBody body, Shape2DProxy box) {
     for (final proxy in Collider2DGeometry.proxiesOf(body)) {
-      final d = ShapeDistance2D.between(proxy, box);
+      final d = Shape2DDistance.between(proxy, box);
       if (d.overlaps || d.distance <= proxy.radius) return true;
     }
     return false;
   }
 
-  Set<PhysicsBody> _exclude(Entity? ignore) {
+  Set<Physics2DBody> _exclude(Entity? ignore) {
     final body = ignore == null ? null : system.bodyOf(ignore);
     return body == null ? const {} : {body};
   }
 
-  static bool _passes(PhysicsBody body, int layerMask, bool includeSensors) =>
+  static bool _passes(Physics2DBody body, int layerMask, bool includeSensors) =>
       (body.categoryBits & layerMask) != 0 &&
       (includeSensors || !body.isSensor);
 
   List<Entity> _entities(
-    List<PhysicsBody> bodies,
+    List<Physics2DBody> bodies,
     int layerMask,
     Entity? ignore,
     bool includeSensors,

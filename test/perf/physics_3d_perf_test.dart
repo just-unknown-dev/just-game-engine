@@ -13,8 +13,8 @@ import 'package:just_physics_engine/testing.dart';
 
 void main() {
   test('500 bodies through Physics3DSystem', () {
-    final physics = FakePhysicsWorld3D(
-      PhysicsWorldSettings3D(gravity: Vector3(0, 0.5, 0)),
+    final physics = FakePhysics3DWorld(
+      Physics3DWorldSettings(gravity: Vector3(0, 0.5, 0)),
       collisions: false,
     );
     final world = World()..initialize();
@@ -53,7 +53,7 @@ void main() {
   });
 
   test('500 bodies through Physics3DSystem on Jolt', () {
-    final physics = JoltPhysicsEngine().createWorld(PhysicsWorldSettings3D());
+    final physics = JoltPhysicsEngine().createWorld(Physics3DWorldSettings());
     final world = World()..initialize();
     world.addSystem(Physics3DSystem(physics));
     addTearDown(() {

@@ -35,7 +35,7 @@ final class Physics3DBodies {
     required this.onBodyGone,
   });
 
-  final PhysicsWorld3D Function() _physics;
+  final Physics3DWorld Function() _physics;
 
   /// Turns colliders into shapes.
   final Collider3DShapes shapes;
@@ -49,7 +49,7 @@ final class Physics3DBodies {
 
   final Map<Entity, _BodyLink> _bodies = {};
   final Map<int, _BodyLink> _linkByBody = {};
-  final BodyPoses3D _moved = BodyPoses3D();
+  final Body3DPoses _moved = Body3DPoses();
   final Quaternion _q = Quaternion.identity();
   final Quaternion _scratch = Quaternion.identity();
   final Vector3 _zero = Vector3.zero();
@@ -170,19 +170,19 @@ final class Physics3DBodies {
 
   /// [rigid]'s motion quality as the physics engine takes it: continuous
   /// collision is a linear cast.
-  static MotionQuality3D quality(RigidBody3DComponent? rigid) =>
+  static Motion3DQuality quality(RigidBody3DComponent? rigid) =>
       (rigid?.continuousCollision ?? false)
-      ? MotionQuality3D.linearCast
-      : MotionQuality3D.discrete;
+      ? Motion3DQuality.linearCast
+      : Motion3DQuality.discrete;
 
   void _createBody(_BodyLink link, Shape3D shape) {
     final transform = link.transform;
     final rigid = link.rigid;
     transform.rotationInto(_q);
-    final type = rigid?.bodyType ?? BodyType3D.static;
+    final type = rigid?.bodyType ?? Body3DType.static;
     final body = _physics().createBody(
       shape,
-      BodySettings3D(
+      Body3DSettings(
         position: transform.position,
         rotation: _q,
         linearVelocity: link.keepVelocity ?? rigid?.initialVelocity,
@@ -266,8 +266,8 @@ final class Physics3DBodies {
       }
       return;
     }
-    final type = link.rigid?.bodyType ?? BodyType3D.static;
-    if (type == BodyType3D.kinematic && dt > 0) {
+    final type = link.rigid?.bodyType ?? Body3DType.static;
+    if (type == Body3DType.kinematic && dt > 0) {
       physics.moveKinematic(link.body, p, _q, dt);
       // Drawn from where it was to where it is going.
       link
@@ -275,7 +275,7 @@ final class Physics3DBodies {
         ..prevFromLast = true
         ..kinematicMoved = true;
     } else {
-      physics.setBodyPose(link.body, p, _q, wake: type != BodyType3D.static);
+      physics.setBodyPose(link.body, p, _q, wake: type != Body3DType.static);
       transform.capturePrevious();
     }
     link.rememberPose(_scratch);
@@ -444,14 +444,14 @@ final class _BodyLink {
 
   // What the body was made with, of what a change rebuilds.
   bool _hasRigid = false;
-  BodyType3D _type = BodyType3D.static;
+  Body3DType _type = Body3DType.static;
   bool _sensor = false, _canSleep = true, _lockRotation = false;
   double _mass = 0, _linearDamping = 0, _angularDamping = 0;
 
   // What can change on a live body.
   double friction = 0, restitution = 0, gravityFactor = 1;
   int layer = 0;
-  MotionQuality3D motionQuality = MotionQuality3D.discrete;
+  Motion3DQuality motionQuality = Motion3DQuality.discrete;
 
   // The pose the body was last at, as the transform holds it, and the one
   // before a gameplay move (see capturePreviousFromLast).
@@ -537,7 +537,7 @@ final class _BodyLink {
 
   void remember(RigidBody3DComponent? r) {
     _hasRigid = r != null;
-    _type = r?.bodyType ?? BodyType3D.static;
+    _type = r?.bodyType ?? Body3DType.static;
     _sensor = r?.isSensor ?? false;
     _canSleep = r?.canSleep ?? true;
     _lockRotation = r?.lockRotation ?? false;
@@ -553,7 +553,7 @@ final class _BodyLink {
 
   bool matches(RigidBody3DComponent? r) =>
       _hasRigid == (r != null) &&
-      _type == (r?.bodyType ?? BodyType3D.static) &&
+      _type == (r?.bodyType ?? Body3DType.static) &&
       _sensor == (r?.isSensor ?? false) &&
       _canSleep == (r?.canSleep ?? true) &&
       _lockRotation == (r?.lockRotation ?? false) &&

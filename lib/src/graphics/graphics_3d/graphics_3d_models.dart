@@ -12,9 +12,9 @@ import '../../ecs/ecs.dart';
 
 /// The models a game's scenes use, each loaded once per asset path: read
 /// from [bundle], parsed, uploaded with [uploader].
-final class GraphicsModels {
+final class Graphics3DModels {
   /// A cache loading through [bundle] and uploading with [uploader].
-  GraphicsModels(this.bundle, this.uploader);
+  Graphics3DModels(this.bundle, this.uploader);
 
   /// Where model files are read from.
   final AssetBundle bundle;
@@ -215,31 +215,31 @@ final class _Entry {
 /// The models of the `Graphics3D` running on the engine whose context this
 /// is: for what knows only the context — a timeline scrubbing a clip needs
 /// its length.
-extension ContextGraphicsModels on EngineContext {
+extension ContextGraphics3DModels on EngineContext {
   /// The models of the `Graphics3D` started on this context's engine; null
   /// when none runs.
-  GraphicsModels? get graphicsModels =>
-      slot(_GraphicsModelsSlot, _GraphicsModelsSlot.new).models;
+  Graphics3DModels? get graphics3DModels =>
+      slot(_Graphics3DModelsSlot, _Graphics3DModelsSlot.new).models;
 
   /// Set by `Graphics3D` as it starts and stops.
   @internal
-  set graphicsModels(GraphicsModels? models) =>
-      slot(_GraphicsModelsSlot, _GraphicsModelsSlot.new).models = models;
+  set graphics3DModels(Graphics3DModels? models) =>
+      slot(_Graphics3DModelsSlot, _Graphics3DModelsSlot.new).models = models;
 }
 
-// Where [ContextGraphicsModels] keeps them; its type is the slot's key.
-final class _GraphicsModelsSlot {
-  GraphicsModels? models;
+// Where [ContextGraphics3DModels] keeps them; its type is the slot's key.
+final class _Graphics3DModelsSlot {
+  Graphics3DModels? models;
 }
 
 /// The engine's view of a model loaded by just_graphics_engine: its bounds
 /// and triangles in engine axes (+Y down), for picking and mesh colliders.
-final class GraphicsModelAsset extends ModelAsset {
+final class Graphics3DModelAsset extends ModelAsset {
   /// The model at [path], loaded through [models].
-  GraphicsModelAsset(super.path, this.models);
+  Graphics3DModelAsset(super.path, this.models);
 
   /// Where it is loaded.
-  final GraphicsModels models;
+  final Graphics3DModels models;
 
   final Aabb3 _bounds = Aabb3();
   final Map<String, ModelGeometry?> _geometry = {};
@@ -252,7 +252,7 @@ final class GraphicsModelAsset extends ModelAsset {
   @override
   List<String> get meshNames => _meshNames;
 
-  /// Reads the model again — after [GraphicsModels.reload] — so its
+  /// Reads the model again — after [Graphics3DModels.reload] — so its
   /// bounds, mesh names and triangles are the new file's.
   Future<void> reload() async {
     _geometry.clear();
@@ -323,14 +323,14 @@ final class GraphicsModelAsset extends ModelAsset {
   int get memoryUsage => 0;
 }
 
-/// Creates [GraphicsModelAsset]s for the engine's asset manager.
-final class GraphicsModelLoader extends AssetLoader {
+/// Creates [Graphics3DModelAsset]s for the engine's asset manager.
+final class Graphics3DModelLoader extends AssetLoader {
   /// A loader using [models].
-  GraphicsModelLoader(this.models);
+  Graphics3DModelLoader(this.models);
 
   /// Where models are loaded.
-  final GraphicsModels models;
+  final Graphics3DModels models;
 
   @override
-  Asset createAsset(String path) => GraphicsModelAsset(path, models);
+  Asset createAsset(String path) => Graphics3DModelAsset(path, models);
 }

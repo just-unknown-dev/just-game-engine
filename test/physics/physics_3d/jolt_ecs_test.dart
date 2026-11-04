@@ -11,8 +11,8 @@ import 'package:just_game_engine/just_game_engine_3d.dart';
 const _dt = 1 / 60;
 final _backend = JoltPhysicsEngine();
 
-World _world({void Function(PhysicsWorld3D)? withPhysics}) {
-  final physics = _backend.createWorld(PhysicsWorldSettings3D());
+World _world({void Function(Physics3DWorld)? withPhysics}) {
+  final physics = _backend.createWorld(Physics3DWorldSettings());
   final world = World()..initialize();
   world.addSystem(Physics3DSystem(physics));
   withPhysics?.call(physics);
@@ -93,7 +93,7 @@ void main() {
       final coin = world.createEntityWithComponents([
         TransformComponent(position: Vector3(4, -1.2, 0)),
         Collider3DComponent(shape: Collider3DShape.sphere, radius: 0.3),
-        RigidBody3DComponent(bodyType: BodyType3D.static, isSensor: true),
+        RigidBody3DComponent(bodyType: Body3DType.static, isSensor: true),
       ], name: 'Coin');
       final hero = world.createEntityWithComponents([
         TransformComponent(position: Vector3.zero()),
@@ -113,7 +113,7 @@ void main() {
       final platform = world.createEntityWithComponents([
         TransformComponent(position: Vector3(10, -0.35, 0)),
         Collider3DComponent(size: Vector3(3, 0.5, 3)),
-        RigidBody3DComponent(bodyType: BodyType3D.kinematic),
+        RigidBody3DComponent(bodyType: Body3DType.kinematic),
       ], name: 'Platform');
       t.position.setValues(10, -0.6, 0); // Teleported onto it.
       _run(world, 20, (_) => body.moveVelocity.setZero());
@@ -136,7 +136,7 @@ void main() {
     final hinge = HingeJoint3DComponent(
       connectedBody: const EntityTarget.name('Frame'),
       anchor: Vector3(-0.5, 0, 0),
-      motor: MotorState3D.position,
+      motor: Motor3DState.position,
       motorTarget: 1,
     );
     world.createEntityWithComponents([

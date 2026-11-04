@@ -12,7 +12,7 @@ void main() {
       world = World(extensions: [BuiltInComponents.extension]);
       world.addSystem(
         ViewCullingSystem(
-          camera: Camera(
+          camera: OutputCamera(
             viewportSize: const Size(400, 400),
             z: -10,
             lens: const CameraLens.perspective(fieldOfView: math.pi / 2),

@@ -4,7 +4,7 @@
 // space, jointed bodies send no contact events, culling freezes a body,
 // torque turns by a body's inertia, angles stay continuous, a kinematic body
 // moved by its transform carries what it holds; and a capsule stretched by
-// its entity and a ray along a box's side.
+// its entity.
 
 import 'dart:math' as math;
 
@@ -13,13 +13,13 @@ import 'package:just_game_engine/just_game_engine.dart';
 
 const _frame = 1 / 60;
 
-final _backends = <String, PhysicsEngine Function()>{
-  'native': PhysicsEngine.new,
-  'pure Dart': PhysicsEngine.pureDart,
+final _backends = <String, Physics2DEngine Function()>{
+  'native': Physics2DEngine.new,
+  'pure Dart': Physics2DEngine.pureDart,
 };
 
-({World world, PhysicsEngine physics}) _setUp(
-  PhysicsEngine engine, {
+({World world, Physics2DEngine physics}) _setUp(
+  Physics2DEngine engine, {
   double gravityY = 981,
 }) {
   final physics = engine..initialize();
@@ -40,8 +40,8 @@ void _step(World world, [int frames = 1, void Function(int)? each]) {
   }
 }
 
-PhysicsBody _bodyOf(Entity entity) =>
-    entity.getComponent<PhysicsBodyRefComponent>()!.body;
+Physics2DBody _bodyOf(Entity entity) =>
+    entity.getComponent<Physics2DBodyRefComponent>()!.body;
 
 TransformComponent _t(Entity e) => e.getComponent<TransformComponent>()!;
 
@@ -100,7 +100,7 @@ void main() {
         final (:world, :physics) = _setUp(make(), gravityY: 0);
         world.createEntityWithComponents([
           TransformComponent(),
-          RigidBody2DComponent(bodyType: BodyType.static),
+          RigidBody2DComponent(bodyType: Body2DType.static),
           Collider2DComponent(size: Vector2(10, 10)),
           DistanceJoint2DComponent(
             connectedBody: const EntityTarget.name('Bob'),
@@ -121,7 +121,7 @@ void main() {
         final (:world, :physics) = _setUp(make());
         world.createEntityWithComponents([
           TransformComponent(angle: math.pi / 2),
-          RigidBody2DComponent(bodyType: BodyType.static),
+          RigidBody2DComponent(bodyType: Body2DType.static),
           Collider2DComponent(size: Vector2(10, 10)),
           SliderJoint2DComponent(connectedBody: const EntityTarget.name('Car')),
         ], name: 'Rail');
@@ -143,7 +143,7 @@ void main() {
           ..on<CollisionExit2DEvent>((_) => exits++);
         world.createEntityWithComponents([
           TransformComponent(),
-          RigidBody2DComponent(bodyType: BodyType.static),
+          RigidBody2DComponent(bodyType: Body2DType.static),
           Collider2DComponent(size: Vector2(40, 40)),
           FixedJoint2DComponent(
             connectedBody: const EntityTarget.name('Plate'),
@@ -229,7 +229,7 @@ void main() {
         final (:world, :physics) = _setUp(make());
         final platform = world.createEntityWithComponents([
           TransformComponent(position: Vector3(0, 300, 0)),
-          RigidBody2DComponent(bodyType: BodyType.kinematic, friction: 1),
+          RigidBody2DComponent(bodyType: Body2DType.kinematic, friction: 1),
           Collider2DComponent(size: Vector2(400, 20)),
         ], name: 'Platform');
         final crate = world.createEntityWithComponents([
@@ -271,27 +271,6 @@ void main() {
     expect(
       Collider2DGeometry.boundsOf(stretched).height,
       closeTo(Collider2DGeometry.boundsOf(viaOwnScale).height, 1e-9),
-    );
-  });
-
-  test('a ray along a box side hits its near end', () {
-    final world = World()..initialize();
-    addTearDown(world.dispose);
-    final rays = RaycastSystem();
-    world.addSystem(rays);
-    world.createEntityWithComponents([
-      TransformComponent(position: Vector3(50, 0, 0)),
-      RaycastColliderComponent(width: 20, height: 20),
-    ]);
-    final hit = rays.raycast(
-      Ray(origin: const Offset(0, -10), direction: const Offset(1, 0)),
-    )!;
-    expect(hit.point.dx, closeTo(40, 1e-9));
-    expect(
-      rays.raycast(
-        Ray(origin: const Offset(0, -11), direction: const Offset(1, 0)),
-      ),
-      isNull,
     );
   });
 }

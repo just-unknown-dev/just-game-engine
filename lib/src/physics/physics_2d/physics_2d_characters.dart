@@ -34,14 +34,14 @@ final class Physics2DCharacters {
   });
 
   /// The world the characters move through.
-  final PhysicsEngine physics;
+  final Physics2DEngine physics;
 
   /// A character's body was made.
-  final void Function(PhysicsBody body, Entity entity) onBody;
+  final void Function(Physics2DBody body, Entity entity) onBody;
 
   /// A character's body is gone: `rebuilt` when a new one takes its place
   /// at once (what it is made of changed), not when the character is.
-  final void Function(PhysicsBody body, {required bool rebuilt}) onBodyGone;
+  final void Function(Physics2DBody body, {required bool rebuilt}) onBodyGone;
 
   late final CharacterMover2D _mover = CharacterMover2D(physics);
   final Map<Entity, _CharacterLink> _links = {};
@@ -49,14 +49,14 @@ final class Physics2DCharacters {
   int _seenVersion = -1;
 
   /// Each character's body by entity, while it has one.
-  PhysicsBody? bodyOf(Entity entity) => _links[entity]?.body;
+  Physics2DBody? bodyOf(Entity entity) => _links[entity]?.body;
 
   /// Moves every character in [world] by [dt] seconds. [entityOf]
   /// names the entity of a body it stands on.
   void move(
     World world,
     double dt,
-    Entity? Function(PhysicsBody body) entityOf,
+    Entity? Function(Physics2DBody body) entityOf,
   ) {
     _refresh(world);
     if (_active.isEmpty) return;
@@ -86,10 +86,10 @@ final class Physics2DCharacters {
         _removeBody(link, rebuilt: comp.detectable);
       }
       if (link.body == null && comp.detectable) {
-        final body = PhysicsBody(
+        final body = Physics2DBody(
           position: Vector2(at.dx, at.dy),
           shape: _shapeOf(shape),
-          bodyType: BodyType.kinematic,
+          bodyType: Body2DType.kinematic,
           useGravity: false,
           fixedRotation: true,
           canSleep: false,
@@ -132,7 +132,7 @@ final class Physics2DCharacters {
         transform.capturePrevious();
         comp
           ..velocity = Offset.zero
-          ..groundState = GroundState2D.inAir
+          ..groundState = Ground2DState.inAir
           ..groundEntity = null;
       }
 
@@ -168,7 +168,7 @@ final class Physics2DCharacters {
         stepHeight: comp.stepHeight,
         stickToFloor: comp.stickToFloor,
         wasGrounded: comp.isGrounded,
-        filter: MoverFilter(
+        filter: Mover2DFilter(
           categoryBits: category,
           maskBits: mask,
           ignore: link.body,
@@ -266,13 +266,13 @@ final class Physics2DCharacters {
   }
 
   /// The body shape of a mover [shape]: the same capsule or rounded box.
-  static CollisionShape _shapeOf(MoverShape shape) {
+  static Shape2D _shapeOf(Mover2DShape shape) {
     final p = shape.points;
-    if (p.length == 1) return CircleShape(shape.radius);
+    if (p.length == 1) return Circle2DShape(shape.radius);
     if (p.length == 2) {
-      return CapsuleShape(center1: p[0], center2: p[1], radius: shape.radius);
+      return Capsule2DShape(center1: p[0], center2: p[1], radius: shape.radius);
     }
-    return RoundedPolygonShape(p, shape.radius);
+    return RoundedPolygon2DShape(p, shape.radius);
   }
 
   static double _dot(Offset a, Offset b) => a.dx * b.dx + a.dy * b.dy;
@@ -297,7 +297,7 @@ final class _CharacterLink {
   int version = -1;
 
   /// Its own body, while it is detectable.
-  PhysicsBody? body;
+  Physics2DBody? body;
 
   /// Where the last move left its transform.
   double lastX = 0, lastY = 0;

@@ -107,7 +107,7 @@ void main() {
         ),
       ),
     );
-    expect(engine.subsystem<PhysicsEngine>(), isNull);
+    expect(engine.subsystem<Physics2DEngine>(), isNull);
     expect(engine.performanceStats['scheduler'], isEmpty);
   });
 

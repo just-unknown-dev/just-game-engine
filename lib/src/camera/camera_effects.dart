@@ -348,7 +348,7 @@ class LetterboxEffect extends CameraEffect {
 class MotionBlurEffect extends CameraEffect {
   /// Returns the camera's current world-space velocity (pixels/s).
   ///
-  /// Typically `() => camera.velocity` where `camera` is the scene's [Camera].
+  /// Typically `() => camera.velocity` where `camera` is the scene's [OutputCamera].
   final Offset Function() velocity;
 
   /// Minimum speed (world px/s) before any blur is applied.

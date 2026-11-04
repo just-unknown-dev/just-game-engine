@@ -18,7 +18,7 @@ void main() {
   late World world;
   late CameraEngine cameras;
 
-  Camera output() => cameras.mainCamera;
+  OutputCamera output() => cameras.mainCamera;
   CameraBrain brain() => cameras.brain;
 
   setUp(() {
@@ -146,7 +146,7 @@ void main() {
   });
 
   group('on-screen controls', () {
-    Future<Camera> controls(WidgetTester tester, Camera camera) async {
+    Future<OutputCamera> controls(WidgetTester tester, OutputCamera camera) async {
       await tester.pumpWidget(
         MaterialApp(
           home: GameCameraControls(camera: camera, child: const ColoredBox(color: Colors.black)),
@@ -156,7 +156,7 @@ void main() {
     }
 
     testWidgets('a drag on a rolled camera moves the world with the pointer', (tester) async {
-      final camera = await controls(tester, Camera(rotation: math.pi / 2, viewportSize: const Size(800, 600)));
+      final camera = await controls(tester, OutputCamera(rotation: math.pi / 2, viewportSize: const Size(800, 600)));
       final grabbed = camera.screenToWorld(const Offset(300, 300));
       final gesture = await tester.startGesture(const Offset(300, 300), kind: PointerDeviceKind.mouse);
       await gesture.moveTo(const Offset(340, 300));
@@ -167,7 +167,7 @@ void main() {
     });
 
     testWidgets('the buttons step from the camera\'s zoom as it is now', (tester) async {
-      final camera = await controls(tester, Camera());
+      final camera = await controls(tester, OutputCamera());
       camera.setZoom(3);
       await tester.tap(find.byTooltip('Zoom in'));
       expect(camera.zoom, closeTo(3.1, 1e-9));

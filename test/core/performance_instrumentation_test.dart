@@ -21,7 +21,7 @@ void main() {
     });
 
     test('physics stats expose last simulation step counters', () {
-      final physics = PhysicsEngine();
+      final physics = Physics2DEngine();
       physics.initialize();
 
       physics.update(1 / 60);
@@ -39,20 +39,20 @@ void main() {
       // Dart SpatialGrid, which the Box2D backend does not use at all — it has
       // its own broad phase — so on native this statistic is always zero and
       // the assertions below would be testing nothing.
-      final physics = PhysicsEngine.pureDart();
+      final physics = Physics2DEngine.pureDart();
       physics.initialize();
 
       physics.addBody(
-        PhysicsBody(
+        Physics2DBody(
           position: Vector2(0, 0),
-          shape: CircleShape(10),
+          shape: Circle2DShape(10),
           useGravity: false,
         ),
       );
       physics.addBody(
-        PhysicsBody(
+        Physics2DBody(
           position: Vector2(140, 0),
-          shape: CircleShape(10),
+          shape: Circle2DShape(10),
           useGravity: false,
         ),
       );
@@ -122,10 +122,10 @@ void main() {
 
         for (int i = 0; i < 20; i++) {
           engine.physics.addBody(
-            PhysicsBody(
+            Physics2DBody(
               position: Vector2(i * 40.0, 0),
               velocity: Vector2(10, 5),
-              shape: CircleShape(12),
+              shape: Circle2DShape(12),
               mass: 1.0,
             ),
           );

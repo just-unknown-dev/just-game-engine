@@ -60,7 +60,7 @@ void main() {
     ..addComponent(TransformComponent(position: at ?? Vector3.zero()))
     ..addComponent(shape);
 
-  Future<MeshInstance> texturedCube(GraphicsSceneRenderer renderer) async {
+  Future<MeshInstance> texturedCube(Graphics3DSceneRenderer renderer) async {
     add('crate', Cube3DComponent(texture: _gridPath));
     renderer.update(view);
     final instance = renderer.debugShapeInstances.single!;
@@ -254,7 +254,7 @@ void main() {
         ..render(canvas, game)
         ..render(canvas, pane);
       expect(renderer.debugSurfaces, 2);
-      for (var i = 0; i < GraphicsSceneRenderer.keepSurfaceRenders + 60; i++) {
+      for (var i = 0; i < Graphics3DSceneRenderer.keepSurfaceRenders + 60; i++) {
         renderer.render(canvas, game);
       }
       expect(renderer.debugSurfaces, 1, reason: "the pane's surface let go");
@@ -328,10 +328,10 @@ void main() {
       final world = World()..initialize();
       addTearDown(world.dispose);
       final renderer3D = await Renderer3D.create(NullGpuDevice(shaders: rendererNullShaders));
-      final renderer = GraphicsSceneRenderer(
+      final renderer = Graphics3DSceneRenderer(
         world: () => world,
         renderer: renderer3D,
-        models: GraphicsModels(TestBundle({}), renderer3D.uploader),
+        models: Graphics3DModels(TestBundle({}), renderer3D.uploader),
       );
       addTearDown(renderer.dispose);
       world.createEntityWithComponents([TransformComponent(position: Vector3(2, 0, 0)), Cube3DComponent()]);

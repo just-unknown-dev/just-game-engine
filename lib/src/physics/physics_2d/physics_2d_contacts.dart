@@ -32,12 +32,12 @@ final class Physics2DContacts {
   Physics2DContacts(this.physics, this.entities);
 
   /// The physics engine whose contacts these are.
-  final PhysicsEngine physics;
+  final Physics2DEngine physics;
 
   /// Each body's entity.
-  final Map<PhysicsBody, Entity> entities;
+  final Map<Physics2DBody, Entity> entities;
 
-  final ContactPairs<PhysicsBody> _pairs = ContactPairs();
+  final ContactPairs<Physics2DBody> _pairs = ContactPairs();
 
   // Per-entity count of currently-active ground-normal contacts, so
   // isGrounded stays true for the whole duration a body rests on something
@@ -54,8 +54,8 @@ final class Physics2DContacts {
   /// does, but quietly. An exit for them, if they touched as they were
   /// joined, goes to [events].
   void jointedPair(
-    PhysicsBody a,
-    PhysicsBody b, {
+    Physics2DBody a,
+    Physics2DBody b, {
     required bool joined,
     EventBus? events,
   }) {
@@ -83,7 +83,7 @@ final class Physics2DContacts {
   /// Its pairs of entities end with no exit, unless it was [rebuilt]: then
   /// they wait for its new body ([ContactPairs.removeBody]), and what it
   /// touched is woken, so the next step looks for that body.
-  void forgetBody(PhysicsBody body, Entity? entity, {required bool rebuilt}) {
+  void forgetBody(Physics2DBody body, Entity? entity, {required bool rebuilt}) {
     if (entity != null) _groundContactCount.remove(entity);
     _pairs.removeBody(
       body,
@@ -261,9 +261,9 @@ final class Physics2DContacts {
   ///
   /// A body at rest, or one with no rigid body to read, keeps what it had.
   void _reground() {
-    Map<PhysicsBody, List<ShapeProxy2D>>? proxies;
-    List<ShapeProxy2D> proxiesOf(
-      PhysicsBody body, [
+    Map<Physics2DBody, List<Shape2DProxy>>? proxies;
+    List<Shape2DProxy> proxiesOf(
+      Physics2DBody body, [
       Offset shift = Offset.zero,
     ]) {
       if (shift != Offset.zero) {
@@ -320,7 +320,8 @@ final class Physics2DContacts {
     }
   }
 
-  static bool _movesItself(PhysicsBody body) => body.isDynamic && body.isAwake;
+  static bool _movesItself(Physics2DBody body) =>
+      body.isDynamic && body.isAwake;
 
   static bool _hasRigid(Entity entity) =>
       entity.hasComponent<RigidBody2DComponent>();
@@ -329,13 +330,13 @@ final class Physics2DContacts {
   /// [a] towards [b], and whether it ends on a face of either — not
   /// between two sharp corners, whose gap can point any way. Null when any
   /// of their cores overlap (no gap to tell by) or either has none.
-  static _Gap? _separation(List<ShapeProxy2D> a, List<ShapeProxy2D> b) {
+  static _Gap? _separation(List<Shape2DProxy> a, List<Shape2DProxy> b) {
     if (a.isEmpty || b.isEmpty) return null;
     _Gap? best;
     var bestDistance = double.infinity;
     for (final pa in a) {
       for (final pb in b) {
-        final d = ShapeDistance2D.between(pa, pb);
+        final d = Shape2DDistance.between(pa, pb);
         if (d.overlaps) return null;
         final gap = d.distance - pa.radius - pb.radius;
         if (gap < bestDistance) {
@@ -352,7 +353,7 @@ final class Physics2DContacts {
 
   /// Whether [point] on [proxy]'s core is one of its corners, and a sharp
   /// one: not rounded off by a radius (a circle, a capsule's end).
-  static bool _sharpCorner(ShapeProxy2D proxy, Offset point) {
+  static bool _sharpCorner(Shape2DProxy proxy, Offset point) {
     if (proxy.radius > 0.5) return false;
     for (final corner in proxy.points) {
       if ((corner - point).distanceSquared < 1e-6) return true;
@@ -363,7 +364,7 @@ final class Physics2DContacts {
   /// Where [a] and [b] touch, as near as their bounds tell: the middle of
   /// where the two boxes round them meet (neither physics backend reports a
   /// contact's point in 2-D).
-  static Offset contactPoint(PhysicsBody a, PhysicsBody b) {
+  static Offset contactPoint(Physics2DBody a, Physics2DBody b) {
     final ra = a
         .getCompoundBounds(Offset(a.position.x, a.position.y))
         .inflate(0.5);
@@ -384,7 +385,7 @@ final class Physics2DContacts {
   /// has [surfaceNormal] there — unless [keepSurface], when the ground and
   /// normal [grounded] already has are kept.
   void _addGroundContact(
-    BodyContact<PhysicsBody> contact,
+    BodyContact<Physics2DBody> contact,
     Entity grounded,
     Entity ground,
     Offset surfaceNormal, {
@@ -405,7 +406,7 @@ final class Physics2DContacts {
     rigid.groundNormal = surfaceNormal;
   }
 
-  void _removeGroundContact(BodyContact<PhysicsBody> contact) {
+  void _removeGroundContact(BodyContact<Physics2DBody> contact) {
     final grounded = contact.grounded;
     if (grounded == null) return;
     contact.grounded = null;

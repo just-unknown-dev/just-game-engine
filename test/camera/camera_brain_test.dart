@@ -29,12 +29,12 @@ class _NudgeStage extends CameraStage<_NudgeComponent> {
 
 void main() {
   late World world;
-  late Camera output;
+  late OutputCamera output;
   late CameraBrain brain;
 
   setUp(() {
     world = World();
-    output = Camera(viewportSize: _view);
+    output = OutputCamera(viewportSize: _view);
     brain = CameraBrain(output)..defaultBlend = CameraBlend.cut;
   });
   tearDown(() => world.dispose());
@@ -227,7 +227,7 @@ void main() {
       double settle(double step) {
         world.dispose();
         world = World();
-        output = Camera(viewportSize: _view);
+        output = OutputCamera(viewportSize: _view);
         brain = CameraBrain(output)..defaultBlend = CameraBlend.cut;
         final p = player();
         camera(

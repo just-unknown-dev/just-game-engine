@@ -12,11 +12,11 @@ import 'package:just_physics_engine/testing.dart';
 
 const _dt = 1 / 60;
 
-({World world, FakePhysicsWorld3D physics, Physics3DSystem system}) _setUp({
+({World world, FakePhysics3DWorld physics, Physics3DSystem system}) _setUp({
   bool stay = false,
 }) {
-  final physics = FakePhysicsWorld3D(
-    PhysicsWorldSettings3D(reportContactStay: stay),
+  final physics = FakePhysics3DWorld(
+    Physics3DWorldSettings(reportContactStay: stay),
   );
   final system = Physics3DSystem(physics);
   final world = World()..initialize();
@@ -60,7 +60,7 @@ void main() {
       expect(physics.bodies, hasLength(2));
       expect(
         physics.bodies[system.bodyOf(floor)]!.type,
-        BodyType3D.static,
+        Body3DType.static,
         reason: 'a collider alone is a static body',
       );
 
@@ -137,7 +137,7 @@ void main() {
         final lift = _box(
           world,
           Vector3.zero(),
-          body: RigidBody3DComponent(bodyType: BodyType3D.kinematic),
+          body: RigidBody3DComponent(bodyType: Body3DType.kinematic),
         );
         world.update(_dt);
         final t = lift.getComponent<TransformComponent>()!;
@@ -183,7 +183,7 @@ void main() {
         expect(physics.isBody(first), isFalse);
         expect(
           physics.bodies[system.bodyOf(box)]!.shape,
-          const BoxShape3D(1, 1, 1),
+          const Box3DShape(1, 1, 1),
         );
       },
     );
@@ -197,7 +197,7 @@ void main() {
       world.update(_dt);
       expect(
         physics.bodies[system.bodyOf(box)]!.shape,
-        const BoxShape3D(1, 1.5, 2),
+        const Box3DShape(1, 1.5, 2),
       );
     });
 
@@ -235,7 +235,7 @@ void main() {
         world.update(_dt);
         expect(system.bodyOf(terrain), 0);
         terrain.getComponent<RigidBody3DComponent>()!.bodyType =
-            BodyType3D.static;
+            Body3DType.static;
         world.update(_dt);
         expect(system.bodyOf(terrain), isNot(0));
       },
@@ -298,7 +298,7 @@ void main() {
         final zone = world.createEntityWithComponents([
           TransformComponent(position: Vector3(0, -2, 0)),
           Collider3DComponent(size: Vector3(4, 2, 4)),
-          RigidBody3DComponent(bodyType: BodyType3D.static, isSensor: true),
+          RigidBody3DComponent(bodyType: Body3DType.static, isSensor: true),
         ], name: 'Zone');
         final ball = _box(world, Vector3(0, -6, 0), name: 'Ball');
         final enters = <SensorEnter3DEvent>[];
@@ -372,7 +372,7 @@ void main() {
       final platform = world.createEntityWithComponents([
         TransformComponent(position: Vector3(0, 0.25, 0)),
         Collider3DComponent(size: Vector3(4, 0.5, 4)),
-        RigidBody3DComponent(bodyType: BodyType3D.kinematic),
+        RigidBody3DComponent(bodyType: Body3DType.kinematic),
       ], name: 'Platform');
       final hero = character(world, Vector3.zero());
       final comp = hero.getComponent<CharacterBody3DComponent>()!;
@@ -417,7 +417,7 @@ void main() {
       final coin = world.createEntityWithComponents([
         TransformComponent(position: Vector3(3, -1, 0)),
         Collider3DComponent(size: Vector3(0.5, 0.5, 0.5)),
-        RigidBody3DComponent(bodyType: BodyType3D.static, isSensor: true),
+        RigidBody3DComponent(bodyType: Body3DType.static, isSensor: true),
       ], name: 'Coin');
       final hero = character(world, Vector3.zero());
       final enters = <SensorEnter3DEvent>[];
@@ -492,13 +492,13 @@ void main() {
           world,
           Vector3.zero(),
           name: 'Frame',
-          body: RigidBody3DComponent(bodyType: BodyType3D.static),
+          body: RigidBody3DComponent(bodyType: Body3DType.static),
         );
         world.update(_dt);
         final joint = physics.joints.values.single;
         expect(joint.bodyA, system.bodyOf(door));
         expect(joint.bodyB, system.bodyOf(frame));
-        expect(joint.settings.kind, JointKind3D.hinge);
+        expect(joint.settings.kind, Joint3DKind.hinge);
         expect(
           joint.settings.pointA.x,
           closeTo(0.5, 1e-9),
@@ -506,7 +506,7 @@ void main() {
         );
         expect(hinge.joint, joint.handle);
 
-        hinge.motor = MotorState3D.position;
+        hinge.motor = Motor3DState.position;
         hinge.motorTarget = 1.2;
         world.update(_dt);
         expect(
@@ -514,7 +514,7 @@ void main() {
           same(joint),
           reason: 'a motor change is not a rebuild',
         );
-        expect(joint.motorState, MotorState3D.position);
+        expect(joint.motorState, Motor3DState.position);
         expect(hinge.angle, 1.2, reason: 'read back after the step');
 
         hinge.useLimits = true;
@@ -560,7 +560,7 @@ void main() {
         world,
         Vector3(0, -0.5, 0),
         name: 'Crate',
-        body: RigidBody3DComponent(bodyType: BodyType3D.static),
+        body: RigidBody3DComponent(bodyType: Body3DType.static),
       );
       world.update(_dt);
       final queries = Physics3DQueries(system);

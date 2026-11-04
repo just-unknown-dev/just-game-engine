@@ -17,8 +17,8 @@ abstract final class Physics3DDefinitions {
   static const String _group = 'Physics';
 
   static const _bodyType = EnumFieldType(
-    BodyType3D.values,
-    fallback: BodyType3D.dynamic,
+    Body3DType.values,
+    fallback: Body3DType.dynamic,
     id: 'physics3d.bodyType',
   );
   static const _colliderShape = EnumFieldType(
@@ -27,13 +27,13 @@ abstract final class Physics3DDefinitions {
     id: 'physics3d.colliderShape',
   );
   static const _motor = EnumFieldType(
-    MotorState3D.values,
-    fallback: MotorState3D.off,
+    Motor3DState.values,
+    fallback: Motor3DState.off,
     id: 'physics3d.motor',
   );
   static const _axisMode = EnumFieldType(
-    SixDofAxisMode3D.values,
-    fallback: SixDofAxisMode3D.fixed,
+    SixDofAxis3DMode.values,
+    fallback: SixDofAxis3DMode.fixed,
     id: 'physics3d.axisMode',
   );
 
@@ -79,7 +79,7 @@ abstract final class Physics3DDefinitions {
               'How heavy it is, in kg; 0 works it out from the collider.',
           scrub: const ScrubHint(step: 0.5, fractionDigits: 1, suffix: 'kg'),
           visibleWhen: (c) =>
-              (c as RigidBody3DComponent).bodyType == BodyType3D.dynamic,
+              (c as RigidBody3DComponent).bodyType == Body3DType.dynamic,
         ),
         'layer': const FieldHint(
           label: 'Layer',
@@ -108,53 +108,53 @@ abstract final class Physics3DDefinitions {
           description: PhysicsDefinitions.gravityScaleDescription,
           scrub: const ScrubHint(step: 0.05, fractionDigits: 2, suffix: '×'),
           visibleWhen: (c) =>
-              (c as RigidBody3DComponent).bodyType == BodyType3D.dynamic,
+              (c as RigidBody3DComponent).bodyType == Body3DType.dynamic,
         ),
         'linearDamping': FieldHint(
           label: 'Linear damping',
           description: PhysicsDefinitions.linearDampingDescription,
           scrub: const ScrubHint(step: 0.05, fractionDigits: 2, suffix: '/s'),
           visibleWhen: (c) =>
-              (c as RigidBody3DComponent).bodyType == BodyType3D.dynamic,
+              (c as RigidBody3DComponent).bodyType == Body3DType.dynamic,
         ),
         'angularDamping': FieldHint(
           label: 'Angular damping',
           description: 'As linear damping, for its spin.',
           scrub: const ScrubHint(step: 0.05, fractionDigits: 2, suffix: '/s'),
           visibleWhen: (c) =>
-              (c as RigidBody3DComponent).bodyType == BodyType3D.dynamic,
+              (c as RigidBody3DComponent).bodyType == Body3DType.dynamic,
         ),
         'continuousCollision': FieldHint(
           label: 'Continuous',
           description: PhysicsDefinitions.continuousDescription,
           visibleWhen: (c) =>
-              (c as RigidBody3DComponent).bodyType == BodyType3D.dynamic,
+              (c as RigidBody3DComponent).bodyType == Body3DType.dynamic,
         ),
         'canSleep': FieldHint(
           label: 'Can sleep',
           description: PhysicsDefinitions.canSleepDescription,
           visibleWhen: (c) =>
-              (c as RigidBody3DComponent).bodyType != BodyType3D.static,
+              (c as RigidBody3DComponent).bodyType != Body3DType.static,
         ),
         'lockRotation': FieldHint(
           label: 'Lock rotation',
           description: PhysicsDefinitions.lockRotationDescription,
           visibleWhen: (c) =>
-              (c as RigidBody3DComponent).bodyType != BodyType3D.static,
+              (c as RigidBody3DComponent).bodyType != Body3DType.static,
         ),
         'initialVelocity': FieldHint(
           label: 'Start velocity',
           description:
               'The velocity it starts with, in m/s: a thrown crate, a platform already on its way.',
           visibleWhen: (c) =>
-              (c as RigidBody3DComponent).bodyType != BodyType3D.static,
+              (c as RigidBody3DComponent).bodyType != Body3DType.static,
         ),
         'initialAngularVelocity': FieldHint(
           label: 'Start spin',
           description:
               'The spin it starts with, in radians per second about each axis.',
           visibleWhen: (c) =>
-              (c as RigidBody3DComponent).bodyType != BodyType3D.static,
+              (c as RigidBody3DComponent).bodyType != Body3DType.static,
         ),
       },
     ),
@@ -163,7 +163,7 @@ abstract final class Physics3DDefinitions {
         name: 'bodyType',
         kind: _bodyType,
         read: (c) => (c as RigidBody3DComponent).bodyType,
-        write: (c, v) => (c as RigidBody3DComponent).bodyType = v as BodyType3D,
+        write: (c, v) => (c as RigidBody3DComponent).bodyType = v as Body3DType,
       ),
       _decimal<RigidBody3DComponent>(
         'mass',
@@ -602,19 +602,19 @@ abstract final class Physics3DDefinitions {
     'motorTarget': FieldHint(
       label: 'Target',
       description: 'A speed or a $unitSuffix, as the motor says.',
-      visibleWhen: (c) => _motorOf(c) != MotorState3D.off,
+      visibleWhen: (c) => _motorOf(c) != Motor3DState.off,
     ),
     'motorMax': FieldHint(
       label: forceLabel,
       description: '0 for no limit.',
-      visibleWhen: (c) => _motorOf(c) != MotorState3D.off,
+      visibleWhen: (c) => _motorOf(c) != Motor3DState.off,
     ),
   };
 
-  static MotorState3D _motorOf(Component c) => switch (c) {
+  static Motor3DState _motorOf(Component c) => switch (c) {
     HingeJoint3DComponent h => h.motor,
     SliderJoint3DComponent s => s.motor,
-    _ => MotorState3D.off,
+    _ => Motor3DState.off,
   };
 
   /// [HingeJoint3DComponent].
@@ -684,7 +684,7 @@ abstract final class Physics3DDefinitions {
             kind: _motor,
             read: (c) => (c as HingeJoint3DComponent).motor,
             write: (c, v) =>
-                (c as HingeJoint3DComponent).motor = v as MotorState3D,
+                (c as HingeJoint3DComponent).motor = v as Motor3DState,
           ),
           _decimal<HingeJoint3DComponent>(
             'motorTarget',
@@ -768,7 +768,7 @@ abstract final class Physics3DDefinitions {
             kind: _motor,
             read: (c) => (c as SliderJoint3DComponent).motor,
             write: (c, v) =>
-                (c as SliderJoint3DComponent).motor = v as MotorState3D,
+                (c as SliderJoint3DComponent).motor = v as Motor3DState,
           ),
           _decimal<SliderJoint3DComponent>(
             'motorTarget',
@@ -855,14 +855,14 @@ abstract final class Physics3DDefinitions {
   static ComponentDefinition<SixDofJoint3DComponent> get sixDofJoint {
     FieldDefinition mode(
       String name,
-      SixDofAxisMode3D Function(SixDofJoint3DComponent) read,
-      void Function(SixDofJoint3DComponent, SixDofAxisMode3D) write,
+      SixDofAxis3DMode Function(SixDofJoint3DComponent) read,
+      void Function(SixDofJoint3DComponent, SixDofAxis3DMode) write,
     ) => FieldDefinition(
       name: name,
       kind: _axisMode,
       read: (c) => read(c as SixDofJoint3DComponent),
       write: (c, v) =>
-          write(c as SixDofJoint3DComponent, v as SixDofAxisMode3D),
+          write(c as SixDofJoint3DComponent, v as SixDofAxis3DMode),
     );
     return ComponentDefinition<SixDofJoint3DComponent>(
       type: 'SixDofJoint3DComponent',

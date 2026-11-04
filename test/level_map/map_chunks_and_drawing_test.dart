@@ -183,7 +183,7 @@ void main() {
     }
 
     /// Draws [e]'s one layer, with [camera] or with no view at all.
-    _Recorder paint(Entity e, LevelMapRuntime rt, {Camera? camera}) {
+    _Recorder paint(Entity e, LevelMapRuntime rt, {OutputCamera? camera}) {
       final canvas = _Recorder();
       rt.painter.paint(
         canvas,
@@ -203,7 +203,7 @@ void main() {
         for (final c in cells) [topLeft(rt, c)],
       ];
       expect(_drawn(paint(e, rt)), expected);
-      final wide = Camera(viewportSize: const Size(4000, 4000));
+      final wide = OutputCamera(viewportSize: const Size(4000, 4000));
       expect(_drawn(paint(e, rt, camera: wide)), expected);
     });
 
@@ -258,7 +258,7 @@ void main() {
         for (final c in far..sort((a, b) => a.y != b.y ? a.y - b.y : a.x - b.x))
           [topLeft(rt, c)],
       ]);
-      final near = Camera(viewportSize: const Size(400, 300));
+      final near = OutputCamera(viewportSize: const Size(400, 300));
       expect(_drawn(paint(e, rt, camera: near)), [
         [topLeft(rt, const TileCoord(0, 0))],
       ]);

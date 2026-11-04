@@ -6,7 +6,7 @@ import 'package:just_game_engine/just_game_engine.dart';
 
 /// The engine's own definitions, fresh for this file.
 final _coreDefinitions = BuiltInComponents.registry();
-Camera _flat() => Camera(
+OutputCamera _flat() => OutputCamera(
   position: const Offset(120, -40),
   zoom: 1.75,
   rotation: 0.4,
@@ -74,7 +74,7 @@ void main() {
   });
 
   group('a camera in space', () {
-    Camera perspective() => Camera(
+    OutputCamera perspective() => OutputCamera(
       viewportSize: const Size(100, 100),
       z: -10,
       lens: const CameraLens.perspective(fieldOfView: math.pi / 2, near: 1),
@@ -109,7 +109,7 @@ void main() {
     });
 
     test('pitched down, it sees the plane in front of it', () {
-      final camera = Camera(
+      final camera = OutputCamera(
         viewportSize: const Size(100, 100),
         position: const Offset(0, -10),
         z: -10,

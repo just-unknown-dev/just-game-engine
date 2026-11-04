@@ -22,7 +22,7 @@ import '../../ecs/ecs.dart';
 class RigidBody2DComponent extends Component {
   /// A dynamic body on layer 0, by default.
   RigidBody2DComponent({
-    this.bodyType = BodyType.dynamic,
+    this.bodyType = Body2DType.dynamic,
     this.mass = 0.0,
     this.friction = 0.5,
     this.restitution = 0.0,
@@ -40,11 +40,11 @@ class RigidBody2DComponent extends Component {
     this.groupIndex = 0,
   });
 
-  /// How the body takes part in the simulation: [BodyType.static] never
-  /// moves (level geometry), [BodyType.kinematic] moves only as its
+  /// How the body takes part in the simulation: [Body2DType.static] never
+  /// moves (level geometry), [Body2DType.kinematic] moves only as its
   /// velocity says and cannot be pushed (moving platforms),
-  /// [BodyType.dynamic] is fully simulated.
-  BodyType bodyType;
+  /// [Body2DType.dynamic] is fully simulated.
+  Body2DType bodyType;
 
   /// Mass in kg; 0 works it out from the collider's area, as a 3-D body
   /// does from its volume (see `Collider2DGeometry.autoMassPerSquareUnit`: a
@@ -108,14 +108,14 @@ class RigidBody2DComponent extends Component {
   /// never does; 0: layers decide).
   int groupIndex;
 
-  /// Whether the body never moves ([BodyType.static]).
-  bool get isStatic => bodyType == BodyType.static;
+  /// Whether the body never moves ([Body2DType.static]).
+  bool get isStatic => bodyType == Body2DType.static;
 
-  /// Whether the body moves only by its velocity ([BodyType.kinematic]).
-  bool get isKinematic => bodyType == BodyType.kinematic;
+  /// Whether the body moves only by its velocity ([Body2DType.kinematic]).
+  bool get isKinematic => bodyType == Body2DType.kinematic;
 
-  /// Whether the body is fully simulated ([BodyType.dynamic]).
-  bool get isDynamic => bodyType == BodyType.dynamic;
+  /// Whether the body is fully simulated ([Body2DType.dynamic]).
+  bool get isDynamic => bodyType == Body2DType.dynamic;
 
   // ── Runtime: never saved ──────────────────────────────────────────────
 
@@ -237,6 +237,7 @@ class Collider2DComponent extends Component {
     Vector2? scale,
     this.oneWay = false,
     this.oneWayDirection = OneWayDirection.fromAbove,
+    this.reflectivity = 0.0,
     this.showDebugOutline = true,
   }) : size = size ?? Vector2(64, 64),
        points =
@@ -290,8 +291,13 @@ class Collider2DComponent extends Component {
   /// Which side [oneWay] makes it solid from.
   OneWayDirection oneWayDirection;
 
+  /// How much of a traced ray bounces off it, 0 to 1: 0 (the default)
+  /// absorbs the ray, 1 mirrors all that is left of it. Read by
+  /// `RayTracer2D`, never written by the simulation.
+  double reflectivity;
+
   /// Whether its outline is drawn when colliders are outlined (by a
-  /// `ColliderDebuggerSystem`: in the editor while a scene is edited, or a
+  /// `Collider2DDebuggerSystem`: in the editor while a scene is edited, or a
   /// game's debug view).
   bool showDebugOutline;
 
@@ -397,7 +403,7 @@ class CharacterBody2DComponent extends Component {
   Offset velocity = Offset.zero;
 
   /// What it stands on after the last step.
-  GroundState2D groundState = GroundState2D.inAir;
+  Ground2DState groundState = Ground2DState.inAir;
 
   /// The ground's normal after the last step.
   Offset groundNormal = Offset.zero;
@@ -412,16 +418,16 @@ class CharacterBody2DComponent extends Component {
   double? pendingJump;
 
   /// Whether it stands on walkable ground.
-  bool get isGrounded => groundState == GroundState2D.onGround;
+  bool get isGrounded => groundState == Ground2DState.onGround;
 
   /// Jumps at [speed] (units per second) at the next step, if it is on the
   /// ground then (with [useGravity]).
   void jump(double speed) => pendingJump = speed;
 
   /// The shape the mover moves it as.
-  MoverShape get moverShape => shape == CharacterBody2DShape.box
-      ? MoverShape.box(width: width, height: height)
-      : MoverShape.capsule(radius: radius, height: height);
+  Mover2DShape get moverShape => shape == CharacterBody2DShape.box
+      ? Mover2DShape.box(width: width, height: height)
+      : Mover2DShape.capsule(radius: radius, height: height);
 
   @override
   String toString() => 'CharacterBody2DComponent(${shape.name})';

@@ -52,11 +52,11 @@ class _Ring extends Component implements SolidShapeSource {
 
 void main() {
   late World world;
-  late PhysicsWorld3D physics;
+  late Physics3DWorld physics;
   late Physics3DSystem system;
 
   setUp(() {
-    physics = _backend.createWorld(PhysicsWorldSettings3D());
+    physics = _backend.createWorld(Physics3DWorldSettings());
     world = World()..initialize();
     world.addSystem(system = Physics3DSystem(physics));
     // A floor whose top is at y = 0 (+Y is down).

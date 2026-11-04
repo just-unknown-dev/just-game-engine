@@ -52,7 +52,7 @@ void main() {
     expect(() => engine.rendering, throwsA(isA<EngineNotReadyError>()));
     await engine.initialize();
     expect(engine.subsystem<RenderingEngine>(), same(engine.rendering));
-    expect(engine.subsystem<PhysicsEngine>(), same(engine.physics));
+    expect(engine.subsystem<Physics2DEngine>(), same(engine.physics));
     expect(engine.subsystem<InputService>(), same(engine.input));
     expect(engine.subsystem<AudioEngine>(), same(engine.audio));
     expect(engine.subsystem<CacheManager>(), same(engine.cache));

@@ -9,7 +9,8 @@ import 'package:flutter/material.dart';
 import 'renderable.dart';
 
 /// Draws a glowing line from [start] to [end] that fades to transparent over
-/// [lifetime] seconds.
+/// [lifetime] seconds. One per segment of a `RayTracer2D` trace draws a
+/// beam bouncing off mirrors.
 ///
 /// Call [update] each frame (before render) to advance the fade timer.
 /// Once [isExpired] is `true` the renderable can safely be removed from the

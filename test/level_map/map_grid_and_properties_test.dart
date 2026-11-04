@@ -84,7 +84,7 @@ void main() {
       );
       world.context.sprites = _Images(image);
       registerLevelMapSystems(world, collision: false);
-      final camera = Camera(viewportSize: const Size(100, 100));
+      final camera = OutputCamera(viewportSize: const Size(100, 100));
       world.addSystem(RenderSystem(camera: camera));
       addTearDown(world.dispose);
       final e = world.createEntityWithComponents([

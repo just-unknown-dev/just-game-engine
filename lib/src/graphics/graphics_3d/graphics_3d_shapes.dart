@@ -25,10 +25,10 @@ import 'shapes/primitive_3d_component.dart';
 /// A renderer that counts its users ([hold], [release]) has what it stops
 /// using let go at once: a shape whose size animates keeps one mesh, not
 /// one a frame.
-final class GraphicsShapes {
+final class Graphics3DShapes {
   /// Shapes uploaded with [uploader], their textures read by [read]; what is
   /// drawn now is told by [inUse].
-  GraphicsShapes(this.uploader, this.read, {this.inUse, this.library});
+  Graphics3DShapes(this.uploader, this.read, {this.inUse, this.library});
 
   /// Where meshes and materials go.
   final ModelUploader uploader;
@@ -343,7 +343,7 @@ final class _Entry<T extends Object> {
   /// What it is held under.
   final Object key;
 
-  /// How many users count it ([GraphicsShapes.hold]).
+  /// How many users count it ([Graphics3DShapes.hold]).
   int holders = 0;
 
   /// The texture a material was made for.

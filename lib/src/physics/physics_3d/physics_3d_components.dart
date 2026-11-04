@@ -15,7 +15,7 @@ import '../../ecs/ecs.dart';
 class RigidBody3DComponent extends Component {
   /// A dynamic body on layer 0, by default.
   RigidBody3DComponent({
-    this.bodyType = BodyType3D.dynamic,
+    this.bodyType = Body3DType.dynamic,
     this.continuousCollision = false,
     this.mass = 0.0,
     this.friction = 0.5,
@@ -33,7 +33,7 @@ class RigidBody3DComponent extends Component {
        initialAngularVelocity = initialAngularVelocity ?? Vector3.zero();
 
   /// Static, kinematic or dynamic. A change rebuilds the body.
-  BodyType3D bodyType;
+  Body3DType bodyType;
 
   /// Continuous collision: a fast body is swept from where it was to where
   /// it is each step, so it cannot pass through a thin wall. Costs more.
@@ -311,7 +311,7 @@ class CharacterBody3DComponent extends Component {
   final Vector3 velocity = Vector3.zero();
 
   /// What it stands on after the last step.
-  GroundState3D groundState = GroundState3D.inAir;
+  Ground3DState groundState = Ground3DState.inAir;
 
   /// The ground's normal after the last step.
   final Vector3 groundNormal = Vector3.zero();
@@ -326,7 +326,7 @@ class CharacterBody3DComponent extends Component {
   double? pendingJump;
 
   /// Whether it stands on walkable ground.
-  bool get isGrounded => groundState == GroundState3D.onGround;
+  bool get isGrounded => groundState == Ground3DState.onGround;
 
   /// Jumps at [speed] m/s at the next step, if it is on the ground then
   /// (with [useGravity]).
@@ -358,7 +358,7 @@ abstract class Joint3DComponent extends Component {
   bool enabled;
 
   /// Which kind of joint this is.
-  JointKind3D get kind;
+  Joint3DKind get kind;
 
   /// The physics engine's joint, or 0 while it has none. Runtime only.
   int joint = 0;
@@ -370,7 +370,7 @@ class FixedJoint3DComponent extends Joint3DComponent {
   FixedJoint3DComponent({super.connectedBody, super.anchor, super.enabled});
 
   @override
-  JointKind3D get kind => JointKind3D.fixed;
+  Joint3DKind get kind => Joint3DKind.fixed;
 }
 
 /// Holds two bodies at one point, free to turn about it (a ball joint).
@@ -379,7 +379,7 @@ class PointJoint3DComponent extends Joint3DComponent {
   PointJoint3DComponent({super.connectedBody, super.anchor, super.enabled});
 
   @override
-  JointKind3D get kind => JointKind3D.point;
+  Joint3DKind get kind => Joint3DKind.point;
 }
 
 /// Lets two bodies turn about one axis: a door, a wheel, a lever.
@@ -394,7 +394,7 @@ class HingeJoint3DComponent extends Joint3DComponent {
     this.minAngle = -1.5707963267948966,
     this.maxAngle = 1.5707963267948966,
     this.friction = 0.0,
-    this.motor = MotorState3D.off,
+    this.motor = Motor3DState.off,
     this.motorTarget = 0.0,
     this.motorMaxTorque = 0.0,
   }) : axis = axis ?? Vector3(0, 1, 0);
@@ -412,7 +412,7 @@ class HingeJoint3DComponent extends Joint3DComponent {
   double friction;
 
   /// Off, a target speed, or a target angle.
-  MotorState3D motor;
+  Motor3DState motor;
 
   /// The motor's target: rad/s, or radians.
   double motorTarget;
@@ -421,7 +421,7 @@ class HingeJoint3DComponent extends Joint3DComponent {
   double motorMaxTorque;
 
   @override
-  JointKind3D get kind => JointKind3D.hinge;
+  Joint3DKind get kind => Joint3DKind.hinge;
 
   /// Its angle after the last step (radians). Runtime only.
   double angle = 0.0;
@@ -439,7 +439,7 @@ class SliderJoint3DComponent extends Joint3DComponent {
     this.minPosition = -1.0,
     this.maxPosition = 1.0,
     this.friction = 0.0,
-    this.motor = MotorState3D.off,
+    this.motor = Motor3DState.off,
     this.motorTarget = 0.0,
     this.motorMaxForce = 0.0,
   }) : axis = axis ?? Vector3(1, 0, 0);
@@ -457,7 +457,7 @@ class SliderJoint3DComponent extends Joint3DComponent {
   double friction;
 
   /// Off, a target speed, or a target position.
-  MotorState3D motor;
+  Motor3DState motor;
 
   /// The motor's target: m/s, or metres.
   double motorTarget;
@@ -466,7 +466,7 @@ class SliderJoint3DComponent extends Joint3DComponent {
   double motorMaxForce;
 
   @override
-  JointKind3D get kind => JointKind3D.slider;
+  Joint3DKind get kind => Joint3DKind.slider;
 
   /// Its position after the last step (metres). Runtime only.
   double position = 0.0;
@@ -500,7 +500,7 @@ class DistanceJoint3DComponent extends Joint3DComponent {
   double springFrequency, springDamping;
 
   @override
-  JointKind3D get kind => JointKind3D.distance;
+  Joint3DKind get kind => Joint3DKind.distance;
 }
 
 /// Each of the six degrees of freedom free, limited or fixed — anything
@@ -514,12 +514,12 @@ class SixDofJoint3DComponent extends Joint3DComponent {
     super.enabled,
     Vector3? axis,
     Vector3? normal,
-    this.translationX = SixDofAxisMode3D.fixed,
-    this.translationY = SixDofAxisMode3D.fixed,
-    this.translationZ = SixDofAxisMode3D.fixed,
-    this.rotationX = SixDofAxisMode3D.fixed,
-    this.rotationY = SixDofAxisMode3D.fixed,
-    this.rotationZ = SixDofAxisMode3D.fixed,
+    this.translationX = SixDofAxis3DMode.fixed,
+    this.translationY = SixDofAxis3DMode.fixed,
+    this.translationZ = SixDofAxis3DMode.fixed,
+    this.rotationX = SixDofAxis3DMode.fixed,
+    this.rotationY = SixDofAxis3DMode.fixed,
+    this.rotationZ = SixDofAxis3DMode.fixed,
     Vector3? translationMin,
     Vector3? translationMax,
     Vector3? rotationMin,
@@ -538,10 +538,10 @@ class SixDofJoint3DComponent extends Joint3DComponent {
   Vector3 normal;
 
   /// What each axis may do.
-  SixDofAxisMode3D translationX, translationY, translationZ;
+  SixDofAxis3DMode translationX, translationY, translationZ;
 
   /// See [translationX].
-  SixDofAxisMode3D rotationX, rotationY, rotationZ;
+  SixDofAxis3DMode rotationX, rotationY, rotationZ;
 
   /// Limits of limited translation axes, metres.
   Vector3 translationMin, translationMax;
@@ -550,10 +550,10 @@ class SixDofJoint3DComponent extends Joint3DComponent {
   Vector3 rotationMin, rotationMax;
 
   @override
-  JointKind3D get kind => JointKind3D.sixDof;
+  Joint3DKind get kind => Joint3DKind.sixDof;
 
   /// The six modes in the physics engine's order.
-  List<SixDofAxisMode3D> get modes => [
+  List<SixDofAxis3DMode> get modes => [
     translationX,
     translationY,
     translationZ,

@@ -2,8 +2,8 @@ import 'package:just_dart/just_dart.dart' show Matrix4;
 import 'package:just_graphics_engine/renderer.dart';
 
 import '../../ecs/ecs.dart';
-import 'graphics_models.dart';
-import 'graphics_shapes.dart';
+import 'graphics_3d_models.dart';
+import 'graphics_3d_shapes.dart';
 
 /// What a [RenderProvider] builds with: the uploader that makes GPU
 /// meshes, the models and the shapes' materials it may share, and the
@@ -20,10 +20,10 @@ final class RenderProviderContext {
   final ModelUploader uploader;
 
   /// The models loaded, to draw copies of one.
-  final GraphicsModels models;
+  final Graphics3DModels models;
 
   /// The shapes' meshes and materials, to share one.
-  final GraphicsShapes shapes;
+  final Graphics3DShapes shapes;
 }
 
 /// What a [RenderProvider] hands the renderer for one entity: meshes and

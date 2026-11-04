@@ -29,7 +29,7 @@ void main() {
   });
 
   test('the components are known as soon as the engine is made', () {
-    final engine = Engine(config: EngineConfig(services: [Physics3D(engine: FakePhysicsEngine3D())]));
+    final engine = Engine(config: EngineConfig(services: [Physics3D(engine: FakePhysics3DEngine())]));
     addTearDown(engine.dispose);
     expect(engine.context.definitions.definitionByType('RigidBody3DComponent'), isNotNull);
     expect(engine.context.definitions.definitionByType('Collider3DComponent'), isNotNull);
@@ -37,7 +37,7 @@ void main() {
   });
 
   test('starts with the engine, and makes no world until the first 3-D body', () async {
-    final fake = FakePhysicsEngine3D();
+    final fake = FakePhysics3DEngine();
     final engine = await _engine(Physics3D(engine: fake));
     final physics3D = engine.physics3D!;
     expect(physics3D.isStarted, isTrue);
@@ -69,7 +69,7 @@ void main() {
   });
 
   test('stopping takes the system out and disposes the world', () async {
-    final fake = FakePhysicsEngine3D();
+    final fake = FakePhysics3DEngine();
     final engine = await _engine(Physics3D(engine: fake));
     final physics3D = engine.physics3D!;
     final system = physics3D.system;
@@ -86,7 +86,7 @@ void main() {
   });
 
   test('stopping before any 3-D body makes no world on the way out', () async {
-    final fake = FakePhysicsEngine3D();
+    final fake = FakePhysics3DEngine();
     final engine = await _engine(Physics3D(engine: fake));
     await engine.services.remove(engine.physics3D!);
     expect(fake.worlds, isEmpty);
@@ -94,7 +94,7 @@ void main() {
 
   test('where 3-D physics cannot run, initializing fails saying why', () async {
     final engine = Engine(
-      config: EngineConfig(services: [Physics3D(engine: FakePhysicsEngine3D(unavailableReason: 'not here'))]),
+      config: EngineConfig(services: [Physics3D(engine: FakePhysics3DEngine(unavailableReason: 'not here'))]),
     );
     addTearDown(engine.dispose);
     await expectLater(
@@ -112,14 +112,14 @@ void main() {
   });
 
   test('a scene with 3-D physics components loads through the definitions', () async {
-    final engine = await _engine(Physics3D(engine: FakePhysicsEngine3D()));
+    final engine = await _engine(Physics3D(engine: FakePhysics3DEngine()));
     final loaded =
         engine.context.definitions.definitionByType('RigidBody3DComponent')!.decode({
               'type': 'RigidBody3DComponent',
               'fields': {'bodyType': 'kinematic', 'layer': 2, 'mass': 4},
             })
             as RigidBody3DComponent;
-    expect(loaded.bodyType, BodyType3D.kinematic);
+    expect(loaded.bodyType, Body3DType.kinematic);
     expect(loaded.layer, 2);
     expect(loaded.mass, 4);
   });

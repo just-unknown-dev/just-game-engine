@@ -74,7 +74,7 @@ void main() {
 
     test('post-process passes are skipped, the scene drawn', () {
       final rendering = RenderingEngine()
-        ..camera = Camera(viewportSize: const Size(100, 100));
+        ..camera = OutputCamera(viewportSize: const Size(100, 100));
       rendering.initialize();
       final log = <String>[];
       rendering
@@ -106,7 +106,7 @@ void main() {
 
     setUp(() {
       rendering = RenderingEngine()
-        ..camera = Camera(viewportSize: const Size(100, 100));
+        ..camera = OutputCamera(viewportSize: const Size(100, 100));
       rendering.initialize();
       world = World()..initialize();
       world.addSystem(PostProcessSystem(rendering));

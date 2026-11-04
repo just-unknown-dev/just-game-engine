@@ -43,11 +43,11 @@ class _Dot extends Renderable {
 
 void main() {
   late World world;
-  late Camera camera;
+  late OutputCamera camera;
 
   setUp(() {
     world = World();
-    camera = Camera(position: Offset.zero, zoom: 1.0)
+    camera = OutputCamera(position: Offset.zero, zoom: 1.0)
       ..viewportSize = const Size(800, 600);
     // Render rect x in (-480, 480); active rect x in (-800, 800).
     world.addSystem(ViewCullingSystem(camera: camera));

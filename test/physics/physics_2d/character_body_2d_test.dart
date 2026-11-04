@@ -8,15 +8,15 @@ import 'package:just_game_engine/just_game_engine.dart';
 void main() {
   // The same character, on each backend: they must agree.
   for (final (name, make) in [
-    ('native Box2D', () => PhysicsEngine()..initialize()),
-    ('pure Dart', () => PhysicsEngine.pureDart()..initialize()),
+    ('native Box2D', () => Physics2DEngine()..initialize()),
+    ('pure Dart', () => Physics2DEngine.pureDart()..initialize()),
   ]) {
     group(name, () => _suite(make));
   }
 }
 
-void _suite(PhysicsEngine Function() make) {
-  late PhysicsEngine physics;
+void _suite(Physics2DEngine Function() make) {
+  late Physics2DEngine physics;
   late World world;
 
   setUp(() {
@@ -103,7 +103,7 @@ void _suite(PhysicsEngine Function() make) {
     final platform = world.createEntityWithComponents([
       TransformComponent(position: Vector3(0, 40, 0)),
       VelocityComponent(),
-      RigidBody2DComponent(bodyType: BodyType.kinematic),
+      RigidBody2DComponent(bodyType: Body2DType.kinematic),
       Collider2DComponent(size: Vector2(200, 10)),
     ], name: 'platform');
     final h = hero(y: 0);
@@ -136,7 +136,7 @@ void _suite(PhysicsEngine Function() make) {
       floor();
       world.createEntityWithComponents([
         TransformComponent(position: Vector3(0, 70, 0)),
-        RigidBody2DComponent(bodyType: BodyType.static, isSensor: true),
+        RigidBody2DComponent(bodyType: Body2DType.static, isSensor: true),
         Collider2DComponent(size: Vector2(40, 40)),
       ], name: 'coin');
       final seen = <Entity>[];

@@ -18,14 +18,14 @@ import '../physics_layers.dart';
 import '../velocity_component.dart';
 import 'collider_2d_geometry.dart';
 import 'physics_2d_components.dart';
-import 'physics_body_ref_component.dart';
+import 'physics_2d_body_ref_component.dart';
 
 /// Wakes [body] in [physics] — natively too: the Box2D backend wakes a
 /// sleeping body only for a velocity that is not zero, so a body asleep
 /// stayed asleep through a change of its gravity scale, of the world's
 /// gravity, or a [RigidBody2DComponent.wakeUp].
 @internal
-void wakeBody2D(PhysicsEngine physics, PhysicsBody body) {
+void wakeBody2D(Physics2DEngine physics, Physics2DBody body) {
   if (!body.isAwake && body.isDynamic && physics is Box2DPhysicsEngine) {
     // An impulse wakes the body it is given to, a zero one included.
     physics.applyLinearImpulse(body, 0, 0);
@@ -41,7 +41,7 @@ void wakeBody2D(PhysicsEngine physics, PhysicsBody body) {
 ///
 /// [syncIn] makes, rebuilds and updates them from their components before
 /// the step; [syncOut] writes where the step left them back into the
-/// components. An entity's [PhysicsBodyRefComponent] names its body for as
+/// components. An entity's [Physics2DBodyRefComponent] names its body for as
 /// long as it has one — the same component when the body is made again.
 @internal
 final class Physics2DBodies {
@@ -51,13 +51,17 @@ final class Physics2DBodies {
   Physics2DBodies(this.physics, this.entities, {required this.onBodyGone});
 
   /// The physics engine the bodies are in.
-  final PhysicsEngine physics;
+  final Physics2DEngine physics;
 
   /// Each body's entity — shared with the characters' bodies.
-  final Map<PhysicsBody, Entity> entities;
+  final Map<Physics2DBody, Entity> entities;
 
   /// [body], [entity]'s, left the simulation.
-  final void Function(PhysicsBody body, Entity entity, {required bool rebuilt})
+  final void Function(
+    Physics2DBody body,
+    Entity entity, {
+    required bool rebuilt,
+  })
   onBodyGone;
 
   static const List<Type> _query = [TransformComponent, Collider2DComponent];
@@ -106,7 +110,7 @@ final class Physics2DBodies {
   double _frameTime = 0;
 
   /// [entity]'s body, or null while it has none.
-  PhysicsBody? bodyOf(Entity entity) => _linkByEntity[entity]?.body;
+  Physics2DBody? bodyOf(Entity entity) => _linkByEntity[entity]?.body;
 
   /// Brings every body up to date with its entity before a step of
   /// [frameTime] seconds: makes the new, makes again the changed, pushes
@@ -191,7 +195,7 @@ final class Physics2DBodies {
     }
     _leaving.clear();
 
-    // Removing PhysicsBodyRefComponent above changed the world's structure,
+    // Removing Physics2DBodyRefComponent above changed the world's structure,
     // but not in a way _links needs to see: each link keeps its component
     // objects, which moved with their entity.
     _seenStructureVersion = world.queryVersion(_query);
@@ -242,7 +246,7 @@ final class Physics2DBodies {
   /// and locked rotation are fixed when a body is made (the native Box2D
   /// backend cannot change them on a live body). Null while it has no
   /// shape.
-  PhysicsBody? _bodyFor(
+  Physics2DBody? _bodyFor(
     _BodyLink link,
     ComponentDefinitionRegistry definitions,
     int category,
@@ -285,7 +289,7 @@ final class Physics2DBodies {
       link.remember(collider, sx, sy, look: look, matching: matching);
       // Made again into nothing: its link to the old body goes too.
       if (keepVx != null && entity.isAlive) {
-        entity.removeComponent<PhysicsBodyRefComponent>();
+        entity.removeComponent<Physics2DBodyRefComponent>();
       }
       return null;
     }
@@ -297,7 +301,7 @@ final class Physics2DBodies {
       sy: sy,
     );
     final mass = Collider2DGeometry.massOf(rigid, built);
-    final made = PhysicsBody(
+    final made = Physics2DBody(
       position: Vector2(transform.position.x, transform.position.y),
       shape: built,
       mass: mass,
@@ -348,9 +352,9 @@ final class Physics2DBodies {
     entities[made] = entity;
     // The same component for a body made again: the entity's structure —
     // and every query over it, the render list's too — stays as it was.
-    final ref = entity.getComponent<PhysicsBodyRefComponent>();
+    final ref = entity.getComponent<Physics2DBodyRefComponent>();
     if (ref == null) {
-      entity.addComponent(PhysicsBodyRefComponent(made));
+      entity.addComponent(Physics2DBodyRefComponent(made));
     } else {
       ref.body = made;
     }
@@ -363,7 +367,12 @@ final class Physics2DBodies {
   /// scale, sensor and locked rotation make the body again instead.)
   /// Whether one changed: each can matter to a body at rest, so a change
   /// wakes it.
-  bool _pushSettings(_BodyLink link, PhysicsBody body, int category, int mask) {
+  bool _pushSettings(
+    _BodyLink link,
+    Physics2DBody body,
+    int category,
+    int mask,
+  ) {
     final rigid = link.settings;
     final collider = link.collider;
     var changed = false;
@@ -448,7 +457,7 @@ final class Physics2DBodies {
   /// only place it flows back out — so within a frame nothing else fights
   /// for authority over [TransformComponent]. Whether gameplay asked for
   /// something that wakes the body.
-  bool _follow(_BodyLink link, PhysicsBody body) {
+  bool _follow(_BodyLink link, Physics2DBody body) {
     final transform = link.transform;
     final velocityComp = link.velocity;
     var wake = false;
@@ -476,7 +485,7 @@ final class Physics2DBodies {
     // carried there by the physics over this frame's steps, as 3-D moves
     // one: what it carries goes with it, and a character on it reads its
     // velocity.
-    final carry = moved && link.settings.bodyType == BodyType.kinematic;
+    final carry = moved && link.settings.bodyType == Body2DType.kinematic;
     if (moved && !carry) {
       physics.setBodyTransform(
         body,
@@ -516,10 +525,10 @@ final class Physics2DBodies {
   /// the body really is.
   double get _stepTime {
     if (!physics.fixedTimestep) return math.max(_frameTime, 1e-6);
-    const fixed = PhysicsEngine.fixedDeltaTime;
+    const fixed = Physics2DEngine.fixedDeltaTime;
     final pending = math.min(
       physics.alpha * fixed + _frameTime,
-      fixed * PhysicsEngine.maxSubSteps,
+      fixed * Physics2DEngine.maxSubSteps,
     );
     return math.max((pending / fixed + 1e-9).floor(), 1) * fixed;
   }
@@ -529,7 +538,7 @@ final class Physics2DBodies {
   /// one does not read the flag, so there the body is also made static and
   /// touches nothing until it is back — the next sync-in after that puts
   /// its type and filter back with the rest of its settings.
-  void _freeze(_BodyLink link, PhysicsBody body) {
+  void _freeze(_BodyLink link, Physics2DBody body) {
     link
       ..frozenVx = body.velocity.x
       ..frozenVy = body.velocity.y
@@ -537,12 +546,12 @@ final class Physics2DBodies {
     final p = physics;
     if (p is! Box2DPhysicsEngine) return;
     p
-      ..setBodyType(body, BodyType.static)
+      ..setBodyType(body, Body2DType.static)
       ..setBodyFilter(body, categoryBits: 0, maskBits: 0);
   }
 
   /// [body] is back from culling: moving as it was when it froze.
-  void _thaw(_BodyLink link, PhysicsBody body) {
+  void _thaw(_BodyLink link, Physics2DBody body) {
     body.velocity.setValues(link.frozenVx, link.frozenVy);
     body.angularVelocity = link.frozenSpin;
   }
@@ -559,7 +568,7 @@ final class Physics2DBodies {
   /// anything was asked (which wakes the body).
   bool _flushCommands(
     RigidBody2DComponent? rigid,
-    PhysicsBody body,
+    Physics2DBody body,
     VelocityComponent? velocityComp,
   ) {
     if (rigid == null) return false;
@@ -721,7 +730,7 @@ final class Physics2DBodies {
 
   /// Takes [link]'s body out of the simulation, if it has one — [rebuilt]
   /// when a new body takes its place at once, which keeps the entity's
-  /// [PhysicsBodyRefComponent] for it.
+  /// [Physics2DBodyRefComponent] for it.
   void _removeBody(_BodyLink link, {bool rebuilt = false}) {
     final body = link.body;
     if (body == null) return;
@@ -740,7 +749,7 @@ final class Physics2DBodies {
         ..groundNormal = const Offset(0, -1);
     }
     if (!rebuilt && link.entity.isAlive) {
-      link.entity.removeComponent<PhysicsBodyRefComponent>();
+      link.entity.removeComponent<Physics2DBodyRefComponent>();
     }
   }
 
@@ -773,7 +782,7 @@ final class _BodyLink {
 
   /// What a collider without a rigid body is: a static body.
   late final RigidBody2DComponent _static = RigidBody2DComponent(
-    bodyType: BodyType.static,
+    bodyType: Body2DType.static,
   );
 
   /// How the body moves: its rigid body, or a static body's defaults.
@@ -782,7 +791,7 @@ final class _BodyLink {
   /// [World.queryVersion] of the rebuild that last saw [entity].
   int version = -1;
 
-  PhysicsBody? body;
+  Physics2DBody? body;
 
   /// Whether the body's mass was worked out from its shape when it was
   /// last weighed: then only a rebuild, or a change of the rigid body's own

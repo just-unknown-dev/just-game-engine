@@ -49,7 +49,7 @@ void main() {
 
   setUp(() {
     rendering = RenderingEngine()
-      ..camera = Camera(viewportSize: const Size(800, 600))
+      ..camera = OutputCamera(viewportSize: const Size(800, 600))
       ..pixelRatio = 1;
     rendering.initialize();
   });
@@ -182,7 +182,7 @@ void main() {
     test('a synced world-space box on screen is not culled', () {
       final world = World()..initialize();
       addTearDown(world.dispose);
-      final camera = Camera(position: Offset.zero, zoom: 1.0)
+      final camera = OutputCamera(position: Offset.zero, zoom: 1.0)
         ..viewportSize = const Size(800, 600);
       world
         ..addSystem(ViewCullingSystem(camera: camera))

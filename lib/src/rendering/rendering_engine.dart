@@ -26,7 +26,7 @@ import '../camera/output_camera.dart';
 /// what it draws here, so [stats] count the whole frame.
 class RenderingEngine implements RenderStatsSink {
   /// Main camera
-  late Camera camera;
+  late OutputCamera camera;
 
   /// Background color
   Color backgroundColor = const Color(0xFF1a1a2e);

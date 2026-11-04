@@ -21,7 +21,7 @@ Scene files saved by earlier versions still load: they are migrated in memory wh
 - [ ] Replace the Tiled components with `LevelMapComponent` ([Tile maps](#tile-maps-and-level-maps)).
 - [ ] Replace `engine.animation`, tweens and `AnimationStateComponent` ([Sprites and animation](#sprites-and-animation)).
 - [ ] Read tags with `hasTag` / `tags` ([Tags and targets](#tags-and-targets)).
-- [ ] Move render hooks to the hook chains; draw collider outlines with a `ColliderDebuggerSystem` given a camera ([Rendering](#rendering)).
+- [ ] Move render hooks to the hook chains; draw collider outlines with a `Collider2DDebuggerSystem` given a camera ([Rendering](#rendering)).
 - [ ] Fix imports: `package:just_game_engine/widgets.dart` for the widgets, and the source package for names no longer re-exported ([Imports](#imports)).
 - [ ] Check the lists of [removed](#removed-apis) and [renamed](#renamed-apis) APIs. Coming from an earlier 2.0 dev release, check [Renamed in 2.0.0-dev.4](#renamed-in-200-dev4) and [Removed in 2.0.0-dev.4](#removed-in-200-dev4) too.
 - [ ] Re-test what [behaves differently](#behaviour-you-may-notice).
@@ -174,7 +174,7 @@ Everything that shapes an engine is in one `EngineConfig`, given to the construc
 | `services` | `EngineService`s started with the engine, in the order listed (see [Game services](#game-services)). 3-D is two services from `package:just_game_engine/just_game_engine_3d.dart`: `services: [Graphics3D(), Physics3D()]`. `Graphics3D` draws 3-D on Flutter GPU (list it before any service that loads models as it starts); `Physics3D` gives the engine 3-D bodies on Jolt, and the app's pubspec must build Jolt (`hooks: user_defines: just_jolt: build: true`). Without them a game is 2-D only: no GPU device, no shaders loaded and no 3-D code. |
 | `createRendering` | Builds your own `RenderingEngine`. |
 | `createAudio` | Builds the `AudioEngine`, for example `AudioEngine.withBackend(...)`. |
-| `createPhysics` | Builds the 2-D `PhysicsEngine` (`engine.physics`). Null makes the standard one: native Box2D, pure Dart on the web. |
+| `createPhysics` | Builds the 2-D `Physics2DEngine` (`engine.physics`). Null makes the standard one: native Box2D, pure Dart on the web. |
 | `deferAudioUntilInput` | Start audio at the first key or pointer press. `null` (the default) means on the web only, where browsers keep audio made before a user gesture suspended. |
 
 `initialize(config: ...)` still takes a config and replaces the constructor's; prefer `Engine(config: ...)`.
@@ -347,6 +347,27 @@ To make a body collide with nothing for a while — a platform that crumbles —
 
 **Queries.** `physicsSystem.queries` (a `Physics2DQueries`) casts rays (`raycast`, `raycastAll`) and circles (`circleCast`) and finds overlaps (`overlapCircle`, `overlapBox`), filtered by layer, answering with entities (`Physics2DHit`).
 
+**Rays hit the physics colliders.** 1.6's `RaycastSystem` and `RaycastColliderComponent` were a second collision model beside the bodies; they are gone, with `RaycastHit`. Give what a ray should hit a `Collider2DComponent` (a sensor, if nothing should bump into it, found with `includeSensors: true`) and ask `physicsSystem.queries`; a `tag` filter becomes a layer (`layerMask`). `hasLineOfSight(from, to)` is a ray from `from` to `to` that hits nothing, or the target. `RayTracer`'s bounces are `RayTracer2D`'s, built on the same ray: a collider's `reflectivity` (saved, set in the inspector, 0 to absorb) replaces the ray collider's `isReflective` and `reflectivity`.
+
+```dart
+// 1.6
+final rays = RaycastSystem();
+engine.world.addSystem(rays);
+final seen = rays.hasLineOfSight(eyes, target);
+final beam = RayTracer(raycastSystem: rays).trace(Ray(origin: eyes, direction: aim));
+
+// 2.0
+final queries = engine.world.getSystem<Physics2DSystem>()!.queries;
+final blocker = queries.raycast(
+  eyes,
+  target - eyes,
+  maxDistance: (target - eyes).distance,
+  ignore: guard,
+);
+final seen = blocker == null || blocker.entity == player;
+final beam = RayTracer2D(queries).trace(eyes, aim, ignore: guard);
+```
+
 **Joints** are 3-D's names with a `2D` suffix, and point at the other body with an `EntityTarget` (a name, a tag or `self`) instead of a name string. 1.6 had no joint components; these rows are for code built on a pre-release 2.0:
 
 | pre-release 2.0 | 2.0 |
@@ -491,7 +512,7 @@ Destroying an entity now destroys its children too; see [Behaviour you may notic
 
 ## Cameras
 
-The 1.6 camera followed through behaviours added to `CameraSystem` (`SpringFollowBehavior`, `LookaheadBehavior`, …) or a `CameraFollowComponent` on the target. All of that is gone. In 2.0 a shot is an entity with a `VirtualCameraComponent`; the camera brain (`engine.cameraSystem.brain`) picks the enabled shot with the highest priority and blends the output camera (`engine.cameraSystem.mainCamera`) to it. How the shot moves is decided by stage components on the same entity. `Camera` is only the output: position, zoom, rotation, lens, screen/world conversion, visible bounds and screen effects.
+The 1.6 camera followed through behaviours added to `CameraSystem` (`SpringFollowBehavior`, `LookaheadBehavior`, …) or a `CameraFollowComponent` on the target. All of that is gone. In 2.0 a shot is an entity with a `VirtualCameraComponent`; the camera brain (`engine.camera.brain`) picks the enabled shot with the highest priority and blends the output camera (`engine.camera.mainCamera`) to it. How the shot moves is decided by stage components on the same entity. The output camera, 1.6's `Camera`, is `OutputCamera`, and only the output: position, zoom, rotation, lens, screen/world conversion, visible bounds and screen effects.
 
 The camera systems are in `DefaultSystems.all`, or add them with `registerCameraSystems(world, engine.camera)`. With no virtual camera in the world the brain leaves the output camera alone, so a game that moves `mainCamera` itself keeps working.
 
@@ -880,16 +901,16 @@ void addMinimap(Engine engine) {
 
 ### Debug drawing takes a camera
 
-`ColliderDebuggerSystem` and `CheckpointSystem` draw collider outlines and checkpoint radii. Without the camera the `RenderSystem` uses, they land at their world coordinates read as screen pixels. Pass it:
+`Collider2DDebuggerSystem` (1.6's `ColliderDebuggerSystem`) and `CheckpointSystem` draw collider outlines and checkpoint radii. Without the camera the `RenderSystem` uses, they land at their world coordinates read as screen pixels. Pass it:
 
 ```dart
 final camera = engine.camera.mainCamera;
 engine.world
-  ..addSystem(ColliderDebuggerSystem(camera: camera))
+  ..addSystem(Collider2DDebuggerSystem(camera: camera))
   ..addSystem(CheckpointSystem(camera: camera));
 ```
 
-Checkpoint radii are drawn in debug builds only. `Physics2DSystem` draws nothing: collider outlines come from a `ColliderDebuggerSystem` in the world, and only while it is there. `GameWidget(showDebug: true)` adds one through the main camera; the editor adds its own while it shows colliders. It outlines every collider as simulated, coloured by body kind, every 2-D character and every ray-cast collider, above everything else; `outlineFilter` picks the entities, and a collider's `showDebugOutline: false` hides its own.
+Checkpoint radii are drawn in debug builds only. `Physics2DSystem` draws nothing: collider outlines come from a `Collider2DDebuggerSystem` in the world, and only while it is there. `GameWidget(showDebug: true)` adds one through the main camera; the editor adds its own while it shows colliders. It outlines every collider as simulated, coloured by body kind, every 2-D character and every body made outside the ECS, above everything else; `outlineFilter` picks the entities, and a collider's `showDebugOutline: false` hides its own.
 
 ### The legacy render path
 
@@ -1009,7 +1030,7 @@ Future<Sprite> loadHero(Engine engine) =>
 | `just_dart` | `Vector2`, `Vector3`, `Matrix4`, `JustMatrix4`, `Quaternion`, `Aabb3`, `Ray3`, `Plane`, `Frustum` | `Quadtree` |
 | `just_memory` | `MemoryScope`, `DisposeCallback`, `MemoryProfiler`, `MemoryProfileSnapshot`, `MemoryStats`, `CacheBudgetStats`, `PoolManager`, `PoolStats`, `ArenaStats`, `MemoryCleanupResult`, `SystemMemorySnapshot` | `ObjectPool`, `PriorityPool`, `RoundRobinPool`, `Recyclable`, `MemoryArena`, `TypedBuffer`, `BudgetedCache`, `RefCountedRegistry`, `LeakTracker`, … |
 | `just_audio_engine` | `AudioEngine`, `MusicManager`, `SoundEffectManager`, `AudioChannel`, `AudioClip`, `AudioBus`, `AudioBusGraph`, `AudioEffect`, `AudioEffectType`, `AudioState`, `AudioStream`, `AudioBackend`, `Audio3DListener`, `Audio3DPosition`, `AudioSpatial`, `AudioRolloff`, `AudioSpatialMix` | `createAudioBackend` |
-| `just_physics_engine` | `PhysicsEngine`, `Box2DPhysicsEngine`, `PhysicsBody`, `RigidBody`, the shapes (`CircleShape` … `RoundedPolygonShape`), the joints (`DistanceJoint`, `MouseJoint`, `WeldJoint`, `RevoluteJoint`, `Box2DJoint`), `Ray`, `RayBodyHit`, `ShapeCastResult`, `BodyType`, `OneWayDirection`, `GroundState2D`, `MoverShape` and a few more (26 in all) | the 3-D side (through `package:just_game_engine/just_game_engine_3d.dart`), `CharacterMover2D`, `PhysicsEngineFactory`, the testing engines, the pure-Dart engine's insides (`CollisionDetector`, `CollisionManifold`, `ForceManager`, `SpatialGrid`, `BodyPair`) |
+| `just_physics_engine` | `Physics2DEngine`, `Box2DPhysicsEngine`, `Physics2DBody`, the shapes (`Circle2DShape` … `RoundedPolygon2DShape`), the joints (`DistanceJoint2D`, `MouseJoint2D`, `WeldJoint2D`, `RevoluteJoint2D`, `Box2DJoint`), `Ray2D`, `Ray2DHit`, `CircleCast2DHit`, `Body2DType`, `OneWayDirection`, `Ground2DState`, `Mover2DShape` and a few more (25 in all) | the 3-D side (through `package:just_game_engine/just_game_engine_3d.dart`), `CharacterMover2D`, `PhysicsEngineFactory`, the testing engines, the pure-Dart engine's insides (`CollisionDetector`, `CollisionManifold`, `ForceManager`, `SpatialGrid`, `BodyPair`) |
 | `just_game_engine_formats` | `SceneFormat`, `SceneManifest`, `SceneNames`, `SceneStarters`, `SceneMigrationResult`, `TimelineFormat`, `AnimatorGraph` and its parts, the migration hook types, the prefab and 2-D material file types and `UnsupportedFormatVersionException` (40 in all; the 3-D library adds `Material3DFile` and its enums) | the migration steps themselves (`V0ToV1` … `V10ToV11`, `SceneMigrations`, `TimelineV1ToV2`, `TimelineV2ToV3`); `SceneFormat` and `TimelineFormat` run them |
 | `just_signals` | `Signal`, `Computed` (new in 2.0: the reactive wrappers return them) | `Effect`, `SignalBuilder`, `SignalScope`, … |
 
@@ -1039,7 +1060,7 @@ Add the package to your `pubspec.yaml` as well. A file that imported `package:ju
 - **Parenting an entity under itself or its own descendant throws an `ArgumentError`**; a scene whose parents loop loads with the closing link cut.
 - **Systems** of equal priority run in the order they were added; adding a system twice does nothing; systems and plugins may be added or removed while they run.
 - **`Entity.components`** is an unmodifiable `List`. `Archetype.getColumn` and `entityIds` are `@internal`.
-- **Interpolation**: `RenderSystem` draws between the last two poses every transform whose previous pose was captured in the last step (`captureCount`) — physics bodies and their children — instead of every entity with a `PhysicsBodyRefComponent`; call `capturePrevious()` before moving something in a step to have it drawn smoothly.
+- **Interpolation**: `RenderSystem` draws between the last two poses every transform whose previous pose was captured in the last step (`captureCount`) — physics bodies and their children — instead of every entity with a `Physics2DBodyRefComponent`; call `capturePrevious()` before moving something in a step to have it drawn smoothly.
 - **While paused**, `engine.time.totalTime` and `deltaTime` stand still (`unscaledDeltaTime` and `unscaledTotalTime` go on), audio still updates, and camera effects (`ScreenFadeEffect`, `LetterboxEffect`) run on real time.
 - **In the background** `GameWidget` pauses the music and the world's sounds and mutes the rest, and restores exactly that when the app returns (`Engine.suspendAudio` / `resumeAudio`).
 - **Profiling timings** (`systemTimesMs`, `lastUpdateMs`) are taken only while `World.profiling` / `SystemManager.profiling` are on — not in release builds.
@@ -1059,7 +1080,7 @@ Add the package to your `pubspec.yaml` as well. A file that imported `package:ju
 - **A collider grows and shrinks with its entity's scale**, a body built without `drag` is not slowed by the air, and damping never slows a kinematic body ([physics bodies](#physics-bodies)).
 - **Bounciness, damping and friction changed while the game runs take effect on desktop and mobile too**; before, the native Box2D body kept what it was made with.
 - **The collider outline turns with its body**, and colours it by its type: static blue, kinematic orange, dynamic green, sensor yellow.
-- **Collider outlines are off unless asked for**: they are drawn only while a `ColliderDebuggerSystem` is in the world — `GameWidget(showDebug: true)` adds one, or `engine.world.addSystem(ColliderDebuggerSystem(camera: engine.camera.mainCamera))`. `outlineFilter` picks the entities, and a collider's `showDebugOutline: false` hides its own.
+- **Collider outlines are off unless asked for**: they are drawn only while a `Collider2DDebuggerSystem` is in the world — `GameWidget(showDebug: true)` adds one, or `engine.world.addSystem(Collider2DDebuggerSystem(camera: engine.camera.mainCamera))`. `outlineFilter` picks the entities, and a collider's `showDebugOutline: false` hides its own.
 - **`World.entities`** is a snapshot, cached until the next create or destroy.
 - **Draw order** follows `LayerComponent` (see [Rendering](#draw-order)).
 - **Sprite batches** sample with each sprite's own `filterQuality`; a mirrored, non-uniformly scaled or stretched sprite draws unbatched and correctly.
@@ -1082,6 +1103,7 @@ The [CHANGELOG](CHANGELOG.md) lists every other fix.
 
 | Removed | Use instead |
 |---|---|
+| `RigidBody`, just_physics_engine's shapeless point mass (gone in its 2.0.0) | a `RigidBody2DComponent` on an entity, or a `Physics2DBody` |
 | `Engine.instance`, `Engine.resetInstance()` | the `Engine` you made |
 | `engine.sceneEditor`, `SceneEditor`, `Scene`, `SceneNode`, `GameObject`, `SceneGraph` | entities, `SceneLoader` |
 | `engine.animation`, `AnimationSystem`, `Animation`, `SpriteAnimation`, `TweenAnimation` and the five tweens, `AnimationSequence`, `AnimationGroup`, `AtlasSpriteAnimation`, `SpriteAtlas.createAnimation` | `SpriteAnimationComponent`, effects, timelines |
@@ -1096,6 +1118,7 @@ The [CHANGELOG](CHANGELOG.md) lists every other fix.
 | `Camera.follow`, `shake`, `addTrauma`, `trauma`, `worldBounds`, `useSpring`, `springStiffness`, `springDamping`, `smoothing`, `smoothingFactor`, `maxShakeOffset`, `maxShakeAngle`, `traumaDecayRate`, `velocity`, `update`, the `smooth:` parameters | [Cameras](#cameras) |
 | `CameraSystem.addBehavior`, `removeBehavior`, `clearBehaviors`, `getBehavior`; `CameraBehavior`, `SpringFollowBehavior`, `LookaheadBehavior`, `MultiTargetBehavior`, `RoomBehavior`, `CameraRoom`, `PathBehavior`, `CameraPath`, `CameraKeyframe`, `CinematicBehavior`, `CinematicSequence`, `CinematicKeyframe` | [Cameras](#cameras) |
 | `CameraFollowComponent`, `CameraFollowSystem` | `VirtualCameraComponent`, `CameraFramingComponent` |
+| `RaycastSystem` (`castRay`, `castRayAll`, `hasLineOfSight`), `RaycastColliderComponent`, `RaycastHit`, `RayTracer`, `RayTrace`, `RayTraceSegment` | rays through the physics: `physicsSystem.queries` (`Physics2DQueries`: `raycast`, `raycastAll`; `Physics2DHit`), and `RayTracer2D`, `RayTrace2D`, `RayTrace2DSegment` for bounces off `Collider2DComponent.reflectivity` ([Physics bodies](#physics-bodies)) |
 | `TileMapLayerComponent`, `TiledObjectComponent`, `TileMapRenderSystem`, `TiledCollisionSystem`, `TiledMapFactory`, `ComponentMapper` | `LevelMapComponent`, `LevelMapSystem`, `MapCollisionSystem`, `TiledInterop` |
 | `TextComponent`, `ButtonComponent`, `UIComponent` | `just_ui_editor` |
 | `LinearProgressComponent`, `CircularProgressComponent` | `just_ui_editor`'s `UiProgressComponent`, or a Flutter widget |
@@ -1139,15 +1162,17 @@ For code built on an earlier 2.0 dev release; 1.6 had none of these.
 | Removed | Use instead |
 |---|---|
 | `PhysicsJointBindingSystem` | nothing: `Physics2DSystem` makes the 2-D joints itself, in the step their bodies are in (`DefaultSystem.physics` adds only it) |
-| `Physics2DSystem(camera:)`, `.camera`, `.drawsOutlines`, `.outlineFilter`, `.render`, `Physics2DSystem.debugPaintFor` | a `ColliderDebuggerSystem(camera:, outlineFilter:)` in the world; its `paintFor(rigid, [body])` |
+| `Physics2DSystem(camera:)`, `.camera`, `.drawsOutlines`, `.outlineFilter`, `.render`, `Physics2DSystem.debugPaintFor` | a `Collider2DDebuggerSystem(camera:, outlineFilter:)` in the world; its `paintFor(rigid, [body])` |
 | `Physics2DSystem.contactPoint`, `jointedPair`; `ColliderGeometry.visualKeyOf` | nothing (internal); compare `SolidShape2DSource.solidShape2D` |
 | `typedef FrameCallback` | `FrameTask` |
 | `TrackBindingKind` | `EntityTargetKind` |
+| `RaycastSystem` (`castRay`, `castRayAll`, `hasLineOfSight`), `RaycastColliderComponent`, `RaycastHit`, `RayTracer`, `RayTrace`, `RayTraceSegment` | `physicsSystem.queries` (`Physics2DQueries`) against the physics colliders; `RayTracer2D(queries).trace(origin, direction, …)` for bounces, off a collider's saved `reflectivity` ([Physics bodies](#physics-bodies)) |
+| `ColliderDebuggerSystem(color:, includeRaycastColliders:)`, the ray colliders' colour and switch | nothing: there are no ray colliders, and `Collider2DDebuggerSystem` colours bodies by kind |
 | `RenderingEngine.debugSpriteBatchCount` | `RenderSystem.stats['batchedSprites']` |
 | `MaterialOverridesFieldType.all` | `Material2DDefinitions.overridesType` and `Material3DDefinitions.overridesType` |
 | the migration steps (`V0ToV1` … `V10ToV11`, `SceneMigration`, `SceneMigrations`, `TimelineV1ToV2`, `TimelineV2ToV3`, `TimelineMigration`) from the engine's library | `SceneFormat` and `TimelineFormat` run them; import `package:just_game_engine_formats/just_game_engine_formats.dart` to name one |
 | `UnknownFieldType`, `PropertyTrackRunner`, `ShapePaintCache`, `Material2DBatch`, `ShapeSheet`, `ShapeSheets`, `ShapeValues`, `Primitive3DComponent.writeShapeValues` / `writeMaterialValues`, `cameraForward`, `cameraAnglesOf` (now internal) | `FieldTypes.unknown`; `CameraState.forward` |
-| from `just_game_engine_3d.dart`: `RenderView`, `GpuSurface` and the rest of the GPU plumbing, `NullGpuDevice` and the test doubles, `gltfToEngine` and model cooking; `PhysicsEngineFactory`, `BodyPoses3D` | `package:just_graphics_engine/just_graphics_engine.dart` and `package:just_physics_engine/physics_3d.dart` directly (`RenderView` clashed with Flutter's) |
+| from `just_game_engine_3d.dart`: `RenderView`, `GpuSurface` and the rest of the GPU plumbing, `NullGpuDevice` and the test doubles, `gltfToEngine` and model cooking; `PhysicsEngineFactory`, `Body3DPoses` | `package:just_graphics_engine/just_graphics_engine.dart` and `package:just_physics_engine/physics_3d.dart` directly (`RenderView` clashed with Flutter's) |
 
 ## Renamed APIs
 
@@ -1164,13 +1189,15 @@ For code built on an earlier 2.0 dev release; 1.6 had none of these.
 | `Engine.getSystem<T>()` | `Engine.subsystem<T>()` |
 | `SystemPriorities.tileMap` | `SystemPriorities.levelMap` |
 | `PhysicsSystem` | `Physics2DSystem`: 2-D and 3-D twins are named `X2DSystem` and `X3DSystem` (its constructor changed too: see [Systems](#systems)) |
+| just_physics_engine 1.x's types, re-exported by the engine: `PhysicsEngine`, `PhysicsBody`, `CollisionShape`, `CircleShape` … `RoundedPolygonShape`, `BodyType`, `Ray`, `RayBodyHit`, `JointConstraint`, `DistanceJoint`, …; `engine.physics.castRay`, `castRayAll`, `castCircle` | just_physics_engine 2.0's: `Physics2DEngine`, `Physics2DBody`, `Shape2D`, `Circle2DShape` … `RoundedPolygon2DShape`, `Body2DType`, `Ray2D`, `Ray2DHit`, `Joint2D`, `DistanceJoint2D`, …; `raycast`, `raycastAll`, `circleCast` (the rows of [Renamed in 2.0.0-dev.4](#renamed-in-200-dev4), and just_physics_engine's CHANGELOG, list them all). Saved body types and one-way directions are unchanged |
 | `ParticleSystemECS` | `ParticleSystem` |
 | `EffectSystemECS` | `EffectSystem` |
 | `CameraSystem`, `engine.cameraSystem` | `CameraEngine`, `engine.camera` (it is not an ECS system) |
+| `Camera` (the output camera) | `OutputCamera` (`engine.camera.mainCamera`; `GameCamera` is still the interface systems draw through) |
+| `ColliderDebuggerSystem` | `Collider2DDebuggerSystem` |
 | `AudioSourceComponent.is3d` | `is3D`; saved scenes are renamed as they load (format 11) |
 | `DialogueBoxWidget`, `DialogueChoicesWidget` | `DialogueBox`, `DialogueChoices` |
 | the extensions `ReactiveEntityExtension`, `ReactiveWorldExtension`, `L10nContext` | `EntityReactive`, `WorldReactive`, `BuildContextLocalization` |
-| `RaycastSystem.castRay`, `castRayAll` | `raycast`, `raycastAll`, as `Physics2DQueries` and `Physics3DQueries` say it |
 | `Renderable.getBounds()`, `Asset.getMemoryUsage()`, `Camera.getVisibleBounds()`, `AssetManager.getCacheStats()`, `SystemManager.getSystemNames()`, `getSystems()` | the getters `bounds`, `memoryUsage`, `visibleBounds`, `cacheStats`, `systemNames`, `systems` |
 | `CustomRenderable(getBoundsCallback: …)`, `MotionBlurEffect(velocityFn: …)` | `boundsOf:`, `velocity:` |
 | `CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent` | `Circle2DComponent`, `Rectangle2DComponent`, `Polygon2DComponent`, `Line2DComponent`, `Capsule2DComponent`; saved scenes are renamed as they load (format 11) |
@@ -1178,7 +1205,7 @@ For code built on an earlier 2.0 dev release; 1.6 had none of these.
 
 ### Renamed in 2.0.0-dev.4
 
-For code built on 2.0.0-dev.1 to dev.3; the names on the left were never in 1.6. Saved scenes, prefabs and timelines are renamed as they load (scene format 11, timeline format 3), so only code changes.
+For code built on 2.0.0-dev.1 to dev.3; the names on the left were never in 1.6, except just_physics_engine's. Saved scenes, prefabs and timelines are renamed as they load (scene format 11, timeline format 3), so only code changes.
 
 | 2.0.0-dev.3 | 2.0.0-dev.4 |
 |---|---|
@@ -1209,8 +1236,8 @@ For code built on 2.0.0-dev.1 to dev.3; the names on the left were never in 1.6.
 | `PhysicsJointBindingSystem.dartSpring` | `Physics2DJoints.dartSpring` |
 | `Physics2DDefinitions.bodyTypeDescription`, `layerDescription`, `frictionDescription`, … | `PhysicsDefinitions.bodyTypeDescription`, … (shared with 3-D) |
 | `Physics2DQueries(engine.physics, physicsSystem)` | `physicsSystem.queries`, or `Physics2DQueries(physicsSystem)` |
-| `ColliderDebuggerSystem(color:)` | `raycastColor:` (bodies are coloured by kind) |
-| `GraphicsSceneRenderer(engine: …)` | `GraphicsSceneRenderer(world: () => world, …)` |
+| `ColliderDebuggerSystem` | `Collider2DDebuggerSystem` |
+| `GraphicsSceneRenderer(engine: …)` | `Graphics3DSceneRenderer(world: () => world, …)` |
 | `FieldTypes.physicsLayer`, `physicsLayerMask`, `physicsShape` | `PhysicsDefinitions.layerType`, `layerMaskType`, `shapeType` |
 | `MaterialOverridesFieldType.material2D`, `.material3D` | `Material2DOverridesFieldType` (`Material2DDefinitions.overridesType`), `Material3DOverridesFieldType` (`Material3DDefinitions.overridesType`) |
 | `UnknownComponentTypeException.builtInHint(type)` | the exception's `hint`, from `ComponentDefinitionRegistry.unknownTypeHint(type)` |
@@ -1220,6 +1247,15 @@ For code built on 2.0.0-dev.1 to dev.3; the names on the left were never in 1.6.
 | `DefaultSystem.sprites` (sprites, animators and timelines) | `DefaultSystem.sprites`, `DefaultSystem.animation`, `DefaultSystem.timelines` |
 | `EngineConfig(graphics3D: …, physics3D: …)`; `package:just_game_engine/graphics_3d.dart`, `physics_3d.dart` | `EngineConfig(services: [Graphics3D(), Physics3D()])`; `package:just_game_engine/just_game_engine_3d.dart` |
 | `GraphicsShapes.linear` | `LinearColor.of` |
+| `Camera` | `OutputCamera` (`CameraEngine.mainCamera`, `engine.camera` and the `GameCamera` interface keep their names) |
+| `GraphicsModels`, `GraphicsModelAsset`, `GraphicsModelLoader`, `GraphicsSceneRenderer`, `GraphicsShapes`; `ContextGraphicsModels.graphicsModels` | `Graphics3DModels`, `Graphics3DModelAsset`, `Graphics3DModelLoader`, `Graphics3DSceneRenderer`, `Graphics3DShapes`; `ContextGraphics3DModels.graphics3DModels` (`graphics3D.models` and `graphics3D.sceneRenderer` keep their names) |
+| `CameraCollisionStage` | `CameraCollision3DStage` |
+| just_physics_engine 1.x (1.6 used these too): `PhysicsEngine`, `PhysicsBody`, `CollisionShape`, `CircleShape`, `PolygonShape`, `RectangleShape`, `CapsuleShape`, `SegmentShape`, `ChainShape`, `RoundedPolygonShape`, `BodyType`, `Ray`, `RayBodyHit`, `ShapeCastResult`, `GroundState2D`, `MoverShape` | just_physics_engine 2.0.0: `Physics2DEngine`, `Physics2DBody`, `Shape2D`, `Circle2DShape`, `Polygon2DShape`, `Rectangle2DShape`, `Capsule2DShape`, `Segment2DShape`, `Chain2DShape`, `RoundedPolygon2DShape`, `Body2DType`, `Ray2D`, `Ray2DHit`, `CircleCast2DHit`, `Ground2DState`, `Mover2DShape` |
+| `JointConstraint`, `JointType`, `DistanceJoint`, `MouseJoint`, `WeldJoint`, `RevoluteJoint`; a joint's `type` | `Joint2D`, `Joint2DKind`, `DistanceJoint2D`, `MouseJoint2D`, `WeldJoint2D`, `RevoluteJoint2D` (just_physics_engine's joints, which the components in the first row drive); its `kind` |
+| `engine.physics.castRay`, `castRayAll`, `castCircle` | `raycast`, `raycastAll`, `circleCast` |
+| 3-D, from just_physics_engine: `PhysicsEngine3D`, `PhysicsWorld3D`, `PhysicsWorldSettings3D`, `PhysicsEvent3D`, `BodyType3D`, `BodySettings3D`, `JointKind3D`, `JointSettings3D`, `MotorState3D`, `SixDofAxisMode3D`, `MotionQuality3D`, `CharacterSettings3D`, `CharacterState3D`, `GroundState3D`, `QueryFilter3D`, `QueryHit3D`, `BoxShape3D` … `CompoundShape3D`; `FakePhysicsEngine3D`, `FakePhysicsWorld3D` | `Physics3DEngine`, `Physics3DWorld`, `Physics3DWorldSettings`, `Physics3DEvent`, `Body3DType`, `Body3DSettings`, `Joint3DKind`, `Joint3DSettings`, `Motor3DState`, `SixDofAxis3DMode`, `Motion3DQuality`, `Character3DSettings`, `Character3DState`, `Ground3DState`, `Query3DFilter`, `Query3DHit`, `Box3DShape` … `Compound3DShape`; `FakePhysics3DEngine`, `FakePhysics3DWorld` (saved values unchanged) |
+| `PhysicsBodyRefComponent` | `Physics2DBodyRefComponent` (never saved) |
+| `PhysicsShapeFieldType` | `Shape2DFieldType` (its id is still `physicsShape`) |
 
 ## Deprecated APIs
 

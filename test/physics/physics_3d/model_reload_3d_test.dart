@@ -70,7 +70,7 @@ void main() {
   test('a reloaded model gives its mesh collider the new triangles', () async {
     final engine = Engine(
       config: EngineConfig(
-        services: [Physics3D(engine: FakePhysicsEngine3D())],
+        services: [Physics3D(engine: FakePhysics3DEngine())],
       ),
     );
     addTearDown(engine.dispose);
@@ -86,9 +86,9 @@ void main() {
     engine.world.update(1 / 60); // Asks for the model.
     await pumpEventQueue();
     engine.world.update(1 / 60);
-    final world = physics3D.world as FakePhysicsWorld3D;
-    MeshShape3D shape() =>
-        world.bodies[physics3D.system.bodyOf(ground)]!.shape as MeshShape3D;
+    final world = physics3D.world as FakePhysics3DWorld;
+    Mesh3DShape shape() =>
+        world.bodies[physics3D.system.bodyOf(ground)]!.shape as Mesh3DShape;
     expect(shape().indices, hasLength(3));
 
     model.geometry = _triangles(2);

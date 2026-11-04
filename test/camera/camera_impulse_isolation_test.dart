@@ -15,7 +15,9 @@ void main() {
     }
 
     test('after brain.reset() impulses replay identically', () {
-      final brain = CameraBrain(Camera(viewportSize: const Size(800, 600)));
+      final brain = CameraBrain(
+        OutputCamera(viewportSize: const Size(800, 600)),
+      );
       final first = shakeOf(brain);
       final second = shakeOf(brain); // A second impulse on top: different.
       expect(second, isNot(first));
@@ -25,12 +27,14 @@ void main() {
     });
 
     test('two brains shake the same way for the same impulses', () {
-      final a = CameraBrain(Camera(viewportSize: const Size(800, 600)));
-      final b = CameraBrain(Camera(viewportSize: const Size(800, 600)));
+      final a = CameraBrain(OutputCamera(viewportSize: const Size(800, 600)));
+      final b = CameraBrain(OutputCamera(viewportSize: const Size(800, 600)));
       shakeOf(a);
       shakeOf(a);
       // b has seen nothing yet; its first impulse is a's first, not its third.
-      final fresh = CameraBrain(Camera(viewportSize: const Size(800, 600)));
+      final fresh = CameraBrain(
+        OutputCamera(viewportSize: const Size(800, 600)),
+      );
       expect(shakeOf(b), shakeOf(fresh));
     });
   });

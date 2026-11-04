@@ -12,10 +12,10 @@ import 'physics_2d_events.dart';
 import 'physics_2d_joints.dart';
 import 'physics_2d_queries.dart';
 
-/// Physics system — the ECS front end for [PhysicsEngine], in step with
+/// Physics system — the ECS front end for [Physics2DEngine], in step with
 /// the 3-D `Physics3DSystem`.
 ///
-/// Owns the [PhysicsBody] lifecycle for every entity with a [Collider2DComponent]:
+/// Owns the [Physics2DBody] lifecycle for every entity with a [Collider2DComponent]:
 /// its [RigidBody2DComponent] says how it moves (a collider alone is a static body).
 /// Each update it
 /// 1. syncs component state into the bodies — makes, rebuilds and removes
@@ -52,7 +52,7 @@ import 'physics_2d_queries.dart';
 /// made from [physics]. The engine is shared, and bodies left behind went on
 /// colliding as invisible ghosts.
 ///
-/// Its colliders are drawn, for debugging, by a `ColliderDebuggerSystem`.
+/// Its colliders are drawn, for debugging, by a `Collider2DDebuggerSystem`.
 class Physics2DSystem extends System {
   /// [physics] is the single physics implementation this system drives —
   /// pass `engine.physics`. On native platforms that's the Box2D FFI
@@ -60,7 +60,7 @@ class Physics2DSystem extends System {
   Physics2DSystem(this.physics, {this.reportContactStay = false});
 
   /// The subsystem physics engine this system steps and syncs against.
-  final PhysicsEngine physics;
+  final Physics2DEngine physics;
 
   /// Whether [CollisionStay2DEvent] is fired, each step, for every pair of
   /// bodies still touching. Off by default: most games need only enter and
@@ -82,7 +82,7 @@ class Physics2DSystem extends System {
 
   /// Every body this system keeps in the simulation, characters' too, by
   /// entity: what turns a polled body back into its entity.
-  final Map<PhysicsBody, Entity> _entities = {};
+  final Map<Physics2DBody, Entity> _entities = {};
 
   late final Physics2DContacts _contacts = Physics2DContacts(
     physics,
@@ -120,11 +120,11 @@ class Physics2DSystem extends System {
 
   /// The entity [body] belongs to while this system keeps it in the
   /// simulation — null for a body it did not make, or one it has removed.
-  Entity? entityOf(PhysicsBody body) => _entities[body];
+  Entity? entityOf(Physics2DBody body) => _entities[body];
 
   /// The simulated body of [entity], or null while it has none — for a
   /// character, the body sensors and rays see it by.
-  PhysicsBody? bodyOf(Entity entity) =>
+  Physics2DBody? bodyOf(Entity entity) =>
       _bodies.bodyOf(entity) ?? _characters.bodyOf(entity);
 
   @override
@@ -145,7 +145,7 @@ class Physics2DSystem extends System {
       // 120 Hz display runs one every other frame), and a body made again
       // is only looked for by the next one.
       stepped = physics.fixedTimestep
-          ? alpha + deltaTime / PhysicsEngine.fixedDeltaTime - physics.alpha >
+          ? alpha + deltaTime / Physics2DEngine.fixedDeltaTime - physics.alpha >
                 0.5
           : deltaTime > 0;
     }

@@ -64,7 +64,7 @@ void main() {
       ),
     );
     await tester.runAsync(engine.initialize);
-    expect(engine.world.getSystem<ColliderDebuggerSystem>(), isNotNull);
+    expect(engine.world.getSystem<Collider2DDebuggerSystem>(), isNotNull);
     expect(engine.rendering.debugMode, isTrue);
   });
 }

@@ -13,7 +13,7 @@ This document describes every stats/diagnostics API `just_game_engine` 2.0.0-dev
 1. [Engine — `performanceStats`](#1-engine--performancestats)
 2. [SystemManager — `schedulerStats`](#2-systemmanager--schedulerstats)
 3. [World (ECS) — `stats`](#3-world-ecs--stats)
-4. [PhysicsEngine — `stats`](#4-physicsengine--stats)
+4. [Physics2DEngine — `stats`](#4-physics2dengine--stats)
 5. [RenderingEngine — `stats`](#5-renderingengine--stats)
 6. [GameLoop — live getters](#6-gameloop--live-getters)
 7. [TimeManager — live getters](#7-timemanager--live-getters)
@@ -112,7 +112,7 @@ debugPrint('Archetypes: ${w['archetypes']}');
 
 ---
 
-## 4. PhysicsEngine — `stats`
+## 4. Physics2DEngine — `stats`
 
 **Getter:** `engine.physics.stats` → `Map<String, dynamic>`
 
@@ -264,12 +264,12 @@ GameWidget(
 - **`showFPS`** (default `true`) — an `FPS: n` badge at the top right, showing `engine.gameLoop.currentFPS`. It is updated about once a second, in its own repaint boundary, so it costs the rest of the widget nothing.
 - **`showDebug`** (default `false`) — two things:
   - sets `engine.rendering.debugMode`: a text block at the top left shows `Camera`, `Zoom`, `Render: … ms` and `Draws | Culled` — the figures of `RenderingEngine.stats` (§5), the ECS world's drawing included;
-  - adds a `ColliderDebuggerSystem` to the world, which outlines every 2-D collider as simulated (coloured by body kind), every 2-D character, every body made outside the ECS and every `RaycastColliderComponent` through the main camera, over everything else. It is removed when `showDebug` turns off or the widget goes.
+  - adds a `Collider2DDebuggerSystem` to the world, which outlines every 2-D collider as simulated (coloured by body kind), every 2-D character and every body made outside the ECS through the main camera, over everything else. It is removed when `showDebug` turns off or the widget goes.
 - **`showTerminal`** — the developer terminal (`engine.terminal`), toggled with the backquote key.
 
 `GameWidget` may be built before `initialize()` has completed: it starts drawing the engine and applies `showDebug` as soon as the engine is ready (it listens to `Engine.stateListenable`).
 
-Apart from `GameWidget`, debug builds (`kDebugMode`) draw checkpoint radii from `CheckpointSystem`. `Physics2DSystem` draws nothing; a `ColliderDebuggerSystem` you add yourself (`engine.world.addSystem(ColliderDebuggerSystem(camera: engine.camera.mainCamera))`) outlines colliders in any build while it is in the world. Its `outlineFilter` picks the entities, and `showDebugOutline: false` on a collider hides its own. Each is drawn through the camera its system was given.
+Apart from `GameWidget`, debug builds (`kDebugMode`) draw checkpoint radii from `CheckpointSystem`. `Physics2DSystem` draws nothing; a `Collider2DDebuggerSystem` you add yourself (`engine.world.addSystem(Collider2DDebuggerSystem(camera: engine.camera.mainCamera))`) outlines colliders in any build while it is in the world. Its `outlineFilter` picks the entities, and `showDebugOutline: false` on a collider hides its own. Each is drawn through the camera its system was given.
 
 The HUD shows no update or physics timings. For those, draw your own from the maps above — for example `performanceStats['lastUpdateMs']`, `world.stats['systemTimesMs']` and `physics.stats['lastStepMs']` (the update timings need profiling on: see the top of this page).
 

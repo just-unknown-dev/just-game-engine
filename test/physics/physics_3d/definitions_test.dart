@@ -42,7 +42,7 @@ void main() {
     test('every component survives a save and a load', () {
       final samples = <Component>[
         RigidBody3DComponent(
-          bodyType: BodyType3D.kinematic,
+          bodyType: Body3DType.kinematic,
           continuousCollision: true,
           mass: 3,
           friction: 0.8,
@@ -84,7 +84,7 @@ void main() {
           useLimits: true,
           minAngle: -1,
           maxAngle: 2,
-          motor: MotorState3D.velocity,
+          motor: Motor3DState.velocity,
           motorTarget: 3,
           motorMaxTorque: 40,
         ),
@@ -92,7 +92,7 @@ void main() {
           useLimits: true,
           minPosition: 0,
           maxPosition: 4,
-          motor: MotorState3D.position,
+          motor: Motor3DState.position,
         ),
         DistanceJoint3DComponent(
           connectedAnchor: Vector3(0, 2, 0),
@@ -101,8 +101,8 @@ void main() {
           springFrequency: 2,
         ),
         SixDofJoint3DComponent(
-          translationX: SixDofAxisMode3D.free,
-          rotationY: SixDofAxisMode3D.limited,
+          translationX: SixDofAxis3DMode.free,
+          rotationY: SixDofAxis3DMode.limited,
           rotationMin: Vector3(0, -1, 0),
           rotationMax: Vector3(0, 1, 0),
         ),
@@ -172,7 +172,7 @@ void main() {
         Collider3DComponent(size: Vector3(2, 4, 6)),
         Vector3(1, 0.5, -2),
       );
-      expect(shape, const BoxShape3D(1, 1, 6));
+      expect(shape, const Box3DShape(1, 1, 6));
     });
 
     test('round shapes take the largest scale across them', () {
@@ -181,21 +181,21 @@ void main() {
           Collider3DComponent(shape: Collider3DShape.sphere, radius: 1),
           Vector3(1, 3, 2),
         ),
-        const SphereShape3D(3),
+        const Sphere3DShape(3),
       );
       expect(
         shapes.build(
           Collider3DComponent(shape: Collider3DShape.capsule, radius: 0.5, height: 3),
           Vector3(2, 1, 1),
         ),
-        const CapsuleShape3D(0.5, 1),
+        const Capsule3DShape(0.5, 1),
       );
       expect(
         shapes.build(
           Collider3DComponent(shape: Collider3DShape.cylinder, radius: 0.5, height: 2),
           Vector3(1, 1, 1),
         ),
-        const CylinderShape3D(1, 0.5),
+        const Cylinder3DShape(1, 0.5),
       );
     });
 
@@ -205,7 +205,7 @@ void main() {
           Collider3DComponent(shape: Collider3DShape.capsule, radius: 1, height: 1.5),
           Vector3(1, 1, 1),
         ),
-        const SphereShape3D(1),
+        const Sphere3DShape(1),
       );
     });
 
@@ -214,9 +214,9 @@ void main() {
         Collider3DComponent(size: Vector3(2, 2, 2), offset: Vector3(0, -1, 0)),
         Vector3(2, 2, 2),
       );
-      expect(shape, isA<TransformedShape3D>());
-      final placed = shape! as TransformedShape3D;
-      expect(placed.shape, const BoxShape3D(2, 2, 2));
+      expect(shape, isA<Transformed3DShape>());
+      final placed = shape! as Transformed3DShape;
+      expect(placed.shape, const Box3DShape(2, 2, 2));
       expect(placed.y, -2, reason: 'the offset scales with the entity');
     });
 
@@ -236,7 +236,7 @@ void main() {
         );
         expect(identical(first, second), isTrue);
         final mirrored =
-            meshes.build(collider, Vector3(-1, 1, 1))! as MeshShape3D;
+            meshes.build(collider, Vector3(-1, 1, 1))! as Mesh3DShape;
         expect(mirrored.indices, [0, 2, 1]);
         expect(mirrored.positions[3], -1);
       },
@@ -253,7 +253,7 @@ void main() {
       geometry.ready = true;
       expect(
         meshes.build(collider, Vector3(1, 1, 1)),
-        isA<ConvexHullShape3D>(),
+        isA<ConvexHull3DShape>(),
       );
     });
 
@@ -265,7 +265,7 @@ void main() {
         cellSize: 2,
       );
       final shape =
-          shapes.build(field, Vector3(1, 3, 1))! as HeightFieldShape3D;
+          shapes.build(field, Vector3(1, 3, 1))! as HeightField3DShape;
       expect(shape.sampleCount, 4);
       expect(shape.cellSize, 2);
       expect(shape.heights.sublist(6, 10), [0, 0, 3, 3]);

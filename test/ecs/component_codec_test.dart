@@ -23,7 +23,7 @@ void main() {
   test('RigidBody2DComponent keeps its body type and rotation lock', () {
     final back = roundTrip(
       RigidBody2DComponent(
-        bodyType: BodyType.kinematic,
+        bodyType: Body2DType.kinematic,
         lockRotation: true,
         gravityScale: 0.25,
         restitution: 0.1,
@@ -32,7 +32,7 @@ void main() {
         collidesWith: 6,
       ),
     );
-    expect(back.bodyType, BodyType.kinematic);
+    expect(back.bodyType, Body2DType.kinematic);
     expect(back.lockRotation, isTrue);
     expect(back.gravityScale, 0.25);
     expect(back.restitution, 0.1);
@@ -160,7 +160,7 @@ void main() {
     final components = (scene['entities'] as List).single['components'] as List;
     final rigid = _coreDefinitions.decode(components[0] as Map<String, dynamic>)! as RigidBody2DComponent;
     final collider = _coreDefinitions.decode(components[1] as Map<String, dynamic>)! as Collider2DComponent;
-    expect(rigid.bodyType, BodyType.kinematic);
+    expect(rigid.bodyType, Body2DType.kinematic);
     expect(rigid.lockRotation, isTrue);
     expect(rigid.linearDamping, 0.5);
     expect(rigid.restitution, 0.8, reason: 'the default it was saved with');

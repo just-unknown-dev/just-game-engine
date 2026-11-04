@@ -281,7 +281,7 @@ void main() {
     });
 
     test('a dynamic physics child keeps to the physics', () {
-      final physics = PhysicsEngine.pureDart()..initialize();
+      final physics = Physics2DEngine.pureDart()..initialize();
       addTearDown(physics.dispose);
       final (:world, :parent, :child) = _pair(
         parent: TransformComponent(),

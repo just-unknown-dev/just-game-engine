@@ -10,7 +10,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart'
     show KeyDownEvent, KeyRepeatEvent, KeyUpEvent, LogicalKeyboardKey;
 import 'package:just_signals/just_signals.dart';
-import '../physics/physics_2d/collider_debugger_system.dart';
+import '../physics/physics_2d/collider_2d_debugger_system.dart';
 import 'engine.dart';
 import '../localization/localization_widget.dart';
 import 'game_layers.dart';
@@ -145,7 +145,7 @@ class _GameWidgetState extends State<GameWidget>
   Duration _lastFpsUpdate = Duration.zero;
 
   final FocusNode _focusNode = FocusNode();
-  ColliderDebuggerSystem? _colliderDebugger;
+  Collider2DDebuggerSystem? _collider2DDebugger;
 
   /// This view's half of each registered layer — with the layer it was made
   /// for — by layer id.
@@ -223,19 +223,19 @@ class _GameWidgetState extends State<GameWidget>
     if (!widget.engine.isInitialized) return;
     widget.engine.rendering.debugMode = widget.showDebug;
     if (widget.showDebug) {
-      _colliderDebugger = ColliderDebuggerSystem(
+      _collider2DDebugger = Collider2DDebuggerSystem(
         camera: widget.engine.camera.mainCamera,
       );
-      widget.engine.world.addSystem(_colliderDebugger!);
+      widget.engine.world.addSystem(_collider2DDebugger!);
     }
   }
 
   /// Takes the debug overlay off [engine] — unless its world is gone with
   /// it.
   void _removeDebug(Engine engine) {
-    final debugger = _colliderDebugger;
+    final debugger = _collider2DDebugger;
     if (debugger == null) return;
-    _colliderDebugger = null;
+    _collider2DDebugger = null;
     if (engine.isInitialized) engine.world.removeSystem(debugger);
   }
 

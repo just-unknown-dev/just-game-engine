@@ -182,7 +182,7 @@ class Engine {
   GameLoop? _gameLoop;
   TimeManager? _timeManager;
   RenderingEngine? _rendering;
-  PhysicsEngine? _physics;
+  Physics2DEngine? _physics;
   InputService? _input;
   AudioEngine? _audio;
   MusicManager? _music;
@@ -208,14 +208,14 @@ class Engine {
 
   /// The physics simulation — Box2D FFI on native platforms, pure-Dart on
   /// web, or whatever [EngineConfig.createPhysics] makes.
-  /// [PhysicsEngine.initialize] runs in [initialize], so bodies can be
+  /// [Physics2DEngine.initialize] runs in [initialize], so bodies can be
   /// added before any [Physics2DSystem] exists, but **stepping**
   /// (`physics.update`) is owned by [Physics2DSystem] when one is registered
   /// in [world], not by this `Engine`'s own update loop — that keeps a
   /// frame's gameplay-set velocity reaching the physics step the same frame
   /// it was set instead of lagging a frame behind. If no [Physics2DSystem] is
   /// in [world], bodies added here simply won't advance.
-  PhysicsEngine get physics => _ready(_physics, 'physics');
+  Physics2DEngine get physics => _ready(_physics, 'physics');
 
   /// The game's input: devices, the input asset, players. Starts with no
   /// actions — the game loads its asset after [initialize]. Updated once per
@@ -371,7 +371,7 @@ class Engine {
       // 5. physics
       stage = 'physics';
       final physics = _physics =
-          _config.createPhysics?.call() ?? PhysicsEngine();
+          _config.createPhysics?.call() ?? Physics2DEngine();
       _teardown.add(() {
         _physics?.dispose();
         _physics = null;
@@ -539,7 +539,7 @@ class Engine {
     final systems = _systemManager!;
     systems
       ..registerSystem<RenderingEngine>('rendering', rendering)
-      ..registerSystem<PhysicsEngine>('physics', physics)
+      ..registerSystem<Physics2DEngine>('physics', physics)
       ..registerSystem<InputService>('input', input)
       ..registerSystem<AudioEngine>('audio', audio)
       ..registerSystem<CacheManager>('cache', cache)
@@ -854,7 +854,7 @@ class Engine {
   // ── Lookup ──────────────────────────────────────────────────────────────
 
   /// The engine subsystem registered under type [T] — `RenderingEngine`,
-  /// `PhysicsEngine`, `CameraEngine`, … — or null (also before
+  /// `Physics2DEngine`, `CameraEngine`, … — or null (also before
   /// [initialize] and after [dispose]).
   ///
   /// Subsystems are keyed by the type they were registered under (see

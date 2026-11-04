@@ -13,8 +13,8 @@
 ///   [MaterialOverrides3DComponent]; and the shapes ([Primitive3DComponent]:
 ///   [Cube3DComponent] to [Polygon3DComponent]). Plain data, so scenes
 ///   holding them load everywhere, the web included.
-/// - [GraphicsSceneRenderer], which draws the world from the engine's
-///   camera; [GraphicsModels], the loaded models; [Material3DLibrary], the
+/// - [Graphics3DSceneRenderer], which draws the world from the engine's
+///   camera; [Graphics3DModels], the loaded models; [Material3DLibrary], the
 ///   material files; [Animation3DSystem], which plays clips.
 /// - What a game names of just_graphics_engine: the renderer
 ///   ([Renderer3D], [RenderScene], [Scene3DView]), its settings, model and
@@ -33,7 +33,7 @@
 ///   world's bus: [CollisionEnter3DEvent], [CollisionStay3DEvent],
 ///   [CollisionExit3DEvent], [SensorEnter3DEvent], [SensorExit3DEvent].
 /// - [Physics3DQueries]: rays, sweeps and overlaps answered in entities.
-/// - just_physics_engine's 3-D side: [PhysicsEngine3D], [PhysicsWorld3D],
+/// - just_physics_engine's 3-D side: [Physics3DEngine], [Physics3DWorld],
 ///   shapes, settings and results.
 ///
 /// Units are metres; +Y is down, like the rest of the engine, so gravity is
@@ -100,36 +100,36 @@ export 'package:just_graphics_engine/just_graphics_engine.dart'
         loadModelData;
 export 'package:just_physics_engine/physics_3d.dart'
     show
-        BodySettings3D,
-        BodyType3D,
-        BoxShape3D,
-        CapsuleShape3D,
-        CharacterContact3D,
-        CharacterSettings3D,
-        CharacterState3D,
-        CompoundShape3D,
-        ConvexHullShape3D,
-        CylinderShape3D,
-        GroundState3D,
-        HeightFieldShape3D,
-        JointKind3D,
-        JointSettings3D,
+        Body3DSettings,
+        Body3DType,
+        Box3DShape,
+        Capsule3DShape,
+        Character3DContact,
+        Character3DSettings,
+        Character3DState,
+        Compound3DShape,
+        ConvexHull3DShape,
+        Cylinder3DShape,
+        Ground3DState,
+        HeightField3DShape,
+        Joint3DKind,
+        Joint3DSettings,
         JoltPhysicsEngine,
-        MeshShape3D,
-        MotionQuality3D,
-        MotorState3D,
+        Mesh3DShape,
+        Motion3DQuality,
+        Motor3DState,
+        Physics3DEngine,
+        Physics3DEvent,
+        Physics3DEventType,
         Physics3DUnsupportedError,
-        PhysicsEngine3D,
-        PhysicsEvent3D,
-        PhysicsEventType3D,
-        PhysicsWorld3D,
-        PhysicsWorldSettings3D,
-        QueryFilter3D,
-        QueryHit3D,
+        Physics3DWorld,
+        Physics3DWorldSettings,
+        Query3DFilter,
+        Query3DHit,
         Shape3D,
-        SixDofAxisMode3D,
-        SphereShape3D,
-        TransformedShape3D;
+        SixDofAxis3DMode,
+        Sphere3DShape,
+        Transformed3DShape;
 
 // The 3-D material files' format, which the 3-D material library reads.
 export 'package:just_game_engine_formats/just_game_engine_formats.dart'
@@ -145,9 +145,9 @@ export 'src/graphics/graphics_3d/animation_3d_system.dart'
 export 'src/graphics/graphics_3d/graphics_3d.dart';
 export 'src/graphics/graphics_3d/model_components.dart';
 export 'src/graphics/graphics_3d/graphics_3d_definitions.dart';
-export 'src/graphics/graphics_3d/graphics_models.dart';
-export 'src/graphics/graphics_3d/graphics_scene_renderer.dart';
-export 'src/graphics/graphics_3d/graphics_shapes.dart';
+export 'src/graphics/graphics_3d/graphics_3d_models.dart';
+export 'src/graphics/graphics_3d/graphics_3d_scene_renderer.dart';
+export 'src/graphics/graphics_3d/graphics_3d_shapes.dart';
 export 'src/graphics/graphics_3d/lighting/environment_component.dart';
 export 'src/graphics/graphics_3d/lighting/light_3d_component.dart';
 export 'src/graphics/graphics_3d/lighting/lighting_3d_definitions.dart';

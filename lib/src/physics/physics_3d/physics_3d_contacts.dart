@@ -26,7 +26,7 @@ final class Physics3DContacts {
   /// [isSensor] says whether an entity's rigid body is a sensor.
   Physics3DContacts(this._physics, this.entities, {required this.isSensor});
 
-  final PhysicsWorld3D Function() _physics;
+  final Physics3DWorld Function() _physics;
 
   /// Each body's entity.
   final Map<int, Entity> entities;
@@ -58,7 +58,7 @@ final class Physics3DContacts {
     final events = _physics().drainEvents();
     for (final e in events) {
       switch (e.type) {
-        case PhysicsEventType3D.contactBegin:
+        case Physics3DEventType.contactBegin:
           final a = entities[e.bodyA];
           final b = entities[e.bodyB];
           if (a == null || b == null) continue; // Not a body it made.
@@ -73,7 +73,7 @@ final class Physics3DContacts {
               depth: e.depth,
             ),
           );
-        case PhysicsEventType3D.contactStay:
+        case Physics3DEventType.contactStay:
           final a = entities[e.bodyA];
           final b = entities[e.bodyB];
           if (a == null || b == null) continue;
@@ -86,13 +86,13 @@ final class Physics3DContacts {
               depth: e.depth,
             ),
           );
-        case PhysicsEventType3D.contactEnd:
+        case Physics3DEventType.contactEnd:
           // Known by its bodies: a body destroyed since is ended already.
           final contact = _pairs.end(e.bodyA, e.bodyB, sensor: false);
           if (contact == null || !contact.exits) continue;
           final pair = contact.entities;
           bus.fire(CollisionExit3DEvent(entityA: pair.a, entityB: pair.b));
-        case PhysicsEventType3D.sensorBegin:
+        case Physics3DEventType.sensorBegin:
           final a = entities[e.bodyA];
           final b = entities[e.bodyB];
           if (a == null || b == null) continue;
@@ -102,13 +102,13 @@ final class Physics3DContacts {
               : _pairs.begin(e.bodyB, e.bodyA, b, a, sensor: true);
           if (contact == null || !contact.enters) continue;
           bus.fire(SensorEnter3DEvent(sensor: sensor, other: other));
-        case PhysicsEventType3D.sensorEnd:
+        case Physics3DEventType.sensorEnd:
           final contact = _pairs.end(e.bodyA, e.bodyB, sensor: true);
           if (contact == null || !contact.exits) continue;
           final pair = contact.entities;
           bus.fire(SensorExit3DEvent(sensor: pair.a, other: pair.b));
-        case PhysicsEventType3D.bodyActivated ||
-            PhysicsEventType3D.bodyDeactivated:
+        case Physics3DEventType.bodyActivated ||
+            Physics3DEventType.bodyDeactivated:
           break;
       }
     }

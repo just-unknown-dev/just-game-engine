@@ -16,7 +16,7 @@ void main() {
   late World world;
   late CameraEngine cameras;
 
-  Camera output() => cameras.mainCamera;
+  OutputCamera output() => cameras.mainCamera;
   CameraBrain brain() => cameras.brain;
 
   setUp(() {

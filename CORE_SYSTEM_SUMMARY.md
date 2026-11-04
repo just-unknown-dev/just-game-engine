@@ -34,17 +34,17 @@ Achievements, sign-in, leaderboards, currency, inventory and ads are not part of
 
 | What | Count |
 |---|---|
-| Dart files in `lib/` | 402 |
-| Lines in `lib/` (with comments and blank lines) | 84,146 |
-| Names exported by `just_game_engine.dart` | 761: 613 declared by the engine, 148 re-exported from `just_inputs` (43), `just_game_engine_formats` (40), `just_physics_engine` (26), `just_audio_engine` (17), `just_memory` (11), `just_dart` (9) and `just_signals` (2) |
+| Dart files in `lib/` | 400 |
+| Lines in `lib/` (with comments and blank lines) | 83,737 |
+| Names exported by `just_game_engine.dart` | 757: 610 declared by the engine, 147 re-exported from `just_inputs` (43), `just_game_engine_formats` (40), `just_physics_engine` (25), `just_audio_engine` (17), `just_memory` (11), `just_dart` (9) and `just_signals` (2) |
 | Names exported by `just_game_engine_3d.dart` | 159: 72 declared by the engine, 87 re-exported from `just_graphics_engine` (43), `just_physics_engine`'s 3-D side (30), the maths types of `just_dart` (9, the main library's) and `just_game_engine_formats` (5) |
 | Names exported by `widgets.dart` | 17 |
-| Component classes | 102: 73 in the main library (plus the `Component` base), 29 in the 3-D library |
-| System classes | 33: 31 concrete (29 in the main library; `Physics3DSystem` and `Animation3DSystem` in the 3-D library) and 2 abstract bases (`ReactiveSystem`, `AutoSyncSystem`) |
+| Component classes | 101: 72 in the main library (plus the `Component` base), 29 in the 3-D library |
+| System classes | 32: 30 concrete (28 in the main library; `Physics3DSystem` and `Animation3DSystem` in the 3-D library) and 2 abstract bases (`ReactiveSystem`, `AutoSyncSystem`) |
 | Default systems | 11 `DefaultSystem` sets, adding 16 systems |
 | Test files (`*_test.dart`) | 265 |
-| Tests (`flutter test`) | 2,515 passed, 7 skipped, 0 failed |
-| `flutter analyze` / `dart format` | no issues in `lib/` (two `curly_braces_in_flow_control_structures` infos in tests) / no changes in `lib/` or `example/` |
+| Tests (`flutter test`) | 2,519 passed, 7 skipped, 0 failed |
+| `flutter analyze` / `dart format` | no issues / no changes in `lib/` or `example/` |
 
 How they were counted, from the package root:
 

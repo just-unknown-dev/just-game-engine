@@ -1,19 +1,19 @@
 // Physics2DSystem keeping bodies and transforms in step, on both backends:
 // a kinematic body moved by its transform keeps every move on updates that
-// run no step; a body made again keeps its PhysicsBodyRefComponent (and the
+// run no step; a body made again keeps its Physics2DBodyRefComponent (and the
 // world's structure); a joint holds from the very step its bodies are made
 // in, and through a body made again every frame.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
-final _backends = <String, PhysicsEngine Function()>{
-  'native': PhysicsEngine.new,
-  'pure Dart': PhysicsEngine.pureDart,
+final _backends = <String, Physics2DEngine Function()>{
+  'native': Physics2DEngine.new,
+  'pure Dart': Physics2DEngine.pureDart,
 };
 
-({World world, PhysicsEngine physics}) _setUp(
-  PhysicsEngine engine, {
+({World world, Physics2DEngine physics}) _setUp(
+  Physics2DEngine engine, {
   double gravityY = 0,
 }) {
   final physics = engine..initialize();
@@ -41,7 +41,7 @@ void main() {
         final (:world, :physics) = _setUp(make());
         final platform = world.createEntityWithComponents([
           TransformComponent(),
-          RigidBody2DComponent(bodyType: BodyType.kinematic),
+          RigidBody2DComponent(bodyType: Body2DType.kinematic),
           Collider2DComponent(size: Vector2(40, 10)),
         ]);
         final t = _t(platform);
@@ -55,7 +55,7 @@ void main() {
         for (var i = 0; i < 6; i++) {
           world.update(1 / 120);
         }
-        final body = platform.getComponent<PhysicsBodyRefComponent>()!.body;
+        final body = platform.getComponent<Physics2DBodyRefComponent>()!.body;
         expect(body.position.x, closeTo(120, 1e-3));
         expect(t.position.x, closeTo(120, 1e-3));
       });
@@ -68,17 +68,17 @@ void main() {
           Collider2DComponent(shape: Collider2DShape.circle, radius: 4),
         ]);
         world.update(1 / 60);
-        final ref = ball.getComponent<PhysicsBodyRefComponent>()!;
+        final ref = ball.getComponent<Physics2DBodyRefComponent>()!;
         final first = ref.body;
-        final version = world.queryVersion(const [PhysicsBodyRefComponent]);
+        final version = world.queryVersion(const [Physics2DBodyRefComponent]);
 
         _t(ball).scale.setValues(1.5, 1.5, 1);
         world.update(1 / 60);
-        expect(ball.getComponent<PhysicsBodyRefComponent>(), same(ref));
+        expect(ball.getComponent<Physics2DBodyRefComponent>(), same(ref));
         expect(ref.body, isNot(same(first)), reason: 'a new body');
-        expect((ref.body.shape as CircleShape).radius, closeTo(6, 1e-9));
+        expect((ref.body.shape as Circle2DShape).radius, closeTo(6, 1e-9));
         expect(
-          world.queryVersion(const [PhysicsBodyRefComponent]),
+          world.queryVersion(const [Physics2DBodyRefComponent]),
           version,
           reason: 'no entity changed archetype',
         );
@@ -96,10 +96,10 @@ void main() {
           collider,
         ]);
         world.update(1 / 60);
-        expect(e.hasComponent<PhysicsBodyRefComponent>(), isTrue);
+        expect(e.hasComponent<Physics2DBodyRefComponent>(), isTrue);
         collider.points = const [Offset(0, 0), Offset(10, 0)];
         world.update(1 / 60);
-        expect(e.hasComponent<PhysicsBodyRefComponent>(), isFalse);
+        expect(e.hasComponent<Physics2DBodyRefComponent>(), isFalse);
         expect(physics.bodyCount, 0);
       });
 
@@ -107,7 +107,7 @@ void main() {
         final (:world, :physics) = _setUp(make(), gravityY: 981);
         world.createEntityWithComponents([
           TransformComponent(),
-          RigidBody2DComponent(bodyType: BodyType.static),
+          RigidBody2DComponent(bodyType: Body2DType.static),
           Collider2DComponent(size: Vector2(10, 10)),
           FixedJoint2DComponent(connectedBody: const EntityTarget.name('B')),
         ], name: 'A');
@@ -126,7 +126,7 @@ void main() {
         final (:world, :physics) = _setUp(make(), gravityY: 981);
         world.createEntityWithComponents([
           TransformComponent(),
-          RigidBody2DComponent(bodyType: BodyType.static),
+          RigidBody2DComponent(bodyType: Body2DType.static),
           Collider2DComponent(size: Vector2(10, 10)),
           FixedJoint2DComponent(connectedBody: const EntityTarget.name('B')),
         ], name: 'A');
@@ -148,7 +148,7 @@ void main() {
   }
 
   test('the system answers queries of its own bodies', () {
-    final (:world, :physics) = _setUp(PhysicsEngine.pureDart());
+    final (:world, :physics) = _setUp(Physics2DEngine.pureDart());
     final system = world.getSystem<Physics2DSystem>()!;
     expect(system.queries, same(system.queries));
     expect(system.queries.physics, same(physics));

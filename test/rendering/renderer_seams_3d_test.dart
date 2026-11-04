@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
 /// A camera 10 units back from the world plane, looking along +Z.
-Camera _camera({double pitch = 0}) => Camera(
+OutputCamera _camera({double pitch = 0}) => OutputCamera(
   viewportSize: const Size(400, 400),
   z: -10,
   pitch: pitch,
@@ -115,7 +115,7 @@ void main() {
       addTearDown(flat.dispose);
       flat.addSystem(
         ViewCullingSystem(
-          camera: Camera(viewportSize: const Size(800, 600)),
+          camera: OutputCamera(viewportSize: const Size(800, 600)),
         ),
       );
       final near = flat

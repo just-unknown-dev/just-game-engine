@@ -45,7 +45,10 @@ void main() {
     world = World()..initialize();
     brain =
         CameraBrain(
-            Camera(position: Offset.zero, viewportSize: const Size(800, 600)),
+            OutputCamera(
+              position: Offset.zero,
+              viewportSize: const Size(800, 600),
+            ),
           )
           ..defaultBlend = CameraBlend.cut
           ..stages.register(const _ProbeStage());

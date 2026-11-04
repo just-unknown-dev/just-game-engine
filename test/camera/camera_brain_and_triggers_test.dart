@@ -27,12 +27,12 @@ class _CountingEffect extends CameraEffect {
 
 void main() {
   late World world;
-  late Camera output;
+  late OutputCamera output;
   late CameraBrain brain;
 
   setUp(() {
     world = World();
-    output = Camera(viewportSize: _view);
+    output = OutputCamera(viewportSize: _view);
     brain = CameraBrain(output)..defaultBlend = CameraBlend.cut;
   });
   tearDown(() => world.dispose());
@@ -409,7 +409,7 @@ void main() {
     });
 
     test('lenses that cannot project still give finite matrices', () {
-      final camera = Camera(viewportSize: _view);
+      final camera = OutputCamera(viewportSize: _view);
       final m = Matrix4.zero();
       for (final lens in const [
         CameraLens.orthographic(near: 5, far: 5),
@@ -425,7 +425,7 @@ void main() {
     });
 
     test('a zoom of zero does not divide the world by zero', () {
-      final camera = Camera(zoom: 0, viewportSize: _view);
+      final camera = OutputCamera(zoom: 0, viewportSize: _view);
       expect(camera.zoom, greaterThan(0));
       final bounds = camera.visibleBounds;
       expect(bounds.width.isFinite && bounds.height.isFinite, isTrue);
@@ -440,7 +440,7 @@ void main() {
 
   group('camera effects', () {
     test('a fade that finished plays again', () {
-      final manager = Camera().effectManager;
+      final manager = OutputCamera().effectManager;
       final fade = ScreenFadeEffect();
       manager.addEffect(fade);
       fade.flash(Colors.white, holdDuration: 0.05, fadeDuration: 0.05);
@@ -453,7 +453,7 @@ void main() {
     });
 
     test('a letterbox that was hidden shows again', () {
-      final manager = Camera().effectManager;
+      final manager = OutputCamera().effectManager;
       final bars = LetterboxEffect();
       manager.addEffect(bars);
       bars.show(0.05);
@@ -471,7 +471,7 @@ void main() {
 
     test('an effect taken out stays out, and adding one twice draws it '
         'once', () {
-      final manager = Camera().effectManager;
+      final manager = OutputCamera().effectManager;
       final fade = ScreenFadeEffect();
       manager
         ..addEffect(fade)

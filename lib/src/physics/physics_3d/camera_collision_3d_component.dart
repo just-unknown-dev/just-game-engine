@@ -44,9 +44,9 @@ class CameraCollision3DComponent extends Component {
 /// Finalizes a [CameraCollision3DComponent] camera: a sphere cast from the point
 /// the camera circles to where the body stage put it, the target's own
 /// body ignored. Registered by `Physics3D`.
-class CameraCollisionStage extends CameraStage<CameraCollision3DComponent> {
+class CameraCollision3DStage extends CameraStage<CameraCollision3DComponent> {
   /// Stateless; one serves every camera.
-  const CameraCollisionStage();
+  const CameraCollision3DStage();
 
   @override
   CameraStagePhase get phase => CameraStagePhase.finalize;
@@ -75,10 +75,10 @@ class CameraCollisionStage extends CameraStage<CameraCollision3DComponent> {
     if (length < 1e-6) return state;
     dir.scale(1 / length);
 
-    var q = context.memory.extra[CameraCollisionStage] as Physics3DQueries?;
+    var q = context.memory.extra[CameraCollision3DStage] as Physics3DQueries?;
     if (q == null || !identical(q.system, system)) {
       q = Physics3DQueries(system);
-      context.memory.extra[CameraCollisionStage] = q;
+      context.memory.extra[CameraCollision3DStage] = q;
     }
     final hit = q.sphereCast(
       from,
@@ -93,7 +93,7 @@ class CameraCollisionStage extends CameraStage<CameraCollision3DComponent> {
         : math.max(collision.minDistance, math.min(length, hit.distance));
 
     // In at once, out gently.
-    final key = (CameraCollisionStage, #distance);
+    final key = (CameraCollision3DStage, #distance);
     final last = context.memory.extra[key] as double?;
     final double distance;
     if (last == null || context.snap || clear <= last) {

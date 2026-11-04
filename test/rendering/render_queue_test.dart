@@ -365,7 +365,7 @@ void main() {
 
     test('a removed post-process component switches its pass off at once', () {
       final rendering = RenderingEngine()
-        ..camera = Camera(viewportSize: const Size(10, 10));
+        ..camera = OutputCamera(viewportSize: const Size(10, 10));
       rendering.initialize();
       final world = World()..initialize();
       addTearDown(world.dispose);

@@ -27,7 +27,7 @@ final class Physics3DCharacters {
   /// inner body destroyed — `rebuilt` when a new one takes its place at once.
   Physics3DCharacters(this._physics, this.entities, {required this.onBodyGone});
 
-  final PhysicsWorld3D Function() _physics;
+  final Physics3DWorld Function() _physics;
 
   /// Each body's entity — shared with the bodies.
   final Map<int, Entity> entities;
@@ -37,7 +37,7 @@ final class Physics3DCharacters {
   onBodyGone;
 
   final Map<Entity, _CharacterLink> _characters = {};
-  final CharacterState3D _state = CharacterState3D();
+  final Character3DState _state = Character3DState();
   final Vector3 _v = Vector3.zero();
   final Vector3 _up = Vector3.zero();
   final Vector3 _down = Vector3.zero();
@@ -97,7 +97,7 @@ final class Physics3DCharacters {
         if (_up.normalize() == 0) _up.setValues(0, 1, 0);
         _up.negate();
         final character = physics.createCharacter(
-          CharacterSettings3D(
+          Character3DSettings(
             radius: comp.radius,
             halfHeight: math.max(comp.height / 2 - comp.radius, 0.0),
             up: Vector3.copy(_up),
@@ -126,7 +126,7 @@ final class Physics3DCharacters {
         transform.capturePrevious();
         comp
           ..velocity.setZero()
-          ..groundState = GroundState3D.inAir
+          ..groundState = Ground3DState.inAir
           ..groundVelocity.setZero()
           ..groundEntity = null;
       }
@@ -209,7 +209,7 @@ final class Physics3DCharacters {
     final comp = link.comp;
     comp
       ..character = 0
-      ..groundState = GroundState3D.inAir
+      ..groundState = Ground3DState.inAir
       ..groundEntity = null;
   }
 

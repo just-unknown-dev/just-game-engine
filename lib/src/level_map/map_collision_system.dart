@@ -208,7 +208,7 @@ class MapCollisionSystem extends System {
       // The level does not bounce what lands on it, and a level's worth of
       // collider outlines is noise.
       RigidBody2DComponent(
-        bodyType: BodyType.static,
+        bodyType: Body2DType.static,
         isSensor: kind.sensor,
         lockRotation: true,
         // The friction tile ground has always had, so games play the same.

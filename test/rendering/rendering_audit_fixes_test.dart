@@ -1,6 +1,5 @@
-// Rendering and debug fixes from the 2.0.0 final pass: the collider
-// debugger's body filters leave ray colliders alone (F2); RenderingEngine.stats
-// count what the ECS RenderSystem draws (F43). (EntitySignal's are in
+// Rendering fixes from the 2.0.0 final pass: RenderingEngine.stats count
+// what the ECS RenderSystem draws (F43). (EntitySignal's are in
 // reactive/entity_signal_test.dart.)
 
 import 'dart:ui';
@@ -8,48 +7,8 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
-/// Counts rectangles and circles drawn.
-class _Counter extends TestRecordingCanvas {
-  int rects = 0;
-  int circles = 0;
-
-  @override
-  void drawRect(Rect rect, Paint paint) {
-    rects++;
-    super.drawRect(rect, paint);
-  }
-
-  @override
-  void drawCircle(Offset c, double radius, Paint paint) {
-    circles++;
-    super.drawCircle(c, radius, paint);
-  }
-}
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  test('filtering static bodies still outlines their ray colliders', () {
-    final world = World()..initialize();
-    addTearDown(world.dispose);
-    final debugger = ColliderDebuggerSystem(includeStaticBodies: false);
-    world.addSystem(debugger);
-    world.createEntityWithComponents([
-      TransformComponent(position: Vector3(5, 5, 0)),
-      PhysicsBodyRefComponent(
-        PhysicsBody(
-          position: Vector2(5, 5),
-          shape: RectangleShape(10, 10),
-          mass: 0,
-        ),
-      ),
-      RaycastColliderComponent(radius: 4),
-    ]);
-    final canvas = _Counter();
-    debugger.render(canvas, const Size(100, 100));
-    expect(canvas.rects, 0, reason: 'the static body is filtered');
-    expect(canvas.circles, 1, reason: 'its ray collider is not');
-  });
 
   group('render stats count the ECS world', () {
     late World world;
@@ -58,7 +17,7 @@ void main() {
     setUp(() {
       world = World()..initialize();
       rendering = RenderingEngine()
-        ..camera = Camera(viewportSize: const Size(100, 100))
+        ..camera = OutputCamera(viewportSize: const Size(100, 100))
         ..initialize();
     });
     tearDown(() {

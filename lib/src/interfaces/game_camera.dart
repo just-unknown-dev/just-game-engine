@@ -1,6 +1,6 @@
 /// Abstract camera contract.
 ///
-/// ECS systems depend on this rather than the concrete [Camera] class,
+/// ECS systems depend on this rather than the concrete [OutputCamera] class,
 /// keeping the ECS layer decoupled from the camera subsystem implementation.
 library;
 

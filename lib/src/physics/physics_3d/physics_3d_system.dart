@@ -11,7 +11,7 @@ import 'physics_3d_contacts.dart';
 import 'physics_3d_events.dart';
 import 'physics_3d_joints.dart';
 
-/// Steps a [PhysicsWorld3D] and keeps it in step with the ECS: the 3-D
+/// Steps a [Physics3DWorld] and keeps it in step with the ECS: the 3-D
 /// counterpart of the engine's 2-D `Physics2DSystem` (a 3-D game leaves that
 /// one out), split the same way into bodies, joints, characters and
 /// contacts.
@@ -34,14 +34,14 @@ import 'physics_3d_joints.dart';
 /// it made from [physics]; the world itself belongs to whoever made it.
 ///
 /// The collision layers a world keeps apart are fixed when it is made
-/// ([PhysicsWorldSettings3D.layerMasks]): just_physics_engine 1.4.1's
-/// [PhysicsWorld3D] cannot change them later, so a grid edited while a 3-D
+/// ([Physics3DWorldSettings.layerMasks]): just_physics_engine 2.0.0's
+/// [Physics3DWorld] cannot change them later, so a grid edited while a 3-D
 /// scene plays (`EngineContext.physicsLayers`) reaches the next world made,
 /// not this one. A body's own layer can change at any time.
 class Physics3DSystem extends System {
   /// A system stepping [physics]; mesh and hull colliders take their
   /// triangles from [geometry].
-  Physics3DSystem(PhysicsWorld3D physics, {Collider3DGeometry? geometry})
+  Physics3DSystem(Physics3DWorld physics, {Collider3DGeometry? geometry})
     : _physics = physics,
       _create = null,
       shapes = Collider3DShapes(geometry: geometry) {
@@ -54,7 +54,7 @@ class Physics3DSystem extends System {
   /// threads, no tables sized for thousands of bodies — so a game whose 3-D
   /// scenes come later (a 2-D menu first) pays nothing for them.
   Physics3DSystem.lazy(
-    PhysicsWorld3D Function() create, {
+    Physics3DWorld Function() create, {
     Collider3DGeometry? geometry,
   }) : _physics = null,
        _create = create,
@@ -62,12 +62,12 @@ class Physics3DSystem extends System {
     priority = SystemPriorities.physics;
   }
 
-  PhysicsWorld3D? _physics;
-  final PhysicsWorld3D Function()? _create;
+  Physics3DWorld? _physics;
+  final Physics3DWorld Function()? _create;
 
   /// The world it steps; a [Physics3DSystem.lazy] system makes it now if it
   /// has not yet.
-  PhysicsWorld3D get physics => _physics ??= _create!();
+  Physics3DWorld get physics => _physics ??= _create!();
 
   /// Whether the world exists (always, unless made with
   /// [Physics3DSystem.lazy] and still waiting for its first body).

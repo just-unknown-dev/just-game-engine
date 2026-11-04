@@ -146,9 +146,9 @@ void main() {
   });
 
   test('an enum type knows its names and falls back on an unknown one', () {
-    const t = EnumFieldType(BodyType.values, fallback: BodyType.static);
+    const t = EnumFieldType(Body2DType.values, fallback: Body2DType.static);
     expect(t.names, ['static', 'kinematic', 'dynamic']);
-    expect(t.decode('kinematic', FieldConstraints.none), BodyType.kinematic);
-    expect(t.decode('bogus', FieldConstraints.none), BodyType.static);
+    expect(t.decode('kinematic', FieldConstraints.none), Body2DType.kinematic);
+    expect(t.decode('bogus', FieldConstraints.none), Body2DType.static);
   });
 }

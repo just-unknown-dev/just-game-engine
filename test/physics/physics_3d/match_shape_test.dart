@@ -32,11 +32,11 @@ class _Look extends Component implements SolidShapeSource {
 
 void main() {
   late World world;
-  late FakePhysicsWorld3D physics;
+  late FakePhysics3DWorld physics;
   late Physics3DSystem system;
 
   setUp(() {
-    physics = FakePhysicsWorld3D(PhysicsWorldSettings3D());
+    physics = FakePhysics3DWorld(Physics3DWorldSettings());
     system = Physics3DSystem(physics);
     world = World()..initialize();
     world.addSystem(system);
@@ -58,7 +58,7 @@ void main() {
   test('takes the shape its entity is drawn as, scaled with it', () {
     final e = matched(_Look(size: 2), scale: Vector3(1, 3, 1));
     world.update(_dt);
-    expect(shapeOf(e), const BoxShape3D(1, 3, 1));
+    expect(shapeOf(e), const Box3DShape(1, 3, 1));
   });
 
   test('is made again when the shape changes', () {
@@ -69,19 +69,19 @@ void main() {
     look.size = 4;
     world.update(_dt);
     expect(system.bodyOf(e), isNot(first));
-    expect(shapeOf(e), const BoxShape3D(2, 2, 2));
+    expect(shapeOf(e), const Box3DShape(2, 2, 2));
   });
 
   test('several parts are one compound, each part where it is', () {
     final e = matched(_Look(steps: 3), body: RigidBody3DComponent());
     world.update(_dt);
-    final shape = shapeOf(e) as CompoundShape3D;
+    final shape = shapeOf(e) as Compound3DShape;
     expect(shape.parts, [
-      const BoxShape3D(0.5, 0.5, 0.5),
-      const TransformedShape3D(BoxShape3D(0.5, 0.5, 0.5), z: 1),
-      const TransformedShape3D(BoxShape3D(0.5, 0.5, 0.5), z: 2),
+      const Box3DShape(0.5, 0.5, 0.5),
+      const Transformed3DShape(Box3DShape(0.5, 0.5, 0.5), z: 1),
+      const Transformed3DShape(Box3DShape(0.5, 0.5, 0.5), z: 2),
     ]);
-    expect(physics.bodies[system.bodyOf(e)]!.type, BodyType3D.dynamic, reason: 'a compound can move');
+    expect(physics.bodies[system.bodyOf(e)]!.type, Body3DType.dynamic, reason: 'a compound can move');
   });
 
   test('an entity with no shape gets no body', () {
@@ -102,16 +102,16 @@ void main() {
 
   group('parts', () {
     test('each kind, scaled', () {
-      expect(Collider3DShapes.solidPart(const SolidSphere(1, x: 1), 2, 1, 1), const TransformedShape3D(SphereShape3D(2), x: 2));
-      expect(Collider3DShapes.solidPart(const SolidCylinder(1, 0.5), 2, 3, 1), const CylinderShape3D(3, 1));
-      expect(Collider3DShapes.solidPart(const SolidCapsule(1, 0.5), 1, 2, 1), const CapsuleShape3D(2.5, 0.5));
-      expect(Collider3DShapes.solidPart(const SolidCapsule(0, 0.5), 1, 1, 1), const SphereShape3D(0.5));
+      expect(Collider3DShapes.solidPart(const SolidSphere(1, x: 1), 2, 1, 1), const Transformed3DShape(Sphere3DShape(2), x: 2));
+      expect(Collider3DShapes.solidPart(const SolidCylinder(1, 0.5), 2, 3, 1), const Cylinder3DShape(3, 1));
+      expect(Collider3DShapes.solidPart(const SolidCapsule(1, 0.5), 1, 2, 1), const Capsule3DShape(2.5, 0.5));
+      expect(Collider3DShapes.solidPart(const SolidCapsule(0, 0.5), 1, 1, 1), const Sphere3DShape(0.5));
       final hull = Collider3DShapes.solidPart(
         SolidHull(Float32List.fromList([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1])),
         2,
         -1,
         1,
-      )! as ConvexHullShape3D;
+      )! as ConvexHull3DShape;
       expect(hull.points, [0, 0, 0, 2, 0, 0, 0, -1, 0, 0, 0, 1]);
       expect(Collider3DShapes.solidPart(SolidHull(Float32List(9)), 1, 1, 1), isNull, reason: 'three points are no hull');
     });
@@ -120,7 +120,7 @@ void main() {
       final shapes = Collider3DShapes();
       final collider = Collider3DComponent(shape: Collider3DShape.matchShape, offset: Vector3(0, -1, 0));
       final shape = shapes.build(collider, Vector3(1, 1, 1), source: _Look(size: 2));
-      expect(shape, const TransformedShape3D(BoxShape3D(1, 1, 1), y: -1));
+      expect(shape, const Transformed3DShape(Box3DShape(1, 1, 1), y: -1));
     });
   });
 

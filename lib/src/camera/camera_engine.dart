@@ -17,7 +17,7 @@ import 'camera_brain.dart';
 class CameraEngine {
   /// The output camera everything renders through. Reading it before
   /// [initialize] throws.
-  late Camera mainCamera;
+  late OutputCamera mainCamera;
 
   /// The brain driving [mainCamera]. Reading it before [initialize] throws.
   late CameraBrain brain;
@@ -31,7 +31,7 @@ class CameraEngine {
   /// (`context.cameraRegistries`). Does nothing when already initialized.
   void initialize({EngineContext? context}) {
     if (_initialized) return;
-    mainCamera = Camera(position: Offset.zero, zoom: 1.0);
+    mainCamera = OutputCamera(position: Offset.zero, zoom: 1.0);
     brain = CameraBrain(mainCamera, registries: context?.cameraRegistries);
     _initialized = true;
     if (kDebugMode) debugPrint('Camera engine initialized');

@@ -25,7 +25,7 @@ typedef FrameTask = void Function(double deltaTime, double alpha);
 /// ```dart
 /// final systemManager = SystemManager();
 /// systemManager.registerSystem('physics', physicsEngine);
-/// final physics = systemManager.getSystem<PhysicsEngine>();
+/// final physics = systemManager.getSystem<Physics2DEngine>();
 /// ```
 class SystemManager {
   /// Map of system names to system instances

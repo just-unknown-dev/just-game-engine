@@ -25,7 +25,7 @@ final class Physics3DJoints {
   /// names.
   Physics3DJoints(this._physics, this._bodyOf);
 
-  final PhysicsWorld3D Function() _physics;
+  final Physics3DWorld Function() _physics;
   final int Function(Entity entity) _bodyOf;
 
   final Map<Joint3DComponent, _JointLink> _joints = Map.identity();
@@ -123,7 +123,7 @@ final class Physics3DJoints {
       if (comp.enabled != link.enabled) {
         physics.setJointEnabled(link.joint, link.enabled = comp.enabled);
       }
-      var motor = MotorState3D.off;
+      var motor = Motor3DState.off;
       var target = 0.0;
       if (comp is HingeJoint3DComponent) {
         motor = comp.motor;
@@ -173,7 +173,7 @@ final class Physics3DJoints {
   /// holds the second body ([other]'s, [bodyB]; 0 for the world) is
   /// [link]'s [_JointLink.heldB] when it has one, and kept there for the
   /// next time.
-  JointSettings3D _settings(
+  Joint3DSettings _settings(
     World world,
     Entity entity,
     Joint3DComponent comp,
@@ -198,8 +198,8 @@ final class Physics3DJoints {
     switch (comp) {
       case HingeJoint3DComponent h:
         final axis = axisOf(h.axis);
-        return JointSettings3D(
-          kind: JointKind3D.hinge,
+        return Joint3DSettings(
+          kind: Joint3DKind.hinge,
           pointA: pointA,
           pointB: pointB,
           axis: axis,
@@ -214,8 +214,8 @@ final class Physics3DJoints {
         );
       case SliderJoint3DComponent s:
         final axis = axisOf(s.axis);
-        return JointSettings3D(
-          kind: JointKind3D.slider,
+        return Joint3DSettings(
+          kind: Joint3DKind.slider,
           pointA: pointA,
           pointB: pointB,
           axis: axis,
@@ -235,8 +235,8 @@ final class Physics3DJoints {
         final pointB = otherTransform == null
             ? Vector3.copy(d.connectedAnchor)
             : _worldPoint(otherTransform, d.connectedAnchor);
-        return JointSettings3D(
-          kind: JointKind3D.distance,
+        return Joint3DSettings(
+          kind: Joint3DKind.distance,
           pointA: pointA,
           pointB: pointB,
           hasLimits: true,
@@ -246,8 +246,8 @@ final class Physics3DJoints {
           springDamping: d.springDamping,
         );
       case SixDofJoint3DComponent x:
-        return JointSettings3D(
-          kind: JointKind3D.sixDof,
+        return Joint3DSettings(
+          kind: Joint3DKind.sixDof,
           pointA: pointA,
           pointB: pointB,
           axis: axisOf(x.axis),
@@ -271,7 +271,7 @@ final class Physics3DJoints {
           ],
         );
       default:
-        return JointSettings3D(kind: comp.kind, pointA: pointA, pointB: pointB);
+        return Joint3DSettings(kind: comp.kind, pointA: pointA, pointB: pointB);
     }
   }
 
@@ -345,13 +345,13 @@ final class _JointLink {
   Vector3? heldB;
 
   bool enabled = true;
-  MotorState3D motor = MotorState3D.off;
+  Motor3DState motor = Motor3DState.off;
   double motorTarget = 0;
 
   // What it was made from, but its motor and on/off switch (those are
   // changed on the live joint): compared field by field each step, with
   // nothing built.
-  JointKind3D? _kind;
+  Joint3DKind? _kind;
   EntityTarget? _target;
   final Float64List _made = Float64List(_capacity);
   int _count = -1;

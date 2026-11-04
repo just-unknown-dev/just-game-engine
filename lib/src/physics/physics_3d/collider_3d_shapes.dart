@@ -138,16 +138,16 @@ final class Collider3DShapes {
     final sz = collider.scale.z * entityScale.z;
     final ax = sx.abs(), ay = sy.abs(), az = sz.abs();
     final Shape3D? shape = switch (collider.shape) {
-      Collider3DShape.box => BoxShape3D(
+      Collider3DShape.box => Box3DShape(
         math.max(collider.size.x * ax / 2, minExtent),
         math.max(collider.size.y * ay / 2, minExtent),
         math.max(collider.size.z * az / 2, minExtent),
       ),
-      Collider3DShape.sphere => SphereShape3D(
+      Collider3DShape.sphere => Sphere3DShape(
         math.max(collider.radius * math.max(ax, math.max(ay, az)), minExtent),
       ),
       Collider3DShape.capsule => _capsule(collider, ax, ay, az),
-      Collider3DShape.cylinder => CylinderShape3D(
+      Collider3DShape.cylinder => Cylinder3DShape(
         math.max(collider.height * ay / 2, minExtent),
         math.max(collider.radius * math.max(ax, az), minExtent),
       ),
@@ -171,8 +171,8 @@ final class Collider3DShapes {
     final halfHeight = c.height * ay / 2 - radius;
     // Too short for a straight part: a ball.
     return halfHeight <= 1e-4
-        ? SphereShape3D(radius)
-        : CapsuleShape3D(halfHeight, radius);
+        ? Sphere3DShape(radius)
+        : Capsule3DShape(halfHeight, radius);
   }
 
   Shape3D? _model(Collider3DComponent c, double sx, double sy, double sz) {
@@ -189,7 +189,7 @@ final class Collider3DShapes {
     }
     final Shape3D shape;
     if (c.shape == Collider3DShape.convexHull) {
-      shape = ConvexHullShape3D(positions);
+      shape = ConvexHull3DShape(positions);
     } else {
       final indices = Uint32List.fromList(source.indices);
       // A mirror turns triangles inside out; turn them back.
@@ -200,7 +200,7 @@ final class Collider3DShapes {
           indices[i + 2] = t;
         }
       }
-      shape = MeshShape3D(positions, indices);
+      shape = Mesh3DShape(positions, indices);
     }
     return _keep(_models, key, shape, modelLimit);
   }
@@ -218,7 +218,7 @@ final class Collider3DShapes {
     return _keep(_solids, key, switch (parts.length) {
       0 => null,
       1 => parts.single,
-      _ => CompoundShape3D(parts),
+      _ => Compound3DShape(parts),
     }, solidLimit);
   }
 
@@ -229,7 +229,7 @@ final class Collider3DShapes {
     Shape3D at(Shape3D shape, double x, double y, double z) =>
         x == 0 && y == 0 && z == 0
         ? shape
-        : TransformedShape3D(shape, x: x * sx, y: y * sy, z: z * sz);
+        : Transformed3DShape(shape, x: x * sx, y: y * sy, z: z * sz);
     switch (part) {
       case SolidBox(
         :final halfX,
@@ -240,7 +240,7 @@ final class Collider3DShapes {
         :final z,
       ):
         return at(
-          BoxShape3D(
+          Box3DShape(
             math.max(halfX * ax, minExtent),
             math.max(halfY * ay, minExtent),
             math.max(halfZ * az, minExtent),
@@ -251,7 +251,7 @@ final class Collider3DShapes {
         );
       case SolidSphere(:final radius, :final x, :final y, :final z):
         return at(
-          SphereShape3D(
+          Sphere3DShape(
             math.max(radius * math.max(ax, math.max(ay, az)), minExtent),
           ),
           x,
@@ -268,7 +268,7 @@ final class Collider3DShapes {
         final r = math.max(radius * math.max(ax, az), minExtent);
         final half = (halfHeight + radius) * ay - r;
         return at(
-          half <= 1e-4 ? SphereShape3D(r) : CapsuleShape3D(half, r),
+          half <= 1e-4 ? Sphere3DShape(r) : Capsule3DShape(half, r),
           x,
           y,
           z,
@@ -281,7 +281,7 @@ final class Collider3DShapes {
         :final z,
       ):
         return at(
-          CylinderShape3D(
+          Cylinder3DShape(
             math.max(halfHeight * ay, minExtent),
             math.max(radius * math.max(ax, az), minExtent),
           ),
@@ -297,7 +297,7 @@ final class Collider3DShapes {
           scaled[i + 1] = points[i + 1] * sy;
           scaled[i + 2] = points[i + 2] * sz;
         }
-        return ConvexHullShape3D(scaled);
+        return ConvexHull3DShape(scaled);
       case SolidMesh(:final positions, :final indices):
         if (indices.length < 3) return null;
         final scaled = Float32List(positions.length);
@@ -316,7 +316,7 @@ final class Collider3DShapes {
             turned[i + 2] = t;
           }
         }
-        return MeshShape3D(scaled, turned);
+        return Mesh3DShape(scaled, turned);
       case SolidHeightField(
         :final heights,
         :final sampleCount,
@@ -334,7 +334,7 @@ final class Collider3DShapes {
           scaled[i] = h >= SolidHeightField.holeHeight ? h : h * ay;
         }
         return at(
-          HeightFieldShape3D(scaled, sampleCount, cellSize * ax),
+          HeightField3DShape(scaled, sampleCount, cellSize * ax),
           x,
           y,
           z,
@@ -355,7 +355,7 @@ final class Collider3DShapes {
     return _keep(
       _fields,
       key,
-      HeightFieldShape3D(heights, n, math.max(c.cellSize * ax, minExtent)),
+      HeightField3DShape(heights, n, math.max(c.cellSize * ax, minExtent)),
       fieldLimit,
     );
   }
@@ -390,7 +390,7 @@ final class Collider3DShapes {
       return shape;
     }
     final q = Quaternion.euler(r.x, r.y, r.z);
-    return TransformedShape3D(
+    return Transformed3DShape(
       shape,
       x: o.x * entityScale.x,
       y: o.y * entityScale.y,

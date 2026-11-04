@@ -1,7 +1,7 @@
 import '../../ecs/ecs.dart';
 import '../../timeline/timeline.dart';
 import 'model_components.dart';
-import 'graphics_models.dart';
+import 'graphics_3d_models.dart';
 
 /// A timeline track playing clips on the bound entity's 3-D model (its
 /// [AnimationPlayerComponent]): each block names a clip, plays at the
@@ -169,7 +169,7 @@ class _SkeletalClipRunner extends TrackRunner {
   static double _lengthOf(TrackContext context, Entity entity, String name) {
     final path = entity.getComponent<ModelComponent>()?.model ?? '';
     if (path.isEmpty) return 0;
-    final models = context.world.context.graphicsModels;
+    final models = context.world.context.graphics3DModels;
     return models?.get(path)?.clips[name]?.duration ?? 0;
   }
 
