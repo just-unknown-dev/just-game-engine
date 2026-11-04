@@ -11,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
 /// Counts the fixed updates and the rendered frames it is given.
-class _Counter extends System implements FrameSystem {
+class _Counter extends System implements PerFrame {
   int updates = 0;
   int frames = 0;
   final List<double> frameTimes = [];
@@ -101,7 +101,7 @@ void main() {
     return at + count;
   }
 
-  group('C1 two views of one engine', () {
+  group('two views of one engine', () {
     testWidgets('count each frame once, and either can go', (tester) async {
       final engine = (await tester.runAsync(boot))!;
       final counter = _Counter();
@@ -189,7 +189,7 @@ void main() {
     });
   });
 
-  test('C12 the per-frame phase gets a clamped frame after a hitch', () {
+  test('the per-frame phase gets a clamped frame after a hitch', () {
     final frameTimes = <double>[];
     final time = TimeManager()..timeScale = 2;
     final loop = GameLoop(
@@ -203,7 +203,7 @@ void main() {
     expect(frameTimes.last, closeTo(time.maxDeltaTime * 2, 1e-9));
   });
 
-  group('C14 game time while paused', () {
+  group('game time while paused', () {
     test('stands still; real time goes on', () {
       final time = TimeManager();
       final loop = GameLoop(onUpdate: (_) {}, timeManager: time)..start();
@@ -242,7 +242,7 @@ void main() {
     });
   });
 
-  test('D1 the frame phase hands the interpolation on, with no view', () async {
+  test('the frame phase hands the interpolation on, with no view', () async {
     final engine = await boot();
     final render = RenderSystem();
     engine.world.addSystem(render);
@@ -255,7 +255,7 @@ void main() {
     expect(engine.rendering.interpolation, engine.gameLoop.interpolation);
   });
 
-  group('E23 camera post effects run on real time', () {
+  group('camera post effects run on real time', () {
     for (final (name, halt) in <(String, void Function(Engine))>[
       ('while paused', (engine) => engine.pause()),
       ('at time scale 0', (engine) => engine.time.timeScale = 0),
@@ -263,7 +263,7 @@ void main() {
       test('a flash finishes $name', () async {
         final engine = await boot();
         engine.start();
-        final effects = engine.cameraSystem.mainCamera.effectManager;
+        final effects = engine.camera.mainCamera.effectManager;
         final flash = ScreenFadeEffect();
         effects.addEffect(flash);
         halt(engine);
@@ -277,7 +277,7 @@ void main() {
     test('letterbox bars slide in while paused', () async {
       final engine = await boot();
       engine.start();
-      final effects = engine.cameraSystem.mainCamera.effectManager;
+      final effects = engine.camera.mainCamera.effectManager;
       final bars = LetterboxEffect();
       effects.addEffect(bars);
       engine.pause();
@@ -289,7 +289,7 @@ void main() {
     });
   });
 
-  test('C3 audio keeps updating while paused', () async {
+  test('audio keeps updating while paused', () async {
     final audio = _Audio();
     final engine = await boot(() => audio);
     engine.start();
@@ -301,7 +301,7 @@ void main() {
     expect(audio.updates - before, 10);
   });
 
-  group('C2 going to the background', () {
+  group('going to the background', () {
     testWidgets('pauses the music and mutes; coming back undoes it', (
       tester,
     ) async {
@@ -343,7 +343,7 @@ void main() {
     });
   });
 
-  testWidgets('C6 a key held as the terminal opens is let go', (tester) async {
+  testWidgets('a key held as the terminal opens is let go', (tester) async {
     final engine = (await tester.runAsync(boot))!;
     engine.start();
     await tester.pumpWidget(

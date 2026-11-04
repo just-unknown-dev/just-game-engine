@@ -4,10 +4,9 @@
 // space, jointed bodies send no contact events, culling freezes a body,
 // torque turns by a body's inertia, angles stay continuous, a kinematic body
 // moved by its transform carries what it holds; and a capsule stretched by
-// its entity, a ray along a box's side and the collider debugger.
+// its entity and a ray along a box's side.
 
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
@@ -22,13 +21,11 @@ final _backends = <String, PhysicsEngine Function()>{
 ({World world, PhysicsEngine physics}) _setUp(
   PhysicsEngine engine, {
   double gravityY = 981,
-  bool joints = false,
 }) {
   final physics = engine..initialize();
   physics.setGravity(0, gravityY);
   final world = World()..initialize();
   world.addSystem(Physics2DSystem(physics));
-  if (joints) world.addSystem(PhysicsJointBindingSystem(physics));
   addTearDown(() {
     world.dispose();
     physics.dispose();
@@ -78,7 +75,7 @@ void main() {
       });
 
       test('a wheel turns on its own axle, not round the chassis', () {
-        final (:world, :physics) = _setUp(make(), gravityY: 0, joints: true);
+        final (:world, :physics) = _setUp(make(), gravityY: 0);
         final chassis = world.createEntityWithComponents([
           TransformComponent(),
           RigidBody2DComponent(lockRotation: true, linearDamping: 0),
@@ -90,7 +87,7 @@ void main() {
         final wheel = world.createEntityWithComponents([
           TransformComponent(position: Vector3(30, 40, 0)),
           RigidBody2DComponent(linearDamping: 0),
-          Collider2DComponent(shape: ColliderShape2D.circle, radius: 12),
+          Collider2DComponent(shape: Collider2DShape.circle, radius: 12),
         ], name: 'Wheel');
         _step(world, 90);
         final dx = _t(wheel).position.x - _t(chassis).position.x;
@@ -100,7 +97,7 @@ void main() {
       });
 
       test('a distance spring in hertz settles as on Box2D', () {
-        final (:world, :physics) = _setUp(make(), gravityY: 0, joints: true);
+        final (:world, :physics) = _setUp(make(), gravityY: 0);
         world.createEntityWithComponents([
           TransformComponent(),
           RigidBody2DComponent(bodyType: BodyType.static),
@@ -121,7 +118,7 @@ void main() {
       });
 
       test('a slider slides along its axis turned with its entity', () {
-        final (:world, :physics) = _setUp(make(), joints: true);
+        final (:world, :physics) = _setUp(make());
         world.createEntityWithComponents([
           TransformComponent(angle: math.pi / 2),
           RigidBody2DComponent(bodyType: BodyType.static),
@@ -139,7 +136,7 @@ void main() {
       });
 
       test('jointed bodies send no contact events between them', () {
-        final (:world, :physics) = _setUp(make(), joints: true);
+        final (:world, :physics) = _setUp(make());
         var enters = 0, exits = 0;
         world.events
           ..on<CollisionEnter2DEvent>((_) => enters++)
@@ -254,26 +251,26 @@ void main() {
 
   test('a capsule stretched by its entity keeps its caps', () {
     final collider = Collider2DComponent(
-      shape: ColliderShape2D.capsule,
+      shape: Collider2DShape.capsule,
       radius: 16,
       height: 64,
     );
-    final stretched = ColliderGeometry.of(
+    final stretched = Collider2DGeometry.of(
       collider,
       TransformComponent(scale: Vector3(1, 2, 1)),
     )!;
-    final viaOwnScale = ColliderGeometry.of(
+    final viaOwnScale = Collider2DGeometry.of(
       Collider2DComponent(
-        shape: ColliderShape2D.capsule,
+        shape: Collider2DShape.capsule,
         radius: 16,
         height: 64,
         scale: Vector2(1, 2),
       ),
     )!;
-    expect(ColliderGeometry.boundsOf(stretched).height, closeTo(128, 1e-9));
+    expect(Collider2DGeometry.boundsOf(stretched).height, closeTo(128, 1e-9));
     expect(
-      ColliderGeometry.boundsOf(stretched).height,
-      closeTo(ColliderGeometry.boundsOf(viaOwnScale).height, 1e-9),
+      Collider2DGeometry.boundsOf(stretched).height,
+      closeTo(Collider2DGeometry.boundsOf(viaOwnScale).height, 1e-9),
     );
   });
 
@@ -286,48 +283,15 @@ void main() {
       TransformComponent(position: Vector3(50, 0, 0)),
       RaycastColliderComponent(width: 20, height: 20),
     ]);
-    final hit = rays.castRay(
+    final hit = rays.raycast(
       Ray(origin: const Offset(0, -10), direction: const Offset(1, 0)),
     )!;
     expect(hit.point.dx, closeTo(40, 1e-9));
     expect(
-      rays.castRay(
+      rays.raycast(
         Ray(origin: const Offset(0, -11), direction: const Offset(1, 0)),
       ),
       isNull,
     );
-  });
-
-  test('the collider debugger draws every kind of shape', () {
-    final physics = PhysicsEngine.pureDart()..initialize();
-    final world = World()..initialize();
-    addTearDown(() {
-      world.dispose();
-      physics.dispose();
-    });
-    world
-      ..addSystem(Physics2DSystem(physics))
-      ..addSystem(ColliderDebuggerSystem());
-    for (final collider in [
-      Collider2DComponent(shape: ColliderShape2D.capsule),
-      Collider2DComponent(
-        shape: ColliderShape2D.circle,
-        offset: const Offset(10, 0),
-      ),
-      Collider2DComponent(
-        shape: ColliderShape2D.chain,
-        points: const [Offset(0, 0), Offset(10, 0), Offset(20, 5)],
-      ),
-    ]) {
-      world.createEntityWithComponents([TransformComponent(), collider]);
-    }
-    world.createEntityWithComponents([
-      TransformComponent(angle: 1),
-      RaycastColliderComponent(width: 10, radius: 4),
-    ]);
-    world.update(_frame);
-    final recorder = ui.PictureRecorder();
-    world.render(ui.Canvas(recorder), const ui.Size(100, 100));
-    recorder.endRecording().dispose();
   });
 }

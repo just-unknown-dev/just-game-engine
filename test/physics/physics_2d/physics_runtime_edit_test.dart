@@ -35,7 +35,7 @@ void main() {
   Entity ball() => world.createEntityWithComponents([
     TransformComponent(position: Vector3(0, -150, 0)),
     RigidBody2DComponent(restitution: 0),
-    Collider2DComponent(shape: ColliderShape2D.circle, radius: 10),
+    Collider2DComponent(shape: Collider2DShape.circle, radius: 10),
   ], name: 'ball');
 
   double run(Entity e, int frames) {

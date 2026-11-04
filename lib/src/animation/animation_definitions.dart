@@ -2,7 +2,7 @@
 library;
 
 import '../ecs/serialization/component_codec.dart';
-import '../ecs/serialization/component_schema.dart';
+import '../ecs/serialization/component_definition.dart';
 import '../ecs/serialization/field_type.dart';
 import 'animator_component.dart';
 import 'package:flutter/material.dart' show Icons;
@@ -11,8 +11,8 @@ import 'package:flutter/painting.dart';
 /// The animation components: the animator.
 abstract final class AnimationDefinitions {
   /// [AnimatorComponent]: the animation state machine.
-  static ComponentSchema<AnimatorComponent>
-  get animator => ComponentSchema<AnimatorComponent>(
+  static ComponentDefinition<AnimatorComponent>
+  get animator => ComponentDefinition<AnimatorComponent>(
     type: 'AnimatorComponent',
     hints: const ComponentHints(
       name: 'Animator',
@@ -36,19 +36,19 @@ abstract final class AnimationDefinitions {
     id: 'animator_5b0e6a37',
     create: AnimatorComponent.new,
     fields: [
-      SchemaField(
+      FieldDefinition(
         name: 'graphPath',
         kind: FieldTypes.assetRef,
         read: (c) => (c as AnimatorComponent).graphPath,
         write: (c, v) => (c as AnimatorComponent).graphPath = v as String,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'enabled',
         kind: FieldTypes.boolean,
         read: (c) => (c as AnimatorComponent).enabled,
         write: (c, v) => (c as AnimatorComponent).enabled = v as bool,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'faceVelocity',
         kind: FieldTypes.boolean,
         read: (c) => (c as AnimatorComponent).faceVelocity,

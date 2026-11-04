@@ -10,10 +10,10 @@ part of 'atlas.dart';
 /// turned 90° clockwise ([SpriteRegion.rotated]) is turned back upright.
 ///
 /// The sprite's size — for bounds, culling and picking — is always the
-/// untrimmed [SpriteRegion.sourceSize], centred on its position like any
-/// sprite. A frame that is neither trimmed nor rotated draws exactly as a
-/// plain [Sprite] does, batched with its neighbours; a trimmed or rotated
-/// one draws by itself, since a batch cannot move or turn a frame.
+/// untrimmed [SpriteRegion.sourceSize], placed on its position by its
+/// [SpriteRegion.pivot] like any sprite. Trimmed and rotated frames batch
+/// with their neighbours too: a batch places and turns them as [render]
+/// does.
 class AtlasRegionSprite extends Sprite {
   /// A sprite showing [region] of [image] (the atlas page the region is
   /// on); with no region it draws as a plain [Sprite]. The rest are
@@ -39,11 +39,9 @@ class AtlasRegionSprite extends Sprite {
   SpriteRegion? _region;
   bool _repacked = false;
 
-  // [Sprite]'s own paint is its own; this one draws a repacked frame.
-  final Paint _framePaint = Paint();
-
   /// The region shown. Setting it sets [sourceRect] (the frame's place in
-  /// the texture) and [renderSize] (its untrimmed size).
+  /// the texture), [renderSize] (its untrimmed size) and [pivot] (its
+  /// pivot).
   SpriteRegion? get region => _region;
   set region(SpriteRegion? value) {
     if (identical(value, _region)) return;
@@ -54,6 +52,7 @@ class AtlasRegionSprite extends Sprite {
     }
     sourceRect = textureRectOf(value);
     renderSize = value.sourceSize;
+    pivot = value.pivot;
     _repacked = value.rotated || isTrimmedAway(value);
   }
 
@@ -73,45 +72,79 @@ class AtlasRegionSprite extends Sprite {
           region.frame.width != region.sourceSize.width ||
           region.frame.height != region.sourceSize.height);
 
-  // A batch draws the texture rect centred at its native size: right for a
-  // whole frame, wrong for one that was trimmed or turned.
+  /// Where the frame is drawn in the sprite's own space: a trimmed one at
+  /// its place inside the untrimmed box, where the exporter cut it from —
+  /// the box placed by [pivot] — at its own size; upright, for a rotated
+  /// one.
   @override
-  ui.Image? get batchImage => _repacked ? null : super.batchImage;
+  Rect? get localRect {
+    final region = _region;
+    if (!_repacked || region == null) return super.localRect;
+    final box = region.sourceSize;
+    return Rect.fromLTWH(
+      -box.width * pivot.dx + region.spriteSourceOffset.dx,
+      -box.height * pivot.dy + region.spriteSourceOffset.dy,
+      region.frame.width,
+      region.frame.height,
+    );
+  }
+
+  // A repacked frame is drawn at its own pixel size, its pivot found in the
+  // frame — turned with it when it is stored turned.
+  @override
+  double? get batchUnit => _repacked ? 1.0 : super.batchUnit;
+
+  @override
+  double get batchAnchorX {
+    final region = _region;
+    if (!_repacked || region == null) return super.batchAnchorX;
+    if (!region.rotated) return _uprightAnchorX(region);
+    // Stored a quarter turn clockwise: the upright point (x, y) of a frame
+    // h high is at (h - y, x) in the texture.
+    return region.frame.height - _uprightAnchorY(region);
+  }
+
+  @override
+  double get batchAnchorY {
+    final region = _region;
+    if (!_repacked || region == null) return super.batchAnchorY;
+    return region.rotated ? _uprightAnchorX(region) : _uprightAnchorY(region);
+  }
+
+  @override
+  bool get batchTurned => _repacked && (_region?.rotated ?? false);
+
+  /// The pivot in the upright frame's own pixels: the box's pivot point,
+  /// less where the frame starts in the box.
+  double _uprightAnchorX(SpriteRegion region) =>
+      region.sourceSize.width * pivot.dx - region.spriteSourceOffset.dx;
+
+  double _uprightAnchorY(SpriteRegion region) =>
+      region.sourceSize.height * pivot.dy - region.spriteSourceOffset.dy;
 
   @override
   void render(Canvas canvas, Size size) {
     final region = _region;
     final image = this.image;
     final source = sourceRect;
-    if (!_repacked || region == null || image == null || source == null) {
+    final dest = localRect;
+    if (!_repacked ||
+        region == null ||
+        image == null ||
+        source == null ||
+        dest == null) {
       super.render(canvas, size);
       return;
     }
 
     applyTransform(canvas);
-    // Flipping turns the whole box about its centre, so the frame's place
+    // Flipping mirrors the whole box about the pivot, so the frame's place
     // inside it mirrors too.
     if (flipX || flipY) canvas.scale(flipX ? -1.0 : 1.0, flipY ? -1.0 : 1.0);
 
     // Faded once, by the paint; the filter carries only the tint's colour —
     // as [Sprite.render] and a batch draw it.
-    final t = tint;
-    _framePaint
-      ..filterQuality = filterQuality
-      ..color = Colors.white.withValues(alpha: Sprite.tintedAlpha(t, opacity))
-      ..colorFilter = t == null
-          ? null
-          : ColorFilter.mode(t.withValues(alpha: 1.0), BlendMode.modulate);
-
-    // The untrimmed box is centred on the sprite; the frame sits in it where
-    // the exporter cut it from.
-    final box = region.sourceSize;
-    final dest = Rect.fromLTWH(
-      -box.width / 2 + region.spriteSourceOffset.dx,
-      -box.height / 2 + region.spriteSourceOffset.dy,
-      region.frame.width,
-      region.frame.height,
-    );
+    final paint = spritePaint;
     if (region.rotated) {
       // Stored turned 90° clockwise: draw it turned back.
       canvas
@@ -125,10 +158,10 @@ class AtlasRegionSprite extends Sprite {
             width: dest.height,
             height: dest.width,
           ),
-          _framePaint,
+          paint,
         );
     } else {
-      canvas.drawImageRect(image, source, dest, _framePaint);
+      canvas.drawImageRect(image, source, dest, paint);
     }
     restoreTransform(canvas);
   }

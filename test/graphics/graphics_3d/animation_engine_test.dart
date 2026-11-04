@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_game_engine/just_game_engine_3d.dart';
 import 'package:just_graphics_engine/testing.dart';
+import 'package:just_graphics_engine/just_graphics_engine.dart' show NullGpuDevice, rendererNullShaders;
 
 import 'fixtures.dart';
 

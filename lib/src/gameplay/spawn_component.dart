@@ -1,7 +1,7 @@
 library;
 
 import '../ecs/ecs.dart';
-import '../scenes/prefab_library.dart';
+import '../scenes/prefabs_context.dart';
 
 /// Marks an entity as a spawn point: where the app creates something when
 /// the level starts. *What* is created is up to the app — the [spawner]
@@ -87,7 +87,7 @@ class Spawner {
     label: label,
     description: description,
     tags: tags,
-    spawn: (world, point) => PrefabLibrary.of(world.context).instantiate(
+    spawn: (world, point) => world.context.prefabLibrary.instantiate(
       world,
       path,
       position: point.getComponent<TransformComponent>()?.position,

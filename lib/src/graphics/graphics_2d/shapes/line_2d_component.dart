@@ -6,6 +6,8 @@ import '../../../rendering/renderable_component.dart';
 import '../../../rendering/renderable.dart';
 import 'shape_paint_cache.dart';
 import '../../../foundation/shape_paint_style.dart';
+import '../../../foundation/solid_shape_2d.dart';
+import 'shape_2d_look.dart';
 
 /// Line shape component.
 ///
@@ -15,7 +17,8 @@ import '../../../foundation/shape_paint_style.dart';
 /// Extends [RenderableComponent] — add it to an entity directly and it draws
 /// itself each frame, reading all fields at draw-time so mutations are
 /// reflected immediately.
-class Line2DComponent extends RenderableComponent {
+class Line2DComponent extends RenderableComponent
+    implements SolidShape2DSource, Shape2DLook {
   /// Start point of the line in local space.
   Offset start;
 
@@ -48,10 +51,10 @@ class Line2DComponent extends RenderableComponent {
       strokeWidth: strokeWidth,
       roundCaps: roundCaps,
       renderable: CustomRenderable(
-        getBoundsCallback: () => Rect.fromPoints(
-          self.start - Offset(self.strokeWidth, self.strokeWidth),
-          self.end + Offset(self.strokeWidth, self.strokeWidth),
-        ),
+        // Whichever way the line runs: grown from the corners its ends
+        // make, wide enough for its width and its caps.
+        boundsOf: () =>
+            Rect.fromPoints(self.start, self.end).inflate(self.strokeWidth),
         onRender: (canvas, _) => self._draw(canvas, null, 1.0),
         onRenderFaded: (canvas, _, tint, opacity) =>
             self._drawFaded(canvas, tint, opacity),
@@ -68,6 +71,30 @@ class Line2DComponent extends RenderableComponent {
     required this.roundCaps,
     required super.renderable,
   });
+
+  (Offset, Offset, ShapePaintStyle, double, bool, Renderable)? _look;
+
+  @override
+  Object get look {
+    final l = _look;
+    if (l != null &&
+        l.$1 == start &&
+        l.$2 == end &&
+        identical(l.$3, strokeStyle) &&
+        l.$4 == strokeWidth &&
+        l.$5 == roundCaps &&
+        identical(l.$6, renderable)) {
+      return l;
+    }
+    return _look = (
+      start,
+      end,
+      strokeStyle,
+      strokeWidth,
+      roundCaps,
+      renderable,
+    );
+  }
 
   // The paint and the gradient rectangle, kept between frames.
   final ShapePaintCache _paints = ShapePaintCache();
@@ -104,6 +131,14 @@ class Line2DComponent extends RenderableComponent {
   }
 
   /// Length of the line segment.
+  SolidLine2D? _solid;
+
+  /// The line, [strokeWidth] thick: what a collider matching the shape
+  /// takes.
+  @override
+  SolidShape2D get solidShape2D =>
+      _solid = SolidLine2D.reuse(_solid, start, end, strokeWidth);
+
   double get length => (end - start).distance;
 
   @override

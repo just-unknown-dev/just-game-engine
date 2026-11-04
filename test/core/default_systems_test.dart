@@ -39,9 +39,8 @@ void main() {
       ]) {
         expect(has(), isTrue);
       }
-      final camera = engine.cameraSystem.mainCamera;
+      final camera = engine.camera.mainCamera;
       expect(world.getSystem<RenderSystem>()!.camera, same(camera));
-      expect(world.getSystem<Physics2DSystem>()!.camera, same(camera));
       expect(world.getSystem<Physics2DSystem>()!.physics, same(engine.physics));
       expect(world.getSystem<InputSystem>()!.input, same(engine.input));
     },
@@ -75,5 +74,34 @@ void main() {
     expect(engine.world.hasSystem<MapCollisionSystem>(), isFalse);
     expect(engine.world.hasSystem<SpriteLoadSystem>(), isTrue);
     expect(engine.world.hasSystem<InputSystem>(), isFalse);
+  });
+
+  test('sprites, animators and timelines are asked for apart', () async {
+    final sprites = await engineWith(const {DefaultSystem.sprites});
+    expect(sprites.world.hasSystem<SpriteLoadSystem>(), isTrue);
+    expect(sprites.world.hasSystem<SpriteAnimationSystem>(), isTrue);
+    expect(sprites.world.hasSystem<AnimatorSystem>(), isFalse);
+    expect(sprites.world.hasSystem<TimelineSystem>(), isFalse);
+
+    // A 3-D game or a server with timelines and no sprites.
+    final timelines = await engineWith(const {DefaultSystem.timelines});
+    expect(timelines.world.hasSystem<TimelineSystem>(), isTrue);
+    expect(timelines.world.hasSystem<TimelineTriggerSystem>(), isTrue);
+    expect(timelines.world.hasSystem<SpriteLoadSystem>(), isFalse);
+
+    final animation = await engineWith(const {DefaultSystem.animation});
+    expect(animation.world.hasSystem<AnimatorSystem>(), isTrue);
+    expect(animation.world.hasSystem<SpriteLoadSystem>(), isFalse);
+
+    for (final set in [DefaultSystems.all, DefaultSystems.headless]) {
+      expect(
+        set,
+        containsAll([
+          DefaultSystem.sprites,
+          DefaultSystem.animation,
+          DefaultSystem.timelines,
+        ]),
+      );
+    }
   });
 }

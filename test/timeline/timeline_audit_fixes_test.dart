@@ -45,7 +45,7 @@ void main() {
   setUp(() => world = World(extensions: [BuiltInComponents.extension]));
   tearDown(() => world.dispose());
 
-  test('T21 a handler destroying a later player does not throw', () {
+  test('a handler destroying a later player does not throw', () {
     registerSpriteSystems(world);
     final system = world.systems.whereType<TimelineSystem>().single;
     world.createEntityWithComponents([
@@ -73,7 +73,7 @@ void main() {
     expect(victim.isAlive, isFalse);
   });
 
-  test('T22 one big ping-pong step lands where many small ones do', () {
+  test('one big ping-pong step lands where many small ones do', () {
     final big = _pingPong(world)..update(5.25);
     final small = _pingPong(world);
     for (var i = 0; i < 21; i++) {
@@ -90,7 +90,7 @@ void main() {
     );
   });
 
-  test('T23 a signal listener can relay another signal', () {
+  test('a signal listener can relay another signal', () {
     final signals = TimelineSignals();
     final heard = <String>[];
     Object? zoneErr;
@@ -105,7 +105,7 @@ void main() {
     expect(heard, ['boss_defeated', 'open_gate']);
   });
 
-  test('T24 a looping nested block of three laps ticks three times, either '
+  test('a looping nested block of three laps ticks three times, either '
       'way', () async {
     TimelineAsset parent() => TimelineAsset(
       duration: 4,
@@ -143,7 +143,7 @@ void main() {
         onEvent: (e) => fired.add(e.name),
       )..speed = backwards ? -1 : 1;
       p.play();
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       for (var i = 0; i < 10; i++) {
         p.update(0.5);
       }
@@ -158,7 +158,7 @@ void main() {
     expect(back.where((n) => n == 'end'), hasLength(3));
   });
 
-  test('T25 a nested block stepped clean over leaves its timeline at its '
+  test('a nested block stepped clean over leaves its timeline at its '
       'end', () async {
     final door = world.createEntityWithComponents([
       TransformComponent(position: Vector3(100, 0, 0)),
@@ -193,7 +193,7 @@ void main() {
       owner: world.createEntity(),
       loader: (_) async => slide,
     )..play();
-    await Future<void>.delayed(Duration.zero);
+    await pumpEventQueue();
     p.update(0.9);
     expect(door.getComponent<TransformComponent>()!.position.x, 100);
     p.update(0.7);
@@ -203,7 +203,7 @@ void main() {
     );
   });
 
-  test('T26 forwards after reverse turns round, keeping a relative base', () {
+  test('forwards after reverse turns round, keeping a relative base', () {
     registerSpriteSystems(world);
     final player = TimelinePlayerComponent(
       inline: TimelineAsset(
@@ -240,7 +240,7 @@ void main() {
     expect(c, closeTo(a, 1e-6));
   });
 
-  group('T27 a block reaching the end of a once timeline holds there', () {
+  group('a block reaching the end of a once timeline holds there', () {
     test('activation', () {
       final lamp = world.createEntity(name: 'Lamp')..isActive = false;
       final p = TimelinePlayback(
@@ -300,7 +300,7 @@ void main() {
     });
   });
 
-  test('T28 a sprite block spanning a loop restarts its clip each lap', () {
+  test('a sprite block spanning a loop restarts its clip each lap', () {
     final sprite = SpriteAnimationComponent(atlasPath: 'a.json', clip: 'idle');
     final e = world.createEntityWithComponents([sprite]);
     final p = TimelinePlayback(
@@ -327,37 +327,33 @@ void main() {
     expect(sprite.elapsed, 0);
   });
 
-  test(
-    'T28 a skeletal clip block spanning a loop restarts its clip each lap',
-    () {
-      world.context.install(Graphics3D());
-      final player = AnimationPlayerComponent(clip: 'idle');
-      final e = world.createEntityWithComponents([player]);
-      final p = TimelinePlayback(
-        TimelineAsset(
-          duration: 1,
-          wrap: TimelineWrap.loop,
-          tracks: [
-            SkeletalClipTrack(
-              blocks: const [TimelineBlock(start: 0, length: 1, value: 'wave')],
-            ),
-          ],
-        ),
-        world: world,
-        owner: e,
-      )..play();
-      p.update(0.5);
-      expect(player.playingClip, 'wave');
-      player.time = 0.9;
-      p.update(0.25);
-      expect(player.time, 0.9, reason: 'not restarted inside a lap');
-      p.update(0.5);
-      expect(player.time, 0);
-    },
-    tags: ['graphics3d'],
-  );
+  test('a skeletal clip block spanning a loop restarts its clip each lap', () {
+    world.context.install(Graphics3D());
+    final player = AnimationPlayerComponent(clip: 'idle');
+    final e = world.createEntityWithComponents([player]);
+    final p = TimelinePlayback(
+      TimelineAsset(
+        duration: 1,
+        wrap: TimelineWrap.loop,
+        tracks: [
+          SkeletalClipTrack(
+            blocks: const [TimelineBlock(start: 0, length: 1, value: 'wave')],
+          ),
+        ],
+      ),
+      world: world,
+      owner: e,
+    )..play();
+    p.update(0.5);
+    expect(player.playingClip, 'wave');
+    player.time = 0.9;
+    p.update(0.25);
+    expect(player.time, 0.9, reason: 'not restarted inside a lap');
+    p.update(0.5);
+    expect(player.time, 0);
+  }, tags: ['graphics3d']);
 
-  test('T29 a new path then play() plays the new timeline', () async {
+  test('a new path then play() plays the new timeline', () async {
     final files = {
       'a': TimelineAsset(duration: 1),
       'b': TimelineAsset(duration: 2),
@@ -366,19 +362,19 @@ void main() {
     final player = TimelinePlayerComponent(timelinePath: 'a');
     world.createEntityWithComponents([player]);
     world.update(1 / 60);
-    await Future<void>.delayed(Duration.zero);
+    await pumpEventQueue();
     expect(player.isPlaying, isFalse);
     player.timelinePath = 'b';
     player.play();
     world.update(1 / 60);
-    await Future<void>.delayed(Duration.zero);
+    await pumpEventQueue();
     world.update(0.5);
     expect(player.playback?.asset.duration, 2);
     expect(player.isPlaying, isTrue);
     expect(player.time, closeTo(0.5, 1e-9));
   });
 
-  group('T30 the ping-pong direction', () {
+  group('the ping-pong direction', () {
     test('stop and seek send it forwards again', () {
       final p = _pingPong(world)..update(1.5);
       p
@@ -403,7 +399,7 @@ void main() {
     });
   });
 
-  test('T31 a range end pulled behind the playhead fires nothing '
+  test('a range end pulled behind the playhead fires nothing '
       'backwards', () {
     final fired = <String>[];
     final p = TimelinePlayback(
@@ -425,7 +421,7 @@ void main() {
     expect(p.isFinished, isTrue);
   });
 
-  test('T32 a colour field keyed without the colour flag blends as one', () {
+  test('a colour field keyed without the colour flag blends as one', () {
     final sprite = SpriteAnimationComponent(atlasPath: 'a.json');
     final e = world.createEntityWithComponents([sprite]);
     final track = PropertyTrack.fromJson({
@@ -447,7 +443,7 @@ void main() {
     expect(sprite.tint!.toARGB32(), isNot(0xFF000000));
   });
 
-  test('T33 a zero-length timeline fires and shows its one moment, each '
+  test('a zero-length timeline fires and shows its one moment, each '
       'play', () {
     final fired = <String>[];
     final e = world.createEntityWithComponents([TransformComponent()]);
@@ -473,7 +469,7 @@ void main() {
     expect(fired, ['go', 'go']);
   });
 
-  test('T34 an instant block counts where it starts, not its drawn length', () {
+  test('an instant block counts where it starts, not its drawn length', () {
     final a = TimelineAsset(
       duration: 2,
       tracks: [
@@ -484,7 +480,7 @@ void main() {
     expect(a.contentEnd, 1.9);
   });
 
-  test('T35 a cue on a ping-pong\'s start plays every time round', () {
+  test('a cue on a ping-pong\'s start plays every time round', () {
     final heard = <String>[];
     world.context.timelineAudio = (c, at, cue) => heard.add(cue.value);
     final p = TimelinePlayback(

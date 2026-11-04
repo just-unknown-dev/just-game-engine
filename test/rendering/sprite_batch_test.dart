@@ -76,7 +76,7 @@ class _Plain extends Renderable {
   @override
   void render(Canvas canvas, Size size) => log.add('plain');
   @override
-  Rect? getBounds() => null;
+  Rect? get bounds => null;
 }
 
 void main() {
@@ -124,6 +124,31 @@ void main() {
       sprite(Sprite(image: image), scale: Vector3(-2, -2, 1));
       frame();
       expect(batched.map((b) => b.$2.scale), [2.0]);
+    });
+
+    test('a batch is drawn in its place among what is not batched', () {
+      final tracked = <String>[];
+      final own = World()..initialize();
+      addTearDown(own.dispose);
+      own.addSystem(
+        RenderSystem(
+          passes: const [],
+          spriteBatchFactory: (atlas) => _LoggingBatch(tracked),
+        ),
+      );
+      for (final (z, renderable) in <(int, Renderable)>[
+        (0, Sprite(image: image)),
+        (1, _Plain(tracked)),
+        (2, Sprite(image: image)),
+      ]) {
+        own.createEntityWithComponents([
+          TransformComponent(),
+          RenderableComponent(renderable: renderable),
+          LayerComponent(zOrder: z),
+        ]);
+      }
+      own.render(Canvas(ui.PictureRecorder()), Size.zero);
+      expect(tracked, ['batch×1', 'plain', 'batch×1']);
     });
 
     test('pixel art batches, apart from smoothed sprites', () {
@@ -198,51 +223,6 @@ void main() {
         Color(const Color.fromRGBO(255, 255, 255, 0.5).toARGB32()),
         const Color(0x20336699),
       ]);
-    });
-  });
-
-  group('RenderingEngine', () {
-    late RenderingEngine rendering;
-    late List<(ui.Image, _Queued)> batched;
-
-    setUp(() {
-      batched = [];
-      rendering = RenderingEngine()
-        ..camera = Camera(viewportSize: const Size(800, 600))
-        ..spriteBatchFactory = ((atlas) => _FakeBatch(atlas, batched));
-      rendering.initialize();
-    });
-
-    void frame() =>
-        rendering.render(Canvas(ui.PictureRecorder()), const Size(800, 600));
-
-    test('only a uniform, positive scale is batched', () {
-      rendering
-        ..addRenderable(Sprite(image: image, scale: Vector3(3, 1, 1)))
-        ..addRenderable(Sprite(image: image, scale: Vector3(-1, 1, 1)))
-        ..addRenderable(Sprite(image: image, scale: Vector3(2, 2, 1)));
-      frame();
-      expect(batched.map((b) => b.$2.scale), [2.0]);
-      expect(rendering.stats['batchedSprites'], 1);
-    });
-
-    test('a batch is drawn in its place among what is not batched', () {
-      final tracked = <String>[];
-      rendering
-        ..spriteBatchFactory = ((atlas) => _LoggingBatch(tracked))
-        ..addRenderable(Sprite(image: image)..zOrder = 0)
-        ..addRenderable(_Plain(tracked)..zOrder = 1)
-        ..addRenderable(Sprite(image: image)..zOrder = 2);
-      frame();
-      expect(tracked, ['batch×1', 'plain', 'batch×1']);
-    });
-
-    test('batches are dropped with clear()', () {
-      rendering.addRenderable(Sprite(image: image));
-      frame();
-      expect(rendering.debugSpriteBatchCount, 1);
-      rendering.clear();
-      expect(rendering.debugSpriteBatchCount, 0);
     });
   });
 

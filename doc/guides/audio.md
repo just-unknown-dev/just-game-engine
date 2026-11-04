@@ -50,7 +50,7 @@ Entity addWaterfall(World world) => world.createEntityWithComponents([
     clipPath: 'assets/audio/waterfall.ogg',
     loop: true,
     channel: AudioChannel.ambient,
-    is3d: true,
+    is3D: true,
     minDistance: 50,
     maxDistance: 800,
     farCutoff: 1500,
@@ -75,7 +75,7 @@ For long music or ambience, use `AudioStreamComponent(path: ...)`, which streams
 
 ## 3D sound and the listener
 
-With `is3d: true` a source is heard from where its entity is, relative to the listener:
+With `is3D: true` a source is heard from where its entity is, relative to the listener:
 
 | Field | Default | What it does |
 |---|---|---|

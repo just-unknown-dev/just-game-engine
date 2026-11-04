@@ -3,7 +3,7 @@ library;
 
 import 'dart:ui' show Color;
 
-import '../ecs.dart' show TagNames;
+import '../world.dart' show TagNames;
 import 'package:just_game_engine_formats/just_game_engine_formats.dart';
 
 /// One tag a project knows: its name, and how an editor shows it.

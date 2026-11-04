@@ -4,13 +4,15 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:just_dart/just_dart.dart' show Vector3;
+import 'package:just_game_engine_formats/just_game_engine_formats.dart'
+    show Material3DUv;
 import 'package:just_graphics_engine/assets.dart';
 import 'package:just_graphics_engine/gpu.dart';
 import 'package:just_graphics_engine/renderer.dart';
 
 import 'materials/linear_color.dart';
 import 'materials/material_3d_library.dart';
-import 'shapes/primitive_3d.dart';
+import 'shapes/primitive_3d_component.dart';
 
 /// The GPU side of the shapes ([Primitive3DComponent]): meshes made from their sizes
 /// and materials from their looks, uploaded once and shared by every shape
@@ -20,6 +22,9 @@ import 'shapes/primitive_3d.dart';
 /// Textures load in the background; a shape draws in its colour until its
 /// texture arrives. What no shape has used for a while is let go — never
 /// what [inUse] says is on screen, nor a texture such a material holds.
+/// A renderer that counts its users ([hold], [release]) has what it stops
+/// using let go at once: a shape whose size animates keeps one mesh, not
+/// one a frame.
 final class GraphicsShapes {
   /// Shapes uploaded with [uploader], their textures read by [read]; what is
   /// drawn now is told by [inUse].
@@ -46,6 +51,14 @@ final class GraphicsShapes {
   final Map<String, _Texture> _textures = {};
   int _frame = 0;
 
+  // The key each mesh and material made here is held under.
+  final Map<GpuPrimitive, Object> _meshKeys = Map.identity();
+  final Map<GpuMaterial, Object> _materialKeys = Map.identity();
+
+  // Released by their last holder: let go as the frame ends unless asked
+  // for again in it.
+  final List<_Entry<Object>> _released = [];
+
   /// Frames something stays unused before it is let go.
   static const int keepFrames = 300;
 
@@ -71,8 +84,44 @@ final class GraphicsShapes {
     final mesh = shape.buildMesh(uv);
     if (mesh.triangleCount == 0) return null;
     final gpu = uploader.uploadPrimitive(mesh.toPrimitive());
-    _meshes[key] = _Entry(gpu, _frame);
+    _meshes[key] = _Entry(gpu, _frame, key: key);
+    _meshKeys[gpu] = key;
     return gpu;
+  }
+
+  /// Counts one more user of [thing] — a mesh from [meshFor], or a
+  /// material from [materialFor] — until it calls [release].
+  void hold(Object thing) {
+    final entry = _entryOf(thing);
+    if (entry != null) {
+      entry.holders++;
+    } else if (thing is GpuMaterial) {
+      library?.hold(thing);
+    }
+  }
+
+  /// One user of [thing] (counted by [hold]) stopped drawing it: once none
+  /// does, it is let go as the frame ends — unless asked for again in it —
+  /// rather than after [keepFrames]. Asked for later, it is made again.
+  void release(Object thing) {
+    final entry = _entryOf(thing);
+    if (entry == null) {
+      if (thing is GpuMaterial) library?.release(thing);
+      return;
+    }
+    if (entry.holders > 0 && --entry.holders == 0) _released.add(entry);
+  }
+
+  _Entry<Object>? _entryOf(Object thing) {
+    if (thing is GpuPrimitive) {
+      final key = _meshKeys[thing];
+      return key == null ? null : _meshes[key];
+    }
+    if (thing is GpuMaterial) {
+      final key = _materialKeys[thing];
+      return key == null ? null : _materials[key];
+    }
+    return null;
   }
 
   /// How [shape]'s texture is laid out at [scale], drawn with its own look.
@@ -92,7 +141,7 @@ final class GraphicsShapes {
   /// file laid out in metres.
   bool tilesInMetres(Primitive3DComponent shape) {
     if (shape.material.isNotEmpty) {
-      return library?.fileOf(shape.material)?.uv == MaterialUv.metres;
+      return library?.fileOf(shape.material)?.uv == Material3DUv.metres;
     }
     return shape.tileInMetres && shape.texture.isNotEmpty;
   }
@@ -122,7 +171,8 @@ final class GraphicsShapes {
       materialDataOf(shape),
       baseColor: texture == null ? null : (texture, GpuSampler.linearRepeat),
     );
-    _materials[key] = _Entry(material, _frame, texture: path);
+    _materials[key] = _Entry(material, _frame, key: key, texture: path);
+    _materialKeys[material] = key;
     return material;
   }
 
@@ -167,7 +217,7 @@ final class GraphicsShapes {
               }
               entry.texture = texture;
               // Materials made without it are made again, with it.
-              _materials.removeWhere((_, m) => m.texture == path);
+              _forgetMaterials((m) => m.texture == path);
               _revision++;
             },
             onError: (Object error) {
@@ -180,22 +230,75 @@ final class GraphicsShapes {
     return null;
   }
 
-  /// Forgets [path]'s texture so it is read again (it changed on disk).
+  /// Reads [path]'s texture again (it changed on disk). What it was is
+  /// drawn until the new one arrives; then the materials made with it are
+  /// made again.
   void reloadTexture(String path) {
-    if (_textures.remove(path) == null) return;
-    _materials.removeWhere((_, m) => m.texture == path);
-    _revision++;
+    final known = _textures[path];
+    if (known == null) return;
+    final shown = known.texture;
+    if (shown == null) {
+      // Still being read the first time: read afresh.
+      _textures.remove(path);
+      _forgetMaterials((m) => m.texture == path);
+      _revision++;
+      return;
+    }
+    final entry = _textures[path] = _Texture()..texture = shown;
+    unawaited(
+      read(path)
+          .then((bytes) => uploader.uploadImage(bytes))
+          .then(
+            (texture) {
+              if (!identical(_textures[path], entry) || texture == null) {
+                return;
+              }
+              entry.texture = texture;
+              _forgetMaterials((m) => m.texture == path);
+              _revision++;
+            },
+            onError: (Object error) {
+              if (identical(_textures[path], entry)) {
+                debugPrint('just_game_engine: no texture $path: $error');
+              }
+            },
+          ),
+    );
   }
 
-  /// A frame has been drawn: now and then, lets go of what has not been
-  /// used for [keepFrames] frames and is not [inUse].
+  void _forgetMaterials(bool Function(_Entry<GpuMaterial> m) test) {
+    _materials.removeWhere((_, m) {
+      if (!test(m)) return false;
+      _materialKeys.remove(m.value);
+      return true;
+    });
+  }
+
+  /// A frame has been drawn: lets go of what its last holder released in
+  /// it ([release]) and nothing asked for again; now and then, of what has
+  /// not been used for [keepFrames] frames and is not [inUse].
   void endFrame() {
+    for (final e in _released) {
+      if (e.holders > 0 || e.used >= _frame) continue;
+      if (identical(_meshes[e.key]?.value, e.value)) {
+        _meshes.remove(e.key);
+        _meshKeys.remove(e.value);
+      } else if (identical(_materials[e.key]?.value, e.value)) {
+        _materials.remove(e.key);
+        _materialKeys.remove(e.value);
+      }
+    }
+    _released.clear();
     _frame++;
     if (_frame % 120 != 0) return;
     final old = _frame - keepFrames;
     final live = Set<Object>.identity()..addAll(inUse?.call() ?? const []);
-    _meshes.removeWhere((_, e) => e.used < old && !live.contains(e.value));
-    _materials.removeWhere((_, e) => e.used < old && !live.contains(e.value));
+    _meshes.removeWhere((_, e) {
+      if (e.used >= old || live.contains(e.value)) return false;
+      _meshKeys.remove(e.value);
+      return true;
+    });
+    _forgetMaterials((e) => e.used < old && !live.contains(e.value));
     // What a kept material shows stays, so it can be reloaded.
     final textured = {for (final m in _materials.values) m.texture};
     _textures.removeWhere(
@@ -203,20 +306,45 @@ final class GraphicsShapes {
     );
   }
 
+  /// Lets go now, however recently used, of every mesh, material and
+  /// texture that nothing [inUse] draws and no user holds ([hold]): asked
+  /// for again, it is made again.
+  void releaseUnused() {
+    final live = Set<Object>.identity()..addAll(inUse?.call() ?? const []);
+    _meshes.removeWhere((_, e) {
+      if (e.holders > 0 || live.contains(e.value)) return false;
+      _meshKeys.remove(e.value);
+      return true;
+    });
+    _forgetMaterials((e) => e.holders <= 0 && !live.contains(e.value));
+    final textured = {for (final m in _materials.values) m.texture};
+    _textures.removeWhere((path, _) => !textured.contains(path));
+    _released.clear();
+  }
+
   /// Lets go of everything.
   void clear() {
     _meshes.clear();
     _materials.clear();
+    _meshKeys.clear();
+    _materialKeys.clear();
+    _released.clear();
     _textures.clear();
     _revision++;
   }
 }
 
-final class _Entry<T> {
-  _Entry(this.value, this.used, {this.texture = ''});
+final class _Entry<T extends Object> {
+  _Entry(this.value, this.used, {required this.key, this.texture = ''});
 
   final T value;
   int used;
+
+  /// What it is held under.
+  final Object key;
+
+  /// How many users count it ([GraphicsShapes.hold]).
+  int holders = 0;
 
   /// The texture a material was made for.
   final String texture;

@@ -2,7 +2,7 @@
 library;
 
 import '../ecs/ecs.dart';
-import '../ecs/serialization/schema_fields.dart';
+import '../ecs/serialization/field_definitions.dart';
 import '../foundation/dimensions.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
@@ -46,41 +46,41 @@ abstract final class SpriteDefinitions {
         ),
         create: () => SpriteComponent(spritePath: ''),
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'spritePath',
             kind: FieldTypes.assetRef,
             read: (c) => (c as SpriteComponent).spritePath,
             write: (c, v) => (c as SpriteComponent).spritePath = v as String,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'atlasPath',
             kind: FieldTypes.assetRef,
             read: (c) => (c as SpriteComponent).atlasPath,
             write: (c, v) => (c as SpriteComponent).atlasPath = v as String,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'region',
             kind: FieldTypes.text,
             read: (c) => (c as SpriteComponent).region,
             write: (c, v) => (c as SpriteComponent).region = v as String,
           ),
-          SchemaFields.boolean(
+          FieldDefinitions.boolean(
             'flipX',
             (c) => (c as SpriteComponent).flipX,
             (c, v) => (c as SpriteComponent).flipX = v,
           ),
-          SchemaFields.boolean(
+          FieldDefinitions.boolean(
             'flipY',
             (c) => (c as SpriteComponent).flipY,
             (c, v) => (c as SpriteComponent).flipY = v,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'tint',
             kind: FieldTypes.color,
             read: (c) => (c as SpriteComponent).tint,
             write: (c, v) => (c as SpriteComponent).tint = v as Color?,
           ),
-          SchemaFields.boolean(
+          FieldDefinitions.boolean(
             'pixelArt',
             (c) => (c as SpriteComponent).pixelArt,
             (c, v) => (c as SpriteComponent).pixelArt = v,
@@ -90,8 +90,8 @@ abstract final class SpriteDefinitions {
       );
 
   /// [SpriteAnimationComponent]: a clip from a sprite atlas.
-  static ComponentSchema<SpriteAnimationComponent> get spriteAnimation =>
-      ComponentSchema<SpriteAnimationComponent>(
+  static ComponentDefinition<SpriteAnimationComponent> get spriteAnimation =>
+      ComponentDefinition<SpriteAnimationComponent>(
         type: 'SpriteAnimationComponent',
         hints: const ComponentHints(
           dimensions: Dimensions.twoD,
@@ -130,14 +130,14 @@ abstract final class SpriteDefinitions {
         id: 'sprite_animation_7c21d9e4',
         create: SpriteAnimationComponent.new,
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'atlasPath',
             kind: FieldTypes.assetRef,
             read: (c) => (c as SpriteAnimationComponent).atlasPath,
             write: (c, v) =>
                 (c as SpriteAnimationComponent).atlasPath = v as String,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'clip',
             kind: FieldTypes.text,
             read: (c) => (c as SpriteAnimationComponent).clip,
@@ -149,14 +149,14 @@ abstract final class SpriteDefinitions {
                 ..restart();
             },
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'playOnStart',
             kind: FieldTypes.boolean,
             read: (c) => (c as SpriteAnimationComponent).playOnStart,
             write: (c, v) =>
                 (c as SpriteAnimationComponent).playOnStart = v as bool,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'speed',
             kind: FieldTypes.decimal,
             read: (c) => (c as SpriteAnimationComponent).speed,
@@ -164,25 +164,25 @@ abstract final class SpriteDefinitions {
                 (c as SpriteAnimationComponent).speed = (v as num).toDouble(),
             min: 0.0,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'flipX',
             kind: FieldTypes.boolean,
             read: (c) => (c as SpriteAnimationComponent).flipX,
             write: (c, v) => (c as SpriteAnimationComponent).flipX = v as bool,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'flipY',
             kind: FieldTypes.boolean,
             read: (c) => (c as SpriteAnimationComponent).flipY,
             write: (c, v) => (c as SpriteAnimationComponent).flipY = v as bool,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'tint',
             kind: FieldTypes.color,
             read: (c) => (c as SpriteAnimationComponent).tint,
             write: (c, v) => (c as SpriteAnimationComponent).tint = v as Color?,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'pixelArt',
             kind: FieldTypes.boolean,
             read: (c) => (c as SpriteAnimationComponent).pixelArt,

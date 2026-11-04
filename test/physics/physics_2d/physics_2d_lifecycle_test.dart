@@ -1,4 +1,4 @@
-// Physics2DSystem and PhysicsJointBindingSystem: bodies leave the shared engine
+// Physics2DSystem and its joints: bodies leave the shared engine
 // with the system, riders stop standing on what is gone, a resting body may
 // sleep and anything the game does wakes it, and joints are made once and
 // never destroyed twice.
@@ -13,13 +13,11 @@ const _frame = 1 / 60;
 ({World world, PhysicsEngine physics}) _setUp({
   PhysicsEngine? engine,
   double gravityY = 981,
-  bool joints = false,
 }) {
   final physics = (engine ?? PhysicsEngine())..initialize();
   physics.setGravity(0, gravityY);
   final world = World()..initialize();
   world.addSystem(Physics2DSystem(physics));
-  if (joints) world.addSystem(PhysicsJointBindingSystem(physics));
   addTearDown(() {
     world.dispose();
     physics.dispose();
@@ -310,10 +308,7 @@ void main() {
 
   group('joints', () {
     test('a weld on a moving body is made once, not every frame', () {
-      final (:world, :physics) = _setUp(
-        engine: PhysicsEngine.pureDart(),
-        joints: true,
-      );
+      final (:world, :physics) = _setUp(engine: PhysicsEngine.pureDart());
       _box(
         world,
         extra: [
@@ -332,7 +327,6 @@ void main() {
       final (:world, :physics) = _setUp(
         engine: PhysicsEngine.pureDart(),
         gravityY: 0,
-        joints: true,
       );
       final spring = DistanceJoint2DComponent(
         connectedBody: const EntityTarget.name('B'),
@@ -355,7 +349,6 @@ void main() {
       final (:world, :physics) = _setUp(
         engine: PhysicsEngine.pureDart(),
         gravityY: 0,
-        joints: true,
       );
       _box(
         world,
@@ -383,7 +376,6 @@ void main() {
       final (:world, :physics) = _setUp(
         engine: PhysicsEngine.pureDart(),
         gravityY: 0,
-        joints: true,
       );
       _box(
         world,
@@ -405,7 +397,7 @@ void main() {
     });
 
     test('on Box2D, a joint goes with its body, once', () {
-      final (:world, :physics) = _setUp(gravityY: 0, joints: true);
+      final (:world, :physics) = _setUp(gravityY: 0);
       _box(
         world,
         extra: [
@@ -425,7 +417,7 @@ void main() {
     });
 
     test('on Box2D, clearing the systems destroys the joints', () {
-      final (:world, :physics) = _setUp(gravityY: 0, joints: true);
+      final (:world, :physics) = _setUp(gravityY: 0);
       _box(
         world,
         extra: [
@@ -441,8 +433,8 @@ void main() {
       expect(joint.isDestroyed, isTrue);
     });
 
-    test('on Box2D, removing the physics system alone takes the joints', () {
-      final (:world, :physics) = _setUp(gravityY: 0, joints: true);
+    test('on Box2D, removing the physics system takes its joints', () {
+      final (:world, :physics) = _setUp(gravityY: 0);
       _box(
         world,
         extra: [
@@ -454,26 +446,10 @@ void main() {
       final joint = physics.joints.single as Box2DJoint;
 
       world.removeSystem(world.getSystem<Physics2DSystem>()!);
-      _step(world); // the joint system finds its bodies gone
       expect(physics.joints, isEmpty);
       expect(joint.isDestroyed, isTrue);
-    });
-
-    test('on Box2D, removing the joint system alone destroys its joints', () {
-      final (:world, :physics) = _setUp(gravityY: 0, joints: true);
-      _box(
-        world,
-        extra: [
-          FixedJoint2DComponent(connectedBody: const EntityTarget.name('B')),
-        ],
-      );
-      _box(world, x: 30, name: 'B');
-      _step(world);
-      final joint = physics.joints.single as Box2DJoint;
-
-      world.removeSystem(world.getSystem<PhysicsJointBindingSystem>()!);
+      _step(world); // nothing left to take down twice
       expect(physics.joints, isEmpty);
-      expect(joint.isDestroyed, isTrue);
     });
   });
 

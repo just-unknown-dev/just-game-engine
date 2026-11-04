@@ -24,14 +24,14 @@ ComponentDefinition<Gem> gemDefinition({
   aliases: aliases,
   create: Gem.new,
   fields: [
-    SchemaField(
+    FieldDefinition(
       name: 'value',
       kind: FieldTypes.integer,
       read: (c) => (c as Gem).value,
       write: (c, v) => (c as Gem).value = v as int,
     ),
     if (withShine)
-      SchemaField(
+      FieldDefinition(
         name: 'shine',
         kind: FieldTypes.decimal,
         read: (c) => (c as Gem).shine,
@@ -83,7 +83,7 @@ class Step extends System {
 }
 
 List<String> fieldNames(ComponentDefinition? d) => [
-  for (final f in d?.fields ?? const <SchemaField>[]) f.name,
+  for (final f in d?.fields ?? const <FieldDefinition>[]) f.name,
 ];
 
 void main() {
@@ -206,7 +206,7 @@ void main() {
     // not show until a restart. Each must be a getter.
     final offenders = <String>[];
     final pattern = RegExp(
-      r'^\s*static final \w+ =\s*Component(Definition|Schema)<',
+      r'^\s*static final \w+ =\s*ComponentDefinition<',
       multiLine: true,
     );
     for (final file in Directory('lib').listSync(recursive: true)) {

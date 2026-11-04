@@ -1,4 +1,4 @@
-part of 'particles.dart';
+part of 'particle_emitter.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Abstract base
@@ -27,6 +27,14 @@ abstract class ParticleForce {
   /// A force added to several emitters is advanced by each of them; give
   /// each emitter its own.
   void advance(double dt) {}
+
+  /// Tells the force where its [ParticleEmitter] is this frame, in world
+  /// units: called once per frame, just before [advance]. A force placed
+  /// relative to its emitter ([AttractorForce.relativeToEmitter], …)
+  /// measures its centre from there, so it moves with the emitter — an
+  /// emitter on an entity is moved to the entity every frame. Does nothing
+  /// by default.
+  void follow(double emitterX, double emitterY) {}
 
   /// Apply this force to [particle] for a time step of [dt] seconds.
   void apply(Particle particle, double dt);
@@ -146,13 +154,41 @@ int _hash32(int x) {
   return ((x >>> 16) ^ x) & 0xFFFFFFFF;
 }
 
+/// The centre of a force about a point: [center] as it is, in the world,
+/// or — [relativeToEmitter] — measured from where its emitter is.
+mixin _Centred on ParticleForce {
+  Offset get center;
+  bool get relativeToEmitter;
+
+  double _emitterX = 0.0, _emitterY = 0.0;
+
+  @override
+  void follow(double emitterX, double emitterY) {
+    _emitterX = emitterX;
+    _emitterY = emitterY;
+  }
+
+  /// The world-space centre, x.
+  double get _cx => relativeToEmitter ? _emitterX + center.dx : center.dx;
+
+  /// The world-space centre, y.
+  double get _cy => relativeToEmitter ? _emitterY + center.dy : center.dy;
+}
+
 /// Point attractor — pulls particles toward [center].
 ///
 /// Force magnitude uses a linear falloff: `strength * (1 - dist / radius)`.
 /// Particles outside [radius] are unaffected.
-class AttractorForce extends ParticleForce {
-  /// World-space center of the attractor.
+class AttractorForce extends ParticleForce with _Centred {
+  /// Center of the attractor: in the world, or — [relativeToEmitter] — an
+  /// offset from the emitter.
+  @override
   Offset center;
+
+  /// Whether [center] is measured from the emitter, so the attractor moves
+  /// with it (see [ParticleForce.follow]); false places it in the world.
+  @override
+  final bool relativeToEmitter;
 
   /// Peak attraction strength (world units/sec²).
   final double strength;
@@ -162,17 +198,19 @@ class AttractorForce extends ParticleForce {
 
   /// Pulls particles within [radius] (150 by default) of [center] toward
   /// it: [strength] (200 by default) at the centre, fading linearly to 0 at
-  /// the edge, divided by the particle's mass when that is positive.
+  /// the edge, divided by the particle's mass when that is positive. With
+  /// [relativeToEmitter], [center] is an offset from the emitter.
   AttractorForce({
     required this.center,
     this.strength = 200.0,
     this.radius = 150.0,
+    this.relativeToEmitter = false,
   });
 
   @override
   void apply(Particle particle, double dt) {
-    final dx = center.dx - particle.x;
-    final dy = center.dy - particle.y;
+    final dx = _cx - particle.x;
+    final dy = _cy - particle.y;
     final dist = math.sqrt(dx * dx + dy * dy);
     if (dist <= 0 || dist > radius) return;
 
@@ -188,9 +226,16 @@ class AttractorForce extends ParticleForce {
 /// Point repeller — pushes particles away from [center].
 ///
 /// Inverse of [AttractorForce] — same falloff model, opposite sign.
-class RepellerForce extends ParticleForce {
-  /// World-space center of the repeller.
+class RepellerForce extends ParticleForce with _Centred {
+  /// Center of the repeller: in the world, or — [relativeToEmitter] — an
+  /// offset from the emitter.
+  @override
   Offset center;
+
+  /// Whether [center] is measured from the emitter, so the repeller moves
+  /// with it (see [ParticleForce.follow]); false places it in the world.
+  @override
+  final bool relativeToEmitter;
 
   /// Peak repulsion strength (world units/sec²).
   final double strength;
@@ -201,16 +246,18 @@ class RepellerForce extends ParticleForce {
   /// Pushes particles within [radius] (150 by default) of [center] away
   /// from it: [strength] (200 by default) at the centre, fading linearly to
   /// 0 at the edge, divided by the particle's mass when that is positive.
+  /// With [relativeToEmitter], [center] is an offset from the emitter.
   RepellerForce({
     required this.center,
     this.strength = 200.0,
     this.radius = 150.0,
+    this.relativeToEmitter = false,
   });
 
   @override
   void apply(Particle particle, double dt) {
-    final dx = particle.x - center.dx;
-    final dy = particle.y - center.dy;
+    final dx = particle.x - _cx;
+    final dy = particle.y - _cy;
     final dist = math.sqrt(dx * dx + dy * dy);
     if (dist <= 0 || dist > radius) return;
 
@@ -251,9 +298,16 @@ class DragForce extends ParticleForce {
 /// Produces a tangential force perpendicular to the vector from [center] to
 /// the particle, creating a swirling motion.  Positive [strength] = counter-
 /// clockwise (math convention).
-class VortexForce extends ParticleForce {
-  /// World-space center of the vortex.
+class VortexForce extends ParticleForce with _Centred {
+  /// Center of the vortex: in the world, or — [relativeToEmitter] — an
+  /// offset from the emitter.
+  @override
   Offset center;
+
+  /// Whether [center] is measured from the emitter, so the vortex moves
+  /// with it (see [ParticleForce.follow]); false places it in the world.
+  @override
+  final bool relativeToEmitter;
 
   /// Tangential acceleration magnitude (world units/sec²).
   final double strength;
@@ -264,17 +318,19 @@ class VortexForce extends ParticleForce {
   /// Swirls particles within [radius] (200 by default) of [center] around
   /// it: [strength] (150 by default) at the centre, fading linearly to 0 at
   /// the edge, divided by the particle's mass when that is positive. A
-  /// negative [strength] swirls the other way.
+  /// negative [strength] swirls the other way. With [relativeToEmitter],
+  /// [center] is an offset from the emitter.
   VortexForce({
     required this.center,
     this.strength = 150.0,
     this.radius = 200.0,
+    this.relativeToEmitter = false,
   });
 
   @override
   void apply(Particle particle, double dt) {
-    final dx = particle.x - center.dx;
-    final dy = particle.y - center.dy;
+    final dx = particle.x - _cx;
+    final dy = particle.y - _cy;
     final dist = math.sqrt(dx * dx + dy * dy);
     if (dist <= 0 || dist > radius) return;
 

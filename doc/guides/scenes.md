@@ -10,7 +10,7 @@ Scenes live in `assets/scenes/` as `<name>.scene.json`. `assets/scenes/scenes.js
 
 ```json assets/scenes/level_01.scene.json
 {
-  "version": 9,
+  "version": 11,
   "name": "level_01",
   "mode": "2d",
   "entities": [
@@ -44,7 +44,7 @@ Scenes live in `assets/scenes/` as `<name>.scene.json`. `assets/scenes/scenes.js
 - `SceneLoader.loadAsset(world, path)` reads an asset through `world.context.bundle`, without caching.
 - `SceneLoader.loadString(world, json)` takes JSON text, and `SceneLoader.load(world, map)` a decoded map.
 
-`SceneLoader.loadManifest()` reads `scenes.json` and returns the scene names, and `SceneAssets.pathFor(name)` turns a name into `assets/scenes/<name>.scene.json`.
+`SceneLoader.loadManifest()` reads `scenes.json` and returns the scene names. Unlike `loadAsset`, it reads from Flutter's `rootBundle`, not the context's bundle, unless you pass `bundle:`. `SceneAssets.pathFor(name)` turns a name into `assets/scenes/<name>.scene.json`.
 
 ```dart
 import 'package:just_game_engine/just_game_engine.dart';
@@ -73,10 +73,9 @@ Future<void> changeLevel(
   List<Spawner> spawners,
   String name,
 ) async {
-  engine.world.destroyAllEntities();
-  engine.cameraSystem.brain.reset(); // forget the old level's cameras
+  engine.world.destroyAllEntities(); // the camera brain starts over too
   await startLevel(engine, spawners, name: name);
-  LevelMaps.evictUnused(engine.world); // drop tilesets no map uses now
+  engine.releaseUnused(); // let go of what only the old level used
 }
 ```
 
@@ -101,7 +100,7 @@ final speedBoostDefinition = ComponentDefinition<SpeedBoostComponent>(
   type: 'SpeedBoostComponent', // the saved type: keep it stable
   create: SpeedBoostComponent.new,
   fields: [
-    SchemaField(
+    FieldDefinition(
       name: 'factor',
       kind: FieldTypes.decimal,
       read: (c) => (c as SpeedBoostComponent).factor,
@@ -134,7 +133,7 @@ final engine = Engine(
 
 - `type` is the string written to scenes. Renaming it orphans saved levels; list old names in `aliases` instead.
 - `create` makes a component with default values, which loading then overwrites field by field.
-- Each `SchemaField` has a `name` (the JSON key, also stable), a `kind`, a `read` and a `write`. `min` and `max` clamp numbers as they load. A field with no `write` is saved but never restored.
+- Each `FieldDefinition` has a `name` (the JSON key, also stable), a `kind`, a `read` and a `write`. `min` and `max` clamp numbers as they load. A field with no `write` is saved but never restored.
 - `FieldTypes` holds the kinds: `boolean`, `integer`, `decimal`, `text`, `assetRef`, `entityRef`, `tagRef`, `tagList`, `spawnerRef`, `target`, `enumeration`, `list`, `map`, `vector2`, `vector3`, `euler`, `color`, `offset`, `shapePaintStyle` and more.
 - `ComponentDefinition.extend(base, ...)` defines a subclass of an engine component, keeping the base's fields and adding yours.
 - `hints` (`ComponentHints`, `FieldHint`) only shape how an editor's inspector shows the component.
@@ -143,7 +142,7 @@ final engine = Engine(
 
 ## Format versions and migrations
 
-Every scene carries a `version`. `SceneFormat.current` is the newest format the engine knows: 11, where every component's name ends in `Component`; 10 in 2.0.0-dev.2, which added prefab instances; and 9 in 2.0.0-dev.1. A file at an older version, such as the version 9 used on this page, is migrated in memory as it loads; the file on disk is never rewritten. Pass `onMigrated` to hear about it: the `MigrationResult` has `fromVersion` and `notes` worth showing a developer.
+Every scene carries a `version`. `SceneFormat.current` is the newest format the engine knows: 11, where every component's name ends in `Component`; 10 in 2.0.0-dev.2 and dev.3, which added prefab instances; and 9 in 2.0.0-dev.1. A file at an older version is migrated in memory as it loads; the file on disk is never rewritten. Pass `onMigrated` to hear about it: the `SceneMigrationResult` has `fromVersion` and `notes` worth showing a developer.
 
 A package adds its own rules to the engine's migration steps through `context.migrations` (a `MigrationHooks`), usually from its extension. Those rules run as part of the engine's steps, so they only apply to files saved at an older format.
 
@@ -151,7 +150,7 @@ A package adds its own rules to the engine's migration steps through `context.mi
 
 | Exception | Cause |
 |---|---|
-| `UnknownComponentTypeException` | A component `type` nobody registered. Its `type` and `entityName` say which; install the extension that defines it. 3-D components need `graphics3D` or `physics3D` in the config. |
+| `UnknownComponentTypeException` | A component `type` nobody registered. Its `type` and `entityName` say which; install the extension that defines it. 3-D components need `Graphics3D()` or `Physics3D()` in `EngineConfig(services: …)`. |
 | `UnsupportedFormatVersionException` | The file was saved by a newer engine. `found` and `supported` give both versions. |
 | `FormatException` | A value has the wrong type. The message names the entity, the component and the field. |
 
@@ -175,7 +174,7 @@ Future<bool> tryLoad(World world, String name) async {
 
 ## Prefab files
 
-2.0.0-dev.2 adds prefab files (`.prefab.json`): a scene entry can place an instance of one, with its own changes kept as overrides, and prefabs can nest. `SceneLoader.loadAsset` reads the prefabs a scene uses before it loads the scene. To make one at run time, load it with `PrefabLibrary.of(engine.context).load(path)` and then call `instantiate(world, path, position: ...)`; `Spawner.prefab(id: ..., path: ...)` places one at every matching spawn point. For prefabs built in code, see [EntityPrefab](/docs/ecs).
+2.0.0-dev.2 adds prefab files (`.prefab.json`): a scene entry can place an instance of one, with its own changes kept as overrides, and prefabs can nest. `SceneLoader.loadAsset` reads the prefabs a scene uses before it loads the scene. To make one at run time, load it with `engine.context.prefabLibrary.load(path)` and then call `instantiate(world, path, position: ...)`; `Spawner.prefab(id: ..., path: ...)` places one at every matching spawn point. For prefabs built in code, see [EntityPrefab](/docs/ecs).
 
 ## Saving
 

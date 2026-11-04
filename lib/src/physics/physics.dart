@@ -9,8 +9,6 @@ export 'package:just_physics_engine/just_physics_engine.dart'
         Box2DPhysicsEngine,
         PhysicsBody,
         RigidBody,
-        CollisionDetector,
-        ForceManager,
         CollisionShape,
         CircleShape,
         PolygonShape,
@@ -19,9 +17,6 @@ export 'package:just_physics_engine/just_physics_engine.dart'
         SegmentShape,
         ChainShape,
         RoundedPolygonShape,
-        CollisionManifold,
-        SpatialGrid,
-        BodyPair,
         Ray,
         RayBodyHit,
         ShapeCastResult,
@@ -43,6 +38,8 @@ export 'package:just_physics_engine/just_physics_engine.dart'
 export 'physics_context.dart' show ContextPhysics;
 export 'velocity_component.dart';
 export 'physics_definitions.dart';
+export 'physics_field_types.dart';
+export 'body_rebuild.dart';
 
 // 2-D physics: bodies, colliders, joints, queries and the system that
 // steps them. 3-D physics (physics_3d/) is in package:just_game_engine/just_game_engine_3d.dart.
@@ -50,12 +47,13 @@ export 'physics_2d/physics_2d_components.dart';
 export 'physics_2d/physics_body_ref_component.dart';
 export 'physics_2d/raycast_collider_component.dart';
 export 'physics_2d/joint_2d_components.dart';
-export 'physics_2d/collider_geometry.dart';
+export 'physics_2d/collider_2d_geometry.dart';
 export 'physics_2d/physics_2d_system.dart';
-export 'physics_2d/physics_joint_binding_system.dart';
+export 'physics_2d/physics_2d_joints.dart';
 export 'physics_2d/physics_2d_characters.dart';
 export 'physics_2d/physics_2d_events.dart';
 export 'physics_2d/physics_2d_queries.dart';
 export 'physics_2d/raycast_system.dart';
+export 'physics_2d/ray_tracer.dart';
 export 'physics_2d/collider_debugger_system.dart';
 export 'physics_2d/physics_2d_definitions.dart';

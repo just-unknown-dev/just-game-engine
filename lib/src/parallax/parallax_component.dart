@@ -8,14 +8,20 @@ import 'parallax_background.dart';
 /// `ParallaxRenderSystem` (one of the engine's default systems, in
 /// `DefaultSystem.rendering`) scrolls it against the camera and draws it in
 /// screen space, before the world. Several are ordered by the entity's
-/// `LayerComponent`. Nothing else is needed — the background is not also
-/// added to `engine.parallax`, which is deprecated.
+/// `LayerComponent`. Nothing else is needed.
+///
+/// Taken off its entity (or the entity destroyed), it releases what the
+/// background made to draw itself ([ParallaxBackground.dispose]); the
+/// layers' images are the game's and stay.
 class ParallaxComponent extends Component {
   /// The parallax background managed by this component.
   ParallaxBackground background;
 
   /// Create a parallax component.
   ParallaxComponent({required this.background});
+
+  @override
+  void onDetach(EntityId entityId) => background.dispose();
 
   @override
   String toString() => 'Parallax(${background.layers.length} layers)';

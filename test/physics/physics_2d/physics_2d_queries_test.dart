@@ -16,7 +16,7 @@ void main() {
     physics.setGravity(0, 0);
     world = World()..initialize();
     world.addSystem(system = Physics2DSystem(physics));
-    queries = Physics2DQueries(physics, system);
+    queries = system.queries;
   });
   tearDown(() {
     world.dispose();
@@ -90,5 +90,18 @@ void main() {
       queries.circleCast(Offset.zero, 5, const Offset(1, 0))?.entity,
       near,
     );
+  });
+
+  test('a box overlaps shapes, not the boxes round them', () {
+    final ball = world.createEntityWithComponents([
+      TransformComponent(),
+      RigidBody2DComponent(bodyType: BodyType.static),
+      Collider2DComponent(shape: Collider2DShape.circle, radius: 50),
+    ], name: 'ball');
+    world.update(1 / 60);
+    // Inside the ball's bounds, but past its curve: ~6.6 off it.
+    expect(queries.overlapBox(const Rect.fromLTRB(40, 40, 50, 50)), isEmpty);
+    expect(queries.overlapBox(const Rect.fromLTRB(30, 30, 40, 40)), [ball]);
+    expect(queries.overlapBox(const Rect.fromLTRB(-5, -5, 5, 5)), [ball]);
   });
 }

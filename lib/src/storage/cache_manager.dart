@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show AssetManifest, rootBundle;
@@ -121,7 +122,9 @@ String _sqlEscape(String value) {
 ///
 /// The binary cache supports optional eviction via [maxBinaryEntries]. When
 /// the limit is reached, the oldest entries (by write time) are removed to
-/// make room for new ones.
+/// make room for new ones. Binary data kept in memory instead — the
+/// database unavailable, or a write to it failed — is also held to
+/// [maxMemoryBinaryBytes], the least recently used going first.
 class CacheManager {
   JustStandardStorage? _keyValueCache;
   JustDatabase? _databaseCache;
@@ -178,9 +181,18 @@ class CacheManager {
 
   static const String _defaultDatabaseName = 'just_game_engine_cache';
 
-  /// Maximum number of entries in the binary cache before eviction.
-  /// `null` means effectively unbounded in in-memory fallback mode.
+  /// Maximum number of entries in the binary cache before eviction;
+  /// `null` for no count limit.
   final int? maxBinaryEntries;
+
+  /// How many bytes of binary data are kept in memory, at most, while the
+  /// database cannot hold them (32 MB by default). With [maxBinaryEntries]
+  /// set too, each entry counts as at least its share of this budget, so
+  /// neither limit is passed.
+  final int maxMemoryBinaryBytes;
+
+  /// The default [maxMemoryBinaryBytes].
+  static const int defaultMaxMemoryBinaryBytes = 32 << 20;
 
   /// Forces the cache to use only the shared in-memory fast path.
   final bool forceMemoryFallback;
@@ -192,6 +204,8 @@ class CacheManager {
   /// Create a cache manager.
   ///
   /// [maxBinaryEntries] — optional upper bound on binary cache rows.
+  /// [maxMemoryBinaryBytes] — the byte budget of binary data held in
+  /// memory while the database cannot hold it.
   /// [forceMemoryFallback] — bypasses platform storage and uses only the
   /// shared in-memory cache layer.
   /// [openStorage] / [openDatabase] — open the key-value store and the
@@ -203,6 +217,7 @@ class CacheManager {
   /// to none (nothing moved) when it is.
   CacheManager({
     this.maxBinaryEntries,
+    this.maxMemoryBinaryBytes = defaultMaxMemoryBinaryBytes,
     this.forceMemoryFallback = false,
     Future<JustStandardStorage> Function()? openStorage,
     Future<JustDatabase> Function()? openDatabase,
@@ -217,12 +232,24 @@ class CacheManager {
          estimateCost: (key, value) => 1,
        ),
        _memoryBinaryCache = BudgetedCache<String, Uint8List>(
-         maxCost: maxBinaryEntries ?? (1 << 20),
-         estimateCost: (key, value) => 1,
+         maxCost: maxMemoryBinaryBytes,
+         estimateCost: _binaryCost(maxMemoryBinaryBytes, maxBinaryEntries),
        ) {
     _profiler = MemoryProfiler()
       ..trackCache('cache.strings', _memoryStringCache)
       ..trackCache('cache.binary', _memoryBinaryCache);
+  }
+
+  /// What a blob held in memory costs against [budget] bytes: its size, and
+  /// with an entry limit at least its share of the budget.
+  static int Function(String, Uint8List) _binaryCost(
+    int budget,
+    int? maxEntries,
+  ) {
+    final share = maxEntries == null || maxEntries <= 0
+        ? 1
+        : (budget / maxEntries).ceil();
+    return (key, value) => math.max(value.lengthInBytes, share);
   }
 
   /// Check if cache manager is initialized

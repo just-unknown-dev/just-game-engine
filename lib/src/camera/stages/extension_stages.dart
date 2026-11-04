@@ -1,12 +1,14 @@
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/painting.dart' show Offset, Rect;
 
 import '../camera_confiner_components.dart';
 import '../camera_noise_components.dart';
 import '../camera_stage.dart';
 import '../camera_state.dart';
-import '../camera_targets.dart';
+import '../camera_target_resolver.dart';
 
 /// Noise: continuous handheld motion over the settled shot.
 class NoiseStage extends CameraStage<CameraNoiseComponent> {
@@ -23,11 +25,13 @@ class NoiseStage extends CameraStage<CameraNoiseComponent> {
     CameraState state,
     double dt,
   ) {
-    // A frozen game has a still camera: nothing to author against if the
-    // frame you are composing keeps moving.
-    if (dt <= 0 || context.snap || noise.amplitudeGain == 0) return state;
+    // A snap — an editor composing a frozen game, a camera's first frame —
+    // has none: nothing to author against if the frame keeps moving.
+    if (context.snap || noise.amplitudeGain == 0) return state;
     final memory = context.memory;
-    memory.noiseTime += dt * noise.frequencyGain;
+    // With time stopped (a hit-stop) the shake holds where it is, as the
+    // impulses do, rather than vanishing and coming back.
+    if (dt > 0) memory.noiseTime += dt * noise.frequencyGain;
     final profile = noise.preset.profile;
     final zoom = state.zoom <= 0 ? 1.0 : state.zoom;
     return state.copyWith(
@@ -89,9 +93,18 @@ class ConfinerStage extends CameraStage<CameraConfinerComponent> {
     final bounds = boundsFor(context, confiner);
     if (bounds == null) return state;
     final view = context.viewAt(state.zoom);
+    // A rolled view (a dutch angle, noise) reaches further: the box around
+    // the turned screen is what must stay inside.
+    var halfWidth = view.width / 2, halfHeight = view.height / 2;
+    if (state.rotation != 0) {
+      final c = math.cos(state.rotation).abs();
+      final s = math.sin(state.rotation).abs();
+      halfWidth = (view.width * c + view.height * s) / 2;
+      halfHeight = (view.width * s + view.height * c) / 2;
+    }
     final wanted = Offset(
-      _confine(state.position.dx, bounds.left, bounds.right, view.width / 2),
-      _confine(state.position.dy, bounds.top, bounds.bottom, view.height / 2),
+      _confine(state.position.dx, bounds.left, bounds.right, halfWidth),
+      _confine(state.position.dy, bounds.top, bounds.bottom, halfHeight),
     );
     var push = wanted - state.position;
 

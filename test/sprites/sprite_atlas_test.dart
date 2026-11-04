@@ -41,7 +41,7 @@ ui.Image _image(int width, int height) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('R16: a trimmed region anchors inside its frame', () {
+  test('a trimmed region anchors inside its frame', () {
     const region = SpriteRegion(
       name: 'a',
       pageIndex: 0,
@@ -67,7 +67,7 @@ void main() {
     expect(pivoted.anchorY, 90);
   });
 
-  group('R17: a frame without a sourceSize', () {
+  group('a frame without a sourceSize', () {
     Future<SpriteAtlas> load(Map<String, dynamic> json) =>
         SpriteAtlas.fromJson(json, loadImage: (_) async => _image(16, 16));
 
@@ -90,7 +90,7 @@ void main() {
       expect(atlas.requireRegion('a').sourceSize, const Size(6, 4));
       expect(atlas.requireRegion('b').sourceSize, const Size(8, 4));
       final sprite = atlas.createSprite('a');
-      expect(sprite.getBounds()!.size, const Size(6, 4));
+      expect(sprite.bounds!.size, const Size(6, 4));
     });
 
     test('is as big as its frame (Aseprite)', () async {
@@ -112,7 +112,7 @@ void main() {
     });
   });
 
-  test('R18: an atlas page keeps its own image handle', () async {
+  test('an atlas page keeps its own image handle', () async {
     final bundle = _Bundle()
       ..data['assets/fx5/sheet.png'] = await _png(8, 8)
       ..data['assets/fx5/sheet.json'] = ByteData.sublistView(
@@ -155,7 +155,7 @@ void main() {
     expect(page.image, isNull);
   }, timeout: const Timeout(Duration(minutes: 2)));
 
-  test('R18: a page given its image leaves it alone', () {
+  test('a page given its image leaves it alone', () {
     final image = _image(4, 4);
     final page = SpriteAtlasPage(
       index: 0,

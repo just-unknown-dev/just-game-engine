@@ -1,4 +1,4 @@
-part of 'particles.dart';
+part of 'particle_emitter.dart';
 
 /// When a sub-emitter should be spawned.
 enum SubEmitterTrigger {
@@ -25,7 +25,8 @@ enum SubEmitterTrigger {
 ///     SubEmitterConfig(
 ///       trigger: SubEmitterTrigger.onDeath,
 ///       maxInstances: 50,
-///       factory: (pos) => ParticleEffects.sparkle(position: pos),
+///       factory: (at) =>
+///           ParticleEffects.sparkle(position: Vector3(at.dx, at.dy, 0)),
 ///     ),
 ///   ],
 /// );
@@ -38,10 +39,12 @@ class SubEmitterConfig {
   /// [trigger] == [SubEmitterTrigger.onLifetimeFraction]).  Must be in `[0, 1]`.
   final double lifetimeFraction;
 
-  /// Factory that creates a [ParticleEmitter] at [position].
+  /// Factory that creates a [ParticleEmitter] at `position`.
   ///
   /// The position is the world-space position of the triggering particle at
-  /// the moment of the trigger.
+  /// the moment of the trigger. The emitter should finish — a
+  /// [ParticleEmitter.duration], or an emission rate of 0 with a burst — or
+  /// it keeps running, and counts against [maxInstances], for good.
   final ParticleEmitter Function(Offset position) factory;
 
   /// Maximum number of simultaneously active sub-emitters from this config.

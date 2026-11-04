@@ -34,7 +34,7 @@ enum CameraStagePhase {
 class CameraRigMemory {
   /// False until the camera has produced a state; a stage treats that as
   /// "snap", so a camera's first frame is already on its target.
-  bool initialized = false;
+  bool isInitialized = false;
 
   /// The damped camera position the body stage left off at.
   Offset position = Offset.zero;
@@ -55,7 +55,7 @@ class CameraRigMemory {
   /// Forgets the camera's history, so its next frame snaps to its target:
   /// every field goes back to how a new memory starts.
   void reset() {
-    initialized = false;
+    isInitialized = false;
     position = Offset.zero;
     lookaheadVelocity = Offset.zero;
     previousTargetPosition = null;
@@ -124,10 +124,14 @@ class CameraStageContext {
   /// brain runs per rendered frame ([CameraUpdateMode.frame]) this is
   /// blended between the target's last two fixed updates by [alpha], so a
   /// camera follows a body smoothly between physics steps.
+  ///
+  /// Every stage of the pipeline reads this one vector: a stage must not
+  /// change it (work on a copy), or the stages after it see another
+  /// target.
   final Vector3? targetPosition3;
 
   /// [target]'s rotation, blended like [targetPosition3]; null without a
-  /// target.
+  /// target. Like [targetPosition3], never to be changed by a stage.
   final Quaternion? targetRotation;
 
   /// How far this evaluation lies between the last two fixed updates: 1

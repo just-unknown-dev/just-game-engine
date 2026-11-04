@@ -22,20 +22,26 @@ import '../ecs/ecs.dart';
 ///       notifyChange('health');
 ///     }
 ///   }
+///
+///   late final healthSignal = propertySignal('health', () => health);
 /// }
 /// ```
 mixin ReactiveComponent on Component {
   final Map<String, Signal<dynamic>> _propertySignals = {};
+  final Map<String, Object? Function()> _propertyReaders = {};
   final Set<VoidCallback> _changeListeners = {};
   bool _isBatching = false;
   final Set<String> _pendingChanges = {};
 
-  /// Gets or creates a signal for a named property.
-  Signal<T> propertySignal<T>(String name, T initialValue) {
-    return _propertySignals.putIfAbsent(
-          name,
-          () => Signal<T>(initialValue, debugLabel: '$runtimeType.$name'),
-        )
+  /// Gets or creates a signal for a named property, holding what [read]
+  /// gives: read now, and again each time [notifyChange] names [name], so
+  /// the signal always carries the property's new value. Asked again for
+  /// the same [name], it returns the signal made the first time.
+  Signal<T> propertySignal<T>(String name, T Function() read) {
+    return _propertySignals.putIfAbsent(name, () {
+          _propertyReaders[name] = read;
+          return Signal<T>(read(), debugLabel: '$runtimeType.$name');
+        })
         as Signal<T>;
   }
 
@@ -50,10 +56,11 @@ mixin ReactiveComponent on Component {
   }
 
   void _dispatchChange(String propertyName) {
-    // Notify property-specific signal
+    // The property's signal takes its new value, and its listeners hear
+    // of the change even when the value compares equal.
     final signal = _propertySignals[propertyName];
     if (signal != null) {
-      signal.forceSet(signal.value);
+      signal.forceSet(_propertyReaders[propertyName]!());
     }
 
     // Notify general listeners
@@ -95,6 +102,7 @@ mixin ReactiveComponent on Component {
       signal.dispose();
     }
     _propertySignals.clear();
+    _propertyReaders.clear();
     _changeListeners.clear();
   }
 }

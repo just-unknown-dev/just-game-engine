@@ -5,11 +5,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart' show AssetBundle, rootBundle;
 import 'package:just_dart/just_dart.dart' show Quaternion, Vector3;
+import 'package:just_game_engine_formats/just_game_engine_formats.dart';
 
 import '../ecs/ecs.dart';
-import 'package:just_game_engine_formats/just_game_engine_formats.dart';
 import 'prefab_library.dart';
 import 'prefab_components.dart';
+import 'prefabs_context.dart';
 
 /// Where scenes live in a game's assets, and how to find them.
 ///
@@ -77,7 +78,7 @@ abstract final class SceneLoader {
     Map<String, dynamic> json, {
     ComponentDefinitionRegistry? codecs,
     MigrationHooks? hooks,
-    void Function(MigrationResult result)? onMigrated,
+    void Function(SceneMigrationResult result)? onMigrated,
   }) {
     final registry = codecs ?? world.context.definitions;
     // Older files are brought to the current format in memory first.
@@ -91,7 +92,7 @@ abstract final class SceneLoader {
     if (list is! List) {
       throw FormatException('Scene: "entities" is $list, not a list.');
     }
-    final library = PrefabLibrary.of(world.context);
+    final library = world.context.prefabLibrary;
     final entries = PrefabExpander.expandScene([
       for (var i = 0; i < list.length; i++)
         if (list[i] case final Map<Object?, Object?> entry)
@@ -285,7 +286,8 @@ abstract final class SceneLoader {
         }
       }
       if (entries[i]['parentIndex'] case final int index) parent = index;
-      if (entries[i]['parentTarget'] case final String target when parent != null) {
+      if (entries[i]['parentTarget'] case final String target
+          when parent != null) {
         final within = inside[parent]?[target];
         if (within != null) {
           parent = within;
@@ -346,7 +348,7 @@ abstract final class SceneLoader {
     String source, {
     ComponentDefinitionRegistry? codecs,
     MigrationHooks? hooks,
-    void Function(MigrationResult result)? onMigrated,
+    void Function(SceneMigrationResult result)? onMigrated,
   }) => load(
     world,
     jsonDecode(source) as Map<String, dynamic>,
@@ -366,7 +368,7 @@ abstract final class SceneLoader {
     AssetBundle? bundle,
     ComponentDefinitionRegistry? codecs,
     MigrationHooks? hooks,
-    void Function(MigrationResult result)? onMigrated,
+    void Function(SceneMigrationResult result)? onMigrated,
   }) async {
     final source = await (bundle ?? world.context.bundle).loadString(
       assetPath,
@@ -374,7 +376,7 @@ abstract final class SceneLoader {
     );
     final json = jsonDecode(source) as Map<String, dynamic>;
     // The prefabs its instances are made from, read before anything is.
-    await PrefabLibrary.of(world.context).loadScene(json);
+    await world.context.prefabLibrary.loadScene(json);
     return load(
       world,
       json,
@@ -426,9 +428,10 @@ abstract final class SceneLoader {
         final json = raw.cast<String, dynamic>();
         final component =
             registry.decode(json) ??
-            (throw UnknownComponentTypeException(
+            (throw _unknown(
+              registry,
               json['type']?.toString() ?? '<missing type>',
-              entityName: rawName is String ? rawName : null,
+              rawName is String ? rawName : null,
             ));
         if (!seen.add(component.runtimeType)) {
           debugPrint(
@@ -451,6 +454,18 @@ abstract final class SceneLoader {
       throw FormatException('$where: a value has the wrong type ($e).');
     }
   }
+
+  /// The failure to read a component saved as [type] on [entity], with
+  /// [registry]'s hint for the type, if it has one.
+  static UnknownComponentTypeException _unknown(
+    ComponentDefinitionRegistry registry,
+    String type,
+    String? entity,
+  ) => UnknownComponentTypeException(
+    type,
+    entityName: entity,
+    hint: registry.unknownTypeHint(type),
+  );
 
   /// Whether following [parents] up from [from] arrives at [target].
   static bool _reaches(List<int?> parents, int from, int target) {

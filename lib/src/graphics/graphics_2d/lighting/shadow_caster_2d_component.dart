@@ -9,7 +9,7 @@ import '../../../ecs/ecs.dart';
 /// The side facing the light stays lit for [depth] world units into the
 /// shape — so a wall's face catches the light — then fades into its own
 /// shadow. A Level Map layer casts shadows with its own switch
-/// (`MapLayerData.castsShadows`).
+/// (`MapLayerData.castShadows`).
 class ShadowCaster2DComponent extends Component {
   /// A shadow caster, lit [depth] units in.
   ShadowCaster2DComponent({this.enabled = true, this.depth = 12});

@@ -81,7 +81,7 @@ class SpriteAnimationComponent extends Component {
   bool isComplete = false;
 
   /// Whether [playOnStart] has been acted on.
-  bool initialized = false;
+  bool isInitialized = false;
 
   /// When set, overrides whether the clip loops; null takes the clip's own.
   bool? loopOverride;
@@ -135,7 +135,16 @@ class SpriteAnimationComponent extends Component {
     elapsed = 0.0;
     frameIndex = 0;
     isComplete = false;
+    _restarts++;
   }
+
+  int _restarts = 0;
+
+  /// How many times the clip was sent back to its start ([restart], and so
+  /// [play] after it finished, [stop], [switchClip] and [release]). The
+  /// system starts a clip afresh — from its end, played backwards — when
+  /// this moves, whatever [elapsed] says.
+  int get restarts => _restarts;
 
   /// Plays [name] from its first frame, [loop] overriding whether it loops
   /// (null: the clip's own). Asking for the clip that is already playing

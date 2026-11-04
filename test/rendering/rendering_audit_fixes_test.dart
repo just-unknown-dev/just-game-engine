@@ -1,7 +1,7 @@
-// Rendering, debug and signal fixes from the 2.0.0 final pass: the collider
-// debugger's body filters leave ray colliders alone (F2); an EntitySignal
-// starts from the entity's state and syncs by componentType (F31, F32);
-// RenderingEngine.stats count what the ECS RenderSystem draws (F43).
+// Rendering and debug fixes from the 2.0.0 final pass: the collider
+// debugger's body filters leave ray colliders alone (F2); RenderingEngine.stats
+// count what the ECS RenderSystem draws (F43). (EntitySignal's are in
+// reactive/entity_signal_test.dart.)
 
 import 'dart:ui';
 
@@ -26,18 +26,10 @@ class _Counter extends TestRecordingCanvas {
   }
 }
 
-class _Base extends Component {}
-
-/// Filed under [_Base], as a component standing in for another does.
-class _Stand extends _Base {
-  @override
-  Type get componentType => _Base;
-}
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('F2 filtering static bodies still outlines their ray colliders', () {
+  test('filtering static bodies still outlines their ray colliders', () {
     final world = World()..initialize();
     addTearDown(world.dispose);
     final debugger = ColliderDebuggerSystem(includeStaticBodies: false);
@@ -59,33 +51,7 @@ void main() {
     expect(canvas.circles, 1, reason: 'its ray collider is not');
   });
 
-  group('EntitySignal', () {
-    late World world;
-
-    setUp(() => world = World()..initialize());
-    tearDown(() => world.dispose());
-
-    test('F31 isActive starts as the entity is', () {
-      final off = world.createEntity()..isActive = false;
-      expect(EntitySignal(off).isActive.value, isFalse);
-      final on = world.createEntity();
-      expect(EntitySignal(on).isActive.value, isTrue);
-    });
-
-    test('F32 sync finds a component by the type it is filed under', () {
-      final stand = _Stand();
-      final entity = world.createEntityWithComponents([stand]);
-      final signal = EntitySignal(entity);
-      expect(signal.get<_Base>(), same(stand));
-      signal.sync();
-      expect(signal.get<_Base>(), same(stand), reason: 'sync lost it');
-      entity.removeComponentByType(_Base);
-      signal.sync();
-      expect(signal.get<_Base>(), isNull);
-    });
-  });
-
-  group('F43 render stats count the ECS world', () {
+  group('render stats count the ECS world', () {
     late World world;
     late RenderingEngine rendering;
 

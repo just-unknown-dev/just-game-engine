@@ -1,12 +1,14 @@
 /// Parallax backgrounds on entities, drawn behind the world.
 library;
 
+import 'dart:math' as math;
 import 'dart:ui';
+
+import 'package:just_dart/just_dart.dart' show Matrix4;
 
 import '../ecs/ecs.dart';
 import '../interfaces/game_camera.dart';
 import 'parallax_background.dart';
-import 'parallax_ownership.dart';
 import '../rendering/render_hook_chain.dart';
 import '../rendering/layer_component.dart';
 import 'parallax_component.dart';
@@ -18,13 +20,13 @@ import 'parallax_component.dart';
 /// the frame and drawing the world — so they sit behind everything else.
 /// Each update advances their auto-scroll ([ParallaxLayer.velocityX] /
 /// [ParallaxLayer.velocityY]); each frame, just before drawing, each is
-/// given [camera]'s position, so the layers follow the camera of the frame
-/// being drawn.
+/// given [camera]'s position and zoom, so the layers follow the camera of
+/// the frame being drawn.
 ///
 /// Several backgrounds draw by the entity's [LayerComponent] (lowest
 /// first, none counting as 0), then in the order the entities were made.
-/// An entity switched off, or this system switched off ([System.isActive]),
-/// draws nothing.
+/// A background on two entities scrolls and draws once. An entity switched
+/// off, or this system switched off ([System.isActive]), draws nothing.
 ///
 /// `registerDefaultSystems` adds one, with the engine's
 /// `RenderingEngine.backgroundHooks` and main camera, as part of
@@ -40,9 +42,6 @@ import 'parallax_component.dart';
 ///   ),
 /// ]);
 /// ```
-///
-/// A background drawn here is skipped by the deprecated `engine.parallax`
-/// list, so one registered in both is not drawn twice.
 class ParallaxRenderSystem extends System {
   /// A system drawing through [backgroundHooks], following [camera] (no
   /// camera: the backgrounds stay where a camera at the origin sees them).
@@ -53,19 +52,19 @@ class ParallaxRenderSystem extends System {
   /// a world, left when it is removed.
   final RenderHookChain backgroundHooks;
 
-  /// The camera whose position the layers scroll against.
+  /// The camera whose position (and zoom) the layers scroll against.
   final GameCamera? camera;
 
   static const List<Type> _query = [ParallaxComponent];
 
-  /// The backgrounds this system marked as its own, last update.
-  Set<ParallaxBackground> _claimed = Set.identity();
-  Set<ParallaxBackground> _seen = Set.identity();
-
-  /// Reused to sort each frame's entities, and to draw a background shared
-  /// by two of them once.
+  /// Reused: the backgrounds scrolled this update, the entities sorted
+  /// each frame, and the backgrounds drawn — each shared one once.
+  final Set<ParallaxBackground> _scrolled = Set.identity();
   final List<Entity> _order = [];
   final Set<ParallaxBackground> _drawn = Set.identity();
+
+  /// Reused to read [camera]'s zoom.
+  final Matrix4 _matrix = Matrix4.zero();
 
   @override
   int get priority => SystemPriorities.parallax;
@@ -77,40 +76,20 @@ class ParallaxRenderSystem extends System {
   void onAddedToWorld() => backgroundHooks.addIfAbsent(_paint);
 
   @override
-  void onRemovedFromWorld() => _detach();
+  void onRemovedFromWorld() => backgroundHooks.remove(_paint);
 
   @override
-  void dispose() => _detach();
-
-  void _detach() {
-    backgroundHooks.remove(_paint);
-    for (final background in _claimed) {
-      if (identical(parallaxDrawnBy[background], this)) {
-        parallaxDrawnBy[background] = null;
-      }
-    }
-    _claimed.clear();
-  }
+  void dispose() => backgroundHooks.remove(_paint);
 
   @override
   void update(double deltaTime) {
-    final seen = _seen..clear();
+    final scrolled = _scrolled..clear();
     for (final entity in world.query(_query)) {
       final background = entity.getComponent<ParallaxComponent>()!.background;
-      if (!seen.add(background)) continue; // on two entities: one scroll
-      parallaxDrawnBy[background] = this;
+      if (!scrolled.add(background)) continue; // on two entities: one scroll
       background.update(deltaTime);
     }
-    // Backgrounds whose entity went (or was switched off) are no longer
-    // this system's: the deprecated list may draw them again.
-    for (final background in _claimed) {
-      if (!seen.contains(background) &&
-          identical(parallaxDrawnBy[background], this)) {
-        parallaxDrawnBy[background] = null;
-      }
-    }
-    _seen = _claimed;
-    _claimed = seen;
+    scrolled.clear();
   }
 
   void _paint(Canvas canvas, Size size) {
@@ -120,16 +99,31 @@ class ParallaxRenderSystem extends System {
       ..addAll(world.query(_query));
     if (order.isEmpty) return;
     order.sort(_byLayer);
-    final at = camera?.position ?? Offset.zero;
+    final cam = camera;
+    final at = cam?.position ?? Offset.zero;
+    final zoom = cam == null ? 1.0 : _zoomOf(cam);
     final drawn = _drawn..clear();
     for (final entity in order) {
       final background = entity.getComponent<ParallaxComponent>()!.background;
       if (!drawn.add(background)) continue;
-      background.cameraPosition = at;
+      background
+        ..cameraPosition = at
+        ..cameraZoom = zoom;
       background.render(canvas, size);
     }
     order.clear();
     drawn.clear();
+  }
+
+  /// How many screen pixels a world unit covers under [camera] — its zoom —
+  /// read from the matrix it draws the world with. A camera that is not
+  /// planar (pitched, yawed or perspective) has no one such scale: 1.
+  double _zoomOf(GameCamera camera) {
+    if (!camera.isPlanar) return 1.0;
+    camera.canvasMatrixInto(_matrix);
+    final m = _matrix.storage;
+    final zoom = math.sqrt(m[0] * m[0] + m[1] * m[1]);
+    return zoom > 0 && zoom.isFinite ? zoom : 1.0;
   }
 
   static int _byLayer(Entity a, Entity b) {

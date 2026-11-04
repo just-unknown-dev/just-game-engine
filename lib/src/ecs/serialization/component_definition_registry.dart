@@ -1,6 +1,8 @@
 library;
 
-import '../ecs.dart';
+import '../world.dart';
+import 'component_codec.dart';
+import 'component_definition.dart';
 
 /// Every component the engine can save, load, inspect, size and draw, keyed
 /// by type name, alias and Dart type.
@@ -36,6 +38,8 @@ class ComponentDefinitionRegistry {
   /// built-in default, which another such registration finding it in place
   /// does not mark as [_kept].
   final Set<String> _defaults = {};
+
+  final Map<String, String> _unknownTypeHints = {};
 
   int _revision = 0;
 
@@ -198,11 +202,25 @@ class ComponentDefinitionRegistry {
     }
   }
 
-  /// Removes every registration. Mainly for tests.
+  /// Registers how to make [type] known — what to install or switch on —
+  /// for the [UnknownComponentTypeException] a scene holding it fails with
+  /// while nothing is registered for it. A hint given again for the same
+  /// type replaces the one before. The engine gives one for each 3-D
+  /// component (`BuiltInComponents.extension`); a package can do the same
+  /// for components it leaves to another package.
+  void registerUnknownTypeHint(String type, String hint) =>
+      _unknownTypeHints[type] = hint;
+
+  /// How to make [type] known ([registerUnknownTypeHint]), or null when no
+  /// hint was given for it.
+  String? unknownTypeHint(String type) => _unknownTypeHints[type];
+
+  /// Removes every registration, hints too. Mainly for tests.
   void clear() {
     _revision++;
     _kept.clear();
     _defaults.clear();
+    _unknownTypeHints.clear();
     _definitions.clear();
     _definitionsByType.clear();
     _wire.clear();

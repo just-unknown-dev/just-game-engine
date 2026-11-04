@@ -31,7 +31,8 @@ final class RenderProviderContext {
 /// the entity.
 final class RenderProviderOutput {
   final List<(GpuPrimitive, GpuMaterial, Matrix4, bool)> _meshes = [];
-  final List<(GpuPrimitive, GpuMaterial, List<Matrix4>, double, bool)> _batches = [];
+  final List<(GpuPrimitive, GpuMaterial, List<Matrix4>, double, bool)>
+  _batches = [];
 
   /// Draws [primitive] in [material] at [local] (entity from mesh; the
   /// entity's origin when null).
@@ -40,7 +41,12 @@ final class RenderProviderOutput {
     GpuMaterial material, {
     Matrix4? local,
     bool castShadows = true,
-  }) => _meshes.add((primitive, material, local ?? Matrix4.identity(), castShadows));
+  }) => _meshes.add((
+    primitive,
+    material,
+    local ?? Matrix4.identity(),
+    castShadows,
+  ));
 
   /// Draws [primitive] in [material] once at each of [locals] (entity from
   /// copy), in one call: grass, posts, tiles. Not drawn beyond
@@ -57,7 +63,8 @@ final class RenderProviderOutput {
   List<(GpuPrimitive, GpuMaterial, Matrix4, bool)> get meshes => _meshes;
 
   /// The batches added: primitive, material, placements, reach, shadows.
-  List<(GpuPrimitive, GpuMaterial, List<Matrix4>, double, bool)> get batches => _batches;
+  List<(GpuPrimitive, GpuMaterial, List<Matrix4>, double, bool)> get batches =>
+      _batches;
 }
 
 /// Turns a component the renderer does not know — a terrain, a scatter of
@@ -100,14 +107,10 @@ abstract class RenderProvider<C extends Component> {
 }
 
 /// The [RenderProvider]s of one engine: what its 3-D renderer draws beyond
-/// models and shapes.
+/// models and shapes. An engine's are `context.renderProviders`.
 final class RenderProviders {
   /// None yet.
   RenderProviders();
-
-  /// The providers of [context], made on first use.
-  static RenderProviders of(EngineContext context) =>
-      context.slot(RenderProviders, RenderProviders.new);
 
   final Map<Type, RenderProvider<Component>> _byType = {};
   int _version = 0;
@@ -133,3 +136,14 @@ final class RenderProviders {
   /// The provider for [type], if any.
   RenderProvider<Component>? forType(Type type) => _byType[type];
 }
+
+/// The [RenderProviders] an engine's context keeps.
+extension ContextRenderProviders on EngineContext {
+  /// What this engine's 3-D renderer draws beyond models and shapes, made
+  /// on first use.
+  RenderProviders get renderProviders =>
+      slot(_RenderProvidersSlot, RenderProviders.new);
+}
+
+// Its type is the key [ContextRenderProviders] keeps them under.
+abstract final class _RenderProvidersSlot {}

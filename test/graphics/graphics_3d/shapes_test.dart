@@ -282,6 +282,26 @@ void main() {
     expect(polygon.shapeKey, isNot(key));
   });
 
+  test('the solid key is the same object until the shape changes', () {
+    // A collider matching the shape asks for it every step.
+    final cube = Cube3DComponent();
+    final key = cube.solidKey;
+    expect(cube.solidKey, same(key));
+    cube.color = const Color(0xFFFF0000);
+    expect(cube.solidKey, same(key), reason: 'its look is not its shape');
+    cube.width = 2;
+    final wider = cube.solidKey;
+    expect(wider, isNot(key));
+    expect(wider, cube.shapeKey);
+    expect(cube.solidKey, same(wider));
+    final polygon = Polygon3DComponent();
+    final outline = polygon.solidKey;
+    polygon.points = [...polygon.points];
+    expect(polygon.solidKey, same(outline), reason: 'equal points');
+    polygon.points[0] = const Offset(9, 9);
+    expect(polygon.solidKey, isNot(outline), reason: 'a point moved in place');
+  });
+
   test('one shape per entity, found as a Primitive3DComponent', () {
     final world = World();
     final entity = world.createEntity(name: 'box')

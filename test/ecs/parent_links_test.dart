@@ -21,7 +21,7 @@ void main() {
   List<EntityId> childrenOf(Entity parent) =>
       List.of(parent.getComponent<ChildrenComponent>()?.childIds ?? const []);
 
-  group('F41 a link made with local values', () {
+  group('a link made with local values', () {
     test('places the child at them on the first pass', () {
       final base = at(100, 50, angle: math.pi / 2, name: 'Base');
       final turret = world.createEntityWithComponents([
@@ -79,7 +79,7 @@ void main() {
     });
   });
 
-  group('F44 the parent lists its children', () {
+  group('the parent lists its children', () {
     test('a ParentComponent alone makes the parent list the child', () {
       final parent = at(10, 0);
       expect(parent.hasComponent<ChildrenComponent>(), isFalse);

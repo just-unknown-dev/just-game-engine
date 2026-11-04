@@ -10,7 +10,7 @@ import 'camera_manager.dart';
 import 'camera_stage.dart';
 import 'camera_state.dart';
 import 'output_camera.dart';
-import 'camera_targets.dart';
+import 'camera_target_resolver.dart';
 import 'built_in_camera_managers.dart';
 import 'stages/dolly_stage.dart';
 import 'stages/extension_stages.dart';
@@ -28,13 +28,13 @@ enum CameraUpdateMode {
 
   /// Once per rendered frame, after the fixed updates, following targets
   /// blended between their last two updates — smooth at any frame rate.
-  /// Needs the engine's per-frame phase (`FrameSystem`).
+  /// Needs the engine's per-frame phase (`PerFrame`).
   frame,
 }
 
 /// The camera stages and managers an engine's brains run: one set per
-/// [EngineContext] ([of]), so a kit's [ContextExtension] can register its
-/// own once for every brain.
+/// [EngineContext] (`context.cameraRegistries`), so a kit's
+/// [ContextExtension] can register its own once for every brain.
 class CameraRegistries {
   /// Registries holding the engine's own stages (group framing, framing,
   /// dolly, orbit follow, first person, look at, noise, impulse listener,
@@ -58,16 +58,23 @@ class CameraRegistries {
     ]);
   }
 
-  /// The registries of [context], made on first use.
-  static CameraRegistries of(EngineContext context) =>
-      context.slot(CameraRegistries, CameraRegistries.new);
-
   /// Which stage runs for which component type.
   final CameraStageRegistry stages = CameraStageRegistry();
 
   /// Which manager runs for which component type.
   final CameraManagerRegistry managers = CameraManagerRegistry();
 }
+
+/// The [CameraRegistries] an engine's context keeps.
+extension ContextCameraRegistries on EngineContext {
+  /// The camera stages and managers every brain of this engine runs, made
+  /// on first use: a kit's [ContextExtension] registers its own here.
+  CameraRegistries get cameraRegistries =>
+      slot(_CameraRegistriesSlot, CameraRegistries.new);
+}
+
+// Its type is the key [ContextCameraRegistries] keeps them under.
+abstract final class _CameraRegistriesSlot {}
 
 /// A target's pose at the last two fixed updates, for following it between
 /// them.
@@ -120,7 +127,7 @@ class ActiveCameraBlend {
 /// the output camera by hand is left alone.
 class CameraBrain {
   /// A brain driving [output] with [registries]' stages and managers — an
-  /// engine passes its context's ([CameraRegistries.of]); without, the
+  /// engine passes its context's (`context.cameraRegistries`); without, the
   /// brain makes a set of its own with the engine's built-ins.
   CameraBrain(this.output, {CameraRegistries? registries})
     : registries = registries ?? CameraRegistries();
@@ -132,7 +139,7 @@ class CameraBrain {
   final CameraRegistries registries;
 
   /// The stage that runs for each component type. Register a kit's own here
-  /// (or, for every brain of an engine, in `CameraRegistries.of(context)`).
+  /// (or, for every brain of an engine, in `context.cameraRegistries`).
   CameraStageRegistry get stages => registries.stages;
 
   /// The manager that runs for each component type: cameras whose shot
@@ -203,6 +210,7 @@ class CameraBrain {
   // the last evaluation, to forget what went away.
   final List<Entity> _all = [];
   final Set<EntityId> _managed = {};
+  final Set<EntityId> _owned = {};
   final List<Entity> _unmanaged = [];
   Set<EntityId> _alive = {};
   Set<EntityId> _wasAlive = {};
@@ -252,10 +260,26 @@ class CameraBrain {
     return true;
   }
 
+  // The world last evaluated, and how many times it had been emptied then
+  // ([World.clearCount]).
+  World? _world;
+  int _clears = 0;
+
+  /// [reset]s when [world] was emptied ([World.destroyAllEntities]) since
+  /// the last look — a level restarted or replaced: what was live is gone,
+  /// and the new level's first shot is a cut, not a blend from it.
+  void _noticeClear(World world) {
+    final clears = world.clearCount;
+    if (identical(world, _world) && clears != _clears) reset();
+    _world = world;
+    _clears = clears;
+  }
+
   /// Records where every followed target is, once per fixed update, so a
   /// brain running per frame ([CameraUpdateMode.frame]) can follow it
   /// between updates. The brain's system calls this.
   void sampleTargets(World world) {
+    _noticeClear(world);
     targets.beginFrame(world);
     _sample++;
     for (final camera in world.query([
@@ -288,7 +312,9 @@ class CameraBrain {
     _poses.removeWhere((_, pose) => pose.seen < _sample - 1);
   }
 
-  /// Forgets everything: call when the world's entities are replaced.
+  /// Forgets everything. Done by itself when the world it evaluates is
+  /// emptied ([World.destroyAllEntities]); call it when the world's
+  /// entities are replaced some other way.
   void reset() {
     impulses.clear();
     _poses.clear();
@@ -314,35 +340,39 @@ class CameraBrain {
   /// is (see [CameraUpdateMode.frame]); targets sampled with [sampleTargets]
   /// are followed blended by it.
   void evaluate(World world, double dt, {bool snap = false, double alpha = 1}) {
+    _noticeClear(world);
     _alpha = alpha;
     targets.beginFrame(world);
     impulses.update(dt);
 
     _frame++;
+    // A manager's children are its own business: the brain sees only the
+    // manager, at the manager's priority — and never a child of one, even
+    // while the manager is switched off. Only an enabled manager's children
+    // run, so only theirs are remembered.
     final all = _all..clear();
+    final managed = _managed..clear();
+    final owned = _owned..clear();
     for (final entity in world.query(const [
       TransformComponent,
       VirtualCameraComponent,
     ])) {
-      if (entity.isActive &&
-          entity.getComponent<VirtualCameraComponent>()!.enabled) {
-        all.add(entity);
-      }
-    }
-    // A manager's children are its own business: the brain sees only the
-    // manager, at the manager's priority.
-    final managed = _managed..clear();
-    for (final entity in all) {
+      if (!entity.isActive) continue;
+      final enabled = entity.getComponent<VirtualCameraComponent>()!.enabled;
+      if (enabled) all.add(entity);
       if (managers.managerOf(entity) == null) continue;
+      final ids = entity.getComponent<ChildrenComponent>()?.childIds;
+      if (ids != null) owned.addAll(ids);
+      if (!enabled) continue;
       for (final child in _childrenOf(world, entity)) {
         managed.add(child.id);
       }
     }
     var cameras = all;
-    if (managed.isNotEmpty) {
+    if (owned.isNotEmpty) {
       cameras = _unmanaged..clear();
       for (final entity in all) {
-        if (!managed.contains(entity.id)) cameras.add(entity);
+        if (!owned.contains(entity.id)) cameras.add(entity);
       }
     }
     _forgetAllBut(cameras, managed);
@@ -378,7 +408,7 @@ class CameraBrain {
           identical(camera, _live) ||
           camera.id == outgoing ||
           vcam.standbyUpdate == CameraStandbyUpdate.always ||
-          !memory.initialized;
+          !memory.isInitialized;
       if (!runs) continue;
       _states[camera.id] = _run(world, camera, vcam, memory, dt, snap);
     }
@@ -493,7 +523,8 @@ class CameraBrain {
         _targetAt.setFrom(targetTransform.position);
         targetTransform.rotationInto(_targetTurn);
       }
-      // The camera's own copies: a stage may change them as it goes.
+      // The camera's own copies, which every stage of its pipeline reads:
+      // no stage may change them.
       at = cache.targetAt..setFrom(_targetAt);
       turn = cache.targetTurn..setFrom(_targetTurn);
     }
@@ -504,7 +535,9 @@ class CameraBrain {
       vcam: vcam,
       memory: memory,
       viewportSize: viewportOverride ?? output.viewportSize,
-      snap: snap,
+      // A camera's first frame — or its first since its memory was reset,
+      // going live from standby — has nothing to damp from.
+      snap: snap || !memory.isInitialized,
       target: target,
       targetPosition: target == null
           ? null
@@ -549,7 +582,7 @@ class CameraBrain {
       final (stage, component) = steps[i];
       state = stage.applyAny(context, component, state, dt);
     }
-    memory.initialized = true;
+    memory.isInitialized = true;
     return state;
   }
 

@@ -16,7 +16,7 @@ class B extends Component {}
 class C extends Component {}
 
 /// Logs each update under [name]; [onUpdate] runs first.
-class LogSystem extends System implements FrameSystem {
+class LogSystem extends System implements PerFrame {
   LogSystem(this.log, this.name, {int priority = 0, this.onUpdate}) {
     this.priority = priority;
   }
@@ -54,7 +54,7 @@ void main() {
   });
   tearDown(() => world.dispose());
 
-  group('systems changed while the systems run (C4)', () {
+  group('systems changed while the systems run', () {
     test('a one-shot system removes itself', () {
       world.addSystem(
         LogSystem(log, 'once', priority: 10, onUpdate: world.removeSystem),
@@ -114,7 +114,7 @@ void main() {
       world
         ..addSystem(a)
         ..addSystem(b);
-      // A FrameSystem that removes another mid-frame.
+      // A PerFrame that removes another mid-frame.
       world.addSystem(_FrameRemover(world, b)..priority = 5);
       world.frame(0.016, 1);
       expect(log, ['frame a']);
@@ -135,7 +135,7 @@ void main() {
     });
   });
 
-  test('equal priorities keep the order they were added in (C5)', () {
+  test('equal priorities keep the order they were added in', () {
     final names = [for (var i = 0; i < 50; i++) 's$i'];
     for (final name in names) {
       world.addSystem(LogSystem(log, name));
@@ -151,35 +151,32 @@ void main() {
     expect(log, ['high', ...names, 'low']);
   });
 
-  test(
-    'walking components while the entity changes lists what it had (C9)',
-    () {
-      final a1 = A(), b1 = B();
-      final e1 = world.createEntityWithComponents([a1, b1]);
-      // Another entity of the same archetype: removing from e1 swaps it into
-      // e1's old row.
-      world.createEntityWithComponents([A(), B()]);
-      final seen = <Component>[];
-      for (final component in e1.components) {
-        seen.add(component);
-        if (component is A) e1.removeComponent<B>();
-      }
-      expect(seen, [a1, b1]);
-      expect(e1.components, [a1]);
+  test('walking components while the entity changes lists what it had', () {
+    final a1 = A(), b1 = B();
+    final e1 = world.createEntityWithComponents([a1, b1]);
+    // Another entity of the same archetype: removing from e1 swaps it into
+    // e1's old row.
+    world.createEntityWithComponents([A(), B()]);
+    final seen = <Component>[];
+    for (final component in e1.components) {
+      seen.add(component);
+      if (component is A) e1.removeComponent<B>();
+    }
+    expect(seen, [a1, b1]);
+    expect(e1.components, [a1]);
 
-      final c = C();
-      final again = <Component>[];
-      for (final component in e1.components) {
-        again.add(component);
-        e1.addComponent(c);
-      }
-      expect(again, [a1]);
-      expect(e1.components, [a1, c]);
-      expect(identical(e1.components, e1.components), isTrue);
-    },
-  );
+    final c = C();
+    final again = <Component>[];
+    for (final component in e1.components) {
+      again.add(component);
+      e1.addComponent(c);
+    }
+    expect(again, [a1]);
+    expect(e1.components, [a1, c]);
+    expect(identical(e1.components, e1.components), isTrue);
+  });
 
-  test('a command that throws does not drop the rest of the batch (C13)', () {
+  test('a command that throws does not drop the rest of the batch', () {
     final e = world.createEntity();
     world.commands
       ..addComponent(e, A())
@@ -193,7 +190,7 @@ void main() {
     expect(world.commands.isNotEmpty, isFalse);
   });
 
-  test('destroyAllEntities lets go of every parent link (C17)', () {
+  test('destroyAllEntities lets go of every parent link', () {
     final parent = world.createEntity();
     final child = world.createEntity();
     final link = ParentComponent(parentId: parent.id);
@@ -205,7 +202,7 @@ void main() {
     expect(stranger.hasComponent<ChildrenComponent>(), isFalse);
   });
 
-  group('event bus (P8)', () {
+  group('event bus', () {
     test('a listener cancelled by an earlier one is not called', () {
       final calls = <String>[];
       late EventSubscription second;
@@ -236,15 +233,18 @@ void main() {
     });
 
     test('cancelling twice, or after clear, is safe', () {
-      final sub = world.events.on<Ping>((_) {});
+      var heard = 0;
+      final sub = world.events.on<Ping>((_) => heard++);
       world.events.clear();
       sub.cancel();
       sub.cancel();
       world.events.fire(Ping());
+      expect(heard, 0);
+      expect(world.events.hasListeners<Ping>(), isFalse);
     });
   });
 
-  group('profiling (P10, W6)', () {
+  group('profiling', () {
     test('is on outside release, and times each system by profile name', () {
       expect(world.profiling, isTrue);
       world.addSystem(_Named());
@@ -276,7 +276,7 @@ void main() {
     });
   });
 
-  test('the engine\'s systems ask for const queries (P11)', () {
+  test('the engine\'s systems ask for const queries', () {
     for (final system in <System>[
       MovementSystem(),
       RenderSystem(),
@@ -291,7 +291,7 @@ void main() {
     }
   });
 
-  test('children of what a frame system moved follow in the frame (A7)', () {
+  test('children of what a frame system moved follow in the frame', () {
     final parent = world.createEntityWithComponents([TransformComponent()]);
     final child = world.createEntityWithComponents([
       TransformComponent(position: Vector3(10, 0, 0)),
@@ -303,7 +303,7 @@ void main() {
     expect(child.getComponent<TransformComponent>()!.position.x, 15);
   });
 
-  group('plugins changed while they run (C4)', () {
+  group('plugins changed while they run', () {
     test('a plugin unregisters itself, and another registers one', () async {
       final engine = Engine();
       addTearDown(engine.dispose);
@@ -346,7 +346,7 @@ class _Named extends System {
   List<Type> get requiredComponents => const [];
 }
 
-class _FrameRemover extends System implements FrameSystem {
+class _FrameRemover extends System implements PerFrame {
   _FrameRemover(this.world2, this.victim);
   final World world2;
   final System victim;
@@ -358,7 +358,7 @@ class _FrameRemover extends System implements FrameSystem {
   void frame(double deltaTime, double alpha) => world2.removeSystem(victim);
 }
 
-class _FrameMover extends System implements FrameSystem {
+class _FrameMover extends System implements PerFrame {
   _FrameMover(this.target);
   final Entity target;
 

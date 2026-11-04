@@ -172,7 +172,7 @@ void main() {
       TransformComponent(position: Vector3(4, 0, 1)),
       AudioSourceComponent(
         clipPath: 'assets/fx/hum.wav',
-        is3d: true,
+        is3D: true,
         loop: true,
         minDistance: 2,
         maxDistance: 30,
@@ -199,7 +199,7 @@ void main() {
   test('a 3-D source is sent when it moves, and when it plays anew', () {
     final source = AudioSourceComponent(
       clipPath: 'assets/fx/hum.wav',
-      is3d: true,
+      is3D: true,
       playOnAdd: false,
     )..handle = 'sfx-1';
     audio.live.add('sfx-1');
@@ -226,7 +226,7 @@ void main() {
   test('changing how a playing source is heard is sent once', () {
     final source = AudioSourceComponent(
       clipPath: 'assets/fx/hum.wav',
-      is3d: true,
+      is3D: true,
       playOnAdd: false,
     )..handle = 'sfx-1';
     audio.live.add('sfx-1');

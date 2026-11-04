@@ -9,8 +9,6 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
-import 'parallax_ownership.dart';
-
 /// A single layer in a parallax background.
 ///
 /// Each layer holds an image and a scroll factor that controls how fast it
@@ -18,10 +16,14 @@ import 'parallax_ownership.dart';
 /// (foreground), `0.0` stays fixed (sky/background), and values in between
 /// produce the parallax effect.
 ///
-/// Set [repeat] to `true` (the default) to tile the image seamlessly.
+/// [repeatX] and [repeatY] (both on by default) tile the image seamlessly
+/// across and down the view; on an axis that does not repeat the image is
+/// drawn once — a strip of hills repeats across only.
 ///
 /// Use [velocityX] / [velocityY] for auto-scrolling (e.g. drifting clouds)
 /// independent of camera movement.
+///
+/// The layer does not own [image]: it is never disposed here.
 class ParallaxLayer {
   /// The image for this layer.
   ui.Image image;
@@ -41,8 +43,11 @@ class ParallaxLayer {
   /// Scale applied to the layer image.
   double scale;
 
-  /// Whether the layer image tiles to fill the viewport.
-  bool repeat;
+  /// Whether the image tiles across the view, left to right.
+  bool repeatX;
+
+  /// Whether the image tiles down the view, top to bottom.
+  bool repeatY;
 
   /// Optional static offset applied before scrolling.
   Offset offset;
@@ -62,12 +67,13 @@ class ParallaxLayer {
   Color? _paintTint;
   double _paintOpacity = -1;
 
-  // The repeating image shader, and what it was made for. Remade only when
-  // the tiles move — the camera or auto-scroll — or the image or scale
-  // changes; the matrix buffer is reused.
+  // The repeating image shader, and what it was made for. It only scales
+  // the image — the scroll moves the canvas — so it is remade only when the
+  // image, the scale or the repeating axes change, not as the view moves.
   ImageShader? _tiles;
   ui.Image? _tilesImage;
-  double _tilesX = double.nan, _tilesY = double.nan, _tilesScale = double.nan;
+  double _tilesScale = double.nan;
+  bool _tilesRepeatX = true, _tilesRepeatY = true;
   final Float64List _tilesMatrix = Float64List(16);
 
   /// Accumulated auto-scroll offset (advanced by [ParallaxBackground.update]).
@@ -82,7 +88,8 @@ class ParallaxLayer {
     this.velocityX = 0.0,
     this.velocityY = 0.0,
     this.scale = 1.0,
-    this.repeat = true,
+    this.repeatX = true,
+    this.repeatY = true,
     this.offset = Offset.zero,
     this.opacity = 1.0,
     this.tint,
@@ -95,7 +102,8 @@ class ParallaxLayer {
     double velocityX = 0.0,
     double velocityY = 0.0,
     double scale = 1.0,
-    bool repeat = true,
+    bool repeatX = true,
+    bool repeatY = true,
     Offset offset = Offset.zero,
     double opacity = 1.0,
     Color? tint,
@@ -106,7 +114,8 @@ class ParallaxLayer {
          velocityX: velocityX,
          velocityY: velocityY,
          scale: scale,
-         repeat: repeat,
+         repeatX: repeatX,
+         repeatY: repeatY,
          offset: offset,
          opacity: opacity,
          tint: tint,
@@ -116,6 +125,16 @@ class ParallaxLayer {
   void resetAutoScroll() {
     _autoScrollX = 0.0;
     _autoScrollY = 0.0;
+  }
+
+  /// Releases the repeating shader this layer made to draw itself; drawn
+  /// again, it makes a new one. [image] is not touched.
+  void dispose() {
+    // A picture still drawing the shader keeps what it needs.
+    _tiles?.dispose();
+    _tiles = null;
+    _tilesImage = null;
+    _paint.shader = null;
   }
 }
 
@@ -131,7 +150,7 @@ class ParallaxLayer {
 /// final bg = ParallaxBackground(layers: [
 ///   ParallaxLayer(image: skyImage,   scrollFactorX: 0.0, scrollFactorY: 0.0),
 ///   ParallaxLayer(image: cloudsImage, scrollFactorX: 0.1, velocityX: 20),
-///   ParallaxLayer(image: hillsImage, scrollFactorX: 0.3, scrollFactorY: 0.2),
+///   ParallaxLayer(image: hillsImage, scrollFactorX: 0.3, repeatY: false),
 ///   ParallaxLayer(image: treesImage, scrollFactorX: 0.7, scrollFactorY: 0.5),
 /// ]);
 /// world.createEntityWithComponents([ParallaxComponent(background: bg)]);
@@ -148,6 +167,13 @@ class ParallaxBackground {
   /// Set by `ParallaxRenderSystem` before each draw.
   Offset cameraPosition;
 
+  /// How many screen pixels a world unit covers: the camera's zoom. The
+  /// camera-driven scroll is multiplied by it, so a layer with a scroll
+  /// factor of 1.0 moves with the world at any zoom.
+  ///
+  /// Set by `ParallaxRenderSystem` before each draw.
+  double cameraZoom;
+
   /// Overall opacity multiplier applied to every layer.
   double opacity;
 
@@ -158,6 +184,7 @@ class ParallaxBackground {
   ParallaxBackground({
     List<ParallaxLayer>? layers,
     this.cameraPosition = Offset.zero,
+    this.cameraZoom = 1.0,
     this.opacity = 1.0,
     this.visible = true,
   }) : layers = layers ?? [];
@@ -172,14 +199,28 @@ class ParallaxBackground {
     layers.insert(index, layer);
   }
 
-  /// Remove a layer.
-  bool removeLayer(ParallaxLayer layer) => layers.remove(layer);
+  /// Remove a layer, releasing what it made to draw itself
+  /// ([ParallaxLayer.dispose]).
+  bool removeLayer(ParallaxLayer layer) {
+    final removed = layers.remove(layer);
+    if (removed) layer.dispose();
+    return removed;
+  }
 
   /// Advance auto-scroll offsets for all layers.
   void update(double deltaTime) {
     for (final layer in layers) {
       layer._autoScrollX += layer.velocityX * deltaTime;
       layer._autoScrollY += layer.velocityY * deltaTime;
+    }
+  }
+
+  /// Releases what every layer made to draw itself ([ParallaxLayer.dispose]);
+  /// the layers and their images stay, and drawing again makes it anew.
+  /// `ParallaxComponent` calls it when it leaves its entity.
+  void dispose() {
+    for (final layer in layers) {
+      layer.dispose();
     }
   }
 
@@ -220,53 +261,32 @@ class ParallaxBackground {
             : ColorFilter.mode(tint.withValues(alpha: 1.0), BlendMode.modulate);
     }
 
-    // Total scroll = camera-driven + auto-scroll + static offset
+    // Total scroll = camera-driven (in screen pixels: the camera's move
+    // times its zoom) + auto-scroll + static offset.
     final scrollX =
-        cameraPosition.dx * layer.scrollFactorX +
+        cameraPosition.dx * layer.scrollFactorX * cameraZoom +
         layer._autoScrollX +
         layer.offset.dx;
     final scrollY =
-        cameraPosition.dy * layer.scrollFactorY +
+        cameraPosition.dy * layer.scrollFactorY * cameraZoom +
         layer._autoScrollY +
         layer.offset.dy;
 
-    final srcRect = Rect.fromLTWH(
-      0,
-      0,
-      img.width.toDouble(),
-      img.height.toDouble(),
-    );
-
-    if (layer.repeat) {
-      _renderRepeating(
-        canvas,
-        size,
-        layer,
-        imgW,
-        imgH,
-        scrollX,
-        scrollY,
-        srcRect,
-        paint,
-      );
+    if (layer.repeatX || layer.repeatY) {
+      _renderRepeating(canvas, size, layer, imgW, imgH, scrollX, scrollY);
     } else {
-      _renderSingle(
-        canvas,
-        layer,
-        imgW,
-        imgH,
-        scrollX,
-        scrollY,
-        srcRect,
-        paint,
-      );
+      _renderSingle(canvas, layer, imgW, imgH, scrollX, scrollY);
     }
   }
 
-  /// Fills the view with the layer's image repeated: one rectangle painted
-  /// with a repeating image shader, rather than one image draw per tile —
-  /// which also leaves no hairline seams where tiles met at fractional
-  /// positions.
+  /// Fills the view with the layer's image repeated — across, down or both:
+  /// one rectangle painted with a repeating image shader, rather than one
+  /// image draw per tile, which also leaves no hairline seams where tiles
+  /// met at fractional positions. On an axis that does not repeat, the
+  /// rectangle covers the image once, where it scrolled to.
+  ///
+  /// The shader only scales the image; the scroll moves the canvas, so the
+  /// shader is kept while the view moves.
   void _renderRepeating(
     Canvas canvas,
     Size size,
@@ -275,35 +295,33 @@ class ParallaxBackground {
     double imgH,
     double scrollX,
     double scrollY,
-    Rect srcRect,
-    Paint paint,
   ) {
-    // Compute tile-aligned start so tiles wrap seamlessly.
-    final offsetX = -(scrollX % imgW);
-    final offsetY = -(scrollY % imgH);
+    final repeatX = layer.repeatX, repeatY = layer.repeatY;
+    // Where the tiles start: on a repeating axis, tile-aligned at or just
+    // before the view's edge, so they wrap seamlessly (also for negative
+    // scroll); otherwise where the one image is.
+    final startX = repeatX ? _tileStart(scrollX, imgW) : -scrollX;
+    final startY = repeatY ? _tileStart(scrollY, imgH) : -scrollY;
 
-    // Ensure coverage even for negative modulo.
-    final startX = offsetX > 0 ? offsetX - imgW : offsetX;
-    final startY = offsetY > 0 ? offsetY - imgH : offsetY;
-
+    final paint = layer._paint;
     var tiles = layer._tiles;
     if (tiles == null ||
         !identical(layer._tilesImage, layer.image) ||
-        startX != layer._tilesX ||
-        startY != layer._tilesY ||
-        layer.scale != layer._tilesScale) {
+        layer.scale != layer._tilesScale ||
+        repeatX != layer._tilesRepeatX ||
+        repeatY != layer._tilesRepeatY) {
       final m = layer._tilesMatrix
         ..fillRange(0, 16, 0.0)
         ..[0] = layer.scale
         ..[5] = layer.scale
         ..[10] = 1.0
-        ..[12] = startX
-        ..[13] = startY
         ..[15] = 1.0;
+      // Clamped on an axis that does not repeat: its edges are sampled as
+      // a single image's are.
       final next = ImageShader(
         layer.image,
-        TileMode.repeated,
-        TileMode.repeated,
+        repeatX ? TileMode.repeated : TileMode.clamp,
+        repeatY ? TileMode.repeated : TileMode.clamp,
         m,
         filterQuality: paint.filterQuality,
       );
@@ -313,14 +331,33 @@ class ParallaxBackground {
       tiles = layer._tiles = next;
       layer
         .._tilesImage = layer.image
-        .._tilesX = startX
-        .._tilesY = startY
-        .._tilesScale = layer.scale;
+        .._tilesScale = layer.scale
+        .._tilesRepeatX = repeatX
+        .._tilesRepeatY = repeatY;
     } else if (!identical(paint.shader, tiles)) {
       paint.shader = tiles;
     }
 
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
+    // What is covered, in the view: all of it on a repeating axis, the
+    // image's extent on the other.
+    final left = repeatX ? 0.0 : startX;
+    final top = repeatY ? 0.0 : startY;
+    final width = repeatX ? size.width : imgW;
+    final height = repeatY ? size.height : imgH;
+    canvas
+      ..save()
+      ..translate(startX, startY)
+      ..drawRect(
+        Rect.fromLTWH(left - startX, top - startY, width, height),
+        paint,
+      )
+      ..restore();
+  }
+
+  /// Where tiles of [extent] start for a [scroll]: at or just before 0.
+  static double _tileStart(double scroll, double extent) {
+    final offset = -(scroll % extent);
+    return offset > 0 ? offset - extent : offset;
   }
 
   void _renderSingle(
@@ -330,93 +367,17 @@ class ParallaxBackground {
     double imgH,
     double scrollX,
     double scrollY,
-    Rect srcRect,
-    Paint paint,
   ) {
+    final img = layer.image;
+    final srcRect = Rect.fromLTWH(
+      0,
+      0,
+      img.width.toDouble(),
+      img.height.toDouble(),
+    );
     final destRect = Rect.fromLTWH(-scrollX, -scrollY, imgW, imgH);
+    final paint = layer._paint;
     if (paint.shader != null) paint.shader = null;
-    canvas.drawImageRect(layer.image, srcRect, destRect, paint);
-  }
-}
-
-/// Parallax subsystem that manages multiple [ParallaxBackground] instances.
-///
-/// The [ParallaxSystem] is owned by the [Engine] and automatically wired
-/// into the rendering pipeline via [RenderingEngine.backgroundHooks].
-///
-/// ```dart
-/// engine.parallax.addBackground(myParallax);
-/// ```
-///
-/// Deprecated: put the background on an entity instead, as a
-/// `ParallaxComponent`; `ParallaxRenderSystem` draws it. A background that
-/// is both here and on a component is drawn by the system only.
-@Deprecated(
-  'Add a ParallaxComponent to an entity; ParallaxRenderSystem (a default '
-  'system) scrolls and draws it. Removed in 3.0.',
-)
-class ParallaxSystem {
-  /// All registered parallax backgrounds (rendered in order).
-  final List<ParallaxBackground> _backgrounds = [];
-
-  bool _initialized = false;
-
-  /// Whether the system has been initialized.
-  bool get isInitialized => _initialized;
-
-  /// Read-only view of current backgrounds.
-  List<ParallaxBackground> get backgrounds => List.unmodifiable(_backgrounds);
-
-  /// Number of registered backgrounds.
-  int get backgroundCount => _backgrounds.length;
-
-  /// Initialize the parallax system.
-  void initialize() {
-    if (_initialized) return;
-    _initialized = true;
-  }
-
-  /// Register a background to be rendered each frame.
-  void addBackground(ParallaxBackground background) {
-    _backgrounds.add(background);
-  }
-
-  /// Remove a previously registered background.
-  bool removeBackground(ParallaxBackground background) {
-    return _backgrounds.remove(background);
-  }
-
-  /// Remove all backgrounds.
-  void clear() {
-    _backgrounds.clear();
-  }
-
-  /// Advance auto-scroll offsets and feed the current [cameraPosition]
-  /// into every background.
-  ///
-  /// Called once per frame by [Engine._update].
-  void update(double deltaTime, Offset cameraPosition) {
-    for (final bg in _backgrounds) {
-      if (isDrawnByComponent(bg)) continue;
-      bg.cameraPosition = cameraPosition;
-      bg.update(deltaTime);
-    }
-  }
-
-  /// Render all backgrounds to [canvas].
-  ///
-  /// This is intended to be called via [RenderingEngine.backgroundHooks]
-  /// in screen space (before the camera transform).
-  void render(Canvas canvas, Size size) {
-    for (final bg in _backgrounds) {
-      if (isDrawnByComponent(bg)) continue;
-      bg.render(canvas, size);
-    }
-  }
-
-  /// Dispose the system and clear all backgrounds.
-  void dispose() {
-    _backgrounds.clear();
-    _initialized = false;
+    canvas.drawImageRect(img, srcRect, destRect, paint);
   }
 }

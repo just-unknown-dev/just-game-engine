@@ -57,7 +57,7 @@ void main() {
     }
   }
 
-  group('F1 blend list', () {
+  group('blend list', () {
     test('starts over on going live even when it runs on standby', () {
       final rig = at(Offset.zero, [
         VirtualCameraComponent(
@@ -93,7 +93,7 @@ void main() {
     });
   });
 
-  test('F4 CameraManagerRegistry.registerAll takes override', () {
+  test('CameraManagerRegistry.registerAll takes override', () {
     final registry = CameraManagerRegistry()
       ..registerAll([const _MarkerManager(1)]);
     expect(
@@ -106,7 +106,7 @@ void main() {
     expect((manager as _MarkerManager).id, 3);
   });
 
-  group('F5 DollyPath.closed', () {
+  group('DollyPath.closed', () {
     test('is false when too few points make the track open', () {
       final two = DollyPath(const [Offset.zero, Offset(10, 0)], closed: true);
       expect(two.closed, isFalse);
@@ -127,7 +127,7 @@ void main() {
     });
   });
 
-  group('F6 impulses', () {
+  group('impulses', () {
     test('emitting the same impulse twice is felt once, restarted', () {
       final bus = CameraImpulseBus();
       final impulse = CameraImpulse(position: Offset.zero, duration: 1);
@@ -155,15 +155,15 @@ void main() {
     });
   });
 
-  test('F7 CameraRigMemory.reset forgets the position too', () {
+  test('CameraRigMemory.reset forgets the position too', () {
     final memory = CameraRigMemory()
-      ..initialized = true
+      ..isInitialized = true
       ..position = const Offset(5, 6)
       ..lookaheadVelocity = const Offset(1, 1)
       ..noiseTime = 3;
     memory.extra['x'] = 1;
     memory.reset();
-    expect(memory.initialized, isFalse);
+    expect(memory.isInitialized, isFalse);
     expect(memory.position, Offset.zero);
     expect(memory.lookaheadVelocity, Offset.zero);
     expect(memory.noiseTime, 0);

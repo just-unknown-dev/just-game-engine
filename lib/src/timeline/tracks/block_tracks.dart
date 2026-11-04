@@ -6,7 +6,7 @@ library;
 import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../../ecs/ecs.dart';
-import '../../audio/audio_system.dart';
+import '../../audio/audio.dart';
 import '../timeline_asset.dart';
 import '../timeline_playback.dart';
 import '../timeline_track.dart';
@@ -152,7 +152,7 @@ abstract class BlockTrack extends TimelineTrack {
 
   /// The block [time] falls in — the later one where two overlap. With
   /// [includeEnd] a block ending exactly at [time] counts too: the timeline
-  /// comes to rest there ([TimelineContext.endsAt]), and what the block
+  /// comes to rest there ([TrackContext.endsAt]), and what the block
   /// did lasts.
   TimelineBlock? blockAt(double time, {bool includeEnd = false}) {
     for (final b in blocks.reversed) {
@@ -270,7 +270,7 @@ class _SpriteClipRunner extends TrackRunner {
   bool _drivenBefore = false;
 
   @override
-  void begin(TimelineContext context) {
+  void begin(TrackContext context) {
     _current = null;
     _sprite = null;
     _clipBefore = null;
@@ -278,7 +278,7 @@ class _SpriteClipRunner extends TrackRunner {
   }
 
   @override
-  void advance(TimelineContext context, double from, double to) {
+  void advance(TrackContext context, double from, double to) {
     final current = _current;
     if (current == null) return;
     // Forwards over its start, or backwards over its end (as a backwards
@@ -291,7 +291,7 @@ class _SpriteClipRunner extends TrackRunner {
   }
 
   @override
-  void apply(TimelineContext context, double time) {
+  void apply(TrackContext context, double time) {
     final block = track.blockAt(time, includeEnd: context.endsAt(time));
     if (identical(block, _current) && !_reentered) return;
     _reentered = false;
@@ -331,7 +331,7 @@ class _SpriteClipRunner extends TrackRunner {
   }
 
   @override
-  void end(TimelineContext context) {
+  void end(TrackContext context) {
     if (_current != null) _restore();
     _current = null;
   }
@@ -342,7 +342,9 @@ class _SpriteClipRunner extends TrackRunner {
 /// Gives the shot to a virtual camera for a while: [TimelineBlock.value] is
 /// the camera entity's name, and its priority is raised by
 /// [TimelineBlock.amount] for the block's length. The camera brain blends
-/// to it and back as it does for any change of priority.
+/// to it and back as it does for any change of priority. A `once`
+/// timeline gives every shot back when it finishes, even one that reaches
+/// its end.
 class CameraShotTrack extends BlockTrack {
   /// A track of shot [blocks]. Each block names its own camera, so the
   /// track's binding is not used; a block's amount is rounded to a whole
@@ -418,8 +420,13 @@ class _CameraShotRunner extends TrackRunner {
   int _boost = 0;
 
   @override
-  void apply(TimelineContext context, double time) {
-    final block = track.blockAt(time, includeEnd: context.endsAt(time));
+  void apply(TrackContext context, double time) {
+    // A shot ending at the timeline's end holds there while it turns
+    // round, but not once it has finished: the game gets its camera back.
+    final block = track.blockAt(
+      time,
+      includeEnd: context.endsAt(time) && !context.isFinished,
+    );
     if (identical(block, _current)) return;
     _release();
     _current = block;
@@ -443,7 +450,7 @@ class _CameraShotRunner extends TrackRunner {
   }
 
   @override
-  void end(TimelineContext context) {
+  void end(TrackContext context) {
     _release();
     _current = null;
   }
@@ -453,25 +460,40 @@ class _CameraShotRunner extends TrackRunner {
 
 /// Makes the sound an audio track's [cue] asks for, at entity [at].
 typedef TimelineAudioPlayer =
-    void Function(TimelineContext context, Entity at, TimelineBlock cue);
+    void Function(TrackContext context, Entity at, TimelineBlock cue);
 
 /// How an audio track makes a sound: through its world's context
 /// (`context.timelineAudio`), which a game with its own audio replaces. The
 /// default, [viaAudioSystem], asks the world's [AudioSystem] for a one-shot.
 abstract final class TimelineAudio {
   /// The default [TimelineAudioPlayer]: asks the world's [AudioSystem] to
-  /// play the cue's file (its value) once, flat, at its amount as the
-  /// volume and its speed ([AudioSystem.playOneShot]). A world without an
-  /// audio system stays quiet.
+  /// play the cue's file (its value) once, at its amount as the volume and
+  /// its speed ([AudioSystem.playOneShot]). It is heard from where [at] is
+  /// when [at] is a 3-D sound source — an [AudioSourceComponent] with
+  /// `is3D`, whose distances and channel it takes — and flat otherwise, as
+  /// a 2-D game's sounds are. A world without an audio system stays quiet.
   static void viaAudioSystem(
-    TimelineContext context,
+    TrackContext context,
     Entity at,
     TimelineBlock cue,
   ) {
-    context.world.getSystem<AudioSystem>()?.playOneShot(
+    final audio = context.world.getSystem<AudioSystem>();
+    if (audio == null) return;
+    final source = at.getComponent<AudioSourceComponent>();
+    final position = source != null && source.is3D
+        ? at.getComponent<TransformComponent>()?.position
+        : null;
+    if (source == null || position == null) {
+      audio.playOneShot(cue.value, volume: cue.amount, speed: cue.speed);
+      return;
+    }
+    audio.playOneShot(
       cue.value,
       volume: cue.amount,
       speed: cue.speed,
+      channel: source.channel,
+      position: position,
+      spatial: source.spatial,
     );
   }
 }
@@ -480,8 +502,11 @@ abstract final class TimelineAudio {
 /// the volume. A sound starts when time passes the block's start going
 /// forwards; scrubbing in an editor stays quiet.
 class AudioTrack extends BlockTrack {
-  /// A track of sound cues. A block with no file is skipped; a sound plays
-  /// at the bound entity, or the owner when the binding finds nobody.
+  /// A track of sound cues. A block with no file is skipped. A sound
+  /// belongs to the bound entity, or the owner when the binding finds
+  /// nobody: with the default player ([TimelineAudio.viaAudioSystem]) it
+  /// is heard from there when that entity is a 3-D sound source, and flat
+  /// otherwise.
   AudioTrack({
     super.blocks,
     super.name,
@@ -553,10 +578,10 @@ class _AudioRunner extends TrackRunner {
   double? _turnedAt;
 
   @override
-  void begin(TimelineContext context) => _turnedAt = null;
+  void begin(TrackContext context) => _turnedAt = null;
 
   @override
-  void advance(TimelineContext context, double from, double to) {
+  void advance(TrackContext context, double from, double to) {
     if (to == from) return;
     if (to < from) {
       _turnedAt = to;
@@ -577,6 +602,11 @@ class _AudioRunner extends TrackRunner {
 // ── Activation ──────────────────────────────────────────────────────────────
 
 /// The bound entity is active inside the blocks and inactive outside them.
+///
+/// Bound to the entity playing the timeline (the default), or a parent of
+/// it, the timeline goes on playing while it holds that entity off — a
+/// platform that blinks out and back. With no blocks the entity is off for
+/// the whole timeline.
 class ActivationTrack extends BlockTrack {
   /// A track whose [blocks] are when the entity is on; their value, speed,
   /// amount and loop are not used. After a play the entity stays as the
@@ -642,10 +672,10 @@ class _ActivationRunner extends TrackRunner {
   bool _wasActive = true;
 
   @override
-  void begin(TimelineContext context) => _entity = null;
+  void begin(TrackContext context) => _entity = null;
 
   @override
-  void apply(TimelineContext context, double time) {
+  void apply(TrackContext context, double time) {
     // The entity this switches off must still be found the next frame.
     final entity = context.resolve(track.binding, includeInactive: true);
     if (entity == null) return;
@@ -653,15 +683,23 @@ class _ActivationRunner extends TrackRunner {
       _entity = entity;
       _wasActive = entity.isActive;
     }
-    entity.isActive =
-        track.blockAt(time, includeEnd: context.endsAt(time)) != null;
+    // Through the context: bound to the entity playing the timeline (or a
+    // parent of it), this switches off its own player, which must go on
+    // playing to switch it back on.
+    context.switchActive(
+      entity,
+      track.blockAt(time, includeEnd: context.endsAt(time)) != null,
+    );
   }
 
   @override
-  void end(TimelineContext context) {
+  void end(TrackContext context) {
     // A look in an editor leaves nothing behind; a play leaves the entity
     // as the timeline put it.
-    if (context.isPreview) _entity?.isActive = _wasActive;
+    final entity = _entity;
+    if (context.isPreview && entity != null) {
+      context.switchActive(entity, _wasActive);
+    }
     _entity = null;
   }
 }
@@ -759,7 +797,7 @@ class _NestedRunner extends TrackRunner {
   static const int _maxLaps = 2;
 
   @override
-  void begin(TimelineContext context) {
+  void begin(TrackContext context) {
     _drop(context);
     if (context.depth >= NestedTimelineTrack.maxDepth) return;
     final generation = ++_generation;
@@ -791,7 +829,7 @@ class _NestedRunner extends TrackRunner {
 
   /// The child playing [path] — made now if its timeline is loaded and the
   /// bound entity exists, which may be later than the play began.
-  TimelinePlayback? _childFor(TimelineContext context, String path) {
+  TimelinePlayback? _childFor(TrackContext context, String path) {
     final existing = _children[path];
     if (existing != null) return existing;
     if (!_children.containsKey(path)) return null;
@@ -820,7 +858,7 @@ class _NestedRunner extends TrackRunner {
   }
 
   @override
-  void advance(TimelineContext context, double from, double to) {
+  void advance(TrackContext context, double from, double to) {
     if (from == to) return;
     final forwards = to > from;
     // Every block the step touches, in the order time meets them — a step
@@ -917,7 +955,7 @@ class _NestedRunner extends TrackRunner {
   }
 
   @override
-  void apply(TimelineContext context, double time) {
+  void apply(TrackContext context, double time) {
     final block = track.blockAt(time, includeEnd: context.endsAt(time));
     // A block a step went right through, never there at a frame: its
     // timeline still ends as it would have, on the edge time went out by.
@@ -951,7 +989,7 @@ class _NestedRunner extends TrackRunner {
     child.seek(_local(block, child, time, end: time >= block.end));
   }
 
-  void _drop(TimelineContext context) {
+  void _drop(TrackContext context) {
     _generation++;
     for (final child in _children.values) {
       child?.dispose();
@@ -962,5 +1000,5 @@ class _NestedRunner extends TrackRunner {
   }
 
   @override
-  void end(TimelineContext context) => _drop(context);
+  void end(TrackContext context) => _drop(context);
 }

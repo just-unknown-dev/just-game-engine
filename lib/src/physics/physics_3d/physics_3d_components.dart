@@ -136,7 +136,7 @@ class RigidBody3DComponent extends Component {
 }
 
 /// The shapes a [Collider3DComponent] can be.
-enum ColliderShape3D {
+enum Collider3DShape {
   /// A box [Collider3DComponent.size] big.
   box,
 
@@ -169,11 +169,11 @@ enum ColliderShape3D {
 
 /// The shape of its entity's [RigidBody3DComponent] — or, without one, of a static
 /// body made for it. It follows the entity's scale. Set to
-/// [ColliderShape3D.matchShape] it takes the shape its entity is drawn as.
+/// [Collider3DShape.matchShape] it takes the shape its entity is drawn as.
 class Collider3DComponent extends Component {
   /// A 1 m box, by default.
   Collider3DComponent({
-    this.shape = ColliderShape3D.box,
+    this.shape = Collider3DShape.box,
     Vector3? size,
     this.radius = 0.5,
     this.height = 2.0,
@@ -192,7 +192,7 @@ class Collider3DComponent extends Component {
        scale = scale ?? Vector3(1, 1, 1);
 
   /// Which shape.
-  ColliderShape3D shape;
+  Collider3DShape shape;
 
   /// Box: its full size along X, Y and Z.
   Vector3 size;
@@ -232,10 +232,10 @@ class Collider3DComponent extends Component {
   /// The shape's size before any scale, for an editor's outline:
   /// `size` for a box, `2 × radius` (and [height]) for the round ones.
   Vector3 get naturalSize => switch (shape) {
-    ColliderShape3D.box => Vector3.copy(size),
-    ColliderShape3D.sphere => Vector3(radius * 2, radius * 2, radius * 2),
-    ColliderShape3D.capsule ||
-    ColliderShape3D.cylinder => Vector3(radius * 2, height, radius * 2),
+    Collider3DShape.box => Vector3.copy(size),
+    Collider3DShape.sphere => Vector3(radius * 2, radius * 2, radius * 2),
+    Collider3DShape.capsule ||
+    Collider3DShape.cylinder => Vector3(radius * 2, height, radius * 2),
     _ => Vector3(1, 1, 1),
   };
 }

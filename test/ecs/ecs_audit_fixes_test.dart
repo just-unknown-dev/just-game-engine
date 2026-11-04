@@ -1,123 +1,16 @@
-// More audit fixes: a reactive system that lets go of what it watches and
-// watches what comes later, a spatial grid that survives bad bounds, and
-// 3-D culling that reads only the columns with an extent.
+// More audit fixes: a spatial grid that survives bad bounds. (The reactive
+// system's and 3-D culling's are in reactive/reactive_system_watch_test.dart
+// and rendering/culling_3d_columns_test.dart.)
 
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
-/// Counts the listeners on it.
-class Hp extends Component with ReactiveComponent {
-  Hp(this._hp);
-  double _hp;
-  int listeners = 0;
-
-  double get hp => _hp;
-  set hp(double v) {
-    if (_hp == v) return;
-    _hp = v;
-    notifyChange('hp');
-  }
-
-  @override
-  void addChangeListener(VoidCallback listener) {
-    listeners++;
-    super.addChangeListener(listener);
-  }
-
-  @override
-  void removeChangeListener(VoidCallback listener) {
-    listeners--;
-    super.removeChangeListener(listener);
-  }
-}
-
-class _Tracking extends ReactiveSystem {
-  final List<EntityId> processed = [];
-
-  @override
-  List<Type> get requiredComponents => const [Hp];
-
-  @override
-  void processEntity(Entity entity, double dt) => processed.add(entity.id);
-}
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('reactive system watches (C15)', () {
-    late World world;
-    late WorldSignal signal;
-    late _Tracking system;
-    setUp(() {
-      world = World(extensions: [BuiltInComponents.extension])..initialize();
-      signal = WorldSignal(world);
-      system = _Tracking()..setWorldSignal(signal);
-    });
-    tearDown(() {
-      signal.dispose();
-      world.dispose();
-    });
-
-    test('lets go of every listener when removed', () {
-      final hp = Hp(10);
-      world.createEntityWithComponents([hp]);
-      world.addSystem(system);
-      expect(hp.listeners, 1);
-      world.removeSystem(system);
-      expect(hp.listeners, 0);
-    });
-
-    test('watching twice does not listen twice', () {
-      final hp = Hp(10);
-      final e = world.createEntityWithComponents([hp]);
-      world.addSystem(system);
-      system.watchEntity(e);
-      system.watchEntity(e);
-      expect(hp.listeners, 1);
-    });
-
-    test('watches entities made later, and lets destroyed ones go', () {
-      world.addSystem(system);
-      world.update(0.016); // the first run
-      system.processed.clear();
-
-      final hp = Hp(10);
-      final e = world.createEntityWithComponents([hp]);
-      world.update(0.016);
-      expect(system.processed, [e.id], reason: 'processed once, arriving');
-      expect(hp.listeners, 1);
-
-      system.processed.clear();
-      hp.hp = 5;
-      world.update(0.016);
-      expect(system.processed, [e.id], reason: 'a change is seen');
-
-      world.destroyEntity(e);
-      world.update(0.016);
-      expect(hp.listeners, 0);
-    });
-
-    test('a replaced component is watched instead of the old one', () {
-      final old = Hp(10);
-      final e = world.createEntityWithComponents([old]);
-      world.addSystem(system);
-      world.update(0.016);
-      final next = Hp(20);
-      e.addComponent(next);
-      world.update(0.016);
-      expect(old.listeners, 0);
-      expect(next.listeners, 1);
-      system.processed.clear();
-      next.hp = 1;
-      world.update(0.016);
-      expect(system.processed, [e.id]);
-    });
-  });
-
-  group('spatial grid with bad bounds (C16)', () {
+  group('spatial grid with bad bounds', () {
     late World world;
     setUp(() => world = World(extensions: [BuiltInComponents.extension]));
     tearDown(() => world.dispose());
@@ -192,60 +85,6 @@ void main() {
       );
       expect(grid.query(Rect.largest), unorderedEquals([a, b]));
       expect(grid.query(const Rect.fromLTWH(double.nan, 0, 1, 1)), isEmpty);
-    });
-  });
-
-  group('3-D culling by the columns with an extent (P5)', () {
-    late World world;
-    setUp(() {
-      world = World(extensions: [BuiltInComponents.extension]);
-      world.addSystem(
-        ViewCullingSystem(
-          camera: Camera(
-            viewportSize: const Size(400, 400),
-            z: -10,
-            lens: const CameraLens.perspective(fieldOfView: math.pi / 2),
-          ),
-        )..activeDistance = 1,
-      );
-    });
-    tearDown(() => world.dispose());
-
-    test('an entity outside the view but reaching into it is visible, and '
-        'a size change is seen', () {
-      // At x 200, far beyond the view's edge (10 at this distance) —
-      // unless its rectangle reaches back into it.
-      final rect = Rectangle2DComponent(width: 500, height: 4);
-      final e = world.createEntityWithComponents([
-        TransformComponent(position: Vector3(200, 0, 0)),
-        CullStateComponent(),
-        rect,
-        TagComponent('wide'),
-      ]);
-      final cull = e.getComponent<CullStateComponent>()!;
-      world.update(1 / 60);
-      expect(cull.isVisible, isTrue);
-
-      // A smaller rectangle in its place: out of view.
-      e.addComponent(Rectangle2DComponent(width: 2, height: 2));
-      world.update(1 / 60);
-      expect(cull.isVisible, isFalse);
-    });
-
-    test('several shapes in one column are each measured', () {
-      final wide = world.createEntityWithComponents([
-        TransformComponent(position: Vector3(200, 0, 0)),
-        CullStateComponent(),
-        Rectangle2DComponent(width: 500, height: 4),
-      ]);
-      final round = world.createEntityWithComponents([
-        TransformComponent(position: Vector3(200, 0, 0)),
-        CullStateComponent(),
-        Circle2DComponent(radius: 1),
-      ]);
-      world.update(1 / 60);
-      expect(wide.getComponent<CullStateComponent>()!.isVisible, isTrue);
-      expect(round.getComponent<CullStateComponent>()!.isVisible, isFalse);
     });
   });
 }

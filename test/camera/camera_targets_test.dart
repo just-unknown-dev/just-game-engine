@@ -14,14 +14,14 @@ T _roundTrip<T extends Component>(T component) =>
 
 void main() {
   late World world;
-  late CameraSystem cameras;
+  late CameraEngine cameras;
 
   Camera output() => cameras.mainCamera;
   CameraBrain brain() => cameras.brain;
 
   setUp(() {
     world = World();
-    cameras = CameraSystem()..initialize();
+    cameras = CameraEngine()..initialize();
     cameras.mainCamera.viewportSize = _view;
     cameras.brain.defaultBlend = CameraBlend.cut;
     registerCameraSystems(world, cameras);
@@ -329,7 +329,7 @@ void main() {
   });
 
   test('a trigger is sized and resized like a shape', () {
-    final extent = CameraDefinitions.trigger.extent!;
+    final extent = CameraTargetDefinitions.trigger.extent!;
     final trigger = CameraTriggerComponent(width: 400, height: 200);
     expect(extent.sizeOf(trigger), const Size(400, 200));
     expect(extent.scale(trigger, 0.5, 2), isTrue);

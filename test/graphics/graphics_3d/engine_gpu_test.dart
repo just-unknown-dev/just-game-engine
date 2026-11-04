@@ -37,7 +37,7 @@ void main() {
         'Crate': [TransformComponent(position: Vector3(0, 0.5, 0)), ModelComponent(model: cubePath)],
         'Sun': [
           TransformComponent(euler: Vector3(-1.2, 0.4, 0)),
-          Light3DComponent(kind: LightKind.directional, intensity: 3),
+          Light3DComponent(kind: Light3DKind.directional, intensity: 3),
         ],
         'Sky': [EnvironmentComponent()],
       }),

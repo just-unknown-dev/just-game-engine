@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_physics_engine/just_physics_engine.dart'
+    show BodyPair, SpatialGrid;
 
 // Helper to build a simple circle body at the given position.
 PhysicsBody _circle({

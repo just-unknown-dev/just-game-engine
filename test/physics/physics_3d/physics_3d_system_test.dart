@@ -226,7 +226,7 @@ void main() {
         final terrain = world.createEntityWithComponents([
           TransformComponent(),
           Collider3DComponent(
-            shape: ColliderShape3D.heightField,
+            shape: Collider3DShape.heightField,
             heights: List.filled(16, 0.0),
             heightFieldSize: 4,
           ),

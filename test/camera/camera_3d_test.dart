@@ -119,7 +119,7 @@ void main() {
       final hit = camera.screenToWorld(const Offset(50, 50));
       expect(hit.dx, closeTo(0, 1e-6));
       expect(hit.dy, closeTo(0, 1e-6), reason: 'straight down its axis');
-      final bounds = camera.getVisibleBounds();
+      final bounds = camera.visibleBounds;
       expect(bounds.contains(Offset.zero), isTrue);
     });
   });

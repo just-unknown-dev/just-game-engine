@@ -1,9 +1,5 @@
 // Parallax on entities: a ParallaxComponent is scrolled and drawn behind the
-// world by ParallaxRenderSystem, one of the default systems — and the
-// deprecated engine.parallax list stands aside for a background a component
-// already draws.
-
-// ignore_for_file: deprecated_member_use_from_same_package
+// world by ParallaxRenderSystem, one of the default systems.
 
 import 'dart:ui' as ui;
 
@@ -44,7 +40,8 @@ ParallaxBackground _background(
       scrollFactorX: scrollFactorX,
       scrollFactorY: 0,
       velocityX: velocityX,
-      repeat: false,
+      repeatX: false,
+      repeatY: false,
     ),
   ],
 );
@@ -142,26 +139,67 @@ void main() {
     expect(hooks.isEmpty, isTrue);
   });
 
-  test('the deprecated list skips a background a component draws', () {
-    final bg = _background(sky);
-    final legacy = ParallaxSystem()..addBackground(bg);
+  test('a layer scrolls with the camera\'s zoom', () {
+    final bg = _background(sky, scrollFactorX: 0.5);
+    world.createEntityWithComponents([ParallaxComponent(background: bg)]);
+    camera
+      ..position = const Offset(40, 0)
+      ..zoom = 2;
+    camera.viewportSize = size;
+    world.update(0);
+
+    final canvas = _Draws();
+    hooks(canvas, size);
+    expect(bg.cameraZoom, closeTo(2, 1e-9));
+    // At zoom 2 the world moves 80 px for the camera's 40: half of that.
+    expect(canvas.images.single.$2.left, closeTo(-40, 1e-9));
+  });
+
+  test('a background shared by two entities scrolls and draws once', () {
+    final bg = _background(sky, scrollFactorX: 0, velocityX: 10);
+    world.createEntityWithComponents([ParallaxComponent(background: bg)]);
+    world.createEntityWithComponents([ParallaxComponent(background: bg)]);
+    world.update(1);
+
+    final canvas = _Draws();
+    hooks(canvas, size);
+    expect(canvas.images, hasLength(1));
+    expect(canvas.images.single.$2.left, -10);
+  });
+
+  test('a component taken off releases its background\'s shaders', () {
+    final bg = ParallaxBackground(layers: [ParallaxLayer(image: sky)]);
     final entity = world.createEntityWithComponents([
       ParallaxComponent(background: bg),
     ]);
     world.update(0);
-
-    final both = _Draws();
-    legacy.render(both, size);
-    hooks(both, size);
-    expect(both.images, hasLength(1), reason: 'drawn once, not twice');
-
-    // Once no component holds it, the list draws it again.
+    Shader? drawn;
+    final canvas = _Draws();
+    hooks(canvas, size);
+    for (final i in canvas.invocations) {
+      if (i.invocation.memberName != #drawRect) continue;
+      drawn = (i.invocation.positionalArguments[1] as Paint).shader;
+    }
+    expect(drawn, isA<ImageShader>());
     world.destroyEntity(entity);
-    world.update(0);
-    final listOnly = _Draws();
-    legacy.render(listOnly, size);
-    hooks(listOnly, size);
-    expect(listOnly.images, hasLength(1));
+    expect(drawn!.debugDisposed, isTrue);
+  });
+
+  test('in an engine, a background is drawn by its component only', () async {
+    final engine = Engine(
+      config: const EngineConfig(defaultSystems: DefaultSystems.all),
+    );
+    addTearDown(engine.dispose);
+    await engine.initialize();
+    final bg = _background(sky);
+    engine.world.createEntityWithComponents([
+      ParallaxComponent(background: bg),
+    ]);
+    engine.world.update(0);
+
+    final canvas = _Draws();
+    engine.rendering.backgroundHooks(canvas, size);
+    expect(canvas.images, hasLength(1));
   });
 
   test('a default system, on the engine\'s background hooks', () async {
@@ -174,7 +212,7 @@ void main() {
     final parallax = engine.world.getSystem<ParallaxRenderSystem>();
     expect(parallax, isNotNull);
     expect(parallax!.backgroundHooks, same(engine.rendering.backgroundHooks));
-    expect(parallax.camera, same(engine.cameraSystem.mainCamera));
+    expect(parallax.camera, same(engine.camera.mainCamera));
 
     final headless = Engine(
       config: const EngineConfig(defaultSystems: DefaultSystems.headless),

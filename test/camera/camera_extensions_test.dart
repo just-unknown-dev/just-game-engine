@@ -275,7 +275,7 @@ void main() {
   });
 
   test('camera bounds are sized and resized like a shape', () {
-    final extent = CameraDefinitions.bounds.extent!;
+    final extent = CameraFramingDefinitions.bounds.extent!;
     final level = CameraBoundsComponent(width: 400, height: 200);
     expect(extent.sizeOf(level), const Size(400, 200));
     expect(extent.scale(level, 2, 0.5), isTrue);

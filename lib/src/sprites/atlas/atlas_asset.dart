@@ -47,9 +47,16 @@ class AtlasAsset extends Asset {
           'An AtlasAsset loads through an AssetManager: use '
           'SpriteAtlas.fromAsset(path, assets: engine.assets).',
         ));
-    // Load the JSON via AssetManager (cached, deduped with other json loads).
-    final jsonAsset = await assets.loadJson(path);
-    final json = jsonAsset.data as Map<String, dynamic>;
+    // The JSON through AssetManager (deduped with other users of the file),
+    // held only while it is parsed: the atlas keeps what it needs, so the
+    // file is not kept loaded for as long as the atlas is.
+    final jsonAsset = await assets.acquire(path, AssetType.json) as JsonAsset;
+    final Map<String, dynamic> json;
+    try {
+      json = jsonAsset.data as Map<String, dynamic>;
+    } finally {
+      assets.release(path, AssetType.json);
+    }
 
     // Parse + load page textures (each image also goes through AssetManager).
     _atlas = await SpriteAtlas._buildFromJson(json, path, assets);
@@ -68,7 +75,7 @@ class AtlasAsset extends Asset {
   }
 
   @override
-  int getMemoryUsage() {
+  int get memoryUsage {
     // Page GPU memory is tracked by the underlying ImageAssets already.
     // Charge a flat overhead for the region / clip map entries.
     return (_atlas?.regionCount ?? 0) * 128 +

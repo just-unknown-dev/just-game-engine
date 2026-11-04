@@ -12,7 +12,7 @@ class _Logged extends Renderable {
   void render(Canvas canvas, Size size) {}
 
   @override
-  Rect? getBounds() => null;
+  Rect? get bounds => null;
 }
 
 class _Other extends RenderItem {

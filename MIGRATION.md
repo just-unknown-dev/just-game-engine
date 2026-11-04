@@ -8,22 +8,22 @@ Scene files saved by earlier versions still load: they are migrated in memory wh
 
 ## Checklist
 
-- [ ] Raise the constraints: `just_game_engine: ^2.0.0-dev.1`, Flutter 3.47.1 or newer ([Dependencies](#dependencies)).
+- [ ] Raise the constraints: `just_game_engine: ^2.0.0-dev.4`, Flutter 3.47.1 or newer ([Dependencies](#dependencies)).
 - [ ] Create the engine with `Engine(config: ...)`, `await initialize()` before `runApp`, and dispose it once. Replace `Engine.instance` with a reference you pass around ([Engine setup](#engine-setup-and-lifecycle)).
 - [ ] Add the standard systems through `EngineConfig.defaultSystems`, or give `Physics2DSystem` the engine's physics ([Systems](#systems)).
 - [ ] Physics bodies: `PhysicsBodyComponent` becomes a `RigidBody2DComponent` and a `Collider2DComponent`, with 3-D's names and defaults; `bodyType` instead of `isStatic`, a layer number instead of a layer bit, colliders that follow scale, and the `...2D` events ([Physics bodies](#physics-bodies)).
 - [ ] If you used achievements, sign-in, leaderboards, currency, inventory or ads: add `just_game_services` ([Game services](#game-services)).
 - [ ] `transform.rotation` becomes `transform.angle` ([Transforms](#transforms)).
-- [ ] Drop `HierarchySystem` and rename `localOffset` to `localPosition` ([The transform hierarchy](#the-transform-hierarchy)).
+- [ ] Drop `HierarchySystem` (removed) and rename `localOffset` to `localPosition` ([The transform hierarchy](#the-transform-hierarchy)).
 - [ ] Replace camera behaviours and `CameraFollowComponent` with virtual cameras ([Cameras](#cameras)).
 - [ ] Read input as actions from `just_inputs` ([Input](#input)).
 - [ ] Move text, buttons and progress bars to `just_ui_editor` or to Flutter widgets ([In-game UI](#in-game-ui)).
 - [ ] Replace the Tiled components with `LevelMapComponent` ([Tile maps](#tile-maps-and-level-maps)).
 - [ ] Replace `engine.animation`, tweens and `AnimationStateComponent` ([Sprites and animation](#sprites-and-animation)).
 - [ ] Read tags with `hasTag` / `tags` ([Tags and targets](#tags-and-targets)).
-- [ ] Move render hooks to the hook chains; give debug drawers a camera ([Rendering](#rendering)).
+- [ ] Move render hooks to the hook chains; draw collider outlines with a `ColliderDebuggerSystem` given a camera ([Rendering](#rendering)).
 - [ ] Fix imports: `package:just_game_engine/widgets.dart` for the widgets, and the source package for names no longer re-exported ([Imports](#imports)).
-- [ ] Check the lists of [removed](#removed-apis), [renamed](#renamed-apis) and [deprecated](#deprecated-apis) APIs.
+- [ ] Check the lists of [removed](#removed-apis) and [renamed](#renamed-apis) APIs. Coming from an earlier 2.0 dev release, check [Renamed in 2.0.0-dev.4](#renamed-in-200-dev4) and [Removed in 2.0.0-dev.4](#removed-in-200-dev4) too.
 - [ ] Re-test what [behaves differently](#behaviour-you-may-notice).
 - [ ] Using joints or audio streams? Read the [known limitations](#known-limitations-in-200).
 
@@ -35,15 +35,14 @@ environment:
   flutter: ">=3.47.1"
 
 dependencies:
-  just_game_engine: ^2.0.0-dev.1
-  # Only if you use the game services (achievements, auth, leaderboards,
-  # currency, inventory, ads):
-  just_game_services: ^0.1.0
+  just_game_engine: ^2.0.0-dev.4
 ```
 
-2.0 is out as a dev release, 2.0.0-dev.1; a `^2.0.0` constraint does not pick it up.
+`just_game_services` (achievements, auth, leaderboards, currency, inventory, ads) is not yet on pub.dev; see [Game services](#game-services).
 
-2.0 needs Flutter 3.47.1 or newer: `just_graphics_engine` needs the first stable where Flutter GPU can be switched on in Windows and Linux release builds, and `just_inputs` and `just_audio_engine` build their Android code with Flutter's built-in Kotlin. The engine now depends on `just_inputs`, `just_deflate`, `just_game_engine_formats`, `just_graphics_engine` and `path_provider`, and on `just_physics_engine` 1.4.0, `just_audio_engine` 1.1.0, `just_tiled` 0.4 and `just_dart` 0.2.0. It no longer depends on `web`.
+2.0 is out as dev releases, now 2.0.0-dev.4; a `^2.0.0` constraint does not pick them up.
+
+2.0 needs Flutter 3.47.1 or newer: `just_graphics_engine` needs the first stable where Flutter GPU can be switched on in Windows and Linux release builds, and `just_inputs` and `just_audio_engine` build their Android code with Flutter's built-in Kotlin. The engine now depends on `just_inputs`, `just_deflate`, `just_game_engine_formats` (0.3.0, for scene format 11), `just_graphics_engine` and `path_provider`, and on `just_physics_engine` 1.4.1, `just_audio_engine` 1.1.0, `just_tiled` 0.4 and `just_dart` 0.2.0. It no longer depends on `web`.
 
 ## Engine setup and lifecycle
 
@@ -150,7 +149,7 @@ The `FutureBuilder` is optional: a `GameWidget` given an engine that is still in
 | `start()` before `initialize()` printed a message | throws a `StateError` unless the engine is `initialized` |
 | `void dispose()`; the singleton could be reset and reused | `Future<void> dispose()`, and it is final: make a new `Engine()` to start over |
 | `rendering`, `physics`, `world`, … were `late final` fields (a `LateInitializationError` before `initialize`) | getters that throw `EngineNotReadyError` naming the member, before `initialize` and after `dispose` |
-| `getSystem<T>()` | `subsystem<T>()` (`getSystem` is deprecated) |
+| `getSystem<T>()` | `subsystem<T>()` (`getSystem` is removed) |
 
 A failed start can be reported and retried:
 
@@ -172,12 +171,10 @@ Everything that shapes an engine is in one `EngineConfig`, given to the construc
 |---|---|
 | `defaultSystems` | The standard ECS systems to add (below). Empty by default. |
 | `extensions` | `ContextExtension`s to install: a package's component definitions, migrations and registries. |
-| `services` | `EngineService`s started with the engine (see [Game services](#game-services)). |
+| `services` | `EngineService`s started with the engine, in the order listed (see [Game services](#game-services)). 3-D is two services from `package:just_game_engine/just_game_engine_3d.dart`: `services: [Graphics3D(), Physics3D()]`. `Graphics3D` draws 3-D on Flutter GPU (list it before any service that loads models as it starts); `Physics3D` gives the engine 3-D bodies on Jolt, and the app's pubspec must build Jolt (`hooks: user_defines: just_jolt: build: true`). Without them a game is 2-D only: no GPU device, no shaders loaded and no 3-D code. |
 | `createRendering` | Builds your own `RenderingEngine`. |
 | `createAudio` | Builds the `AudioEngine`, for example `AudioEngine.withBackend(...)`. |
 | `createPhysics` | Builds the 2-D `PhysicsEngine` (`engine.physics`). Null makes the standard one: native Box2D, pure Dart on the web. |
-| `graphics3D` | A `Graphics3D` (`package:just_game_engine/just_game_engine_3d.dart`) draws 3-D on Flutter GPU. Null: 2-D only, no GPU device and no shaders loaded. |
-| `physics3D` | A `Physics3D` (`package:just_game_engine/just_game_engine_3d.dart`) gives the engine 3-D bodies on Jolt; the app's pubspec must build Jolt (`hooks: user_defines: just_jolt: build: true`). Null: a 2-D game carries no 3-D. |
 | `deferAudioUntilInput` | Start audio at the first key or pointer press. `null` (the default) means on the web only, where browsers keep audio made before a user gesture suspended. |
 
 `initialize(config: ...)` still takes a config and replaces the constructor's; prefer `Engine(config: ...)`.
@@ -197,7 +194,7 @@ final speedBoostDefinition = ComponentDefinition<SpeedBoostComponent>(
   type: 'SpeedBoostComponent',
   create: SpeedBoostComponent.new,
   fields: [
-    SchemaField(
+    FieldDefinition(
       name: 'factor',
       kind: FieldTypes.decimal,
       read: (c) => (c as SpeedBoostComponent).factor,
@@ -241,9 +238,9 @@ final engine = Engine(
 );
 ```
 
-`DefaultSystems.all` adds `InputSystem`, `Physics2DSystem` (with `PhysicsJointBindingSystem`), `MovementSystem`, `AudioSystem`, `RenderSystem` and `ParallaxRenderSystem`, the sprite, animator and timeline systems, `LevelMapSystem`, `MapCollisionSystem` and the camera systems. `DefaultSystems.headless` leaves out rendering and audio. Pick single ones with a set of `DefaultSystem` values. Nothing is added twice: a system you added yourself, configured your way, is kept. The same function is public as `registerDefaultSystems(world, engine)`.
+`DefaultSystems.all` adds `InputSystem`, `Physics2DSystem` (which also makes the 2-D joints and moves the characters), `MovementSystem`, `AudioSystem`, `RenderSystem` and `ParallaxRenderSystem`, the sprite systems (`DefaultSystem.sprites`), the animator (`DefaultSystem.animation`), the timeline systems (`DefaultSystem.timelines`), `LevelMapSystem`, `MapCollisionSystem` and the camera systems. `DefaultSystems.headless` leaves out rendering and audio. Pick single ones with a set of `DefaultSystem` values; a set written for 2.0.0-dev.3 or earlier that names `DefaultSystem.sprites` adds `animation` and `timelines` to keep its animators and timelines. Nothing is added twice: a system you added yourself, configured your way, is kept. The same function is public as `registerDefaultSystems(world, engine)`.
 
-`ParticleSystem`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `EffectSystem` and the rest are not defaults: add the ones you use.
+`ParticleSystem` (1.6's `ParticleSystemECS`), `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `EffectSystem` (1.6's `EffectSystemECS`) and the rest are not defaults: add the ones you use.
 
 A game that keeps adding its systems itself needs no change here, apart from the constructors below.
 
@@ -251,7 +248,7 @@ A game that keeps adding its systems itself needs no change here, apart from the
 
 | 1.6 | 2.0 |
 |---|---|
-| `PhysicsSystem()` — its own simple solver, with `gravity` and `broadPhaseCellSize` | `Physics2DSystem(engine.physics, camera: ...)` steps and syncs the engine's physics (Box2D on native, pure Dart on the web); set gravity with `engine.physics.setGravity(x, y)` |
+| `PhysicsSystem()` — its own simple solver, with `gravity` and `broadPhaseCellSize` | `Physics2DSystem(engine.physics)` steps and syncs the engine's physics (Box2D on native, pure Dart on the web); set gravity with `engine.physics.setGravity(x, y)` |
 | `PhysicsBridgeSystem` next to it | removed: `Physics2DSystem` syncs bodies itself |
 | `InputSystem(engine.input)..buttonMappings = {...}` | `InputSystem(engine.input, maps: ['player'])` (see [Input](#input)) |
 | `CheckpointSystem(playerTag: ...)` | also takes `camera:` for its debug drawing |
@@ -268,11 +265,11 @@ engine.world
 After (2.0):
 
 ```dart
-final camera = engine.cameraSystem.mainCamera;
+final camera = engine.camera.mainCamera;
 engine.physics.setGravity(0, 980);
 engine.world
   ..addSystem(RenderSystem(camera: camera))
-  ..addSystem(Physics2DSystem(engine.physics, camera: camera));
+  ..addSystem(Physics2DSystem(engine.physics));
 ```
 
 `PhysicsBodyComponent` is now two components; see [Physics bodies](#physics-bodies).
@@ -285,29 +282,32 @@ engine.world
 // 1.6
 PhysicsBodyComponent(
   shape: RectangleShape(32, 48),
-  fixedRotation: true,
   restitution: 0,
 );
 
 // 2.0
-RigidBody2DComponent(lockRotation: true, friction: 0.2),
+RigidBody2DComponent(friction: 0.2),
 Collider2DComponent(size: Vector2(32, 48)),
 ```
+
+Rows marked "pre-release 2.0" are fields that 1.6 did not have: they were added to `PhysicsBodyComponent` while 2.0 was being built, and only matter if you built on a pre-release.
 
 | `PhysicsBodyComponent` | 2.0 |
 |---|---|
 | `shape: RectangleShape(w, h)` | `Collider2DComponent(size: Vector2(w, h))` (`box`, the default shape) |
-| `shape: CircleShape(r)` | `Collider2DComponent(shape: ColliderShape2D.circle, radius: r)` |
+| `shape: CircleShape(r)` | `Collider2DComponent(shape: Collider2DShape.circle, radius: r)` |
 | `CapsuleShape`, `PolygonShape`, `SegmentShape`, `ChainShape` | `capsule` (`radius`, `height`), `polygon` (`points`), `segment`, `chain` (`points`, `loop`) |
-| a shape sized to match the sprite or rectangle | `ColliderShape2D.matchShape`: whatever the entity draws, kept in step as it changes |
-| `offset`, `isOneWay`, `oneWayDirection`, `showDebugOutline` | `Collider2DComponent.offset`, `oneWay`, `oneWayDirection`, `showDebugOutline` |
-| `isStatic`, `effectiveBodyType` | `RigidBody2DComponent.bodyType` (`isStatic` stays as a read-only getter) |
+| a shape sized to match the sprite or rectangle | `Collider2DShape.matchShape`: whatever the entity draws, kept in step as it changes |
+| `isOneWay` | `Collider2DComponent.oneWay` (and `oneWayDirection`) |
+| `offset`, `oneWayDirection`, `showDebugOutline` (pre-release 2.0) | `Collider2DComponent.offset`, `oneWayDirection`, `showDebugOutline` |
+| `isStatic`; `effectiveBodyType` (pre-release 2.0) | `RigidBody2DComponent.bodyType` (`isStatic` stays as a read-only getter) |
 | `drag` | `linearDamping` |
-| `fixedRotation` | `lockRotation` |
-| `isBullet` | `continuousCollision` |
+| `fixedRotation`, `isBullet` (pre-release 2.0) | `lockRotation`, `continuousCollision` |
 | `collisionMask`, `canCollideWith`, `layer` as a bit | `layer` as a layer number, `collidesWith`, `PhysicsLayers.collides` |
-| `mass`, `friction`, `restitution`, `gravityScale`, `isSensor`, `angularDamping`, `canSleep`, `initialVelocity`, `initialAngularVelocity`, `groupIndex` | the same names, on `RigidBody2DComponent` |
-| `isGrounded`, `groundEntity`, `groundNormal` | the same names, on `RigidBody2DComponent`, with `linearVelocity`, `angularVelocity` and `isAwake` |
+| `categoryBits`, `maskBits` | `layer` (a number) and `collidesWith` |
+| `mass`, `restitution`, `isSensor`, `groupIndex` | the same names, on `RigidBody2DComponent` |
+| `friction`, `gravityScale`, `angularDamping`, `canSleep`, `initialVelocity`, `initialAngularVelocity` (pre-release 2.0) | the same names, on `RigidBody2DComponent` |
+| `isGrounded`; `groundEntity`, `groundNormal` (pre-release 2.0) | the same names, on `RigidBody2DComponent`, with `linearVelocity`, `angularVelocity` and `isAwake` |
 
 Code that read the body for its shape reads the collider: `entity.getComponent<Collider2DComponent>()`. Code that steered it reads the rigid body: `entity.getComponent<RigidBody2DComponent>()`.
 
@@ -345,11 +345,11 @@ To make a body collide with nothing for a while — a platform that crumbles —
 
 `CollisionStay2DEvent` is new: every step two bodies keep touching, once `Physics2DSystem.reportContactStay` is on (it is off, so nothing pays for it unasked).
 
-**Queries.** `Physics2DQueries(engine.physics, physicsSystem)` casts rays (`raycast`, `raycastAll`) and circles (`circleCast`) and finds overlaps (`overlapCircle`, `overlapBox`), filtered by layer, answering with entities (`Physics2DHit`).
+**Queries.** `physicsSystem.queries` (a `Physics2DQueries`) casts rays (`raycast`, `raycastAll`) and circles (`circleCast`) and finds overlaps (`overlapCircle`, `overlapBox`), filtered by layer, answering with entities (`Physics2DHit`).
 
-**Joints** are 3-D's names with a `2D` suffix, and point at the other body with an `EntityTarget` (a name, a tag or `self`) instead of a name string:
+**Joints** are 3-D's names with a `2D` suffix, and point at the other body with an `EntityTarget` (a name, a tag or `self`) instead of a name string. 1.6 had no joint components; these rows are for code built on a pre-release 2.0:
 
-| 1.6 | 2.0 |
+| pre-release 2.0 | 2.0 |
 |---|---|
 | `DistanceJointComponent` | `DistanceJoint2DComponent` |
 | `WeldJointComponent` | `FixedJoint2DComponent` |
@@ -368,6 +368,8 @@ Every joint also has `enabled`; off, the joint is not made.
 ## Game services
 
 Achievements, sign-in, leaderboards, currency, inventory and ads moved to the package `just_game_services`. In 1.6 every engine built all six; in 2.0 a game lists the ones it uses, and the engine starts them in `initialize()` and stops them in `dispose()`. `engine.achievements` and the others are extension getters from that package; they throw a `StateError` naming the fix when the engine has no such service.
+
+`just_game_services` is not on pub.dev yet, so a hosted dependency on it does not resolve until it is published; watch the [engine repository](https://github.com/just-unknown-dev/just-game-engine) for its release.
 
 Before (1.6):
 
@@ -455,7 +457,7 @@ In 1.6 a child followed its parent only if the game added `HierarchySystem`, whi
 
 What to change:
 
-- Remove `HierarchySystem` (deprecated; it only asks the world for an extra pass).
+- Remove `HierarchySystem`: it is gone, since the world keeps the hierarchy itself.
 - `ParentComponent(localOffset:, localRotation:)` becomes `ParentComponent(localPosition:, localRotation:, localScale:)`, with `localRotation` an `EulerRotation`. A link made with any of them places the child at them on the next update, whatever its `TransformComponent` says. Unlike `localOffset`, which was added to the parent's position, the offset turns and scales with the parent. Leave them all out and the child stays where its `TransformComponent` puts it; its offset is worked out from that. Scenes load their links this way.
 - Nothing else. A `ParentComponent` is the whole link: the world lists the child in the parent's `ChildrenComponent` (making one when the parent has none), moves it when `parentId` changes, and takes it off when the link is removed or the child is destroyed. Code that added a `ChildrenComponent` by hand can go; replacing the parent's `ChildrenComponent` with a new one drops the children it does not list.
 - Something that writes a child's world transform itself (physics, a timeline, your code) is noticed, and the child stays where it was put. `ParentComponent(inheritTransform: false)` keeps a link that should not move the child at all.
@@ -491,7 +493,7 @@ Destroying an entity now destroys its children too; see [Behaviour you may notic
 
 The 1.6 camera followed through behaviours added to `CameraSystem` (`SpringFollowBehavior`, `LookaheadBehavior`, …) or a `CameraFollowComponent` on the target. All of that is gone. In 2.0 a shot is an entity with a `VirtualCameraComponent`; the camera brain (`engine.cameraSystem.brain`) picks the enabled shot with the highest priority and blends the output camera (`engine.cameraSystem.mainCamera`) to it. How the shot moves is decided by stage components on the same entity. `Camera` is only the output: position, zoom, rotation, lens, screen/world conversion, visible bounds and screen effects.
 
-The camera systems are in `DefaultSystems.all`, or add them with `registerCameraSystems(world, engine.cameraSystem)`. With no virtual camera in the world the brain leaves the output camera alone, so a game that moves `mainCamera` itself keeps working.
+The camera systems are in `DefaultSystems.all`, or add them with `registerCameraSystems(world, engine.camera)`. With no virtual camera in the world the brain leaves the output camera alone, so a game that moves `mainCamera` itself keeps working.
 
 | 1.6 | 2.0 |
 |---|---|
@@ -536,7 +538,7 @@ world.createEntityWithComponents([
 ], name: 'Main Camera');
 
 // A shake: every listening shot feels it, by distance.
-engine.cameraSystem.brain.emitImpulse(
+engine.camera.brain.emitImpulse(
   CameraImpulse(position: const Offset(640, 360), amplitude: 12),
 );
 ```
@@ -648,7 +650,7 @@ Input keeps running while the engine is paused, so menus and rebinding work. Pla
 
 ## In-game UI
 
-The engine no longer draws HUDs or menus. `TextComponent`, `ButtonComponent` and `UIComponent` moved to the package `just_ui_editor`, with the same names; `LinearProgressComponent` and `CircularProgressComponent` were dropped (`just_ui_editor` has `UiProgressComponent`). `just_ui_editor` also has screens saved as `.ui.json` assets and drawn as real Flutter widgets, themes, bindings and an editor. It is not published on pub.dev: depend on it by path or git.
+The engine no longer draws HUDs or menus. `TextComponent`, `ButtonComponent` and `UIComponent` moved to the package `just_ui_editor`, with the same names; `LinearProgressComponent` and `CircularProgressComponent` were dropped (`just_ui_editor` has `UiProgressComponent`). `just_ui_editor` also has screens saved as `.ui.json` assets and drawn as real Flutter widgets, themes, bindings and an editor. It is not published on pub.dev: install it from the editor's Asset Store, or depend on it by path or git.
 
 For a simple HUD, a Flutter widget over the game is enough — `GameWidget.overlay` sits above the game and below the FPS counter and terminal:
 
@@ -828,7 +830,7 @@ Scenes saved by pre-release 2.0 builds with an `AnimatedSpriteComponent` load as
 | 1.6 | 2.0 |
 |---|---|
 | `TagComponent('enemy')` | the same, or `TagComponent.of(['enemy', 'flying'])` |
-| `tagComponent.tag` | `tagComponent.tags`, `has(tag)`, `add`, `remove` (`tag` is deprecated and reads the first) |
+| `tagComponent.tag` | `tagComponent.tags`, `has(tag)`, `add`, `remove` (`tag` is removed) |
 | `entity.getComponent<TagComponent>()?.tag == 'enemy'` | `entity.hasTag('enemy')` |
 | scanning `world.entities` for a tag | `world.allTagged('enemy')`, `world.findTagged('player')` |
 | `CheckpointSystem(playerTag: 'player')`, `DialogueSystem(playerTag: ...)` | unchanged; the default is `EngineTags.player` (`'player'`) |
@@ -850,7 +852,7 @@ Components that point at another entity take an `EntityTarget`: `EntityTarget.na
 
 ### Render hooks
 
-`RenderingEngine.onRenderOverlay` and `onRenderBackground` held one function each, and the first writer won. They are now chains (`overlayHooks`, `backgroundHooks`), so a game, a plugin and the world can all draw. The old names remain as deprecated getters and setters; the setter replaces only the hook it added before.
+`RenderingEngine.onRenderOverlay` and `onRenderBackground` held one function each, and the first writer won. They are now chains (`overlayHooks`, `backgroundHooks`), so a game, a plugin and the world can all draw. The old names are removed.
 
 In 1.6, `GameWidget` drew the world only when `onRenderOverlay` was unset, so a game that set it called `engine.world.render` from its own hook. In 2.0 `GameWidget` always adds the world's hook itself: remove that call, or the world draws twice.
 
@@ -878,27 +880,29 @@ void addMinimap(Engine engine) {
 
 ### Debug drawing takes a camera
 
-`Physics2DSystem` and `CheckpointSystem` draw collider outlines and checkpoint radii. Without the camera the `RenderSystem` uses, they land at their world coordinates read as screen pixels. Pass it:
+`ColliderDebuggerSystem` and `CheckpointSystem` draw collider outlines and checkpoint radii. Without the camera the `RenderSystem` uses, they land at their world coordinates read as screen pixels. Pass it:
 
 ```dart
-final camera = engine.cameraSystem.mainCamera;
+final camera = engine.camera.mainCamera;
 engine.world
-  ..addSystem(Physics2DSystem(engine.physics, camera: camera))
+  ..addSystem(ColliderDebuggerSystem(camera: camera))
   ..addSystem(CheckpointSystem(camera: camera));
 ```
 
-Checkpoint radii are drawn in debug builds only.
+Checkpoint radii are drawn in debug builds only. `Physics2DSystem` draws nothing: collider outlines come from a `ColliderDebuggerSystem` in the world, and only while it is there. `GameWidget(showDebug: true)` adds one through the main camera; the editor adds its own while it shows colliders. It outlines every collider as simulated, coloured by body kind, every 2-D character and every ray-cast collider, above everything else; `outlineFilter` picks the entities, and a collider's `showDebugOutline: false` hides its own.
 
 ### The legacy render path
 
-Drawing outside the ECS still works in 2.0 but is deprecated, to be removed in 3.0:
+Drawing outside the ECS is gone in 2.0:
 
-| Deprecated | Use instead |
+| Removed | Use instead |
 |---|---|
 | `engine.rendering.addRenderable(r)` / `removeRenderable(r)` | an entity with `RenderableComponent(renderable: r)`; `RenderSystem` draws it in layer order |
 | `addManagedEmitter(e)` / `removeManagedEmitter` / `updateManagedEmitters` | an entity with `ParticleEmitterComponent(emitter: e, removeEntityWhenComplete: true)`, and `ParticleSystem` in the world |
 | `engine.parallax`, `ParallaxSystem` | an entity with `ParallaxComponent(background: ...)`; `ParallaxRenderSystem` (a default system) scrolls and draws it |
 | `useSpatialIndex`, `markSpatialIndexDirty`, `markLayerOrderDirty`, `renderables`, `renderableCount`, `layerCount` | `RenderSystem(cullOffscreen: true)`; nothing else is needed |
+| `RectangleRenderable`, `CircleRenderable`, `LineRenderable` | an entity with `Rectangle2DComponent`, `Circle2DComponent` or `Line2DComponent`, or a `CustomRenderable` in a `RenderableComponent` |
+| `engine.rendering.spriteBatchFactory` | `RenderSystem(spriteBatchFactory: ...)` |
 
 ```dart
 void addBackgroundAndSparks(World world, ParallaxBackground sky) {
@@ -919,13 +923,13 @@ void addBackgroundAndSparks(World world, ParallaxBackground sky) {
 }
 ```
 
-`RenderSystem` now draws `ParticleEmitterComponent` emitters itself (1.6 drew none). If you also registered them with `addRenderable`, remove that, or they draw twice. `addManagedEmitter` is gone: an emitter goes on an entity.
+`RenderSystem` now draws `ParticleEmitterComponent` emitters itself (1.6 drew none): an emitter goes on an entity.
 
 `ParticleEmitter.shape`, `ParticleEmitter.gravity` and `ParticleShape` (deprecated in 1.6) are removed: pass `renderer:` (for example `SquareParticleRenderer()`) and `forces: [GravityForce(...)]`.
 
 ### Draw order
 
-`RenderSystem` sorts ECS entities by their `LayerComponent` (layer, then z-order); an entity without one sorts as layer 0, z-order 0. Ties keep the order the entities were found in, so they do not swap from frame to frame. 1.6 drew them in archetype order, which shifted as components were added and removed. Give entities a `LayerComponent` where order matters.
+`RenderSystem` sorts ECS entities by their `LayerComponent` (layer, then z-order); an entity without one sorts by its renderable's own `layer` and `zOrder` (layer 0, z-order 0 when it has no renderable). Ties go by the order the entities were made in, so they do not swap from frame to frame, nor when another entity is destroyed. 1.6 drew them in archetype order, which shifted as components were added and removed. Give entities a `LayerComponent` where order matters.
 
 ## Scenes and saving
 
@@ -982,7 +986,6 @@ The asset manager belongs to the engine's context (`engine.assets`, there before
 |---|---|
 | `Sprite.fromAsset(path)` | `Sprite.fromAsset(path, assets: engine.assets)` |
 | `Sprite.loadImageFromAsset(path)` | `Sprite.loadImageFromAsset(path, assets: engine.assets)`; the caller owns the returned image |
-| `SpriteSheet.fromAsset(path, ...)` | `SpriteSheet.fromAsset(path, assets: engine.assets, ...)` |
 | `SpriteAtlas.fromAsset(jsonPath)` | `SpriteAtlas.fromAsset(jsonPath, assets: engine.assets)` |
 | `SpriteAtlasPage.loadImage()` | `SpriteAtlasPage.loadImage(engine.assets)` |
 | `AssetBundle` (the engine's) | `GameAssetBundle` |
@@ -996,7 +999,7 @@ Future<Sprite> loadHero(Engine engine) =>
 
 `package:just_game_engine/just_game_engine.dart` is still the one import for the engine. Two things changed.
 
-**Widgets moved to their own library.** Add `import 'package:just_game_engine/widgets.dart';` for `DialogueBoxWidget`, `DialogueChoicesWidget`, `SubtitleOverlay`, `LocalizedText`, `LocaleSelector`, `LocalizationBuilder`, the `L10nContext` extension (`context.t` / `context.tr`), `GameCameraControls`, and the `just_inputs` widgets (`OnScreenControls`, `OnScreenVisibility`, `OnScreenButtonFace`, `OnScreenStickPainter`, `RebindList`, `RebindButton`, `RebindRow`, `rebindRows`, `BindingLabel`). `GameWidget`, `GameLayers`, `LocalizationScope` and `GameTerminal` stay in the main library.
+**Widgets moved to their own library.** Add `import 'package:just_game_engine/widgets.dart';` for `DialogueBox`, `DialogueChoices`, `SubtitleOverlay`, `LocalizedText`, `LocaleSelector`, `LocalizationBuilder`, the `BuildContextLocalization` extension (`context.t` / `context.tr`), `GameCameraControls`, and the `just_inputs` widgets (`OnScreenControls`, `OnScreenVisibility`, `OnScreenButtonFace`, `OnScreenStickPainter`, `RebindList`, `RebindButton`, `RebindRow`, `rebindRows`, `BindingLabel`). `GameWidget`, `GameLayers`, `LocalizationScope` and `GameTerminal` stay in the main library.
 
 **Re-exports are lists.** 1.6 re-exported all of `just_dart`, `just_memory` and `just_audio_engine`. 2.0 re-exports only what the engine's own API uses:
 
@@ -1006,8 +1009,8 @@ Future<Sprite> loadHero(Engine engine) =>
 | `just_dart` | `Vector2`, `Vector3`, `Matrix4`, `JustMatrix4`, `Quaternion`, `Aabb3`, `Ray3`, `Plane`, `Frustum` | `Quadtree` |
 | `just_memory` | `MemoryScope`, `DisposeCallback`, `MemoryProfiler`, `MemoryProfileSnapshot`, `MemoryStats`, `CacheBudgetStats`, `PoolManager`, `PoolStats`, `ArenaStats`, `MemoryCleanupResult`, `SystemMemorySnapshot` | `ObjectPool`, `PriorityPool`, `RoundRobinPool`, `Recyclable`, `MemoryArena`, `TypedBuffer`, `BudgetedCache`, `RefCountedRegistry`, `LeakTracker`, … |
 | `just_audio_engine` | `AudioEngine`, `MusicManager`, `SoundEffectManager`, `AudioChannel`, `AudioClip`, `AudioBus`, `AudioBusGraph`, `AudioEffect`, `AudioEffectType`, `AudioState`, `AudioStream`, `AudioBackend`, `Audio3DListener`, `Audio3DPosition`, `AudioSpatial`, `AudioRolloff`, `AudioSpatialMix` | `createAudioBackend` |
-| `just_physics_engine` | `PhysicsEngine`, `Box2DPhysicsEngine`, `PhysicsBody`, `RigidBody`, the shapes (`CircleShape` … `RoundedPolygonShape`), the joints (`DistanceJoint`, `MouseJoint`, `WeldJoint`, `RevoluteJoint`, `Box2DJoint`), `Ray`, `RayBodyHit`, `ShapeCastResult`, `BodyType`, `OneWayDirection`, `GroundState2D`, `MoverShape` and a few more (31 in all) | the 3-D side (through `package:just_game_engine/just_game_engine_3d.dart`), `CharacterMover2D`, `PhysicsEngineFactory`, the testing engines |
-| `just_game_engine_formats` | `SceneFormat`, `SceneManifest`, `SceneNames`, `SceneStarters`, `TimelineFormat`, `AnimatorGraph` and its parts, the migration types and `UnsupportedFormatVersionException` (37 in all) | nothing else; everything a game needs is re-exported |
+| `just_physics_engine` | `PhysicsEngine`, `Box2DPhysicsEngine`, `PhysicsBody`, `RigidBody`, the shapes (`CircleShape` … `RoundedPolygonShape`), the joints (`DistanceJoint`, `MouseJoint`, `WeldJoint`, `RevoluteJoint`, `Box2DJoint`), `Ray`, `RayBodyHit`, `ShapeCastResult`, `BodyType`, `OneWayDirection`, `GroundState2D`, `MoverShape` and a few more (26 in all) | the 3-D side (through `package:just_game_engine/just_game_engine_3d.dart`), `CharacterMover2D`, `PhysicsEngineFactory`, the testing engines, the pure-Dart engine's insides (`CollisionDetector`, `CollisionManifold`, `ForceManager`, `SpatialGrid`, `BodyPair`) |
+| `just_game_engine_formats` | `SceneFormat`, `SceneManifest`, `SceneNames`, `SceneStarters`, `SceneMigrationResult`, `TimelineFormat`, `AnimatorGraph` and its parts, the migration hook types, the prefab and 2-D material file types and `UnsupportedFormatVersionException` (40 in all; the 3-D library adds `Material3DFile` and its enums) | the migration steps themselves (`V0ToV1` … `V10ToV11`, `SceneMigrations`, `TimelineV1ToV2`, `TimelineV2ToV3`); `SceneFormat` and `TimelineFormat` run them |
 | `just_signals` | `Signal`, `Computed` (new in 2.0: the reactive wrappers return them) | `Effect`, `SignalBuilder`, `SignalScope`, … |
 
 ```dart
@@ -1041,13 +1044,13 @@ Add the package to your `pubspec.yaml` as well. A file that imported `package:ju
 - **In the background** `GameWidget` pauses the music and the world's sounds and mutes the rest, and restores exactly that when the app returns (`Engine.suspendAudio` / `resumeAudio`).
 - **Profiling timings** (`systemTimesMs`, `lastUpdateMs`) are taken only while `World.profiling` / `SystemManager.profiling` are on — not in release builds.
 - **`CommandBuffer.flush`** runs every command, then rethrows the first error. An `EventBus` listener cancelled during a dispatch is not called for that event.
-- **Physics events** are per pair of entities: a chain or compound collider sends one enter and one exit, an end and a begin in the same update cancel, and a body rebuilt because its collider, scale or sensor flag changed keeps its contacts (no second enter; an exit only if it no longer touches). A destroyed or switched-off entity still ends its contacts with no exit. Scale changes smaller than `scaleTolerance` (1e-4, relative) do not rebuild a body. A static sensor no longer reports static colliders on native Box2D.
+- **Physics events** are per pair of entities: a chain or compound collider sends one enter and one exit, an end and a begin in the same update cancel, and a body rebuilt because its collider, scale or sensor flag changed keeps its contacts (no second enter; an exit only if it no longer touches). A destroyed or switched-off entity still ends its contacts with no exit. Scale changes smaller than `BodyRebuild.scaleTolerance` (1e-4, relative) do not rebuild a body. A static sensor no longer reports static colliders on native Box2D.
 - **2-D joints**: `DistanceJoint2DComponent` and `WheelJoint2DComponent` `stiffness` is in hertz and `damping` a damping ratio on every backend; slider and wheel axes are in the joint entity's space; with `collideConnected` off, jointed bodies send no contact events between them.
 - **2-D bodies**: a kinematic `RigidBody2DComponent` moved through its transform carries what stands on it (it is driven by velocity, like 3-D, instead of teleported); torque and angular impulses turn a body by its rotational inertia; view culling freezes bodies on native Box2D too, and 2-D characters; a capsule stretches with the entity's scale; an angle read back from native Box2D no longer wraps at ±π.
-- **3-D animation**: set `AnimationPlayerComponent.speed` / `loop` for a new clip after `play()`, not before; the clip fading out keeps the values it had. `CameraState.lerp` extrapolates for t outside 0..1, so blends with overshooting curves overshoot. `ParticleEmitter.isComplete` is false while sub-emitters live.
+- **3-D animation**: `AnimationPlayerComponent.speed` / `loop` are what was authored and saved; to change how a new clip plays, set `playingSpeed` / `playingLoop` after `play()`, not before. The clip fading out keeps the values it had. `CameraState.lerp` extrapolates for t outside 0..1, so blends with overshooting curves overshoot. `ParticleEmitter.isComplete` is false while sub-emitters live.
 - **Sprites**: a tint colour with alpha below 1 now fades the sprite (use an opaque tint for the old look). The built-in shapes' renderables are on layer 0 (they were on 8, which the ECS never read); an entity without a `LayerComponent` is ordered by its renderable's `layer` and `zOrder`.
-- **Timelines**: a camera shot block that runs to the very end of a `once` timeline keeps its camera until the player stops; end the block before the timeline ends to hand the camera back. Activation and sprite-clip blocks likewise hold at the end.
-- **Dialogue**: `!` binds tighter than comparisons (`!$a == $b` is `(!$a) == $b`); bare words in conditions are errors (false, logged) instead of strings; selecting an unavailable choice leaves the choices up.
+- **Timelines**: activation and sprite-clip blocks that run to the very end of a `once` timeline hold there, as the timeline left them. A camera shot block that runs to the end is the exception: it is released when the timeline finishes, so the camera goes back to gameplay (a ping-pong timeline turning there keeps it).
+- **Dialogue**: `!` binds tighter than comparisons (`!$a == $b` is `(!$a) == $b`); bare words in conditions are errors (false, logged) instead of strings; selecting an unavailable choice leaves the choices up, and a set of choices with none available is skipped, as if it were not there, instead of stopping the dialogue.
 - **Localization**: files for a locale with a script code load from `<name>_zh_Hans.json`; tables for the same locale and namespace merge.
 - **Scenes with a value of the wrong type** fail with a `FormatException` naming the entity, component and field. `AssetManager` keeps assets by path and type; `unload(path)` unloads every type at the path, and `get<T>(path)` returns the `T` loaded there.
 - **`CommandBuffer` applies commands in the order they were queued** (it used to run every destroy first).
@@ -1056,6 +1059,7 @@ Add the package to your `pubspec.yaml` as well. A file that imported `package:ju
 - **A collider grows and shrinks with its entity's scale**, a body built without `drag` is not slowed by the air, and damping never slows a kinematic body ([physics bodies](#physics-bodies)).
 - **Bounciness, damping and friction changed while the game runs take effect on desktop and mobile too**; before, the native Box2D body kept what it was made with.
 - **The collider outline turns with its body**, and colours it by its type: static blue, kinematic orange, dynamic green, sensor yellow.
+- **Collider outlines are off unless asked for**: they are drawn only while a `ColliderDebuggerSystem` is in the world — `GameWidget(showDebug: true)` adds one, or `engine.world.addSystem(ColliderDebuggerSystem(camera: engine.camera.mainCamera))`. `outlineFilter` picks the entities, and a collider's `showDebugOutline: false` hides its own.
 - **`World.entities`** is a snapshot, cached until the next create or destroy.
 - **Draw order** follows `LayerComponent` (see [Rendering](#draw-order)).
 - **Sprite batches** sample with each sprite's own `filterQuality`; a mirrored, non-uniformly scaled or stretched sprite draws unbatched and correctly.
@@ -1068,7 +1072,7 @@ Add the package to your `pubspec.yaml` as well. A file that imported `package:ju
 - **`GameLoop`** is driven by the ticker's timestamps, and `interpolation` stays between 0 and 1.
 - **Audio on the web** starts at the first key or pointer press (see `EngineConfig.deferAudioUntilInput`).
 - **Dialogue**: a repeating trigger fires once per entry, not every frame. `DialogueComponent.isInDialogue` follows the entity's runner, so `autoAdvance` works, and a `DialogueTriggerComponent`'s `autoAdvance` / `autoAdvanceDelay` are honoured.
-- **Audio**: a source placed in 3-D (`is3d`) is no longer panned as well, and `AudioStreamComponent.fadeInDuration` fades in from silence. A sound effect plays on its component's `channel` (1.x played every one on sfx). `AudioSystem` stops a source's sound when the component or its entity goes, and plays nothing before the audio engine has started: a one-shot asked for before then is dropped. Where the listener and 3-D sources are is read once per rendered frame: the `audio` task is a frame task, run last, and is no longer in `engine.performanceStats['systemTimesMs']`.
+- **Audio**: a source placed in 3-D (`is3D`) is no longer panned as well, and `AudioStreamComponent.fadeInDuration` fades in from silence. A sound effect plays on its component's `channel` (1.x played every one on sfx). `AudioSystem` stops a source's sound when the component or its entity goes, and plays nothing before the audio engine has started: a one-shot asked for before then is dropped. Where the listener and 3-D sources are is read once per rendered frame: the `audio` task is a frame task, run last, and is no longer in `engine.performanceStats['systemTimesMs']`.
 - **Log lines**: the engine's lifecycle lines (initialized, started, a system registered, disposed, …) print only in debug builds; warnings and errors print in every build.
 - **Malformed** localization and dialogue files are logged instead of being treated as missing.
 
@@ -1110,6 +1114,40 @@ The [CHANGELOG](CHANGELOG.md) lists every other fix.
 | `World.structureVersion` | `world.queryVersion(types)` for the queries your system reads (the largest of several) |
 | `PlayerScratch`, `samplePlayer` (from `just_game_engine_3d.dart`) | nothing: they were the renderer's helpers |
 | `AudioListenerComponent.forwardX`, `forwardY`, `forwardZ`, `upX`, `upY`, `upZ` | the entity's rotation; `atCamera` and `faceCamera` to hear from the camera, or face like it |
+| `RenderingEngine.addRenderable`, `removeRenderable`, `renderables`, `renderableCount`, `layerCount`, `markLayerOrderDirty`, `markSpatialIndexDirty`, `useSpatialIndex` | entities with a `RenderableComponent`; `RenderSystem(cullOffscreen: true)` for culling ([The legacy render path](#the-legacy-render-path)) |
+| `RenderingEngine.addManagedEmitter`, `removeManagedEmitter`, `updateManagedEmitters` | an entity with `ParticleEmitterComponent(emitter: e, removeEntityWhenComplete: true)`, and `ParticleSystem` in the world |
+| `RenderingEngine.onRenderOverlay`, `onRenderBackground` | `overlayHooks`, `backgroundHooks` ([Render hooks](#render-hooks)) |
+| `Engine.parallax`, `ParallaxSystem` | an entity with a `ParallaxComponent`, drawn by `ParallaxRenderSystem` |
+| `TagComponent.tag` | `tags`, `has`, `add`, `remove`; `entity.hasTag` ([Tags and targets](#tags-and-targets)) |
+| `HierarchySystem` | nothing: every world keeps its hierarchy itself ([The transform hierarchy](#the-transform-hierarchy)) |
+| `Entity.generation`, `Entity(generation:)` | nothing: ids are never reused; `world.isEntityAlive(entity)` checks a held handle |
+| `ILifecycle`, `IUpdatable`, `IRenderable`, `IPausable`, `IEnableable`, `LifecycleStateMixin` | nothing: the engine never used them |
+| `ViewCullingSystem(gridCellSize:)` | leave the argument out |
+| `RectangleRenderable`, `CircleRenderable`, `LineRenderable` | `Rectangle2DComponent`, `Circle2DComponent`, `Line2DComponent`, or a `CustomRenderable` ([The legacy render path](#the-legacy-render-path)) |
+| `RenderingEngine.spriteBatchFactory` | `RenderSystem(spriteBatchFactory: ...)` |
+| `SpriteSheet`, `SpriteSheet.fromAsset` | an atlas: `SpriteAtlas.fromAsset(jsonPath, assets: engine.assets)` (TexturePacker, Aseprite, or a grid sheet's JSON, read by `GridSheetAtlasParser`) and `SpriteAnimationComponent` |
+| `ParallaxLayer.repeat` | `repeatX`, `repeatY` |
+| `offload`, `offloadUnit` | Flutter's `compute` |
+| `typedef UpdateCallback`, `RenderCallback` | `void Function(double)`, `VoidCallback` |
+| `VelocitySignals`, `HealthSignals` | `ComponentSignal` over the field you show |
+| `YarnTokenizer`, `YarnToken`, `TokenType`, `ExpressionEvaluator` (now internal) | `YarnParser` |
+
+### Removed in 2.0.0-dev.4
+
+For code built on an earlier 2.0 dev release; 1.6 had none of these.
+
+| Removed | Use instead |
+|---|---|
+| `PhysicsJointBindingSystem` | nothing: `Physics2DSystem` makes the 2-D joints itself, in the step their bodies are in (`DefaultSystem.physics` adds only it) |
+| `Physics2DSystem(camera:)`, `.camera`, `.drawsOutlines`, `.outlineFilter`, `.render`, `Physics2DSystem.debugPaintFor` | a `ColliderDebuggerSystem(camera:, outlineFilter:)` in the world; its `paintFor(rigid, [body])` |
+| `Physics2DSystem.contactPoint`, `jointedPair`; `ColliderGeometry.visualKeyOf` | nothing (internal); compare `SolidShape2DSource.solidShape2D` |
+| `typedef FrameCallback` | `FrameTask` |
+| `TrackBindingKind` | `EntityTargetKind` |
+| `RenderingEngine.debugSpriteBatchCount` | `RenderSystem.stats['batchedSprites']` |
+| `MaterialOverridesFieldType.all` | `Material2DDefinitions.overridesType` and `Material3DDefinitions.overridesType` |
+| the migration steps (`V0ToV1` … `V10ToV11`, `SceneMigration`, `SceneMigrations`, `TimelineV1ToV2`, `TimelineV2ToV3`, `TimelineMigration`) from the engine's library | `SceneFormat` and `TimelineFormat` run them; import `package:just_game_engine_formats/just_game_engine_formats.dart` to name one |
+| `UnknownFieldType`, `PropertyTrackRunner`, `ShapePaintCache`, `Material2DBatch`, `ShapeSheet`, `ShapeSheets`, `ShapeValues`, `Primitive3DComponent.writeShapeValues` / `writeMaterialValues`, `cameraForward`, `cameraAnglesOf` (now internal) | `FieldTypes.unknown`; `CameraState.forward` |
+| from `just_game_engine_3d.dart`: `RenderView`, `GpuSurface` and the rest of the GPU plumbing, `NullGpuDevice` and the test doubles, `gltfToEngine` and model cooking; `PhysicsEngineFactory`, `BodyPoses3D` | `package:just_graphics_engine/just_graphics_engine.dart` and `package:just_physics_engine/physics_3d.dart` directly (`RenderView` clashed with Flutter's) |
 
 ## Renamed APIs
 
@@ -1126,36 +1164,83 @@ The [CHANGELOG](CHANGELOG.md) lists every other fix.
 | `Engine.getSystem<T>()` | `Engine.subsystem<T>()` |
 | `SystemPriorities.tileMap` | `SystemPriorities.levelMap` |
 | `PhysicsSystem` | `Physics2DSystem`: 2-D and 3-D twins are named `X2DSystem` and `X3DSystem` (its constructor changed too: see [Systems](#systems)) |
-| `DistanceJointComponent`, `WeldJointComponent`, `PrismaticJointComponent`, `WheelJointComponent` | `DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent`, `WheelJoint2DComponent` ([physics bodies](#physics-bodies)) |
+| `ParticleSystemECS` | `ParticleSystem` |
+| `EffectSystemECS` | `EffectSystem` |
+| `CameraSystem`, `engine.cameraSystem` | `CameraEngine`, `engine.camera` (it is not an ECS system) |
+| `AudioSourceComponent.is3d` | `is3D`; saved scenes are renamed as they load (format 11) |
+| `DialogueBoxWidget`, `DialogueChoicesWidget` | `DialogueBox`, `DialogueChoices` |
+| the extensions `ReactiveEntityExtension`, `ReactiveWorldExtension`, `L10nContext` | `EntityReactive`, `WorldReactive`, `BuildContextLocalization` |
+| `RaycastSystem.castRay`, `castRayAll` | `raycast`, `raycastAll`, as `Physics2DQueries` and `Physics3DQueries` say it |
+| `Renderable.getBounds()`, `Asset.getMemoryUsage()`, `Camera.getVisibleBounds()`, `AssetManager.getCacheStats()`, `SystemManager.getSystemNames()`, `getSystems()` | the getters `bounds`, `memoryUsage`, `visibleBounds`, `cacheStats`, `systemNames`, `systems` |
+| `CustomRenderable(getBoundsCallback: …)`, `MotionBlurEffect(velocityFn: …)` | `boundsOf:`, `velocity:` |
+| `CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent` | `Circle2DComponent`, `Rectangle2DComponent`, `Polygon2DComponent`, `Line2DComponent`, `Capsule2DComponent`; saved scenes are renamed as they load (format 11) |
+| `DistanceJointComponent`, `WeldJointComponent`, `PrismaticJointComponent`, `WheelJointComponent` (pre-release 2.0, not in 1.6) | `DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent`, `WheelJoint2DComponent` ([physics bodies](#physics-bodies)) |
+
+### Renamed in 2.0.0-dev.4
+
+For code built on 2.0.0-dev.1 to dev.3; the names on the left were never in 1.6. Saved scenes, prefabs and timelines are renamed as they load (scene format 11, timeline format 3), so only code changes.
+
+| 2.0.0-dev.3 | 2.0.0-dev.4 |
+|---|---|
+| `RigidBody2D`, `Collider2D`, `CharacterBody2D`, `Joint2D`, `DistanceJoint2D`, `FixedJoint2D`, `SliderJoint2D`, `WheelJoint2D`, the same with `3D`, `CameraCollision3D` | the same with `Component` at the end (`RigidBody2DComponent`, …, `CameraCollision3DComponent`) |
+| `Light2D`, `Lighting2D`, `ShadowCaster2D`, `Material2D`, `ScreenMaterial`, `MaterialOverrides3D`, `PrefabLink`; the 3-D `LightComponent` | `Light2DComponent`, `Lighting2DComponent`, `ShadowCaster2DComponent`, `Material2DComponent`, `ScreenMaterialComponent`, `MaterialOverrides3DComponent`, `PrefabLinkComponent`; `Light3DComponent` |
+| `Primitive3D`, `Cube3D`, `Sphere3D`, … `Polygon3D` | `Primitive3DComponent`, `Cube3DComponent`, `Sphere3DComponent`, … `Polygon3DComponent` |
+| `PhysicsSystem3D`, `AnimationSystem3D` | `Physics3DSystem`, `Animation3DSystem` |
+| `PhysicsDefinitions2D`, `ShapeDefinitions2D`, `PhysicsCharacters2D`, `PhysicsHit2D`, `PhysicsHit3D` | `Physics2DDefinitions`, `Shape2DDefinitions`, `Physics2DCharacters`, `Physics2DHit`, `Physics3DHit` |
+| `ColliderShapes3D`, `ColliderGeometry3D`, `AssetColliderGeometry3D`, `ColliderGeometry` | `Collider3DShapes`, `Collider3DGeometry`, `AssetCollider3DGeometry`, `Collider2DGeometry` |
+| `GraphicsSchemas`, `ShapeSchemas`, `Physics3DSchemas`; `Graphics3D.registerSchemas`, `Physics3D.registerSchemas` | `Graphics3DDefinitions`, `Shape3DDefinitions`, `Physics3DDefinitions`; `registerDefinitions` |
+| `CoreDefinitions`, `CoreComponentSchemas`, `registerCoreCodecs`, `refreshCoreCodecs`; `ComponentDefinitionRegistry.core()` | each feature's own (`EcsDefinitions`, `Shape2DDefinitions`, `GameplayDefinitions`, …), listed by `BuiltInComponents.all` and installed by `BuiltInComponents.extension`; `BuiltInComponents.registry()` |
+| `ComponentSchema<T>(…, id: …)`, `SchemaField` | `ComponentDefinition<T>(…, id: …)`, `FieldDefinition` |
+| `ColliderShape2D`, `CharacterShape2D`, `ColliderShape3D`, `LightKind` | `Collider2DShape`, `CharacterBody2DShape`, `Collider3DShape`, `Light3DKind` (the saved values are unchanged) |
+| `MaterialLibrary`, `MaterialFile`, `MaterialKind`, `MaterialAlpha`, `MaterialUv` | `Material3DLibrary`, `Material3DFile`, `Material3DKind`, `Material3DAlpha`, `Material3DUv` |
+| `MigrationResult` | `SceneMigrationResult` |
+| `MapOrientation` | `LevelMapOrientation` |
+| `FrameSystem` | `PerFrame` |
+| `TimelineContext` (a track's view of its playback) | `TrackContext` |
+| `CameraBrainSystem(cameraSystem:)` | `CameraBrainSystem(cameraEngine:)` |
+| `Light2DComponent.colour`, `castsShadows`; `MapLayerData.castsShadows` | `color`, `castShadows`; `castShadows` |
+| `Physics2DSystem.entityForBody` | `entityOf` |
+| `Material2DShader.isColour`, `colour(…)`; `MapLayerPainter.casterColour`; `Material2DValue.colour`, `Material2DFile.colour(key)` | `isColor`, `color(…)`; `casterColor`; `color`, `color(key)` |
+| `TimelineTriggerComponent.onEnter`, `onExit` | `enterAction`, `exitAction` |
+| `SpriteAnimationComponent.initialized`, `TimelinePlayerComponent.initialized`, `CameraRigMemory.initialized` | `isInitialized` |
+| `PrefabLibrary.of(context)`, `Material2DLibrary.of(context)`, `RenderProviders.of(context)`, `CameraRegistries.of(context)` | `context.prefabLibrary`, `context.material2DLibrary`, `context.renderProviders`, `context.cameraRegistries` |
+| `Physics2DSystem.massOf`, `autoMassPerSquareUnit` | `Collider2DGeometry.massOf`, `autoMassPerSquareUnit` |
+| `Physics2DSystem.scaleTolerance`, `Physics3DSystem.scaleTolerance` | `BodyRebuild.scaleTolerance` |
+| `PhysicsJointBindingSystem.dartSpring` | `Physics2DJoints.dartSpring` |
+| `Physics2DDefinitions.bodyTypeDescription`, `layerDescription`, `frictionDescription`, … | `PhysicsDefinitions.bodyTypeDescription`, … (shared with 3-D) |
+| `Physics2DQueries(engine.physics, physicsSystem)` | `physicsSystem.queries`, or `Physics2DQueries(physicsSystem)` |
+| `ColliderDebuggerSystem(color:)` | `raycastColor:` (bodies are coloured by kind) |
+| `GraphicsSceneRenderer(engine: …)` | `GraphicsSceneRenderer(world: () => world, …)` |
+| `FieldTypes.physicsLayer`, `physicsLayerMask`, `physicsShape` | `PhysicsDefinitions.layerType`, `layerMaskType`, `shapeType` |
+| `MaterialOverridesFieldType.material2D`, `.material3D` | `Material2DOverridesFieldType` (`Material2DDefinitions.overridesType`), `Material3DOverridesFieldType` (`Material3DDefinitions.overridesType`) |
+| `UnknownComponentTypeException.builtInHint(type)` | the exception's `hint`, from `ComponentDefinitionRegistry.unknownTypeHint(type)` |
+| `CameraDefinitions.framing`, `confiner`, `bounds`, `noise`, `targetGroup`, `trigger`, `dolly`, `orbitFollow`, … | `CameraFramingDefinitions`, `CameraNoiseDefinitions`, `CameraTargetDefinitions`, `CameraManagerDefinitions`, `CameraRig3DDefinitions` (`CameraDefinitions` keeps `virtualCamera` and `all`) |
+| `AssetManager.release(path)`, `refCount(path)` | `release(path, type)`, `refCount(path, type)` |
+| `ReactiveComponent.propertySignal(name, initialValue)` | `propertySignal(name, () => value)` |
+| `DefaultSystem.sprites` (sprites, animators and timelines) | `DefaultSystem.sprites`, `DefaultSystem.animation`, `DefaultSystem.timelines` |
+| `EngineConfig(graphics3D: …, physics3D: …)`; `package:just_game_engine/graphics_3d.dart`, `physics_3d.dart` | `EngineConfig(services: [Graphics3D(), Physics3D()])`; `package:just_game_engine/just_game_engine_3d.dart` |
+| `GraphicsShapes.linear` | `LinearColor.of` |
 
 ## Deprecated APIs
 
-These still work in 2.0 and go in 3.0. Each deprecation message names the replacement.
-
-- `Engine.getSystem<T>()` → `subsystem<T>()`.
-- `Engine.parallax` and `ParallaxSystem` → `ParallaxComponent`.
-- `RenderingEngine.addRenderable`, `removeRenderable`, `renderables`, `renderableCount`, `layerCount`, `markLayerOrderDirty`, `markSpatialIndexDirty`, `useSpatialIndex` → entities (see [The legacy render path](#the-legacy-render-path)).
-- `RenderingEngine.onRenderOverlay` / `onRenderBackground` → `overlayHooks` / `backgroundHooks`.
-- `TagComponent.tag` → `tags`.
-- `HierarchySystem` → nothing: every world runs the hierarchy.
-- `Entity.generation` → nothing: ids are never reused.
-- `IUpdatable`, `IRenderable`, `IPausable`, `IEnableable`, `LifecycleStateMixin` → nothing; the engine never used them.
+None. The members earlier 2.0 dev releases kept as deprecated were removed before 2.0.0: they are in [Removed APIs](#removed-apis).
 
 ## Known limitations in 2.0.0
 
 These wait on `just_physics_engine` and `just_audio_engine`. The fields involved are saved as usual, so scenes need no change when the limits lift.
 
-- **Joint anchors.** `anchor` / `connectedAnchor` of `DistanceJoint2DComponent` and `FixedJoint2DComponent` are not passed to the physics engine: a distance joint holds the bodies by their centres, and a fixed joint holds them as they were when joined. A wheel joint's axle anchor is honoured on native Box2D only.
+- **Joint anchors.** `anchor` / `connectedAnchor` of `DistanceJoint2DComponent` and `FixedJoint2DComponent` (and a slider's) are not passed to the physics engine: a distance joint holds the bodies by their centres, and a fixed joint holds them as they were when joined. A wheel joint's axle anchor is honoured on native Box2D only. The editor's inspector hides the anchors the backends ignore; their saved values are kept.
 - **`collideConnected`.** Jointed bodies with `collideConnected` off send no contact events between them, but on the pure-Dart backend (the web) they still push each other apart.
 - **Queries on native Box2D** skip bodies whose collision mask is 0; the Dart backend finds them.
+- **3-D collision layers.** Which layers a 3-D world keeps apart is fixed when the world is made (with the first 3-D body): a collision grid changed while a 3-D scene plays reaches the next world made, not this one. A body's own `layer` can change at any time.
 - **Stream channels.** `AudioStreamComponent.channel` is handed to the stream, but the channel's volume does not apply to it. A playing sound's pitch, pan, speed and loop cannot change, and a stream that plays to its end still reports `isPlaying`.
 
 ## Saved data
 
-- **Scenes** carry a `version`; the current format is 9. `SceneLoader` migrates an older file in memory, one step at a time from format 0 (files with no `version`) to 9, before creating anything. Format 8 is the physics body's: `isStatic` becomes `bodyType`, category and mask bits a layer and its list, and the shape of a scaled entity is divided by its scale so its collider, which now follows the scale, stays the size it was — a note names each one. Format 9 splits each body into a `RigidBody2DComponent` and a `Collider2DComponent`, writing out every setting the old defaults gave it (so it plays the same under the new ones), and renames the joints and their fields. Nothing on disk changes until the file is saved again, or until `just game scene migrate` rewrites it. `SceneFormat.migrateWithReport` runs the same migration and says what it changed (`MigrationResult.notes`) and which sprites need an atlas (`MigrationResult.needsAtlas`).
-- **Timelines** carry `formatVersion` 2 and are migrated the same way (`TimelineFormat.migrate`). A track `binding` saved as a bare string reads the way `EntityTarget.parse` reads one: `"#door"` is a tag, `"Door"` a name and `"self"` the timeline's own entity. Pre-release 2.0 builds bound every bare string to the timeline's own entity. What the engine writes (`"self"`, `{"name": ...}`, `{"tag": ...}`) reads as before.
+- **Scenes** carry a `version`; the current format is 11 (`SceneFormat.current`; it was 9 in 2.0.0-dev.1 and 10 in dev.2 and dev.3). `SceneLoader` migrates an older file in memory, one step at a time from format 0 (files with no `version`) to 11, before creating anything. Format 8 is the physics body's: `isStatic` becomes `bodyType`, category and mask bits a layer and its list, and the shape of a scaled entity is divided by its scale so its collider, which now follows the scale, stays the size it was — a note names each one. Format 9 splits each body into a rigid body and a collider (saved then as `RigidBody2D` / `Collider2D`), writing out every setting the old defaults gave it (so it plays the same under the new ones), and renames the joints and their fields. Format 10 lets a scene entry place a prefab file. Format 11 gives every component type a name ending in `Component`, with `2D` / `3D` where a type has a twin (`RigidBody2D` → `RigidBody2DComponent`, `CircleComponent` → `Circle2DComponent`), and renames the fields whose 2-D and 3-D twins were named differently: a 2-D light's `colour` and `castsShadows` (`color`, `castShadows`), a sound's `is3d` (`is3D`), a timeline trigger's `onEnter` and `onExit` (`enterAction`, `exitAction`) and a 2-D material's override keys (`tint.colour` → `tint.color`), in prefab instances too (`V10ToV11.renames` and `renamedFields`, in just_game_engine_formats, list them). Nothing on disk changes until the file is saved again, or until `just game scene migrate` rewrites it. `SceneFormat.migrateWithReport` runs the same migration and says what it changed (`SceneMigrationResult.notes`) and which sprites need an atlas (`SceneMigrationResult.needsAtlas`).
+- **Timelines** carry `formatVersion` 3 and are migrated the same way (`TimelineFormat.migrate`); format 3 keys a renamed component and a renamed field under its new name, as scene format 11 does (a 2-D light's `colour` is `color`, its `castsShadows` `castShadows`; a sound's `is3d` is `is3D`). A track `binding` saved as a bare string reads the way `EntityTarget.parse` reads one: `"#door"` is a tag, `"Door"` a name and `"self"` the timeline's own entity. Pre-release 2.0 builds bound every bare string to the timeline's own entity. What the engine writes (`"self"`, `{"name": ...}`, `{"tag": ...}`) reads as before.
 - **Animator graphs** (`.animator.json`) carry `version` 2, written as 1 when a graph uses nothing version 2 added (crossfading transitions, blend trees). A graph saved by a newer engine is refused with an `UnsupportedFormatVersionException`; a file without `version` reads as version 1.
-- **Level maps, tilesets and the tag library** have format numbers too. A file from a newer engine is refused with an `UnsupportedFormatVersionException` rather than loaded with data dropped.
+- **Level maps, tilesets, the tag library, the physics layers (`assets/project/physics.json`), prefab files and 2-D and 3-D material files** have format numbers too. Level maps are format 3, where a layer's `castsShadows` is `castShadows`, and 2-D material files format 2, where a colour value is keyed `color` (`tint.color`, `dissolve.edgeColor`); older ones read, and are written in the new form. A file from a newer engine is refused with an `UnsupportedFormatVersionException` rather than loaded with data dropped.
 - **Game services** data stays in the `jge_engine` database, as in 1.x.
 - **The engine's own keys** move to its own storage file on the first launch (see [Storage and the cache](#storage-and-the-cache)).
 

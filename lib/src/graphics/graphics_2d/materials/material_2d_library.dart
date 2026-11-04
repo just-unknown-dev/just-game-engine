@@ -9,8 +9,6 @@ import 'package:just_game_engine_formats/just_game_engine_formats.dart';
 
 import '../../../ecs/engine_context.dart';
 import 'material_2d_shader.dart';
-import 'materials_2d_context.dart';
-import '../../../sprites/sprites_context.dart';
 
 /// The 2-D material files (`*.material2d.json`) an engine's entities are
 /// drawn with ([Material2DComponent]), and the shader that draws them.
@@ -22,20 +20,17 @@ import '../../../sprites/sprites_context.dart';
 /// with its parents laid under it ([MaterialChain]); an editor shows
 /// unsaved edits by [preview].
 ///
-/// One per engine: [of].
-final class Material2DLibrary {
+/// One per engine, on its context: `context.material2DLibrary`
+/// (`ContextMaterials2D`), released with it. What a level no longer uses
+/// goes with [retainOnly] (`Engine.releaseUnused` asks it).
+final class Material2DLibrary implements ContextResource {
   /// A library reading files through [read], and the images they name (a
-  /// normal map) through [readImage].
-  Material2DLibrary(this.read, {this.readImage});
+  /// normal map) through [readImage]; [ownsImages] says whether those
+  /// images are its own to dispose.
+  Material2DLibrary(this.read, {this.readImage, bool Function()? ownsImages})
+    : ownsImages = ownsImages ?? _never;
 
-  /// The library of [context]'s engine, reading through its seams.
-  static Material2DLibrary of(EngineContext context) => context.slot(
-    Material2DLibrary,
-    () => Material2DLibrary(
-      (path) => context.material2DText(path),
-      readImage: (path) => context.sprites.loadImage(path),
-    ),
-  );
+  static bool _never() => false;
 
   /// Reads a project file's text.
   final Future<String> Function(String path) read;
@@ -43,11 +38,22 @@ final class Material2DLibrary {
   /// Reads an image a material names; null reads none.
   final Future<ui.Image> Function(String path)? readImage;
 
+  /// Whether an image [readImage] gives is the library's own handle (a
+  /// clone) to dispose when done with it, rather than one the reader keeps
+  /// and shares — asked as each read starts. False by default: what is not
+  /// the library's is never disposed by it.
+  final bool Function() ownsImages;
+
   final Map<String, _Image> _images = {};
 
   final Map<String, _Source> _sources = {};
   final Map<String, Material2DFile> _previews = {};
   final Map<String, _Made> _made = {};
+
+  /// The [revision] at which a path last could not be made — still being
+  /// read, or unreadable — so asking again, every frame, costs a lookup
+  /// until something changes.
+  final Map<String, int> _unresolvedAt = {};
   int _revision = 0;
 
   final _Program _sprites = _Program(Material2DShader.asset);
@@ -113,15 +119,22 @@ final class Material2DLibrary {
 
   void _loadImage(String path, _Image entry) {
     final ticket = ++entry.ticket;
+    final owned = ownsImages();
     unawaited(
       readImage!(path).then(
         (image) {
           if (!identical(_images[path], entry) || ticket != entry.ticket) {
-            image.dispose();
+            // Superseded, or let go meanwhile.
+            if (owned) image.dispose();
             return;
           }
-          entry.image?.dispose();
-          entry.image = image;
+          final old = entry.image;
+          if (old != null && entry.owned && !identical(old, image)) {
+            old.dispose();
+          }
+          entry
+            ..image = image
+            ..owned = owned;
           _revision++;
         },
         onError: (Object error) {
@@ -133,17 +146,62 @@ final class Material2DLibrary {
     );
   }
 
-  /// Lets go of every file, unsaved previews too.
+  /// Lets go of every file no path in [keep] is drawn with — not one of
+  /// them, nor a parent of one — and of the images only those name (a
+  /// normal map), disposing those that are its own ([ownsImages]): what a
+  /// level no longer uses. Unsaved previews stay, with what they name.
+  /// Returns the paths of the images let go of, so whoever read them can
+  /// forget them too; whatever is asked for again is read again.
+  List<String> retainOnly(Iterable<String> keep) {
+    final needed = <String>{};
+    final images = <String>{};
+    void need(String path) {
+      if (path.isEmpty || !needed.add(path)) return;
+      final file = _previews[path] ?? _sources[path]?.file;
+      if (file == null) return;
+      for (final MapEntry(:key, :value) in file.values.entries) {
+        if (value is String &&
+            value.isNotEmpty &&
+            Material2DEffects.param(key)?.$2.type == Material2DValue.path) {
+          images.add(value);
+        }
+      }
+      need(file.parent);
+    }
+
+    keep.forEach(need);
+    _previews.keys.toList().forEach(need);
+    _sources.removeWhere((path, _) => !needed.contains(path));
+    _made.removeWhere((path, _) => !needed.contains(path));
+    _unresolvedAt.clear();
+    final gone = <String>[];
+    _images.removeWhere((path, image) {
+      if (images.contains(path)) return false;
+      if (image.owned) image.image?.dispose();
+      gone.add(path);
+      return true;
+    });
+    _revision++;
+    return gone;
+  }
+
+  /// Lets go of every file, unsaved previews too, and of the images read —
+  /// disposing those that are its own ([ownsImages]).
   void clear() {
     _sources.clear();
     _previews.clear();
     _made.clear();
+    _unresolvedAt.clear();
     for (final i in _images.values) {
-      i.image?.dispose();
+      if (i.owned) i.image?.dispose();
     }
     _images.clear();
     _revision++;
   }
+
+  /// Lets go of everything ([clear]); called with its context's dispose.
+  @override
+  void dispose() => clear();
 
   /// The shader sprites, shapes and tile layers are drawn through; null
   /// until it is loaded — asking the first time loads it — or when it could
@@ -228,25 +286,41 @@ final class Material2DLibrary {
   _Made? _madeOf(String path) {
     final known = _made[path];
     if (known != null) return known;
-    final pending = <String>[];
+    // Asked again before anything changed: still nothing to make. Without
+    // this, a material that is missing — or every material while files
+    // load — was resolved, and its failure thrown and caught, for every
+    // sprite drawn with it, every frame.
+    if (_unresolvedAt[path] == _revision) return null;
+    final made = _make(path);
+    if (made == null) {
+      _unresolvedAt[path] = _revision;
+    } else {
+      _unresolvedAt.remove(path);
+    }
+    return made;
+  }
+
+  _Made? _make(String path) {
+    // The file itself not here (yet): nothing to resolve.
+    if (!_previews.containsKey(path) && _source(path).file == null) {
+      return null;
+    }
+    var pending = false;
+    // Every path asked for, found or not: a parent missing now is read
+    // once it is made, and what was made without it is made again then.
+    final asked = <String>{};
     Material2DFile? lookup(String p) {
+      asked.add(p);
       final preview = _previews[p];
       if (preview != null) return preview;
       final source = _source(p);
-      if (source.file == null && source.error == null) pending.add(p);
+      if (source.file == null && source.error == null) pending = true;
       return source.file;
     }
 
-    final ResolvedMaterial<Material2DFile> resolved;
-    try {
-      resolved = MaterialChain.resolve2D(path, lookup);
-    } on StateError {
-      return null;
-    }
-    if (pending.isNotEmpty) return null;
-    return _made[path] = _Made(resolved.value, resolved.problems, {
-      ...resolved.chain,
-    });
+    final resolved = MaterialChain.resolve2D(path, lookup);
+    if (pending) return null;
+    return _made[path] = _Made(resolved.value, resolved.problems, asked);
   }
 
   void _changed(String path) {
@@ -283,6 +357,9 @@ final class _Program {
 
 final class _Image {
   ui.Image? image;
+
+  /// Whether [image] is the library's own, to dispose.
+  bool owned = false;
   int ticket = 0;
 }
 

@@ -37,7 +37,7 @@ class TextAsset extends Asset {
   }
 
   @override
-  int getMemoryUsage() {
+  int get memoryUsage {
     return _content?.length ?? 0;
   }
 }

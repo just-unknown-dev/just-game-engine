@@ -48,24 +48,24 @@ abstract final class Material2DShader {
     'paletteSwap.tolerance',
     'gradientMap.amount',
     'greyscale.amount',
-    'tint.colour',
-    'flash.colour',
+    'tint.color',
+    'flash.color',
     'flash.amount',
     'dissolve.amount',
-    'dissolve.edgeColour',
+    'dissolve.edgeColor',
     'dissolve.edgeWidth',
     'dissolve.scale',
-    'shine.colour',
+    'shine.color',
     'shine.width',
     'shine.angle',
     'shine.duration',
     'shine.interval',
-    'outline.colour',
+    'outline.color',
     'outline.width',
-    'glow.colour',
+    'glow.color',
     'glow.radius',
     'glow.strength',
-    'dropShadow.colour',
+    'dropShadow.color',
     'dropShadow.offset#0',
     'dropShadow.offset#1',
     'dropShadow.softness',
@@ -73,10 +73,28 @@ abstract final class Material2DShader {
 
   /// How many params columns a dynamic key takes: two for a colour (its
   /// red, green and blue, then its alpha), one for a number.
-  static int columnsOf(String key) => isColour(key) ? 2 : 1;
+  static int columnsOf(String key) => isColor(key) ? 2 : 1;
+
+  /// The values that are lengths, in the sheet's pixels — how far, how
+  /// wide, how fast across — by [dynamicKeys] entry (a pair by each of its
+  /// numbers). A sheet drawn at another scale than one pixel a unit (a
+  /// shape's, `ShapeSheet.resolution`) has them multiplied by that scale,
+  /// so an effect is the same size in the world whatever the sheet's.
+  static const Set<String> lengthKeys = {
+    'wave.amplitude',
+    'wave.wavelength',
+    'scroll.speed#0',
+    'scroll.speed#1',
+    'dissolve.scale',
+    'outline.width',
+    'glow.radius',
+    'dropShadow.offset#0',
+    'dropShadow.offset#1',
+    'dropShadow.softness',
+  };
 
   /// Whether [key] (from [dynamicKeys]) is a colour.
-  static bool isColour(String key) => key.endsWith('olour');
+  static bool isColor(String key) => key.endsWith('olor');
 
   /// The material key a dynamic key reads (`scroll.speed#0` reads
   /// `scroll.speed`).
@@ -111,14 +129,14 @@ abstract final class Material2DShader {
   }
 
   /// The colour [key] has in [file], or in [overrides] when they give it.
-  static int colour(
+  static int color(
     Material2DFile file,
     Map<String, Object> overrides,
     String key,
   ) {
     final own = overrides[key];
     if (own is num) return own.toInt();
-    return file.colour(key);
+    return file.color(key);
   }
 
   /// The overrides that can count: values a game may change, of the right
@@ -144,9 +162,14 @@ abstract final class Material2DShader {
   }
 
   /// How far past its frame a sprite's effects reach, in frame pixels: the
-  /// outline, glow and shadow around it and how far a wave moves it.
-  static double reach(Material2DFile file, Map<String, Object> overrides) {
-    double n(String key) => number(file, overrides, key).abs();
+  /// outline, glow and shadow around it and how far a wave moves it — for
+  /// a sheet of [unitScale] pixels a unit (see [lengthKeys]).
+  static double reach(
+    Material2DFile file,
+    Map<String, Object> overrides, {
+    double unitScale = 1,
+  }) {
+    double n(String key) => number(file, overrides, key).abs() * unitScale;
     var around = 0.0;
     if (file.isOn('outline')) around = math.max(around, n('outline.width'));
     if (file.isOn('glow')) around = math.max(around, n('glow.radius'));
@@ -175,14 +198,14 @@ abstract final class Material2DShader {
       _flash = 40;
   static const int _dissolveEdge = 44,
       _dissolveShine = 48,
-      _shineColour = 52,
+      _shineColor = 52,
       _shine2 = 56;
-  static const int _outlineColour = 60,
-      _glowColour = 64,
+  static const int _outlineColor = 60,
+      _glowColor = 64,
       _shadow = 68,
-      _shadowColour = 72;
+      _shadowColor = 72;
   static const int _dyn = 76,
-      _stopColours = 108,
+      _stopColors = 108,
       _stopAt = 140,
       _swapFrom = 172,
       _swapTo = 204;
@@ -196,6 +219,8 @@ abstract final class Material2DShader {
   /// [sheetWidth] × [sheetHeight] and a params image of [paramsWidth] ×
   /// [paramsHeight], at [time] seconds. [dynamicColumns] says where each
   /// overridden value is (by [dynamicKeys] entry); the rest are the file's.
+  /// The sheet is [unitScale] pixels a unit: its [lengthKeys] are
+  /// multiplied by it (the params image's own are, by the batch).
   static void write(
     ui.FragmentShader shader,
     Material2DFile file, {
@@ -209,6 +234,7 @@ abstract final class Material2DShader {
     required int paramsHeight,
     required double time,
     Map<String, int> dynamicColumns = const {},
+    double unitScale = 1,
   }) {
     final f = Float32List(uniformFloats);
     void vec4(int at, double x, double y, double z, double w) {
@@ -226,8 +252,12 @@ abstract final class Material2DShader {
       ((argb >> 24) & 0xFF) / 255,
     );
     double on(String id) => file.isOn(id) ? 1 : 0;
-    double n(String key) => number(file, const {}, key);
-    int c(String key) => file.colour(key);
+    double n(String key) {
+      final v = number(file, const {}, key);
+      return lengthKeys.contains(key) ? v * unitScale : v;
+    }
+
+    int c(String key) => file.color(key);
 
     final stops = file.isOn('gradientMap')
         ? file.stops('gradientMap.stops').take(maxStops).toList()
@@ -268,9 +298,9 @@ abstract final class Material2DShader {
       n('dissolve.amount'),
       n('dissolve.edgeWidth'),
     );
-    rgba(_tint, c('tint.colour'));
-    rgba(_flash, c('flash.colour'));
-    rgba(_dissolveEdge, c('dissolve.edgeColour'));
+    rgba(_tint, c('tint.color'));
+    rgba(_flash, c('flash.color'));
+    rgba(_dissolveEdge, c('dissolve.edgeColor'));
     vec4(
       _dissolveShine,
       n('dissolve.scale'),
@@ -278,7 +308,7 @@ abstract final class Material2DShader {
       n('shine.angle'),
       n('shine.duration'),
     );
-    rgba(_shineColour, c('shine.colour'));
+    rgba(_shineColor, c('shine.color'));
     vec4(
       _shine2,
       n('shine.interval'),
@@ -286,8 +316,8 @@ abstract final class Material2DShader {
       n('glow.radius'),
       n('glow.strength'),
     );
-    rgba(_outlineColour, c('outline.colour'));
-    rgba(_glowColour, c('glow.colour'));
+    rgba(_outlineColor, c('outline.color'));
+    rgba(_glowColor, c('glow.color'));
     vec4(
       _shadow,
       n('dropShadow.offset#0'),
@@ -295,7 +325,7 @@ abstract final class Material2DShader {
       n('dropShadow.softness'),
       0,
     );
-    rgba(_shadowColour, c('dropShadow.colour'));
+    rgba(_shadowColor, c('dropShadow.color'));
     for (var i = 0; i < dynamicKeys.length; i++) {
       f[_dyn + i] = (dynamicColumns[dynamicKeys[i]] ?? -1).toDouble();
     }
@@ -303,7 +333,7 @@ abstract final class Material2DShader {
       f[_dyn + i] = -1;
     }
     for (var i = 0; i < stops.length; i++) {
-      rgba(_stopColours + i * 4, stops[i].$2);
+      rgba(_stopColors + i * 4, stops[i].$2);
       f[_stopAt + i * 4] = stops[i].$1;
     }
     for (var i = 0; i < swaps.length; i++) {
@@ -317,7 +347,8 @@ abstract final class Material2DShader {
 
   /// Writes what `material_2d_normals.frag` reads for [file]'s normals:
   /// the same grid as [write], whether [normalMap] is the sheet, the map's
-  /// strength, how emissive it is, and what moves it.
+  /// strength, how emissive it is, and what moves it — its lengths for a
+  /// sheet of [unitScale] pixels a unit, as [write]'s.
   static void writeNormals(
     ui.FragmentShader shader,
     Material2DFile file, {
@@ -333,8 +364,13 @@ abstract final class Material2DShader {
     required bool normalMap,
     required int mapWidth,
     required int mapHeight,
+    double unitScale = 1,
   }) {
-    double n(String key) => number(file, const {}, key);
+    double n(String key) {
+      final v = number(file, const {}, key);
+      return lengthKeys.contains(key) ? v * unitScale : v;
+    }
+
     final values = <double>[
       slotWidth,
       slotHeight,

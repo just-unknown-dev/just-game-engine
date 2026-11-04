@@ -11,6 +11,11 @@ part of '../deterministic_effects.dart';
 /// each iteration resets the child and subsequent `applyTick` calls begin
 /// with `prevElapsed == 0`.
 ///
+/// The child's [DeterministicEffect.onComplete] runs at the end of every
+/// iteration. [onLoopComplete] runs between iterations — for a finite
+/// repeat at each boundary but the last, where [onComplete] runs instead;
+/// for an endless one at every boundary.
+///
 /// A child that moves *to* a world position gets there on its first
 /// iteration, and every later one starts where it already is — so repeat
 /// moves *by* an amount, up and back, as below. A [MoveEffect] given a
@@ -70,8 +75,12 @@ class RepeatEffect extends DeterministicEffect {
   void applyTick(EffectContext ctx, int prevElapsed, int currElapsed) {
     if (times == 0) {
       // Infinite: child covers the single durationTicks window; EffectPlayer
-      // resets this effect (including child.reset()) between iterations.
+      // resets this effect (including child.reset()) between iterations,
+      // calling [onLoopComplete] as it does.
       child.applyTick(ctx, prevElapsed, currElapsed);
+      if (currElapsed == child.durationTicks && prevElapsed < currElapsed) {
+        child.onComplete?.call();
+      }
       return;
     }
 
@@ -93,7 +102,12 @@ class RepeatEffect extends DeterministicEffect {
       }
 
       if (intraEnd >= childD) {
-        // Completed this iteration — reset child and move to next.
+        // Completed this iteration: its callbacks run, in tick order however
+        // wide the range — the child's, then, between laps, the lap's (the
+        // last lap ends the effect, and the player calls [onComplete]) —
+        // then the child is reset for the next.
+        child.onComplete?.call();
+        if (iterIndex < times - 1) onLoopComplete?.call();
         child.reset();
         pos = iterStart + childD;
       } else {

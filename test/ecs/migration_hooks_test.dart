@@ -82,7 +82,7 @@ void main() {
         .perEntity(6)
         .add((entity, scene) => seen.add('${entity['name']}'));
 
-    MigrationResult? heard;
+    SceneMigrationResult? heard;
     final scene = {
       'version': 6,
       'entities': [
@@ -97,15 +97,18 @@ void main() {
     expect(seen, ['E'], reason: "b's context has no such rule");
   });
 
-  test("a context's timeline loader migrates with its rules", () async {
-    final context = EngineContext();
-    addTearDown(context.dispose);
-    context.migrations.perTrack.add((track) => {...track, 'name': 'moved'});
-    final asset = TimelineAsset.fromJson({
-      'tracks': [
-        {'kind': 'event', 'events': <dynamic>[]},
-      ],
-    }, migrations: context.migrations);
-    expect(asset.tracks.single.name, 'moved');
-  });
+  test(
+    "a timeline read with a context's migrations follows its rules",
+    () async {
+      final context = EngineContext();
+      addTearDown(context.dispose);
+      context.migrations.perTrack.add((track) => {...track, 'name': 'moved'});
+      final asset = TimelineAsset.fromJson({
+        'tracks': [
+          {'kind': 'event', 'events': <dynamic>[]},
+        ],
+      }, migrations: context.migrations);
+      expect(asset.tracks.single.name, 'moved');
+    },
+  );
 }

@@ -3,7 +3,12 @@ library;
 import 'dart:typed_data';
 
 import '../ecs/ecs.dart';
-import 'effects.dart';
+import 'deterministic_effect.dart';
+import 'deterministic_effects.dart';
+import 'effect_component.dart';
+import 'effect_context.dart';
+import 'effect_handle.dart';
+import 'effects_context.dart';
 
 /// ECS system that drives all [EffectComponent]s each fixed-timestep tick.
 ///
@@ -88,14 +93,21 @@ class EffectSystem extends System implements EffectRuntime {
 
   // ── Snapshot / restore ──────────────────────────────────────────────────
 
+  /// Every entity's effects that are under way or waiting to start, at
+  /// [currentTick] — those of switched-off entities too, whose effects are
+  /// only paused.
   @override
   EffectSnapshot snapshotState() {
     final serializer = EffectSerializer();
     final entityEffects = <EntityId, List<Map<String, dynamic>>>{};
-    for (final entity in entities) {
-      final comp = entity.getComponent<EffectComponent>()!;
-      if (!comp.player.isEmpty) {
-        entityEffects[entity.id] = comp.player.toJson(serializer.encodeEffect);
+    for (final archetype in world.queryArchetypes(requiredComponents)) {
+      final column = archetype.getColumn(EffectComponent)!;
+      for (var row = 0; row < archetype.length; row++) {
+        final player = (column[row] as EffectComponent).player;
+        if (player.activeCount == 0) continue;
+        entityEffects[archetype.entityAt(row).id] = player.toJson(
+          serializer.encodeEffect,
+        );
       }
     }
     return EffectSnapshot(tick: _currentTick, entityEffects: entityEffects);
@@ -103,12 +115,20 @@ class EffectSystem extends System implements EffectRuntime {
 
   /// Restore all active effects from [snapshot] onto entities in [world].
   ///
-  /// Existing [EffectComponent]s are cleared and repopulated. Use this for
-  /// late-join reconnect, scene restore from save state, or after a rollback
-  /// in a prediction runtime.
+  /// Every [EffectComponent] in [world] is cleared first — switched-off
+  /// entities' too, and those of entities the snapshot does not list, which
+  /// had no effects when it was taken — then the snapshot's entities are
+  /// repopulated. Use this for late-join reconnect, scene restore from save
+  /// state, or after a rollback in a prediction runtime.
   @override
   void restoreSnapshot(EffectSnapshot snapshot, World world) {
     _currentTick = snapshot.tick;
+    for (final archetype in world.queryArchetypes(requiredComponents)) {
+      final column = archetype.getColumn(EffectComponent)!;
+      for (var row = 0; row < archetype.length; row++) {
+        (column[row] as EffectComponent).player.cancelAll();
+      }
+    }
     final serializer = EffectSerializer(world.context.effectTypes);
     for (final entry in snapshot.entityEffects.entries) {
       final entity = world.getEntity(entry.key);

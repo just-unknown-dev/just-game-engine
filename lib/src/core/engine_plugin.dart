@@ -21,7 +21,7 @@ abstract class EnginePlugin {
   /// Called once per frame with the unscaled frame time, whether or not the
   /// game is paused or its time scale is zero. Fixed-step simulation is for
   /// systems; a plugin observes the engine on wall-clock time.
-  void update(double dt) {}
+  void update(double deltaTime) {}
 
   /// Called after the world has rendered, in screen space.
   void renderOverlay(Canvas canvas, Size size) {}
@@ -79,9 +79,9 @@ class PluginHost {
   }
 
   /// Forwards an engine update to every plugin.
-  void update(double dt) {
+  void update(double deltaTime) {
     for (final plugin in _current) {
-      if (_isRegistered(plugin)) plugin.update(dt);
+      if (_isRegistered(plugin)) plugin.update(deltaTime);
     }
   }
 
@@ -92,13 +92,25 @@ class PluginHost {
     }
   }
 
-  /// Detaches everything.
+  /// Detaches everything. A plugin whose [EnginePlugin.detach] throws does
+  /// not keep the others attached: each is detached, and the first error is
+  /// rethrown afterwards.
   void detachAll() {
     final all = _current;
     _plugins.clear();
     _snapshot = null;
+    Object? firstError;
+    StackTrace? firstStack;
     for (final plugin in all) {
-      plugin.detach();
+      try {
+        plugin.detach();
+      } catch (error, stack) {
+        if (firstError == null) {
+          firstError = error;
+          firstStack = stack;
+        }
+      }
     }
+    if (firstError != null) Error.throwWithStackTrace(firstError, firstStack!);
   }
 }

@@ -230,6 +230,39 @@ void main() {
       expect(input.isDown('jump'), isFalse);
     });
 
+    test('an action gone with a replaced asset is not held on to', () async {
+      final engine = await boot();
+      final world = engine.world..addSystem(InputSystem(engine.input));
+      final entity = world.createEntityWithComponents([InputComponent()]);
+      final input = entity.getComponent<InputComponent>()!;
+      engine.input.handleKeyEvent(_down(PhysicalKeyboardKey.space));
+      engine.input.handleKeyEvent(_down(PhysicalKeyboardKey.keyD));
+      engine.input.update(1);
+      world.update(1 / 60);
+      expect(input.isDown('jump'), isTrue);
+      expect(input.vector('move'), const Offset(1, 0));
+
+      // The game swaps in an asset without those actions.
+      engine.input.loadAsset(
+        const InputActionAsset(
+          name: 'other',
+          nextId: 3,
+          maps: [
+            ActionMapDef(
+              id: 'm1',
+              name: 'player',
+              actions: [InputActionDef(id: 'a2', name: 'fire')],
+            ),
+          ],
+        ),
+      );
+      engine.input.update(2);
+      world.update(1 / 60);
+      expect(input.isDown('jump'), isFalse);
+      expect(input.vector('move'), Offset.zero);
+      expect(input.axes.keys, ['fire']);
+    });
+
     test('saves which player it is', () {
       final codec = _coreDefinitions;
       final json = codec.encode(InputComponent(playerIndex: 2))!;

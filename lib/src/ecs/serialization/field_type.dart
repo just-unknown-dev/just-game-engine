@@ -1,12 +1,8 @@
+/// What a field type is, the ECS core's own ([FieldTypes]) and the
+/// registry a context keeps them in.
 library;
 
 import 'built_in_field_types.dart';
-import 'physics_field_types.dart';
-import 'material_overrides_field_type.dart';
-
-export 'built_in_field_types.dart';
-export 'physics_field_types.dart';
-export 'material_overrides_field_type.dart';
 
 /// Bounds and parsers a field applies while decoding.
 class FieldConstraints {
@@ -73,7 +69,11 @@ abstract class FieldType<T> {
   String toString() => 'FieldType($id)';
 }
 
-/// The field types the engine ships with.
+/// The field types the ECS core ships with, registered in every context.
+///
+/// A feature registers its own with its definitions: the physics layers
+/// (`PhysicsDefinitions.fieldTypes`), the material overrides
+/// (`Material2DDefinitions.fieldTypes`, and 3-D's through `Graphics3D`).
 ///
 /// Named after the `FieldKind` enum members they replace, so
 /// `FieldKind.decimal` became `FieldTypes.decimal` with nothing else to
@@ -146,17 +146,6 @@ abstract final class FieldTypes {
   /// A shape's fill: colour, blend mode and optional gradient.
   static const shapePaintStyle = ShapePaintStyleFieldType();
 
-  /// A physics collision shape, stored as `{kind, ...dimensions}`.
-  static const physicsShape = PhysicsShapeFieldType();
-
-  /// A collision layer, 0 to 15, saved as its number; the editor offers the
-  /// project's layer names.
-  static const physicsLayer = PhysicsLayerFieldType();
-
-  /// A set of collision layers as a mask (bit `n` for layer `n`), or null
-  /// for "as the project's grid says"; the editor offers the layers by name.
-  static const physicsLayerMask = PhysicsLayerMaskFieldType();
-
   /// Space around something.
   static const edgeInsets = EdgeInsetsFieldType();
 
@@ -194,9 +183,6 @@ abstract final class FieldTypes {
     offset,
     offsetList,
     shapePaintStyle,
-    physicsShape,
-    physicsLayer,
-    physicsLayerMask,
     edgeInsets,
     unknown,
   ];
@@ -210,10 +196,7 @@ class FieldTypeRegistry {
   /// A registry holding every type in [FieldTypes.all], or nothing when
   /// [withBuiltIns] is false.
   FieldTypeRegistry({bool withBuiltIns = true}) {
-    if (withBuiltIns) {
-      registerAll(FieldTypes.all);
-      registerAll(MaterialOverridesFieldType.all);
-    }
+    if (withBuiltIns) registerAll(FieldTypes.all);
   }
 
   final Map<String, FieldType> _byId = {};
@@ -231,9 +214,16 @@ class FieldTypeRegistry {
     _byId[type.id] = type;
   }
 
-  /// Registers several types.
-  void registerAll(Iterable<FieldType> types, {bool override = false}) {
+  /// Registers several types. With [ifAbsent], an id already registered
+  /// keeps its type — for a feature's own types, registered again on a hot
+  /// reload, which must never undo a project's replacement.
+  void registerAll(
+    Iterable<FieldType> types, {
+    bool override = false,
+    bool ifAbsent = false,
+  }) {
     for (final t in types) {
+      if (ifAbsent && _byId.containsKey(t.id)) continue;
       register(t, override: override);
     }
   }

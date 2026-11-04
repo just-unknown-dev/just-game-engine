@@ -43,7 +43,7 @@ void _suite(PhysicsEngine Function() make) {
   ], name: 'floor');
 
   Entity hero({
-    CharacterShape2D shape = CharacterShape2D.capsule,
+    CharacterBody2DShape shape = CharacterBody2DShape.capsule,
     double x = 0,
     double y = 0,
   }) => world.createEntityWithComponents([
@@ -92,7 +92,7 @@ void _suite(PhysicsEngine Function() make) {
 
   test('a box stands where it was set down', () {
     floor();
-    final h = hero(shape: CharacterShape2D.box, y: 70);
+    final h = hero(shape: CharacterBody2DShape.box, y: 70);
     run(30);
     expect(of(h).isGrounded, isTrue);
     expect(at(h).dy, closeTo(76, 1.5));
@@ -202,7 +202,7 @@ void _suite(PhysicsEngine Function() make) {
   test('it is saved field for field', () {
     final definitions = BuiltInComponents.registry();
     final c = CharacterBody2DComponent(
-      shape: CharacterShape2D.box,
+      shape: CharacterBody2DShape.box,
       width: 20,
       height: 40,
       offset: const Offset(0, -4),
@@ -215,7 +215,7 @@ void _suite(PhysicsEngine Function() make) {
     final json = definitions.encode(c)!;
     expect(json['type'], 'CharacterBody2DComponent');
     final back = definitions.decode(json)! as CharacterBody2DComponent;
-    expect(back.shape, CharacterShape2D.box);
+    expect(back.shape, CharacterBody2DShape.box);
     expect(
       (back.width, back.height, back.offset),
       (20.0, 40.0, const Offset(0, -4)),

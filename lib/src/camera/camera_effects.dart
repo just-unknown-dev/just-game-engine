@@ -21,7 +21,7 @@ import 'package:flutter/material.dart';
 /// [render] to participate in the rendering pipeline.
 abstract class CameraEffect {
   /// Update internal state once per frame.
-  void update(double dt) {}
+  void update(double deltaTime) {}
 
   /// Called before the world `canvas.save()` + camera transform.
   ///
@@ -100,11 +100,11 @@ class CameraEffectManager {
   ///
   /// A removed effect still remembers this manager: a reusable one that
   /// starts again (see [CameraEffect.resume]) comes straight back.
-  void update(double dt) {
+  void update(double deltaTime) {
     for (int i = _effects.length - 1; i >= 0; i--) {
       if (i >= _effects.length) continue;
       final effect = _effects[i];
-      effect.update(dt);
+      effect.update(deltaTime);
       if (effect.isComplete) {
         _effects.remove(effect);
         effect._registered = false;
@@ -217,9 +217,9 @@ class ScreenFadeEffect extends CameraEffect {
   }
 
   @override
-  void update(double dt) {
+  void update(double deltaTime) {
     if (_inHold) {
-      _holdRemaining -= dt;
+      _holdRemaining -= deltaTime;
       if (_holdRemaining <= 0) {
         _inHold = false;
         _startAnim(1.0, 0.0, _postHoldFadeDuration);
@@ -227,7 +227,7 @@ class ScreenFadeEffect extends CameraEffect {
       return;
     }
     if (!_animating) return;
-    _elapsed += dt;
+    _elapsed += deltaTime;
     final t = _duration > 0 ? (_elapsed / _duration).clamp(0.0, 1.0) : 1.0;
     _alpha = _fromAlpha + (_toAlpha - _fromAlpha) * t;
     if (t >= 1.0) {
@@ -304,9 +304,9 @@ class LetterboxEffect extends CameraEffect {
   }
 
   @override
-  void update(double dt) {
+  void update(double deltaTime) {
     if (!_animating) return;
-    _elapsed += dt;
+    _elapsed += deltaTime;
     final t = _duration > 0 ? (_elapsed / _duration).clamp(0.0, 1.0) : 1.0;
     _current = _from + (_target - _from) * t;
     if (t >= 1.0) {
@@ -339,7 +339,7 @@ class LetterboxEffect extends CameraEffect {
 /// [ui.ImageFilter.blur] oriented along the camera's movement direction.
 ///
 /// ```dart
-/// final blur = MotionBlurEffect(velocityFn: () => camera.velocity);
+/// final blur = MotionBlurEffect(velocity: () => camera.velocity);
 /// camera.effectManager.addEffect(blur);
 /// ```
 ///
@@ -349,7 +349,7 @@ class MotionBlurEffect extends CameraEffect {
   /// Returns the camera's current world-space velocity (pixels/s).
   ///
   /// Typically `() => camera.velocity` where `camera` is the scene's [Camera].
-  final Offset Function() velocityFn;
+  final Offset Function() velocity;
 
   /// Minimum speed (world px/s) before any blur is applied.
   final double minSpeed;
@@ -364,7 +364,7 @@ class MotionBlurEffect extends CameraEffect {
 
   /// Create a [MotionBlurEffect].
   MotionBlurEffect({
-    required this.velocityFn,
+    required this.velocity,
     this.minSpeed = 150.0,
     this.maxBlurSigma = 6.0,
     this.maxSpeed = 800.0,
@@ -373,7 +373,7 @@ class MotionBlurEffect extends CameraEffect {
   @override
   void preRender(Canvas canvas, Size size) {
     _didPushLayer = false;
-    final vel = velocityFn();
+    final vel = velocity();
     final speed = vel.distance;
     if (speed < minSpeed) return;
 

@@ -39,6 +39,15 @@ abstract class EngineService {
   Future<void> stop();
 }
 
+/// An [EngineService] that keeps what scenes use — models, material files,
+/// maps — and lets go of what the scene in its engine's world no longer
+/// uses when [Engine.releaseUnused] asks: `Graphics3D` is one.
+abstract interface class SceneCacheService implements EngineService {
+  /// Lets go of what the engine's world no longer uses; whatever is used
+  /// again later is read again.
+  void releaseUnused();
+}
+
 /// What a started [EngineService] gets from its engine.
 final class ServiceContext {
   ServiceContext._(this.engine);
@@ -149,15 +158,25 @@ final class ServiceHost {
   }
 
   /// Starts every service not yet started, in order — those added while
-  /// this runs too. What a failure throws names the service.
+  /// this runs too, also one that replaced (removed) a service before it.
+  /// What a failure throws names the service.
   Future<void> _startAll() async {
-    for (var i = 0; i < _services.length; i++) {
-      final service = _services[i];
-      if (_started.contains(service)) continue;
+    final tried = Set<EngineService>.identity();
+    while (true) {
+      // Looked for afresh after each start: one may add or remove services,
+      // which shifts the list.
+      EngineService? next;
+      for (final service in _services) {
+        if (!_started.contains(service) && tried.add(service)) {
+          next = service;
+          break;
+        }
+      }
+      if (next == null) return;
       try {
-        await _start(service);
+        await _start(next);
       } catch (error, stack) {
-        throw _ServiceStartFailure(service, error, stack);
+        throw _ServiceStartFailure(next, error, stack);
       }
     }
   }

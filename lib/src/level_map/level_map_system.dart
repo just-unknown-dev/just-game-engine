@@ -169,26 +169,35 @@ class LevelMapSystem extends System {
   static int _memberSub(int index, int child) =>
       ((2 * index + 1) << 16) + child;
 
+  /// The sub-order [item] has as one of its own map's layers.
+  static int _ownSub(MapLayerRenderItem item) {
+    final i = item.runtime.base.indexOfLayer(item.layerId);
+    return i < 0 ? 0 : _layerSub(i);
+  }
+
   /// Places every map layer's entities with their layer.
   ///
   /// Done every update rather than only when something changed: the
   /// children lists, a child's `mapLayer` and a layer's settings are plain
   /// fields nothing counts changes to. It allocates nothing on the way.
+  ///
+  /// Every map's layers are placed among its own first, and only then what
+  /// is on them: a map that is a piece of another's layer is placed there
+  /// whichever of the two comes first.
   void _syncMembers() {
     final now = _nextMembers..clear();
+    for (final map in entities) {
+      final items = map.getComponent<RenderItemsComponent>()?.items;
+      if (items == null) continue;
+      for (final item in items) {
+        if (item is MapLayerRenderItem) item.subOrder = _ownSub(item);
+      }
+    }
     for (final map in entities) {
       final runtime = map.getComponent<LevelMapComponent>()!.runtime;
       if (runtime == null) continue;
       final data = runtime.base;
       final layers = data.layers;
-      final items = map.getComponent<RenderItemsComponent>()?.items;
-      if (items != null) {
-        for (final item in items) {
-          if (item is! MapLayerRenderItem) continue;
-          final i = data.indexOfLayer(item.layerId);
-          if (i >= 0) item.subOrder = _layerSub(i);
-        }
-      }
       final children = map.getComponent<ChildrenComponent>()?.childIds;
       if (children == null) continue;
       for (var n = 0; n < children.length; n++) {
@@ -236,7 +245,7 @@ class LevelMapSystem extends System {
         item
           ..layerOverride = null
           ..zOrderOverride = null
-          ..subOrder = 0;
+          ..subOrder = _ownSub(item);
       }
     }
     _nextMembers = _members;

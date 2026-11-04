@@ -8,7 +8,7 @@ import 'tile_chunks.dart';
 import 'tile_properties.dart';
 
 /// The shape and layout of a map's cells — Tiled's four orientations.
-enum MapOrientation {
+enum LevelMapOrientation {
   /// Square (or rectangular) cells in rows and columns.
   orthogonal,
 
@@ -26,7 +26,7 @@ enum MapOrientation {
   /// The orientation Tiled and a saved map call [name] (`orthogonal`,
   /// `isometric`, `staggered`, `hexagonal`); [orthogonal] for null or a
   /// name it does not know.
-  static MapOrientation fromName(String? name) =>
+  static LevelMapOrientation fromName(String? name) =>
       values.firstWhere((o) => o.name == name, orElse: () => orthogonal);
 }
 
@@ -112,7 +112,7 @@ class MapLayerData {
     this.collides = false,
     this.className = '',
     this.material = '',
-    this.castsShadows = false,
+    this.castShadows = false,
     this.shadowDepth = 12,
     TileProperties? properties,
     TileChunkStore? cells,
@@ -175,7 +175,7 @@ class MapLayerData {
   String material;
 
   /// Whether its tiles block 2-D lights (`Light2DComponent`), casting shadows.
-  bool castsShadows;
+  bool castShadows;
 
   /// How far into its tiles a light reaches before their own shadow, in
   /// pixels: the face of a wall catching the light.
@@ -208,7 +208,7 @@ class MapLayerData {
     if (collides) 'collides': true,
     if (className.isNotEmpty) 'class': className,
     if (material.isNotEmpty) 'material': material,
-    if (castsShadows) 'castsShadows': true,
+    if (castShadows) 'castShadows': true,
     if (shadowDepth != 12) 'shadowDepth': shadowDepth,
     if (properties.isNotEmpty) 'properties': properties.toJson(),
     'cells': cells.toJson(),
@@ -216,8 +216,12 @@ class MapLayerData {
 
   /// Reads what [toJson] wrote; missing keys take their defaults (a missing
   /// id is 0 — [LevelMapData.fromJson] gives such a layer a new one). A
-  /// value of the wrong type, such as a string `opacity`, throws.
-  static MapLayerData fromJson(Map<String, dynamic> json) {
+  /// value of the wrong type, such as a string `opacity`, throws. [format]
+  /// is the map's saved form: before 3, [castShadows] was `castsShadows`.
+  static MapLayerData fromJson(
+    Map<String, dynamic> json, {
+    int format = LevelMapData.format,
+  }) {
     final offset = json['offset'];
     final parallax = json['parallax'];
     double at(Object? list, int i, double fallback) =>
@@ -241,7 +245,7 @@ class MapLayerData {
       collides: json['collides'] == true,
       className: json['class'] as String? ?? '',
       material: json['material'] as String? ?? '',
-      castsShadows: json['castsShadows'] == true,
+      castShadows: json[format < 3 ? 'castsShadows' : 'castShadows'] == true,
       shadowDepth: (json['shadowDepth'] as num?)?.toDouble() ?? 12,
       properties: TileProperties.fromJson(json['properties']),
       cells: TileChunkStore.fromJson(json['cells']),
@@ -266,7 +270,7 @@ class MapLayerData {
     collides: collides,
     className: className,
     material: material,
-    castsShadows: castsShadows,
+    castShadows: castShadows,
     shadowDepth: shadowDepth,
     properties: properties.copy(),
     cells: cells ?? this.cells.copy(),
@@ -283,7 +287,7 @@ class LevelMapData {
   /// A map with no tilesets and no layers, on an orthogonal grid of 32 × 32
   /// pixel cells unless said. [nextLayerId] is the id [addLayer] gives next.
   LevelMapData({
-    this.orientation = MapOrientation.orthogonal,
+    this.orientation = LevelMapOrientation.orthogonal,
     this.tileWidth = 32,
     this.tileHeight = 32,
     this.staggerAxis = TileStaggerAxis.y,
@@ -295,6 +299,8 @@ class LevelMapData {
     this.nextLayerId = 1,
     this.backgroundColor,
     this.className = '',
+    this.parallaxOriginX = 0,
+    this.parallaxOriginY = 0,
     TileProperties? properties,
   }) : tilesets = tilesets ?? [],
        layers = layers ?? [],
@@ -302,16 +308,17 @@ class LevelMapData {
 
   /// Version of the saved form. Bumped only for a change old readers would
   /// misread. Every earlier form still reads — 2 kept shapes in layers,
-  /// which maps no longer hold: they are passed over.
-  static const int format = 1;
+  /// which maps no longer hold: they are passed over. 3 renamed a layer's
+  /// `castsShadows` to `castShadows`, as a 3-D shape says it, which older
+  /// readers would lose.
+  static const int format = 3;
 
-  /// The newest saved form [fromJson] reads. Above [format] because form 2
-  /// (shapes in layers) was written for a while and still reads — so the
-  /// next change that needs a new number takes 3.
-  static const int newestReadableFormat = 2;
+  /// The newest saved form [fromJson] reads: [format]. (Form 2, shapes in
+  /// layers, was written for a while and still reads; 3 skipped past it.)
+  static const int newestReadableFormat = 3;
 
   /// The shape and layout of its cells.
-  MapOrientation orientation;
+  LevelMapOrientation orientation;
 
   /// The grid, in pixels (world units).
   int tileWidth;
@@ -348,6 +355,15 @@ class LevelMapData {
 
   /// A free-form class, as in Tiled.
   String className;
+
+  /// Where a layer's parallax is measured from, in the map's pixels: a
+  /// layer that scrolls slower or faster than the level ([MapLayerData]'s
+  /// `parallaxX`) is where it was placed when the camera looks at this
+  /// point — Tiled's parallax origin. The map's origin by default.
+  double parallaxOriginX;
+
+  /// The same, vertically; see [parallaxOriginX].
+  double parallaxOriginY;
 
   /// Custom properties a game reads, as in Tiled.
   TileProperties properties;
@@ -441,17 +457,20 @@ class LevelMapData {
     'orientation': orientation.name,
     'tileWidth': tileWidth,
     'tileHeight': tileHeight,
-    if (orientation == MapOrientation.staggered ||
-        orientation == MapOrientation.hexagonal) ...{
+    if (orientation == LevelMapOrientation.staggered ||
+        orientation == LevelMapOrientation.hexagonal) ...{
       'staggerAxis': staggerAxis.name,
       'staggerIndex': staggerIndex.name,
     },
-    if (orientation == MapOrientation.hexagonal) 'hexSideLength': hexSideLength,
+    if (orientation == LevelMapOrientation.hexagonal)
+      'hexSideLength': hexSideLength,
     if (renderOrder != TileRenderOrder.rightDown) 'renderOrder': renderOrder.id,
     'tilesets': [...tilesets],
     'nextLayerId': nextLayerId,
     'backgroundColor': ?backgroundColor,
     if (className.isNotEmpty) 'class': className,
+    if (parallaxOriginX != 0 || parallaxOriginY != 0)
+      'parallaxOrigin': [parallaxOriginX, parallaxOriginY],
     if (properties.isNotEmpty) 'properties': properties.toJson(),
     'layers': [for (final layer in layers) layer.toJson()],
   };
@@ -477,12 +496,21 @@ class LevelMapData {
     for (final raw in json['layers'] as List? ?? const []) {
       if (raw is! Map) continue;
       if (raw['id'] is! num) noId.add(layers.length);
-      layers.add(MapLayerData.fromJson(raw.cast<String, dynamic>()));
+      layers.add(
+        MapLayerData.fromJson(
+          raw.cast<String, dynamic>(),
+          format: version is num ? version.toInt() : 1,
+        ),
+      );
     }
     var next = (json['nextLayerId'] as num?)?.toInt() ?? 1;
     for (final layer in layers) {
       if (layer.id >= next) next = layer.id + 1;
     }
+    final origin = json['parallaxOrigin'];
+    double at(int i) => origin is List && origin.length > i && origin[i] is num
+        ? (origin[i] as num).toDouble()
+        : 0;
     final ids = <int>{};
     for (var i = 0; i < layers.length; i++) {
       final layer = layers[i];
@@ -491,7 +519,7 @@ class LevelMapData {
       ids.add(next++);
     }
     return LevelMapData(
-      orientation: MapOrientation.fromName(json['orientation'] as String?),
+      orientation: LevelMapOrientation.fromName(json['orientation'] as String?),
       tileWidth: (json['tileWidth'] as num?)?.toInt() ?? 32,
       tileHeight: (json['tileHeight'] as num?)?.toInt() ?? 32,
       staggerAxis: TileStaggerAxis.fromName(json['staggerAxis'] as String?),
@@ -506,6 +534,8 @@ class LevelMapData {
       nextLayerId: next,
       backgroundColor: (json['backgroundColor'] as num?)?.toInt(),
       className: json['class'] as String? ?? '',
+      parallaxOriginX: at(0),
+      parallaxOriginY: at(1),
       properties: TileProperties.fromJson(json['properties']),
     );
   }
@@ -524,6 +554,8 @@ class LevelMapData {
     nextLayerId: nextLayerId,
     backgroundColor: backgroundColor,
     className: className,
+    parallaxOriginX: parallaxOriginX,
+    parallaxOriginY: parallaxOriginY,
     properties: properties.copy(),
   );
 }

@@ -7,7 +7,7 @@ import '../../ecs/ecs.dart';
 import '../../foundation/dimensions.dart';
 import 'camera_collision_3d_component.dart';
 import 'physics_3d_components.dart';
-import '../physics_2d/physics_2d_definitions.dart';
+import '../physics_definitions.dart';
 
 /// How the 3-D physics components are saved and shown in an editor. Every
 /// one is a 3-D component (`Dimensions.threeD`), in the `Physics` group the
@@ -22,8 +22,8 @@ abstract final class Physics3DDefinitions {
     id: 'physics3d.bodyType',
   );
   static const _colliderShape = EnumFieldType(
-    ColliderShape3D.values,
-    fallback: ColliderShape3D.box,
+    Collider3DShape.values,
+    fallback: Collider3DShape.box,
     id: 'physics3d.colliderShape',
   );
   static const _motor = EnumFieldType(
@@ -41,8 +41,8 @@ abstract final class Physics3DDefinitions {
   static const _plain = ScrubHint(step: 0.05, fractionDigits: 2);
 
   /// [RigidBody3DComponent]: grouped, labelled and described as `RigidBody2DComponent` is.
-  static ComponentSchema<RigidBody3DComponent>
-  get rigidBody => ComponentSchema<RigidBody3DComponent>(
+  static ComponentDefinition<RigidBody3DComponent>
+  get rigidBody => ComponentDefinition<RigidBody3DComponent>(
     type: 'RigidBody3DComponent',
     id: 'rigid_body_3d_d3ff8994',
     create: RigidBody3DComponent.new,
@@ -71,7 +71,7 @@ abstract final class Physics3DDefinitions {
       fields: {
         'bodyType': const FieldHint(
           label: 'Body type',
-          description: Physics2DDefinitions.bodyTypeDescription,
+          description: PhysicsDefinitions.bodyTypeDescription,
         ),
         'mass': FieldHint(
           label: 'Mass',
@@ -83,36 +83,36 @@ abstract final class Physics3DDefinitions {
         ),
         'layer': const FieldHint(
           label: 'Layer',
-          description: Physics2DDefinitions.layerDescription,
+          description: PhysicsDefinitions.layerDescription,
         ),
         'isSensor': const FieldHint(
           label: 'Sensor',
-          description: Physics2DDefinitions.sensorDescription,
+          description: PhysicsDefinitions.sensorDescription,
         ),
         'friction': FieldHint(
           label: 'Friction',
-          description: Physics2DDefinitions.frictionDescription,
+          description: PhysicsDefinitions.frictionDescription,
           slider: true,
           scrub: _plain,
           visibleWhen: (c) => !(c as RigidBody3DComponent).isSensor,
         ),
         'restitution': FieldHint(
           label: 'Bounciness',
-          description: Physics2DDefinitions.restitutionDescription,
+          description: PhysicsDefinitions.restitutionDescription,
           slider: true,
           scrub: _plain,
           visibleWhen: (c) => !(c as RigidBody3DComponent).isSensor,
         ),
         'gravityScale': FieldHint(
           label: 'Gravity scale',
-          description: Physics2DDefinitions.gravityScaleDescription,
+          description: PhysicsDefinitions.gravityScaleDescription,
           scrub: const ScrubHint(step: 0.05, fractionDigits: 2, suffix: '×'),
           visibleWhen: (c) =>
               (c as RigidBody3DComponent).bodyType == BodyType3D.dynamic,
         ),
         'linearDamping': FieldHint(
           label: 'Linear damping',
-          description: Physics2DDefinitions.linearDampingDescription,
+          description: PhysicsDefinitions.linearDampingDescription,
           scrub: const ScrubHint(step: 0.05, fractionDigits: 2, suffix: '/s'),
           visibleWhen: (c) =>
               (c as RigidBody3DComponent).bodyType == BodyType3D.dynamic,
@@ -126,19 +126,19 @@ abstract final class Physics3DDefinitions {
         ),
         'continuousCollision': FieldHint(
           label: 'Continuous',
-          description: Physics2DDefinitions.continuousDescription,
+          description: PhysicsDefinitions.continuousDescription,
           visibleWhen: (c) =>
               (c as RigidBody3DComponent).bodyType == BodyType3D.dynamic,
         ),
         'canSleep': FieldHint(
           label: 'Can sleep',
-          description: Physics2DDefinitions.canSleepDescription,
+          description: PhysicsDefinitions.canSleepDescription,
           visibleWhen: (c) =>
               (c as RigidBody3DComponent).bodyType != BodyType3D.static,
         ),
         'lockRotation': FieldHint(
           label: 'Lock rotation',
-          description: Physics2DDefinitions.lockRotationDescription,
+          description: PhysicsDefinitions.lockRotationDescription,
           visibleWhen: (c) =>
               (c as RigidBody3DComponent).bodyType != BodyType3D.static,
         ),
@@ -159,7 +159,7 @@ abstract final class Physics3DDefinitions {
       },
     ),
     fields: [
-      SchemaField(
+      FieldDefinition(
         name: 'bodyType',
         kind: _bodyType,
         read: (c) => (c as RigidBody3DComponent).bodyType,
@@ -171,9 +171,9 @@ abstract final class Physics3DDefinitions {
         (c, v) => c.mass = v,
         min: 0,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'layer',
-        kind: FieldTypes.physicsLayer,
+        kind: PhysicsDefinitions.layerType,
         read: (c) => (c as RigidBody3DComponent).layer,
         write: (c, v) => (c as RigidBody3DComponent).layer = (v as num).toInt(),
       ),
@@ -241,10 +241,10 @@ abstract final class Physics3DDefinitions {
   );
 
   /// [Collider3DComponent].
-  static ComponentSchema<Collider3DComponent> get collider {
-    bool shapeIs(Component c, Set<ColliderShape3D> shapes) =>
+  static ComponentDefinition<Collider3DComponent> get collider {
+    bool shapeIs(Component c, Set<Collider3DShape> shapes) =>
         shapes.contains((c as Collider3DComponent).shape);
-    return ComponentSchema<Collider3DComponent>(
+    return ComponentDefinition<Collider3DComponent>(
       type: 'Collider3DComponent',
       id: 'collider_3d_1bf4c502',
       create: Collider3DComponent.new,
@@ -270,47 +270,47 @@ abstract final class Physics3DDefinitions {
           ),
           'size': FieldHint(
             label: 'Size',
-            visibleWhen: (c) => shapeIs(c, {ColliderShape3D.box}),
+            visibleWhen: (c) => shapeIs(c, {Collider3DShape.box}),
           ),
           'radius': FieldHint(
             label: 'Radius',
             scrub: _metres,
             visibleWhen: (c) => shapeIs(c, {
-              ColliderShape3D.sphere,
-              ColliderShape3D.capsule,
-              ColliderShape3D.cylinder,
+              Collider3DShape.sphere,
+              Collider3DShape.capsule,
+              Collider3DShape.cylinder,
             }),
           ),
           'height': FieldHint(
             label: 'Height',
             scrub: _metres,
             visibleWhen: (c) =>
-                shapeIs(c, {ColliderShape3D.capsule, ColliderShape3D.cylinder}),
+                shapeIs(c, {Collider3DShape.capsule, Collider3DShape.cylinder}),
           ),
           'model': FieldHint(
             label: 'Model',
             fileExtensions: const ['glb', 'gltf'],
             visibleWhen: (c) =>
-                shapeIs(c, {ColliderShape3D.convexHull, ColliderShape3D.mesh}),
+                shapeIs(c, {Collider3DShape.convexHull, Collider3DShape.mesh}),
           ),
           'meshName': FieldHint(
             label: 'Mesh',
             description: 'Empty uses every mesh of the model.',
             visibleWhen: (c) =>
-                shapeIs(c, {ColliderShape3D.convexHull, ColliderShape3D.mesh}),
+                shapeIs(c, {Collider3DShape.convexHull, Collider3DShape.mesh}),
           ),
           'heightFieldSize': FieldHint(
             label: 'Samples per side',
-            visibleWhen: (c) => shapeIs(c, {ColliderShape3D.heightField}),
+            visibleWhen: (c) => shapeIs(c, {Collider3DShape.heightField}),
           ),
           'cellSize': FieldHint(
             label: 'Cell size',
             scrub: _metres,
-            visibleWhen: (c) => shapeIs(c, {ColliderShape3D.heightField}),
+            visibleWhen: (c) => shapeIs(c, {Collider3DShape.heightField}),
           ),
           'heights': FieldHint(
             label: 'Heights',
-            visibleWhen: (c) => shapeIs(c, {ColliderShape3D.heightField}),
+            visibleWhen: (c) => shapeIs(c, {Collider3DShape.heightField}),
           ),
           'offset': const FieldHint(label: 'Offset'),
           'rotation': const FieldHint(
@@ -321,12 +321,12 @@ abstract final class Physics3DDefinitions {
         },
       ),
       fields: [
-        SchemaField(
+        FieldDefinition(
           name: 'shape',
           kind: _colliderShape,
           read: (c) => (c as Collider3DComponent).shape,
           write: (c, v) =>
-              (c as Collider3DComponent).shape = v as ColliderShape3D,
+              (c as Collider3DComponent).shape = v as Collider3DShape,
         ),
         _vector<Collider3DComponent>(
           'size',
@@ -345,21 +345,21 @@ abstract final class Physics3DDefinitions {
           (c, v) => c.height = v,
           min: 0,
         ),
-        SchemaField(
+        FieldDefinition(
           name: 'model',
           kind: FieldTypes.assetRef,
           read: (c) => (c as Collider3DComponent).model,
           write: (c, v) =>
               (c as Collider3DComponent).model = v as String? ?? '',
         ),
-        SchemaField(
+        FieldDefinition(
           name: 'meshName',
           kind: FieldTypes.text,
           read: (c) => (c as Collider3DComponent).meshName,
           write: (c, v) =>
               (c as Collider3DComponent).meshName = v as String? ?? '',
         ),
-        SchemaField(
+        FieldDefinition(
           name: 'heights',
           kind: FieldTypes.list,
           read: (c) => (c as Collider3DComponent).heights,
@@ -368,7 +368,7 @@ abstract final class Physics3DDefinitions {
               for (final h in v) h is num ? h.toDouble() : 0.0,
           ],
         ),
-        SchemaField(
+        FieldDefinition(
           name: 'heightFieldSize',
           kind: FieldTypes.integer,
           read: (c) => (c as Collider3DComponent).heightFieldSize,
@@ -387,7 +387,7 @@ abstract final class Physics3DDefinitions {
           (c) => c.offset,
           (c, v) => c.offset = v,
         ),
-        SchemaField(
+        FieldDefinition(
           name: 'rotation',
           kind: FieldTypes.euler,
           read: (c) => (c as Collider3DComponent).rotation,
@@ -403,8 +403,8 @@ abstract final class Physics3DDefinitions {
   }
 
   /// [CharacterBody3DComponent].
-  static ComponentSchema<CharacterBody3DComponent>
-  get characterBody => ComponentSchema<CharacterBody3DComponent>(
+  static ComponentDefinition<CharacterBody3DComponent>
+  get characterBody => ComponentDefinition<CharacterBody3DComponent>(
     type: 'CharacterBody3DComponent',
     id: 'character_body_3d_f8ddd4a9',
     create: CharacterBody3DComponent.new,
@@ -426,11 +426,11 @@ abstract final class Physics3DDefinitions {
         'height': const FieldHint(label: 'Height', scrub: _metres),
         'layer': const FieldHint(
           label: 'Layer',
-          description: Physics2DDefinitions.layerDescription,
+          description: PhysicsDefinitions.layerDescription,
         ),
         'detectable': const FieldHint(
           label: 'Detectable',
-          description: Physics2DDefinitions.detectableDescription,
+          description: PhysicsDefinitions.detectableDescription,
         ),
         'maxSlopeAngle': const FieldHint(
           label: 'Steepest slope',
@@ -445,7 +445,7 @@ abstract final class Physics3DDefinitions {
         'useGravity': const FieldHint(label: 'Gravity and ground'),
         'gravityScale': FieldHint(
           label: 'Gravity scale',
-          description: Physics2DDefinitions.gravityScaleDescription,
+          description: PhysicsDefinitions.gravityScaleDescription,
           scrub: const ScrubHint(step: 0.05, fractionDigits: 2, suffix: '×'),
           visibleWhen: (c) => (c as CharacterBody3DComponent).useGravity,
         ),
@@ -512,9 +512,9 @@ abstract final class Physics3DDefinitions {
         (c) => c.useGravity,
         (c, v) => c.useGravity = v,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'layer',
-        kind: FieldTypes.physicsLayer,
+        kind: PhysicsDefinitions.layerType,
         read: (c) => (c as CharacterBody3DComponent).layer,
         write: (c, v) =>
             (c as CharacterBody3DComponent).layer = (v as num).toInt(),
@@ -537,8 +537,8 @@ abstract final class Physics3DDefinitions {
     'enabled': FieldHint(label: 'Enabled'),
   };
 
-  static List<SchemaField> _jointFields<T extends Joint3DComponent>() => [
-    SchemaField(
+  static List<FieldDefinition> _jointFields<T extends Joint3DComponent>() => [
+    FieldDefinition(
       name: 'connectedBody',
       kind: FieldTypes.target,
       read: (c) => (c as T).connectedBody,
@@ -567,8 +567,8 @@ abstract final class Physics3DDefinitions {
   );
 
   /// [FixedJoint3DComponent].
-  static ComponentSchema<FixedJoint3DComponent> get fixedJoint =>
-      ComponentSchema<FixedJoint3DComponent>(
+  static ComponentDefinition<FixedJoint3DComponent> get fixedJoint =>
+      ComponentDefinition<FixedJoint3DComponent>(
         type: 'FixedJoint3DComponent',
         id: 'fixed_joint_3d_6a931232',
         create: FixedJoint3DComponent.new,
@@ -581,8 +581,8 @@ abstract final class Physics3DDefinitions {
       );
 
   /// [PointJoint3DComponent].
-  static ComponentSchema<PointJoint3DComponent> get pointJoint =>
-      ComponentSchema<PointJoint3DComponent>(
+  static ComponentDefinition<PointJoint3DComponent> get pointJoint =>
+      ComponentDefinition<PointJoint3DComponent>(
         type: 'PointJoint3DComponent',
         id: 'point_joint_3d_40e90e6c',
         create: PointJoint3DComponent.new,
@@ -618,8 +618,8 @@ abstract final class Physics3DDefinitions {
   };
 
   /// [HingeJoint3DComponent].
-  static ComponentSchema<HingeJoint3DComponent> get hingeJoint =>
-      ComponentSchema<HingeJoint3DComponent>(
+  static ComponentDefinition<HingeJoint3DComponent> get hingeJoint =>
+      ComponentDefinition<HingeJoint3DComponent>(
         type: 'HingeJoint3DComponent',
         id: 'hinge_joint_3d_d261402b',
         create: HingeJoint3DComponent.new,
@@ -679,7 +679,7 @@ abstract final class Physics3DDefinitions {
             (c, v) => c.friction = v,
             min: 0,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'motor',
             kind: _motor,
             read: (c) => (c as HingeJoint3DComponent).motor,
@@ -701,8 +701,8 @@ abstract final class Physics3DDefinitions {
       );
 
   /// [SliderJoint3DComponent].
-  static ComponentSchema<SliderJoint3DComponent> get sliderJoint =>
-      ComponentSchema<SliderJoint3DComponent>(
+  static ComponentDefinition<SliderJoint3DComponent> get sliderJoint =>
+      ComponentDefinition<SliderJoint3DComponent>(
         type: 'SliderJoint3DComponent',
         id: 'slider_joint_3d_4fe767d0',
         create: SliderJoint3DComponent.new,
@@ -763,7 +763,7 @@ abstract final class Physics3DDefinitions {
             (c, v) => c.friction = v,
             min: 0,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'motor',
             kind: _motor,
             read: (c) => (c as SliderJoint3DComponent).motor,
@@ -785,8 +785,8 @@ abstract final class Physics3DDefinitions {
       );
 
   /// [DistanceJoint3DComponent].
-  static ComponentSchema<DistanceJoint3DComponent> get distanceJoint =>
-      ComponentSchema<DistanceJoint3DComponent>(
+  static ComponentDefinition<DistanceJoint3DComponent> get distanceJoint =>
+      ComponentDefinition<DistanceJoint3DComponent>(
         type: 'DistanceJoint3DComponent',
         id: 'distance_joint_3d_4db642db',
         create: DistanceJoint3DComponent.new,
@@ -852,19 +852,19 @@ abstract final class Physics3DDefinitions {
       );
 
   /// [SixDofJoint3DComponent].
-  static ComponentSchema<SixDofJoint3DComponent> get sixDofJoint {
-    SchemaField mode(
+  static ComponentDefinition<SixDofJoint3DComponent> get sixDofJoint {
+    FieldDefinition mode(
       String name,
       SixDofAxisMode3D Function(SixDofJoint3DComponent) read,
       void Function(SixDofJoint3DComponent, SixDofAxisMode3D) write,
-    ) => SchemaField(
+    ) => FieldDefinition(
       name: name,
       kind: _axisMode,
       read: (c) => read(c as SixDofJoint3DComponent),
       write: (c, v) =>
           write(c as SixDofJoint3DComponent, v as SixDofAxisMode3D),
     );
-    return ComponentSchema<SixDofJoint3DComponent>(
+    return ComponentDefinition<SixDofJoint3DComponent>(
       type: 'SixDofJoint3DComponent',
       id: 'six_dof_joint_3d_7cb33ceb',
       create: SixDofJoint3DComponent.new,
@@ -952,8 +952,16 @@ abstract final class Physics3DDefinitions {
     );
   }
 
+  /// The field types the 3-D physics components are saved through, which
+  /// they share with 2-D physics: registered by `Physics3D` with its
+  /// definitions, so a context given only 3-D physics has them too.
+  static const List<FieldType> fieldTypes = [
+    PhysicsDefinitions.layerType,
+    PhysicsDefinitions.layerMaskType,
+  ];
+
   /// Every 3-D physics component.
-  static List<ComponentSchema> get all => [
+  static List<ComponentDefinition> get all => [
     rigidBody,
     collider,
     characterBody,
@@ -967,8 +975,8 @@ abstract final class Physics3DDefinitions {
   ];
 
   /// [CameraCollision3DComponent].
-  static ComponentSchema<CameraCollision3DComponent>
-  get cameraCollision => ComponentSchema<CameraCollision3DComponent>(
+  static ComponentDefinition<CameraCollision3DComponent>
+  get cameraCollision => ComponentDefinition<CameraCollision3DComponent>(
     type: 'CameraCollision3DComponent',
     id: 'camera_collision_3d_5d27c0e1',
     create: CameraCollision3DComponent.new,
@@ -1020,9 +1028,9 @@ abstract final class Physics3DDefinitions {
         (c, v) => c.recover = v,
         min: 0,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'layerMask',
-        kind: FieldTypes.physicsLayerMask,
+        kind: PhysicsDefinitions.layerMaskType,
         read: (c) => (c as CameraCollision3DComponent).layerMask,
         write: (c, v) =>
             (c as CameraCollision3DComponent).layerMask = (v as num).toInt(),
@@ -1035,13 +1043,13 @@ abstract final class Physics3DDefinitions {
     ],
   );
 
-  static SchemaField _decimal<T extends Component>(
+  static FieldDefinition _decimal<T extends Component>(
     String name,
     double Function(T c) read,
     void Function(T c, double v) write, {
     double? min,
     double? max,
-  }) => SchemaField(
+  }) => FieldDefinition(
     name: name,
     kind: FieldTypes.decimal,
     read: (c) => read(c as T),
@@ -1050,22 +1058,22 @@ abstract final class Physics3DDefinitions {
     max: max,
   );
 
-  static SchemaField _bool<T extends Component>(
+  static FieldDefinition _bool<T extends Component>(
     String name,
     bool Function(T c) read,
     void Function(T c, bool v) write,
-  ) => SchemaField(
+  ) => FieldDefinition(
     name: name,
     kind: FieldTypes.boolean,
     read: (c) => read(c as T),
     write: (c, v) => write(c as T, v as bool),
   );
 
-  static SchemaField _vector<T extends Component>(
+  static FieldDefinition _vector<T extends Component>(
     String name,
     Vector3 Function(T c) read,
     void Function(T c, Vector3 v) write,
-  ) => SchemaField(
+  ) => FieldDefinition(
     name: name,
     kind: FieldTypes.vector3,
     read: (c) => read(c as T),
@@ -1081,7 +1089,7 @@ final class _ColliderExtent extends ComponentExtent {
   @override
   Size? sizeOf(Component component) {
     final c = component as Collider3DComponent;
-    if (c.shape == ColliderShape3D.matchShape) return null;
+    if (c.shape == Collider3DShape.matchShape) return null;
     final s = c.naturalSize;
     return Size(s.x * c.scale.x.abs(), s.y * c.scale.y.abs());
   }
@@ -1089,7 +1097,7 @@ final class _ColliderExtent extends ComponentExtent {
   @override
   bool boundsInto(Component component, Aabb3 out) {
     final c = component as Collider3DComponent;
-    if (c.shape == ColliderShape3D.matchShape) return false;
+    if (c.shape == Collider3DShape.matchShape) return false;
     final s = c.naturalSize;
     final hx = s.x * c.scale.x.abs() / 2,
         hy = s.y * c.scale.y.abs() / 2,

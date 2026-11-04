@@ -10,12 +10,11 @@ export 'register_default_systems.dart';
 export 'engine_plugin.dart';
 export 'game_layers.dart';
 export 'game_widget.dart';
-export 'engine_service.dart' show EngineService, ServiceContext, ServiceHost;
+export 'engine_service.dart'
+    show EngineService, SceneCacheService, ServiceContext, ServiceHost;
 export 'game_loop.dart';
 export 'time_manager.dart';
 export 'system_manager.dart';
-export 'lifecycle.dart';
-export 'offload.dart';
 export 'game_terminal.dart';
 export 'register_sprite_systems.dart';
 export 'context_loaders.dart';

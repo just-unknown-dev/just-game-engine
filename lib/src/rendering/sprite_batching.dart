@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:meta/meta.dart' show internal;
 
 import '../interfaces/rendering_interfaces.dart';
 import 'renderable.dart';
@@ -15,6 +16,7 @@ import 'sprite_batch.dart';
 
 /// How one sprite goes into a batch, worked out by [plan]. One instance is
 /// reused for every sprite, so planning allocates nothing.
+@internal
 class SpriteBatchPlan {
   /// The atlas image.
   ui.Image? image;
@@ -25,8 +27,16 @@ class SpriteBatchPlan {
   /// The source rectangle on the atlas.
   double left = 0, top = 0, right = 0, bottom = 0;
 
-  /// The centre of the sprite, its turn and its uniform scale.
+  /// Where the sprite's anchor goes, its turn and its uniform scale.
   double x = 0, y = 0, rotation = 0, scale = 1;
+
+  /// The point of the source rectangle, in its pixels from its top-left,
+  /// put at ([x], [y]).
+  double anchorX = 0, anchorY = 0;
+
+  /// Whether the sprite is mirrored left to right, or top to bottom, about
+  /// its anchor.
+  bool flipX = false, flipY = false;
 
   /// The colour the sprite is multiplied by, as 0xAARRGGBB.
   int argb = 0xFFFFFFFF;
@@ -34,20 +44,29 @@ class SpriteBatchPlan {
   /// Works out how [renderable] — a [BatchableSprite] — is batched; false
   /// when it cannot be, and must be drawn by itself.
   ///
-  /// A batch draws each sprite with one rotation, one uniform scale and a
-  /// translation, so only a sprite scaled the same way on both axes, and not
-  /// mirrored by a negative scale, is batched. (Averaging the two, as the
-  /// render systems once did, drew a (3, 1) sprite at 2 and made a (−1, 1)
-  /// one vanish.) A [Sprite]'s render size is honoured when it keeps the
-  /// source's proportions; a stretched one draws by itself. A sprite that is
-  /// not a [Sprite] is sampled with [FilterQuality.none], as batches always
-  /// were.
-  bool plan(Renderable renderable) {
+  /// A batch draws each sprite with one rotation, one uniform scale, a
+  /// translation and a mirror, so only a sprite scaled the same amount on
+  /// both axes is batched; a negative scale mirrors it, as do its own flips.
+  /// (Averaging the two, as the render systems once did, drew a (3, 1)
+  /// sprite at 2.) Only a [SpriteBatch] mirrors, so a mirrored sprite is
+  /// batched only when [mirrors] says the batch it goes into is one
+  /// ([SpriteBatchCache.mirrors]); otherwise it draws by itself.
+  ///
+  /// A [Sprite] is placed as it draws itself: by its pivot
+  /// ([Sprite.batchAnchorX]), at its render size when that keeps the
+  /// source's proportions ([Sprite.batchUnit]; a stretched one draws by
+  /// itself), and turned back when its frame is stored turned
+  /// ([Sprite.batchTurned]) — so trimmed and rotated atlas frames batch too.
+  /// A sprite that is not a [Sprite] is centred, and sampled with
+  /// [FilterQuality.none], as batches always were.
+  bool plan(Renderable renderable, {bool mirrors = false}) {
     final batchable = renderable as BatchableSprite;
     final atlas = batchable.batchImage;
     if (atlas == null) return false;
-    final sx = renderable.scale.x;
-    if (!(sx > 0) || sx != renderable.scale.y) return false;
+    final sx = renderable.scale.x, sy = renderable.scale.y;
+    final size = sx.abs();
+    if (!(size > 0) || size != sy.abs()) return false;
+    var fx = sx < 0, fy = sy < 0;
 
     final src = batchable.batchSourceRect;
     left = src?.left ?? 0.0;
@@ -55,26 +74,39 @@ class SpriteBatchPlan {
     right = src?.right ?? atlas.width.toDouble();
     bottom = src?.bottom ?? atlas.height.toDouble();
 
-    scale = sx;
+    scale = size;
     quality = FilterQuality.none;
+    var turned = false;
     if (renderable is Sprite) {
       quality = renderable.filterQuality;
-      final size = renderable.renderSize;
-      if (size != null) {
-        final fit = uniformFit(size, right - left, bottom - top);
-        if (fit == null) return false;
-        scale *= fit;
-      }
+      final unit = renderable.batchUnit;
+      if (unit == null) return false;
+      scale *= unit;
+      anchorX = renderable.batchAnchorX;
+      anchorY = renderable.batchAnchorY;
+      turned = renderable.batchTurned;
+      if (renderable.flipX) fx = !fx;
+      if (renderable.flipY) fy = !fy;
+    } else {
+      anchorX = (right - left) / 2;
+      anchorY = (bottom - top) / 2;
     }
+    if ((fx || fy) && !mirrors) return false;
     image = atlas;
     x = renderable.position.x;
     y = renderable.position.y;
     rotation = renderable.rotation;
+    // A frame stored a quarter turn clockwise is turned back: before the
+    // mirror, which turns it the other way when only one axis mirrors.
+    if (turned) rotation += fx != fy ? math.pi / 2 : -math.pi / 2;
+    flipX = fx;
+    flipY = fy;
     argb = spriteColor(renderable.tint, renderable.opacity);
     return true;
   }
 
-  /// Queues the planned sprite into [batch].
+  /// Queues the planned sprite into [batch]. Only a [SpriteBatch] mirrors:
+  /// plan with `mirrors: true` only for one.
   void addTo(SpriteBatchRenderer batch) {
     if (batch is SpriteBatch) {
       batch.addRaw(
@@ -86,6 +118,10 @@ class SpriteBatchPlan {
         y: y,
         rotation: rotation,
         scale: scale,
+        anchorX: anchorX,
+        anchorY: anchorY,
+        flipX: flipX,
+        flipY: flipY,
         argb: argb,
       );
     } else {
@@ -94,6 +130,8 @@ class SpriteBatchPlan {
         position: Offset(x, y),
         rotation: rotation,
         scale: scale,
+        anchorX: anchorX,
+        anchorY: anchorY,
         color: Color(argb),
       );
     }
@@ -129,6 +167,7 @@ class SpriteBatchPlan {
 /// A frame is bracketed by [beginFrame] and [endFrame]; a batch the frame
 /// did not use is dropped at its end, so an image the level no longer shows
 /// is not held on to.
+@internal
 class SpriteBatchCache {
   /// An empty cache whose batches [factory] makes (plain [SpriteBatch]es
   /// when null).
@@ -136,6 +175,11 @@ class SpriteBatchCache {
 
   /// Makes a batch for an image; null makes a [SpriteBatch].
   SpriteBatchFactory? factory;
+
+  /// Whether the batches [batchFor] hands out can mirror a sprite — the
+  /// [SpriteBatch]es it makes itself, with no [factory] — and so what to
+  /// plan with (`SpriteBatchPlan.plan(renderable, mirrors: cache.mirrors)`).
+  bool get mirrors => factory == null;
 
   final Map<ui.Image, _BatchSlot> _slots = LinkedHashMap.identity();
   int _frame = 0;

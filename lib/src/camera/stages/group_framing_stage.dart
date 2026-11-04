@@ -29,7 +29,13 @@ class GroupFramingStage extends CameraStage<CameraGroupFramingComponent> {
   ) {
     final group = context.target?.getComponent<CameraTargetGroupComponent>();
     final viewport = context.viewportSize;
-    if (group == null || group.resolved == 0 || viewport.isEmpty) return state;
+    final previous = context.memory.extra[this] as double?;
+    if (group == null || viewport.isEmpty) return state;
+    if (group.resolved == 0) {
+      // Nobody to fit this frame (all respawning, say): hold the zoom the
+      // group had, rather than jump to the camera's own for a frame.
+      return previous == null ? state : state.copyWith(zoom: previous);
+    }
 
     // The camera centres on the group's weighted centre, not the middle of
     // its box: the view must reach the box's far side from there, so a
@@ -51,7 +57,6 @@ class GroupFramingStage extends CameraStage<CameraGroupFramingComponent> {
     final high = math.max(framing.minZoom, framing.maxZoom);
     final wanted = fit.clamp(low, high).toDouble();
 
-    final previous = context.memory.extra[this] as double?;
     final zoom = previous == null || context.snap
         ? wanted
         : previous +

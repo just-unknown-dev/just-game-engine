@@ -217,7 +217,7 @@ void main() {
           scale: Vector3(1, 1, 3),
         ),
         RigidBody2DComponent(),
-        Collider2DComponent(shape: ColliderShape2D.circle, radius: 4, showDebugOutline: false),
+        Collider2DComponent(shape: Collider2DShape.circle, radius: 4, showDebugOutline: false),
       ]);
       for (var i = 0; i < 30; i++) {
         world.update(1 / 60);

@@ -32,10 +32,10 @@ class GameAssetBundle {
     await Future.wait(futures);
   }
 
-  /// Unload all assets in this bundle
+  /// Unload all assets in this bundle — each of its own type only.
   void unload(AssetManager manager) {
-    for (final path in assetPaths) {
-      manager.unload(path);
+    for (int i = 0; i < assetPaths.length; i++) {
+      manager.unload(assetPaths[i], assetTypes[i]);
     }
   }
 }
@@ -54,7 +54,7 @@ class GameAssetBundle {
 /// ```
 class AssetScope {
   final AssetManager _manager;
-  final List<String> _ownedPaths = [];
+  final List<(String, AssetType)> _owned = [];
   bool _disposed = false;
 
   /// Create a scope backed by `manager`.
@@ -65,9 +65,9 @@ class AssetScope {
   Future<Asset> acquire(String path, AssetType type) async {
     final asset = await _manager.acquire(path, type);
     if (_disposed) {
-      _manager.release(path);
+      _manager.release(path, type);
     } else {
-      _ownedPaths.add(path);
+      _owned.add((path, type));
     }
     return asset;
   }
@@ -94,9 +94,9 @@ class AssetScope {
   /// reference count from *this* scope is decremented.
   void dispose() {
     _disposed = true;
-    for (final path in _ownedPaths) {
-      _manager.release(path);
+    for (final (path, type) in _owned) {
+      _manager.release(path, type);
     }
-    _ownedPaths.clear();
+    _owned.clear();
   }
 }

@@ -159,7 +159,7 @@ void main() {
     ];
 
     Future<(Entity, LevelMapRuntime)> ready(
-      MapOrientation orientation, {
+      LevelMapOrientation orientation, {
       List<TileCoord> at = cells,
     }) async {
       final m = LevelMapData(
@@ -198,7 +198,7 @@ void main() {
         rt.geometry.tileImageRect(c.x, c.y, 16, 16).topLeft;
 
     test('orthogonal: a call per chunk, row by row, left to right', () async {
-      final (e, rt) = await ready(MapOrientation.orthogonal);
+      final (e, rt) = await ready(LevelMapOrientation.orthogonal);
       final expected = [
         for (final c in cells) [topLeft(rt, c)],
       ];
@@ -208,7 +208,7 @@ void main() {
     });
 
     test('isometric: diagonal by diagonal, each left to right', () async {
-      final (e, rt) = await ready(MapOrientation.isometric);
+      final (e, rt) = await ready(LevelMapOrientation.isometric);
       // By cx + cy, then cx: (-1, -1), (0, 0), then (0, 1), (1, 0), (2, -1).
       final order = [
         const TileCoord(-16, -16),
@@ -223,8 +223,8 @@ void main() {
     });
 
     for (final orientation in [
-      MapOrientation.staggered,
-      MapOrientation.hexagonal,
+      LevelMapOrientation.staggered,
+      LevelMapOrientation.hexagonal,
     ]) {
       test(
         '${orientation.name}: a call per row of chunks, back to front',
@@ -253,7 +253,7 @@ void main() {
         const TileCoord(4000, 0),
         const TileCoord(0, 4000),
       ];
-      final (e, rt) = await ready(MapOrientation.orthogonal, at: far);
+      final (e, rt) = await ready(LevelMapOrientation.orthogonal, at: far);
       expect(_drawn(paint(e, rt)), [
         for (final c in far..sort((a, b) => a.y != b.y ? a.y - b.y : a.x - b.x))
           [topLeft(rt, c)],
@@ -267,7 +267,7 @@ void main() {
     test(
       "the game's changes are drawn in place of the chunk they changed",
       () async {
-        final (e, rt) = await ready(MapOrientation.orthogonal);
+        final (e, rt) = await ready(LevelMapOrientation.orthogonal);
         final h = LevelMaps.of(world, e)!;
         h.setTile(
           h.map.layers.single,
@@ -284,7 +284,7 @@ void main() {
     );
 
     test('an empty layer draws nothing and builds nothing', () async {
-      final (e, rt) = await ready(MapOrientation.orthogonal, at: const []);
+      final (e, rt) = await ready(LevelMapOrientation.orthogonal, at: const []);
       final canvas = paint(e, rt);
       expect(canvas.calls, isEmpty);
     });

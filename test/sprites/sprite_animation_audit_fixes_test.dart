@@ -141,8 +141,7 @@ void main() {
 
   Future<void> settle() async {
     world.update(0);
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
+    await pumpEventQueue();
     world.update(0);
   }
 
@@ -160,7 +159,7 @@ void main() {
     return said;
   }
 
-  group('animator parameters (C11)', () {
+  group('animator parameters', () {
     test('a number parameter holding a bool reads as 1 or 0', () {
       const condition = AnimatorCondition(
         parameter: 'grounded',
@@ -207,14 +206,14 @@ void main() {
         animator,
       ]);
       w.update(0);
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       w.update(0.1);
       expect(() => w.update(0.1), returnsNormally);
       expect(animator.currentState, 'ground');
     });
   });
 
-  group('trimmed and rotated frames (C35)', () {
+  group('trimmed and rotated frames', () {
     Future<Sprite> showing(String region) async {
       final e = world.createEntityWithComponents([
         TransformComponent(),
@@ -228,11 +227,13 @@ void main() {
       'a trimmed frame is drawn at its size, at its place in the box',
       () async {
         final sprite = await showing('f1');
-        expect(sprite.getBounds()!.size, const Size(8, 8));
+        expect(sprite.bounds!.size, const Size(8, 8));
+        // A batch puts the box's centre — 2 and 3 into the frame — on the
+        // sprite's position, at the frame's own size.
+        expect((sprite as BatchableSprite).batchImage, isNotNull);
         expect(
-          (sprite as BatchableSprite).batchImage,
-          isNull,
-          reason: 'a batch cannot move a frame inside its box',
+          (sprite.batchAnchorX, sprite.batchAnchorY, sprite.batchUnit),
+          (2.0, 3.0, 1.0),
         );
         final log = _DrawLog();
         sprite.render(log, const Size(100, 100));
@@ -264,7 +265,7 @@ void main() {
     });
   });
 
-  group('frame events and speed (C35, C37)', () {
+  group('frame events and speed', () {
     test('an event at time zero fires as a clip that does not loop '
         'begins', () async {
       final heard = <String>[];
@@ -309,7 +310,7 @@ void main() {
     });
   });
 
-  group('atlas files (C37)', () {
+  group('atlas files', () {
     test(
       'Aseprite tags written as doubles, or backwards, still read',
       () async {
@@ -388,14 +389,13 @@ void main() {
         ]);
       }
       w.update(0);
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       w.update(0.1);
       expect(said.where((m) => m.contains('gone.animator.json')), hasLength(1));
     });
   });
 
-  group('per-frame work (P18, P20)', () {
+  group('per-frame work', () {
     test('a sprite switched off and on keeps playing without loading its '
         'atlas again', () async {
       final c = SpriteAnimationComponent(atlasPath: 'a.json', clip: 'idle');
@@ -450,7 +450,7 @@ void main() {
           animator,
         ]);
         w.update(0);
-        await Future<void>.delayed(Duration.zero);
+        await pumpEventQueue();
         w.update(0);
         animator.setTrigger('go');
         w.update(0.1);
@@ -461,7 +461,7 @@ void main() {
         e.isActive = true;
         w.createEntity();
         w.update(0);
-        await Future<void>.delayed(Duration.zero);
+        await pumpEventQueue();
         w.update(0);
         expect(animator.currentState, 'a');
       },

@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/animation.dart' show Curve, Curves;
 import 'package:flutter/painting.dart' show Offset;
+import 'package:just_dart/just_dart.dart' show Vector3;
 
 import '../interfaces/camera_lens.dart';
 
@@ -54,6 +55,14 @@ class CameraState {
 
   /// Whether this is a plain 2-D shot: no pitch or yaw, orthographic.
   bool get isPlanar => pitch == 0 && yaw == 0 && lens.isOrthographic;
+
+  /// The way the shot looks (unit length): +Z when [pitch] and [yaw] are
+  /// both zero. A pitch below zero looks down (+Y is down).
+  Vector3 get forward => Vector3(
+    math.cos(pitch) * math.sin(yaw),
+    -math.sin(pitch),
+    math.cos(pitch) * math.cos(yaw),
+  );
 
   /// This shot with the given values replaced; a null argument keeps the
   /// current value.

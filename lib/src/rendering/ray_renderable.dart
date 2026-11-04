@@ -77,13 +77,13 @@ class RayRenderable extends Renderable {
   /// ([lifetime] of 0 or less).
   bool get isExpired => lifetime > 0 && _timeLeft <= 0;
 
-  /// Advance the fade timer by [dt] seconds.
+  /// Advance the fade timer by [deltaTime] seconds.
   ///
   /// Call this every frame before rendering.
-  void update(double dt) {
+  void update(double deltaTime) {
     if (lifetime <= 0) return; // permanent beam
     if (_timeLeft > 0) {
-      _timeLeft -= dt;
+      _timeLeft -= deltaTime;
       opacity = (_timeLeft / lifetime).clamp(0.0, 1.0);
     }
   }
@@ -119,7 +119,7 @@ class RayRenderable extends Renderable {
   bool get boundsAreWorldSpace => true;
 
   @override
-  Rect? getBounds() {
+  Rect? get bounds {
     return Rect.fromPoints(
       start,
       end,

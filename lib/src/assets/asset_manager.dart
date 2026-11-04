@@ -18,10 +18,18 @@ part 'model_asset.dart';
 
 /// Main asset manager class
 ///
-/// Supports two usage patterns:
-/// 1. **Simple** — [load] / [unload] for direct management.
-/// 2. **Reference-counted** — [acquire] / [release] paired with [MemoryScope]
-///    for automatic scene-based lifecycle management.
+/// Assets are kept by path and type: one file can be two assets (an atlas
+/// and the JSON it is read from). Supports two usage patterns:
+/// 1. **Simple** — [load] / [unload] for direct management. A plain [load]
+///    keeps the asset until [unload], [unloadAll], [retainOnly] or
+///    [dispose]: no [release] lets it go.
+/// 2. **Reference-counted** — [acquire] / [release] paired with an
+///    [AssetScope] or a [MemoryScope] for scene-based lifetimes. Each
+///    acquire is one count on that path and type; the last [release] unloads
+///    the asset — unless a plain [load] also asked for it.
+///
+/// [unload], [unloadAll] and [retainOnly] unload whatever they name, counts
+/// or not: use them only for what nothing still draws or plays.
 ///
 /// Each engine has one, in its context (`engine.assets`,
 /// `engine.context.assets`); assets it loads read from its [bundle].
@@ -39,8 +47,18 @@ class AssetManager {
   /// and the JSON it is read from).
   final Map<(String, AssetType), Asset> _assets = {};
 
-  /// Reference counts (only tracked for assets obtained via [acquire]).
-  final Map<String, int> _refCounts = {};
+  /// Reference counts, by path and type (only tracked for assets obtained
+  /// via [acquire]). A count is replaced, never reset, when it is wiped, so
+  /// an acquire whose load fails gives back only a count that is still its.
+  final Map<(String, AssetType), _RefCount> _refCounts = {};
+
+  /// What a plain [load] asked for: kept until unloaded, whatever the
+  /// counts say.
+  final Set<(String, AssetType)> _pinned = {};
+
+  /// Each kept asset's size when it was kept, so the total is kept up to
+  /// date without measuring every asset again.
+  final Map<(String, AssetType), int> _sizes = {};
 
   /// Loading tasks in progress
   final Map<(String, AssetType), ({Future<Asset> task, Object token})>
@@ -66,8 +84,10 @@ class AssetManager {
     return false;
   }
 
-  /// Get the current reference count for an asset (0 if not tracked).
-  int refCount(String path) => _refCounts[path] ?? 0;
+  /// The current reference count of the [type] asset at [path] (0 if not
+  /// tracked).
+  int refCount(String path, AssetType type) =>
+      _refCounts[(path, type)]?.count ?? 0;
 
   /// Registers the built-in loaders (image, audio, text, JSON, binary),
   /// replacing any registered for those types. The constructor has done
@@ -127,7 +147,9 @@ class AssetManager {
     return await load<BinaryAsset>(path, AssetType.binary) as BinaryAsset;
   }
 
-  /// Load an asset of specified type.
+  /// Load an asset of specified type, and keep it until [unload],
+  /// [unloadAll], [retainOnly] or [dispose] — the last [release] of an
+  /// [acquire] of the same asset does not unload it.
   ///
   /// Assets are kept by path and type, so one file can be loaded as two
   /// (an atlas and its JSON). A load that [unload], [unloadAll] or
@@ -135,6 +157,18 @@ class AssetManager {
   /// load throws an [AssetLoadException].
   Future<Asset> load<T extends Asset>(String path, AssetType type) {
     final key = (path, type);
+    _pinned.add(key);
+    return _load(key).catchError((Object error, StackTrace stack) {
+      // Nothing was kept for it: nothing stays pinned.
+      if (!_assets.containsKey(key) && !_loadingTasks.containsKey(key)) {
+        _pinned.remove(key);
+      }
+      Error.throwWithStackTrace(error, stack);
+    });
+  }
+
+  /// Loads [key], or reuses it, pinned or not.
+  Future<Asset> _load((String, AssetType) key) {
     final loaded = _assets[key];
     if (loaded != null) return Future.value(loaded);
 
@@ -157,7 +191,8 @@ class AssetManager {
         throw AssetLoadException('"${key.$1}" was unloaded while it loaded.');
       }
       _assets[key] = asset;
-      _updateMemoryUsage();
+      final size = _sizes[key] = asset.memoryUsage;
+      _totalMemoryUsage += size;
       return asset;
     } finally {
       if (identical(_loadingTasks[key]?.token, token)) {
@@ -188,22 +223,21 @@ class AssetManager {
 
   /// Load (or reuse) an asset and increment its reference count.
   ///
-  /// Pair every [acquire] with a corresponding [release] — either directly or
-  /// via an [AssetScope]. The count is taken at once, so a [release] while
-  /// the asset is still loading counts (and, as the last one, cancels the
-  /// load); a load that fails gives its count back.
+  /// Pair every [acquire] with a corresponding [release] of the same path
+  /// and type — either directly or via an [AssetScope]. The count is taken
+  /// at once, so a [release] while the asset is still loading counts (and,
+  /// as the last one, cancels the load); a load that fails gives its count
+  /// back — unless that count was wiped meanwhile (the asset was released
+  /// or unloaded), when there is nothing of this acquire's left to give.
   Future<Asset> acquire(String path, AssetType type) async {
-    _refCounts[path] = (_refCounts[path] ?? 0) + 1;
+    final key = (path, type);
+    final count = _refCounts[key] ??= _RefCount();
+    count.count++;
     try {
-      return await load(path, type);
+      return await _load(key);
     } catch (_) {
-      final count = _refCounts[path];
-      if (count != null) {
-        if (count <= 1) {
-          _refCounts.remove(path);
-        } else {
-          _refCounts[path] = count - 1;
-        }
+      if (identical(_refCounts[key], count) && --count.count <= 0) {
+        _refCounts.remove(key);
       }
       rethrow;
     }
@@ -224,7 +258,7 @@ class AssetManager {
     MemoryScope scope,
   ) async {
     final asset = await acquire(path, type);
-    scope.own(() => release(path));
+    scope.own(() => release(path, type));
     return asset;
   }
 
@@ -254,36 +288,46 @@ class AssetManager {
   MemoryScope createScope({String? debugLabel}) =>
       MemoryScope(debugLabel: debugLabel);
 
-  /// Decrement the reference count for [path].
+  /// Decrement the reference count of the [type] asset at [path].
   ///
-  /// When the count reaches zero the asset is automatically unloaded.
-  void release(String path) {
-    final count = _refCounts[path];
+  /// When the count reaches zero the asset is unloaded — or, still loading,
+  /// let go when it arrives — unless a plain [load] asked for it too.
+  void release(String path, AssetType type) {
+    final key = (path, type);
+    final count = _refCounts[key];
     if (count == null) return;
-
-    if (count <= 1) {
-      _refCounts.remove(path);
-      unload(path);
-    } else {
-      _refCounts[path] = count - 1;
-    }
+    if (--count.count > 0) return;
+    _refCounts.remove(key);
+    if (!_pinned.contains(key)) _unloadKey(key);
   }
 
   // ── Direct unload API ──────────────────────────────────────────────────
 
-  /// Unload the assets at [path], of every type. One still loading is let
-  /// go when it arrives.
-  void unload(String path) {
-    _loadingTasks.removeWhere((key, _) => key.$1 == path);
-    _refCounts.remove(path);
-    final gone = [
-      for (final key in _assets.keys)
-        if (key.$1 == path) key,
-    ];
-    for (final key in gone) {
-      _assets.remove(key)!.unload();
+  /// Unload the assets at [path] — of every type, or only [type] — counted
+  /// or not. One still loading is let go when it arrives.
+  void unload(String path, [AssetType? type]) {
+    final keys = {
+      for (final key in _assets.keys) key,
+      for (final key in _loadingTasks.keys) key,
+      for (final key in _refCounts.keys) key,
+      for (final key in _pinned) key,
+    };
+    for (final key in keys) {
+      if (key.$1 == path && (type == null || key.$2 == type)) {
+        _unloadKey(key);
+      }
     }
-    if (gone.isNotEmpty) _updateMemoryUsage();
+  }
+
+  /// Unloads [key] — kept or still loading — and forgets its count and pin.
+  void _unloadKey((String, AssetType) key) {
+    _loadingTasks.remove(key);
+    _refCounts.remove(key);
+    _pinned.remove(key);
+    final asset = _assets.remove(key);
+    if (asset == null) return;
+    _totalMemoryUsage -= _sizes.remove(key) ?? 0;
+    asset.unload();
   }
 
   /// Unload all assets, and let go of those still loading when they arrive.
@@ -294,7 +338,26 @@ class AssetManager {
     }
     _assets.clear();
     _refCounts.clear();
-    _updateMemoryUsage();
+    _pinned.clear();
+    _sizes.clear();
+    _totalMemoryUsage = 0;
+  }
+
+  /// Unloads every asset — kept or still loading — whose path is not in
+  /// [paths] and that no [acquire] holds: between levels, keep what the
+  /// next one uses and let the rest go. What an acquire holds stays until
+  /// its [release].
+  void retainOnly(Iterable<String> paths) {
+    final keep = paths.toSet();
+    final keys = {
+      for (final key in _assets.keys) key,
+      for (final key in _loadingTasks.keys) key,
+      for (final key in _pinned) key,
+    };
+    for (final key in keys) {
+      if (keep.contains(key.$1) || _refCounts.containsKey(key)) continue;
+      _unloadKey(key);
+    }
   }
 
   // ── Getters ────────────────────────────────────────────────────────────
@@ -322,16 +385,8 @@ class AssetManager {
   /// Get a binary asset
   BinaryAsset? getBinary(String path) => get<BinaryAsset>(path);
 
-  /// Update total memory usage
-  void _updateMemoryUsage() {
-    _totalMemoryUsage = 0;
-    for (final asset in _assets.values) {
-      _totalMemoryUsage += asset.getMemoryUsage();
-    }
-  }
-
   /// Get cache statistics
-  Map<String, dynamic> getCacheStats() {
+  Map<String, dynamic> get cacheStats {
     return {
       'totalAssets': _assets.length,
       'assetCount': _assets.length,
@@ -368,4 +423,9 @@ class AssetManager {
     _loaders.clear();
     reloadListeners.clear();
   }
+}
+
+/// How many acquires hold one asset.
+class _RefCount {
+  int count = 0;
 }

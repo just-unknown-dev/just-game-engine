@@ -39,7 +39,7 @@ final class Physics2DCharacters {
   /// A character's body was made.
   final void Function(PhysicsBody body, Entity entity) onBody;
 
-  /// A character's body is gone: [rebuilt] when a new one takes its place
+  /// A character's body is gone: `rebuilt` when a new one takes its place
   /// at once (what it is made of changed), not when the character is.
   final void Function(PhysicsBody body, {required bool rebuilt}) onBodyGone;
 
@@ -51,12 +51,12 @@ final class Physics2DCharacters {
   /// Each character's body by entity, while it has one.
   PhysicsBody? bodyOf(Entity entity) => _links[entity]?.body;
 
-  /// Moves every character in [world] by [dt] seconds. [entityForBody]
+  /// Moves every character in [world] by [dt] seconds. [entityOf]
   /// names the entity of a body it stands on.
   void move(
     World world,
     double dt,
-    Entity? Function(PhysicsBody body) entityForBody,
+    Entity? Function(PhysicsBody body) entityOf,
   ) {
     _refresh(world);
     if (_active.isEmpty) return;
@@ -200,7 +200,7 @@ final class Physics2DCharacters {
         ..groundVelocity = ground == null || ground.isStatic
             ? Offset.zero
             : Offset(ground.velocity.x, ground.velocity.y)
-        ..groundEntity = ground == null ? null : entityForBody(ground);
+        ..groundEntity = ground == null ? null : entityOf(ground);
 
       if (body != null) {
         physics.setBodyTransform(body, result.position.dx, result.position.dy);
@@ -306,7 +306,7 @@ final class _CharacterLink {
   bool moved = false;
 
   // What its body was made from.
-  CharacterShape2D? _shape;
+  CharacterBody2DShape? _shape;
   double _radius = 0, _width = 0, _height = 0;
   int _category = 0, _mask = 0;
   bool _detectable = true;

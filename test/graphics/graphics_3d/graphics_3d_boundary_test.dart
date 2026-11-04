@@ -1,9 +1,8 @@
 // The engine reaches Flutter GPU only through just_graphics_engine's public
 // libraries, whose web branch carries none of it (that package's own
 // import_boundary_test checks), so the engine stays web-safe. And the 3-D
-// code is reached only through Graphics3D.
-@Tags(['graphics3d'])
-library;
+// code is reached only through Graphics3D. Untagged: it only reads files,
+// so a 2-D-only run (-x graphics3d -x physics3d) checks it too.
 
 import 'dart:io';
 

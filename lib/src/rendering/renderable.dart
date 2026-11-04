@@ -48,19 +48,18 @@ abstract class Renderable {
   /// Tint color
   Color? tint;
 
-  /// Whether [getBounds] already returns world-space bounds (i.e. already
+  /// Whether [bounds] already returns world-space bounds (i.e. already
   /// centered on/incorporating [position]) rather than local bounds
   /// relative to the entity's own origin.
   ///
   /// Defaults to `false`, matching [CustomRenderable]-based shapes
   /// (`Rectangle2DComponent`, `Circle2DComponent`, `Line2DComponent`,
-  /// `Polygon2DComponent`, `Capsule2DComponent`) — their `getBoundsCallback`s
+  /// `Polygon2DComponent`, `Capsule2DComponent`) — their `boundsOf`s
   /// return bounds centered on `Offset.zero`, so callers needing world-space
   /// bounds (e.g. `ViewCullingSystem`) must shift by the entity's
   /// [TransformComponent] position themselves. Every other built-in
-  /// renderable — [Sprite], [RectangleRenderable], [CircleRenderable],
-  /// [LineRenderable], [TextRenderable], the nine-slice sprite, rays and
-  /// particle emitters — overrides this to `true`: its [getBounds] is
+  /// renderable — [Sprite], [TextRenderable], the nine-slice sprite, rays
+  /// and particle emitters — overrides this to `true`: its [bounds] is
   /// already placed at its own [position] (synced to world space every
   /// render pass by `RenderSystem`), so shifting it again would double-count
   /// the position. (Only [Sprite] used to say so, and a culling system that
@@ -89,8 +88,17 @@ abstract class Renderable {
 
   /// Get the bounding box of this renderable
   ///
-  /// Returns null if no bounds are applicable
-  Rect? getBounds();
+  /// Returns null if no bounds are applicable. Never inside out: a
+  /// renderable flipped by a negative scale still reports its left edge
+  /// left of its right one.
+  Rect? get bounds;
+
+  /// Lets go of what it holds for drawing — a text layout, an image it was
+  /// given to own. Called when its `RenderableComponent` leaves its entity
+  /// (the component removed or the entity destroyed). What it made for
+  /// itself it makes again if drawn after; what it was handed by someone
+  /// else it leaves alone. Nothing by default.
+  void dispose() {}
 
   /// Apply transform to canvas (projects 3-D position to 2-D XY plane).
   ///
@@ -112,198 +120,9 @@ abstract class Renderable {
   }
 }
 
-/// A renderable rectangle shape
-class RectangleRenderable extends Renderable {
-  // getBounds() is already placed at [position].
-  @override
-  bool get boundsAreWorldSpace => true;
-
-  /// Size of the rectangle
-  Size size;
-
-  /// Fill color
-  Color fillColor;
-
-  /// Stroke color (null for no stroke)
-  Color? strokeColor;
-
-  /// Stroke width
-  double strokeWidth;
-
-  // Cached paint objects
-  final Paint _fillPaint = Paint()..style = PaintingStyle.fill;
-  final Paint _strokePaint = Paint()..style = PaintingStyle.stroke;
-
-  /// Create a rectangle renderable
-  RectangleRenderable({
-    required this.size,
-    required this.fillColor,
-    this.strokeColor,
-    this.strokeWidth = 2.0,
-    super.position,
-    super.rotation,
-    super.scale,
-    super.layer,
-    super.zOrder,
-    super.visible,
-    super.opacity,
-  });
-
-  @override
-  void render(Canvas canvas, Size canvasSize) {
-    applyTransform(canvas);
-
-    final rect = Rect.fromCenter(
-      center: Offset.zero,
-      width: size.width,
-      height: size.height,
-    );
-
-    // Draw fill
-    _fillPaint.color = fillColor.withValues(alpha: fillColor.a * opacity);
-    canvas.drawRect(rect, _fillPaint);
-
-    // Draw stroke
-    if (strokeColor != null) {
-      _strokePaint
-        ..color = strokeColor!.withValues(alpha: strokeColor!.a * opacity)
-        ..strokeWidth = strokeWidth;
-      canvas.drawRect(rect, _strokePaint);
-    }
-
-    restoreTransform(canvas);
-  }
-
-  @override
-  Rect? getBounds() {
-    return Rect.fromCenter(
-      center: position.toOffset(),
-      width: size.width * scale.x,
-      height: size.height * scale.y,
-    );
-  }
-}
-
-/// A circle of [radius] centred on the renderable's position, filled with
-/// [fillColor] and outlined in [strokeColor] when that is set; both colours
-/// are faded by [opacity].
-class CircleRenderable extends Renderable {
-  // getBounds() is already placed at [position].
-  @override
-  bool get boundsAreWorldSpace => true;
-
-  /// Radius of the circle
-  double radius;
-
-  /// Fill color
-  Color fillColor;
-
-  /// Stroke color (null for no stroke)
-  Color? strokeColor;
-
-  /// Stroke width
-  double strokeWidth;
-
-  // Cached paint objects
-  final Paint _fillPaint = Paint()..style = PaintingStyle.fill;
-  final Paint _strokePaint = Paint()..style = PaintingStyle.stroke;
-
-  /// Create a circle renderable
-  CircleRenderable({
-    required this.radius,
-    required this.fillColor,
-    this.strokeColor,
-    this.strokeWidth = 2.0,
-    super.position,
-    super.rotation,
-    super.scale,
-    super.layer,
-    super.zOrder,
-    super.visible,
-    super.opacity,
-  });
-
-  @override
-  void render(Canvas canvas, Size canvasSize) {
-    applyTransform(canvas);
-
-    // Draw fill
-    _fillPaint.color = fillColor.withValues(alpha: fillColor.a * opacity);
-    canvas.drawCircle(Offset.zero, radius, _fillPaint);
-
-    // Draw stroke
-    if (strokeColor != null) {
-      _strokePaint
-        ..color = strokeColor!.withValues(alpha: strokeColor!.a * opacity)
-        ..strokeWidth = strokeWidth;
-      canvas.drawCircle(Offset.zero, radius, _strokePaint);
-    }
-
-    restoreTransform(canvas);
-  }
-
-  @override
-  Rect? getBounds() {
-    final scaledRadius = radius * (scale.x + scale.y) / 2;
-    return Rect.fromCircle(center: position.toOffset(), radius: scaledRadius);
-  }
-}
-
-/// A renderable line
-class LineRenderable extends Renderable {
-  // getBounds() is already placed at [position].
-  @override
-  bool get boundsAreWorldSpace => true;
-
-  /// End point relative to position
-  Offset endPoint;
-
-  /// Line color
-  Color color;
-
-  /// Line width
-  double width;
-
-  // Cached paint object
-  final Paint _paint = Paint()..strokeCap = StrokeCap.round;
-
-  /// Create a line renderable
-  LineRenderable({
-    required this.endPoint,
-    required this.color,
-    this.width = 2.0,
-    super.position,
-    super.rotation,
-    super.scale,
-    super.layer,
-    super.zOrder,
-    super.visible,
-    super.opacity,
-  });
-
-  @override
-  void render(Canvas canvas, Size canvasSize) {
-    applyTransform(canvas);
-
-    _paint
-      ..color = color.withValues(alpha: color.a * opacity)
-      ..strokeWidth = width;
-
-    canvas.drawLine(Offset.zero, endPoint, _paint);
-
-    restoreTransform(canvas);
-  }
-
-  @override
-  Rect? getBounds() {
-    final origin = position.toOffset();
-    return Rect.fromPoints(origin, origin + endPoint);
-  }
-}
-
 /// A renderable text label
 class TextRenderable extends Renderable {
-  // getBounds() is already placed at [position].
+  // bounds is already placed at [position].
   @override
   bool get boundsAreWorldSpace => true;
 
@@ -331,8 +150,9 @@ class TextRenderable extends Renderable {
   }) : textStyle =
            textStyle ?? const TextStyle(color: Colors.white, fontSize: 16);
 
-  /// Cached TextPainter — reused every frame, only re-laid-out when content changes.
-  final TextPainter _painter = TextPainter(textDirection: TextDirection.ltr);
+  /// Cached TextPainter — reused every frame, only re-laid-out when content
+  /// changes; made when first needed, and let go by [dispose].
+  TextPainter? _painter;
   String _lastText = '';
   TextStyle? _lastStyle;
   double _lastOpacity = -1;
@@ -342,31 +162,33 @@ class TextRenderable extends Renderable {
   void render(Canvas canvas, Size canvasSize) {
     applyTransform(canvas);
 
-    _layOut();
-    final offset = Offset(-_painter.width / 2, -_painter.height / 2);
-    _painter.paint(canvas, offset);
+    final painter = _layOut();
+    final offset = Offset(-painter.width / 2, -painter.height / 2);
+    painter.paint(canvas, offset);
 
     restoreTransform(canvas);
   }
 
   /// Lays the text out again when anything it depends on changed.
   ///
-  /// One place for [render] and [getBounds]: bounds used to lay the text out
+  /// One place for [render] and [bounds]: bounds used to lay the text out
   /// without the faded colour but still record it as current, so the next
   /// frame drew it at full opacity.
-  void _layOut() {
+  TextPainter _layOut() {
     final effectiveOpacity = (textStyle.color?.a ?? 1.0) * opacity;
-    if (text == _lastText &&
+    final known = _painter;
+    if (known != null &&
+        text == _lastText &&
         textStyle == _lastStyle &&
         effectiveOpacity == _lastOpacity &&
         textAlign == _lastAlign) {
-      return;
+      return known;
     }
     _lastText = text;
     _lastStyle = textStyle;
     _lastOpacity = effectiveOpacity;
     _lastAlign = textAlign;
-    _painter
+    return (_painter ??= TextPainter(textDirection: TextDirection.ltr))
       ..text = TextSpan(
         text: text,
         style: textStyle.copyWith(
@@ -377,15 +199,25 @@ class TextRenderable extends Renderable {
       ..layout();
   }
 
+  /// The world-space box the text covers before it is turned: never inside
+  /// out, whatever the sign of its scale.
   @override
-  Rect? getBounds() {
-    _layOut();
+  Rect? get bounds {
+    final painter = _layOut();
 
     return Rect.fromCenter(
       center: position.toOffset(),
-      width: _painter.width * scale.x,
-      height: _painter.height * scale.y,
+      width: (painter.width * scale.x).abs(),
+      height: (painter.height * scale.y).abs(),
     );
+  }
+
+  /// Lets go of the laid-out text (a native paragraph); it is laid out
+  /// again if drawn after.
+  @override
+  void dispose() {
+    _painter?.dispose();
+    _painter = null;
   }
 }
 
@@ -395,7 +227,7 @@ class CustomRenderable extends Renderable {
   final void Function(Canvas canvas, Size size) onRender;
 
   /// Optional bounds
-  final Rect? Function()? getBoundsCallback;
+  final Rect? Function()? boundsOf;
 
   /// Draws what [onRender] draws with [tint] and [opacity] already applied —
   /// a colour multiplied into each paint — and returns true; or returns
@@ -411,7 +243,7 @@ class CustomRenderable extends Renderable {
   /// Create a custom renderable
   CustomRenderable({
     required this.onRender,
-    this.getBoundsCallback,
+    this.boundsOf,
     this.onRenderFaded,
     super.position,
     super.rotation,
@@ -466,7 +298,7 @@ class CustomRenderable extends Renderable {
   }
 
   @override
-  Rect? getBounds() {
-    return getBoundsCallback?.call();
+  Rect? get bounds {
+    return boundsOf?.call();
   }
 }

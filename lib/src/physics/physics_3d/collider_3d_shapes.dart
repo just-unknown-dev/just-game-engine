@@ -101,7 +101,7 @@ final class Collider3DShapes {
   /// make no shape.
   final Collider3DGeometry? geometry;
 
-  final Map<(ColliderShape3D, String, String, double, double, double), Shape3D>
+  final Map<(Collider3DShape, String, String, double, double, double), Shape3D>
   _models = {};
   final Map<(List<double>, int, double, double, double), Shape3D> _fields = {};
   final Map<(Object, double, double, double), Shape3D?> _solids = {};
@@ -138,23 +138,23 @@ final class Collider3DShapes {
     final sz = collider.scale.z * entityScale.z;
     final ax = sx.abs(), ay = sy.abs(), az = sz.abs();
     final Shape3D? shape = switch (collider.shape) {
-      ColliderShape3D.box => BoxShape3D(
+      Collider3DShape.box => BoxShape3D(
         math.max(collider.size.x * ax / 2, minExtent),
         math.max(collider.size.y * ay / 2, minExtent),
         math.max(collider.size.z * az / 2, minExtent),
       ),
-      ColliderShape3D.sphere => SphereShape3D(
+      Collider3DShape.sphere => SphereShape3D(
         math.max(collider.radius * math.max(ax, math.max(ay, az)), minExtent),
       ),
-      ColliderShape3D.capsule => _capsule(collider, ax, ay, az),
-      ColliderShape3D.cylinder => CylinderShape3D(
+      Collider3DShape.capsule => _capsule(collider, ax, ay, az),
+      Collider3DShape.cylinder => CylinderShape3D(
         math.max(collider.height * ay / 2, minExtent),
         math.max(collider.radius * math.max(ax, az), minExtent),
       ),
-      ColliderShape3D.convexHull ||
-      ColliderShape3D.mesh => _model(collider, sx, sy, sz),
-      ColliderShape3D.heightField => _heightField(collider, ax, ay),
-      ColliderShape3D.matchShape =>
+      Collider3DShape.convexHull ||
+      Collider3DShape.mesh => _model(collider, sx, sy, sz),
+      Collider3DShape.heightField => _heightField(collider, ax, ay),
+      Collider3DShape.matchShape =>
         source == null ? null : _solid(source, sx, sy, sz),
     };
     if (shape == null) return null;
@@ -188,7 +188,7 @@ final class Collider3DShapes {
       positions[i + 2] = source.positions[i + 2] * sz;
     }
     final Shape3D shape;
-    if (c.shape == ColliderShape3D.convexHull) {
+    if (c.shape == Collider3DShape.convexHull) {
       shape = ConvexHullShape3D(positions);
     } else {
       final indices = Uint32List.fromList(source.indices);

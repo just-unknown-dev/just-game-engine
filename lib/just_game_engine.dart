@@ -1,4 +1,4 @@
-/// Just Game Engine: a 2D game engine for Flutter.
+/// Just Game Engine: a game engine for Flutter — 2-D, with 3-D to opt into.
 ///
 /// This library is the engine and what hosts it in an app: `Engine` with
 /// its subsystems and `EngineContext`; the ECS (`World`, `Entity`,
@@ -26,6 +26,9 @@
 ///
 /// Not in this library:
 ///
+/// - 3-D graphics and physics, opt-in, are in
+///   `package:just_game_engine/just_game_engine_3d.dart`
+///   (`EngineConfig(services: [Graphics3D(), Physics3D()])`).
 /// - Ready-made screen widgets — dialogue boxes, subtitles, localized text,
 ///   camera zoom controls, on-screen touch controls, rebinding lists — are
 ///   in `package:just_game_engine/widgets.dart`.

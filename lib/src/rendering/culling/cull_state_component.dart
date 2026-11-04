@@ -1,6 +1,9 @@
 library;
 
+import 'package:meta/meta.dart' show internal;
+
 import '../../ecs/ecs.dart';
+import '../renderable.dart';
 
 /// Opt-in view-culling state, maintained each frame by `ViewCullingSystem`.
 ///
@@ -42,4 +45,19 @@ class CullStateComponent extends Component {
   /// Maintained by the system. Clear it to keep an entity the culler has
   /// hidden hidden when it comes back into view.
   bool hidesRenderable = false;
+
+  /// The renderable `ViewCullingSystem` hid, while [hidesRenderable].
+  /// Internal to the engine.
+  @internal
+  Renderable? hiddenRenderable;
+
+  /// Taken off an entity the culler holds hidden, the component gives the
+  /// renderable back: nothing would show it again. (It used to stay
+  /// invisible for good.)
+  @override
+  void onDetach(EntityId entityId) {
+    if (hidesRenderable) hiddenRenderable?.visible = true;
+    hidesRenderable = false;
+    hiddenRenderable = null;
+  }
 }

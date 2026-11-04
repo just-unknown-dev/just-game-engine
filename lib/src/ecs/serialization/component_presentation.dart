@@ -11,7 +11,7 @@ import 'package:just_dart/just_dart.dart' show Aabb3;
 
 import '../../interfaces/game_camera.dart';
 import '../../interfaces/frame_view.dart';
-import '../ecs.dart';
+import '../world.dart';
 
 /// The size a component implies, and how to change it.
 ///

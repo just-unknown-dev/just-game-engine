@@ -7,6 +7,8 @@ import '../../../rendering/renderable_component.dart';
 import '../../../rendering/renderable.dart';
 import 'shape_paint_cache.dart';
 import '../../../foundation/shape_paint_style.dart';
+import '../../../foundation/solid_shape_2d.dart';
+import 'shape_2d_look.dart';
 import 'shape_renderable.dart';
 import 'shape_painting.dart';
 
@@ -16,7 +18,8 @@ import 'shape_painting.dart';
 /// Extends [RenderableComponent] — add it to an entity directly and it draws
 /// itself each frame, reading [radius], [fillStyle], [strokeStyle], [filled]
 /// and [strokeWidth] at draw-time so mutations are reflected immediately.
-class Circle2DComponent extends RenderableComponent {
+class Circle2DComponent extends RenderableComponent
+    implements SolidShape2DSource, Shape2DLook {
   /// Radius of the circle in world units.
   double radius;
 
@@ -46,7 +49,7 @@ class Circle2DComponent extends RenderableComponent {
   }) {
     late Circle2DComponent self;
     final shape = ShapeRenderable(
-      getBoundsCallback: () => Rect.fromCircle(
+      boundsOf: () => Rect.fromCircle(
         center: Offset.zero,
         radius: self.radius + self.strokeWidth,
       ),
@@ -83,10 +86,40 @@ class Circle2DComponent extends RenderableComponent {
   double _rectRadius = double.nan;
   Rect _rect = Rect.zero;
 
+  SolidCircle2D? _solid;
+
+  /// A circle of [radius]: what a collider matching the shape takes.
+  @override
+  SolidShape2D get solidShape2D => _solid = SolidCircle2D.reuse(_solid, radius);
+
   /// Whether [renderable] is still the one this component made, so what it
   /// draws is what the fields say — the question a shape batch asks.
   @internal
   bool get drawsOwnShape => identical(renderable, _shape);
+
+  (double, ShapePaintStyle, ShapePaintStyle, bool, double, Renderable)? _look;
+
+  @override
+  Object get look {
+    final l = _look;
+    if (l != null &&
+        l.$1 == radius &&
+        identical(l.$2, fillStyle) &&
+        identical(l.$3, strokeStyle) &&
+        l.$4 == filled &&
+        l.$5 == strokeWidth &&
+        identical(l.$6, renderable)) {
+      return l;
+    }
+    return _look = (
+      radius,
+      fillStyle,
+      strokeStyle,
+      filled,
+      strokeWidth,
+      renderable,
+    );
+  }
 
   void _draw(Canvas canvas, Color? tint, double opacity) {
     if (radius != _rectRadius) {

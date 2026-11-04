@@ -25,7 +25,7 @@ Other
 ''';
 
 void main() {
-  group('F26 DialogueSystem', () {
+  group('DialogueSystem', () {
     late DialogueManager manager;
     late World world;
 
@@ -112,7 +112,7 @@ void main() {
     });
   });
 
-  group('F35 YarnParser throws on malformed input', () {
+  group('YarnParser throws on malformed input', () {
     Matcher parseError(int line) => throwsA(
       isA<YarnParseException>().having((e) => e.lineNumber, 'line', line),
     );
@@ -152,8 +152,10 @@ void main() {
       );
     });
 
-    test('well-formed conditionals, also inside choices, still parse', () {
-      final graph = YarnParser.parse('''
+    test(
+      'well-formed conditionals, also inside choices, still parse',
+      () async {
+        final graph = YarnParser.parse('''
 title: A
 ---
 <<if \$x>>
@@ -171,11 +173,33 @@ None.
 After.
 ===
 ''', id: 'x');
-      expect(graph.getNode('A'), isNotNull);
-    });
+        // And run as written: x is true, so the choices; y is false.
+        final runner = DialogueRunner(
+          graph: graph,
+          variables: DialogueVariableStore()
+            ..set('x', true)
+            ..set('y', false),
+          conditions: DialogueConditionRegistry(),
+          commands: DialogueCommandRegistry(),
+        );
+        final lines = <String>[];
+        runner.signals.currentLine.addListener(() {
+          final line = runner.signals.currentLine.value;
+          if (line == null) return;
+          lines.add(line.text);
+          scheduleMicrotask(runner.advance);
+        });
+        runner.signals.choices.addListener(() {
+          if (runner.signals.choices.value.isEmpty) return;
+          scheduleMicrotask(() => runner.selectChoice(0));
+        });
+        await runner.start('A').timeout(const Duration(seconds: 2));
+        expect(lines, ['Good.', 'After.']);
+      },
+    );
   });
 
-  testWidgets('F36 the dialogue box follows a new runner', (tester) async {
+  testWidgets('the dialogue box follows a new runner', (tester) async {
     final manager = DialogueManager()
       ..parseAndRegister(_talk, id: 'talk')
       ..parseAndRegister(_other, id: 'other');
@@ -184,9 +208,7 @@ After.
     final second = manager.createRunner('other');
 
     Widget box(DialogueRunner runner) => MaterialApp(
-      home: Scaffold(
-        body: DialogueBoxWidget(runner: runner, typewriterSpeed: 0),
-      ),
+      home: Scaffold(body: DialogueBox(runner: runner, typewriterSpeed: 0)),
     );
 
     await tester.pumpWidget(box(first));

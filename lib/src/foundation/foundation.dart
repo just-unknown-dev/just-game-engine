@@ -7,4 +7,5 @@ export 'dimensions.dart';
 export 'easings.dart';
 export 'shape_paint_style.dart';
 export 'solid_shape.dart';
+export 'solid_shape_2d.dart';
 export 'world_axes.dart';

@@ -6,6 +6,8 @@ import '../../../rendering/renderable_component.dart';
 import '../../../rendering/renderable.dart';
 import 'shape_paint_cache.dart';
 import '../../../foundation/shape_paint_style.dart';
+import '../../../foundation/solid_shape_2d.dart';
+import 'shape_2d_look.dart';
 import 'shape_painting.dart';
 
 /// Capsule shape component.
@@ -17,7 +19,8 @@ import 'shape_painting.dart';
 /// Extends [RenderableComponent] — add it to an entity directly and it draws
 /// itself each frame, reading all fields at draw-time so mutations are
 /// reflected immediately.
-class Capsule2DComponent extends RenderableComponent {
+class Capsule2DComponent extends RenderableComponent
+    implements SolidShape2DSource, Shape2DLook {
   /// Width of the bounding box in world units.
   double width;
 
@@ -58,7 +61,7 @@ class Capsule2DComponent extends RenderableComponent {
       filled: filled,
       strokeWidth: strokeWidth,
       renderable: CustomRenderable(
-        getBoundsCallback: () => Rect.fromCenter(
+        boundsOf: () => Rect.fromCenter(
           center: Offset.zero,
           width: self.width + self.strokeWidth * 2,
           height: self.height + self.strokeWidth * 2,
@@ -80,6 +83,33 @@ class Capsule2DComponent extends RenderableComponent {
     required this.strokeWidth,
     required super.renderable,
   });
+
+  (double, double, ShapePaintStyle, ShapePaintStyle, bool, double, Renderable)?
+  _look;
+
+  @override
+  Object get look {
+    final l = _look;
+    if (l != null &&
+        l.$1 == width &&
+        l.$2 == height &&
+        identical(l.$3, fillStyle) &&
+        identical(l.$4, strokeStyle) &&
+        l.$5 == filled &&
+        l.$6 == strokeWidth &&
+        identical(l.$7, renderable)) {
+      return l;
+    }
+    return _look = (
+      width,
+      height,
+      fillStyle,
+      strokeStyle,
+      filled,
+      strokeWidth,
+      renderable,
+    );
+  }
 
   // Paints and geometry kept between frames; see ShapePaintCache.
   final ShapePaintCache _paints = ShapePaintCache();
@@ -124,6 +154,14 @@ class Capsule2DComponent extends RenderableComponent {
   }
 
   /// Radius of the semicircular end caps — half of the shorter side.
+  SolidCapsule2D? _solid;
+
+  /// The capsule filling its [width] × [height]: what a collider matching
+  /// the shape takes.
+  @override
+  SolidShape2D get solidShape2D =>
+      _solid = SolidCapsule2D.reuse(_solid, width, height);
+
   double get capRadius => width < height ? width / 2.0 : height / 2.0;
 
   @override

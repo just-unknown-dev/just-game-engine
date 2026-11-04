@@ -2,14 +2,20 @@
 // speed), a blend's cycle keeps one clip's stride between two speeds of it
 // and weighs different clips' lengths, a socket is drawn between its poses
 // like the parent it rides, a parent is posed once an update however many
-// sockets it carries, and a parent's pose is let go with the parent.
+// sockets it carries, and a parent's pose is let go with the parent. A pose
+// that would come out the same is not worked out again, yet a still model
+// follows its entity.
 @Tags(['graphics3d'])
 library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine_3d.dart';
 import 'package:just_game_engine/just_game_engine.dart';
+// The renderer's own sampler, not exported.
+import 'package:just_game_engine/src/graphics/graphics_3d/animation_3d_system.dart'
+    show PlayerScratch, samplePlayer;
 import 'package:just_graphics_engine/testing.dart';
+import 'package:just_graphics_engine/just_graphics_engine.dart' show NullGpuDevice, Pose, rendererNullShaders;
 
 import 'fixtures.dart';
 
@@ -250,6 +256,56 @@ void main() {
       engine.world.destroyEntity(bar);
       animations.update(0.1);
       expect(animations.debugSocketParents, 0);
+    });
+  });
+  group('posing', () {
+    test('a pose that would come out the same is not worked out again', () {
+      final player = AnimationPlayerComponent(clip: 'bend', playing: false);
+      character(player);
+      system().update(0.1);
+      final model = service.models.get(_barPath)!;
+      final pose = Pose.rest(model.data);
+      final scratch = PlayerScratch(model.data.nodes.length);
+      bool sample() => samplePlayer(player, model, pose, scratch, skipUnchanged: true);
+
+      expect(sample(), isTrue, reason: 'the first time');
+      expect(sample(), isFalse, reason: 'paused: the same pose');
+      player.time = 0.5;
+      expect(sample(), isTrue);
+      expect(sample(), isFalse);
+
+      player.playBlend(['bend', 'grow'], [0.5, 0.5], fade: 0);
+      expect(sample(), isTrue);
+      expect(sample(), isFalse);
+      player.blendWeights[0] = 0.25;
+      expect(sample(), isTrue, reason: 'a weight changed in place');
+
+      player.play('hop', fade: 0.5);
+      expect(sample(), isTrue);
+      expect(sample(), isFalse);
+      player.fade = 0.5;
+      expect(sample(), isTrue, reason: 'the fade went on');
+      expect(samplePlayer(player, model, Pose.rest(model.data), scratch, skipUnchanged: true), isTrue, reason: 'another pose');
+    });
+
+    test('a still model follows its entity, and its pose when it changes', () {
+      final player = AnimationPlayerComponent(clip: 'bend', playing: false);
+      final bar = character(player);
+      final view = frameView(eye: Vector3(0, -3, -8));
+      final renderer = service.sceneRenderer..update(view);
+      final instance = renderer.debugModelInstances.first;
+      final x = instance.world.storage[12];
+      bar.getComponent<TransformComponent>()!.position.x += 2;
+      renderer.update(view);
+      expect(instance.world.storage[12], closeTo(x + 2, 1e-9));
+
+      final tip = renderer.debugModelInstances.map((i) => i.world.storage[13]).toList();
+      renderer.update(view);
+      expect([for (final i in renderer.debugModelInstances) i.world.storage[13]], tip, reason: 'nothing changed');
+      player.time = 1;
+      system().update(0);
+      renderer.update(view);
+      expect(renderer.debugModelInstances.first.world.storage[12], closeTo(x + 2, 1e-9));
     });
   });
 }

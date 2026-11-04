@@ -150,7 +150,7 @@ class _EventRunner extends TrackRunner {
   // fires once per crossing whichever way time runs. A listener that stops
   // or moves the playback ends the step: nothing after its event fires.
   @override
-  void advance(TimelineContext context, double from, double to) {
+  void advance(TrackContext context, double from, double to) {
     if (to >= from) {
       for (final e in track.events) {
         if (e.time > from && e.time <= to) {
@@ -168,8 +168,8 @@ class _EventRunner extends TrackRunner {
     }
   }
 
-  void _fire(TimelineContext context, TimelineEvent e) {
-    context.emit(e.name, e.payload);
+  void _fire(TrackContext context, TimelineEvent e) {
+    context.emit(e.name, e.payload, e.time);
     // A look in an editor must not set the rest of the scene going.
     if (e.signal && !context.isPreview) {
       context.world.context.signals.emit(e.name);

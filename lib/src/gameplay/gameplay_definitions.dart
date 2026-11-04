@@ -4,9 +4,9 @@
 library;
 
 import '../ecs/serialization/component_codec.dart';
-import '../ecs/serialization/component_schema.dart';
+import '../ecs/serialization/component_definition.dart';
 import '../ecs/serialization/field_type.dart';
-import '../ecs/serialization/schema_fields.dart';
+import '../ecs/serialization/field_definitions.dart';
 import '../foundation/dimensions.dart';
 import 'checkpoint_component.dart';
 import 'health_component.dart';
@@ -51,19 +51,19 @@ abstract final class GameplayDefinitions {
         ),
         create: () => HealthComponent(maxHealth: 100),
         fields: [
-          SchemaFields.decimal(
+          FieldDefinitions.decimal(
             'health',
             (c) => (c as HealthComponent).health,
             (c, v) => (c as HealthComponent).health = v,
             min: 0,
           ),
-          SchemaFields.decimal(
+          FieldDefinitions.decimal(
             'maxHealth',
             (c) => (c as HealthComponent).maxHealth,
             (c, v) => (c as HealthComponent).maxHealth = v,
             min: 0,
           ),
-          SchemaFields.boolean(
+          FieldDefinitions.boolean(
             'isInvulnerable',
             (c) => (c as HealthComponent).isInvulnerable,
             (c, v) => (c as HealthComponent).isInvulnerable = v,
@@ -91,7 +91,7 @@ abstract final class GameplayDefinitions {
         ),
         create: () => LifetimeComponent(3.0),
         fields: [
-          SchemaFields.decimal(
+          FieldDefinitions.decimal(
             'initialLifetime',
             (c) => (c as LifetimeComponent).initialLifetime,
             (c, v) {
@@ -128,7 +128,7 @@ abstract final class GameplayDefinitions {
         create: SpawnComponent.new,
         // Saved as `tag` until scene format 7.
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'spawner',
             kind: FieldTypes.spawnerRef,
             read: (c) => (c as SpawnComponent).spawner,
@@ -138,8 +138,8 @@ abstract final class GameplayDefinitions {
       );
 
   /// [CheckpointComponent], from `checkpoint_editor_component.dart`.
-  static ComponentSchema<CheckpointComponent> get checkpoint =>
-      ComponentSchema<CheckpointComponent>(
+  static ComponentDefinition<CheckpointComponent> get checkpoint =>
+      ComponentDefinition<CheckpointComponent>(
         type: 'CheckpointComponent',
         hints: const ComponentHints(
           dimensions: Dimensions.twoD,
@@ -156,21 +156,21 @@ abstract final class GameplayDefinitions {
         id: 'checkpoint_5e2b9d71',
         create: () => CheckpointComponent(respawnPosition: Vector3.zero()),
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'respawnX',
             kind: FieldTypes.decimal,
             read: (c) => (c as CheckpointComponent).respawnPosition.x,
             write: (c, v) => (c as CheckpointComponent).respawnPosition.x =
                 (v as num).toDouble(),
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'respawnY',
             kind: FieldTypes.decimal,
             read: (c) => (c as CheckpointComponent).respawnPosition.y,
             write: (c, v) => (c as CheckpointComponent).respawnPosition.y =
                 (v as num).toDouble(),
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'radius',
             kind: FieldTypes.decimal,
             read: (c) => (c as CheckpointComponent).radius,

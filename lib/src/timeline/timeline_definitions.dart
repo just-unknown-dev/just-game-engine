@@ -1,4 +1,4 @@
-/// Definitions for the timeline components that are not plain schemas.
+/// Definitions for the timeline components that are not plain field lists.
 library;
 
 import 'timeline_player_component.dart';
@@ -12,7 +12,7 @@ import '../ecs/ecs.dart';
 import 'timeline_trigger_component.dart';
 
 /// Definitions for the timeline components that need more than a plain
-/// schema: [TimelineTriggerComponent], whose rectangle the editor sizes and
+/// field list: [TimelineTriggerComponent], whose rectangle the editor sizes and
 /// scales.
 abstract final class TimelineDefinitions {
   static const Color _accent = Color(0xFF7DD8E0);
@@ -39,7 +39,7 @@ abstract final class TimelineDefinitions {
           fieldGroups: {
             'Area': ['width', 'height'],
             'Set off by': ['target'],
-            'Does': ['playerName', 'onEnter', 'onExit', 'oneShot'],
+            'Does': ['playerName', 'enterAction', 'exitAction', 'oneShot'],
           },
           fieldRows: [
             FieldRowHint('Size', {'width': 'W', 'height': 'H'}),
@@ -61,15 +61,15 @@ abstract final class TimelineDefinitions {
               label: 'Player',
               description: 'Empty: the Timeline Player on this entity.',
             ),
-            'onEnter': FieldHint(label: 'On enter'),
-            'onExit': FieldHint(label: 'On exit'),
+            'enterAction': FieldHint(label: 'On enter'),
+            'exitAction': FieldHint(label: 'On exit'),
             'oneShot': FieldHint(label: 'One shot'),
           },
         ),
         create: TimelineTriggerComponent.new,
         extent: const _TriggerExtent(),
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'width',
             kind: FieldTypes.decimal,
             read: (c) => (c as TimelineTriggerComponent).width,
@@ -77,7 +77,7 @@ abstract final class TimelineDefinitions {
                 (c as TimelineTriggerComponent).width = (v as num).toDouble(),
             min: 1,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'height',
             kind: FieldTypes.decimal,
             read: (c) => (c as TimelineTriggerComponent).height,
@@ -85,35 +85,35 @@ abstract final class TimelineDefinitions {
                 (c as TimelineTriggerComponent).height = (v as num).toDouble(),
             min: 1,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'target',
             kind: FieldTypes.target,
             read: (c) => (c as TimelineTriggerComponent).target,
             write: (c, v) => (c as TimelineTriggerComponent).target =
                 v as EntityTarget? ?? EntityTarget.none,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'playerName',
             kind: FieldTypes.entityRef,
             read: (c) => (c as TimelineTriggerComponent).playerName,
             write: (c, v) =>
                 (c as TimelineTriggerComponent).playerName = v as String? ?? '',
           ),
-          SchemaField(
-            name: 'onEnter',
+          FieldDefinition(
+            name: 'enterAction',
             kind: _actions,
-            read: (c) => (c as TimelineTriggerComponent).onEnter,
-            write: (c, v) => (c as TimelineTriggerComponent).onEnter =
+            read: (c) => (c as TimelineTriggerComponent).enterAction,
+            write: (c, v) => (c as TimelineTriggerComponent).enterAction =
                 v as TimelineTriggerAction,
           ),
-          SchemaField(
-            name: 'onExit',
+          FieldDefinition(
+            name: 'exitAction',
             kind: _actions,
-            read: (c) => (c as TimelineTriggerComponent).onExit,
-            write: (c, v) => (c as TimelineTriggerComponent).onExit =
+            read: (c) => (c as TimelineTriggerComponent).exitAction,
+            write: (c, v) => (c as TimelineTriggerComponent).exitAction =
                 v as TimelineTriggerAction,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'oneShot',
             kind: FieldTypes.boolean,
             read: (c) => (c as TimelineTriggerComponent).oneShot,
@@ -123,10 +123,10 @@ abstract final class TimelineDefinitions {
         ],
       );
 
-  /// Every definition above — a new list on each call.
-  /// [TimelinePlayerComponent]: plays a timeline asset, or an inline one.
-  static ComponentSchema<TimelinePlayerComponent>
-  get timelinePlayer => ComponentSchema<TimelinePlayerComponent>(
+  /// Definition of [TimelinePlayerComponent], saved as
+  /// `TimelinePlayerComponent`: plays a timeline asset, or an inline one.
+  static ComponentDefinition<TimelinePlayerComponent>
+  get timelinePlayer => ComponentDefinition<TimelinePlayerComponent>(
     type: 'TimelinePlayerComponent',
     hints: const ComponentHints(
       name: 'Timeline Player',
@@ -179,14 +179,14 @@ abstract final class TimelineDefinitions {
     id: 'timeline_player_3d91c7aa',
     create: TimelinePlayerComponent.new,
     fields: [
-      SchemaField(
+      FieldDefinition(
         name: 'timelinePath',
         kind: FieldTypes.assetRef,
         read: (c) => (c as TimelinePlayerComponent).timelinePath,
         write: (c, v) =>
             (c as TimelinePlayerComponent).timelinePath = v as String? ?? '',
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'inline',
         kind: FieldTypes.map,
         read: (c) => (c as TimelinePlayerComponent).inline?.toJson(),
@@ -194,13 +194,13 @@ abstract final class TimelineDefinitions {
             ? TimelineAsset.fromJson(v.cast<String, dynamic>())
             : null,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'playOnStart',
         kind: FieldTypes.boolean,
         read: (c) => (c as TimelinePlayerComponent).playOnStart,
         write: (c, v) => (c as TimelinePlayerComponent).playOnStart = v as bool,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'speed',
         kind: FieldTypes.decimal,
         read: (c) => (c as TimelinePlayerComponent).speed,
@@ -209,7 +209,7 @@ abstract final class TimelineDefinitions {
         min: -16,
         max: 16,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'wrap',
         kind: const EnumFieldType(
           TimelineWrapChoice.values,
@@ -220,14 +220,14 @@ abstract final class TimelineDefinitions {
         write: (c, v) =>
             (c as TimelinePlayerComponent).wrap = v as TimelineWrapChoice,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'listenSignal',
         kind: FieldTypes.text,
         read: (c) => (c as TimelinePlayerComponent).listenSignal,
         write: (c, v) =>
             (c as TimelinePlayerComponent).listenSignal = v as String? ?? '',
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'from',
         kind: FieldTypes.decimal,
         read: (c) => (c as TimelinePlayerComponent).from,
@@ -236,7 +236,7 @@ abstract final class TimelineDefinitions {
             (c as TimelinePlayerComponent).from = (v as num?)?.toDouble() ?? 0,
         min: 0,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'to',
         kind: FieldTypes.decimal,
         read: (c) => (c as TimelinePlayerComponent).to,
@@ -248,6 +248,7 @@ abstract final class TimelineDefinitions {
     ],
   );
 
+  /// Every definition above — a new list on each call.
   static List<ComponentDefinition> get all => [trigger, timelinePlayer];
 }
 

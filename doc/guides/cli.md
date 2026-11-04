@@ -4,8 +4,8 @@ _Tools_ · Install just, create a game with it, and run, build, check, upgrade a
 
 `just` is the Just ecosystem's command-line tool. It comes in two packages, and the [CLI overview](/cli) shows them side by side:
 
-- **`just_core_cli`** (0.1.1) is the tool itself. It knows no product of its own: it makes projects, keeps their tools on versions that work together, checks their setup, links them to local checkouts, changes them all or nothing, and runs the commands and hooks that plugins add.
-- **`just_game_engine_cli`** (0.1.2) is the game plugin. It adds `just game ...`: run the game and its editor, build releases that provably hold no editor, manage the levels, keep the engine's packages on versions that work together, and keep saved files in the current formats. Every game made with `just create` has it as a dev dependency, and `just` runs it at the version the project resolved.
+- **`just_core_cli`** is the tool itself. It knows no product of its own: it makes projects, keeps their tools on versions that work together, checks their setup, links them to local checkouts, changes them all or nothing, and runs the commands and hooks that plugins add.
+- **`just_game_engine_cli`** is the game plugin. It adds `just game ...`: run the game and its editor, build releases that provably hold no editor, manage the levels, keep the engine's packages on versions that work together, and keep saved files in the current formats. Every game made with `just create` has it as a dev dependency, and `just` runs it at the version the project resolved.
 
 ## Install
 
@@ -30,7 +30,7 @@ just create my_game
 just create space_rocks --title "Space Rocks" --org com.mystudio --platforms windows,macos,web
 ```
 
-The folder name becomes the Dart package name, so it must be a valid one. `create` runs `flutter create`, writes `just.json`, adds `just_core_cli` and the kind's plugin to the dev dependencies as pub.dev versions, fetches the packages, and hands the project to the plugin's `create` hook. For a game, that is `just game init`: the game template on the engine's version set, the first level, the editor through the Asset Store, and Flutter GPU switched on for a 3D game. On a failure the folder is deleted when `create` made it, or emptied when it was there already, empty.
+The folder name becomes the Dart package name, so it must be a valid one. `create` runs `flutter create`, writes `just.json`, adds `just_core_cli` and the kind's plugin to the dev dependencies as pub.dev versions, fetches the packages, and hands the project to the plugin's `create` hook. For a game, that is `just game init`: the game template on the engine's version set, the first level, the editor (`just_game_engine_editor`, with `just_asset_store`) from pub.dev as dev dependencies, and Flutter GPU switched on for a 3D game. Plugins and kits come later, from the editor's Asset Store; the store also links `--local` checkouts and lays a store `--template` over the game. On a failure the folder is deleted when `create` made it, or emptied when it was there already, empty.
 
 | Option | What it does |
 |---|---|
@@ -136,7 +136,7 @@ The game plugin's `just_plugin.json` gives `just` six hooks:
 
 | Hook | Command | When |
 |---|---|---|
-| `create` | `game init` (hidden) | `just create` made a Flutter project: lay the game template over it, add the editor through the Asset Store, switch Flutter GPU on for a 3D game |
+| `create` | `game init` (hidden) | `just create` made a Flutter project: lay the game template over it with the editor from pub.dev in the dev dependencies, link `--local` store items or lay a store `--template`, switch Flutter GPU on for a 3D game |
 | `check` | `game check` | `just check`: release imports and saved formats |
 | `doctor` | `game doctor` | `just doctor`: the game's setup |
 | `upgrade` | `game upgrade` | `just upgrade`, inside its transaction: bump the engine's packages |

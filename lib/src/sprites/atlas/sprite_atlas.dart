@@ -8,7 +8,10 @@ part of 'atlas.dart';
 /// ```dart
 /// // Result is cached by AssetManager — repeated calls for the same path
 /// // return the same atlas without re-parsing or re-uploading textures.
-/// final atlas = await SpriteAtlas.fromAsset('assets/data/heroes.json');
+/// final atlas = await SpriteAtlas.fromAsset(
+///   'assets/data/heroes.json',
+///   assets: engine.assets,
+/// );
 /// ```
 ///
 /// ## Creating sprites
@@ -16,10 +19,11 @@ part of 'atlas.dart';
 /// ```dart
 /// // Creates a Sprite already wired to the correct region on the atlas page;
 /// // trimmed and rotated frames are drawn where and how they belong.
-/// final sprite = atlas.createSprite('hero_idle_0',
-///     position: Offset(100, 200),
-///     scale: 2.0);
-/// engine.rendering.add(sprite);
+/// final sprite = atlas.createSprite('hero_idle_0', scale: 2.0);
+/// world.createEntityWithComponents([
+///   TransformComponent(position: Vector3(100, 200, 0)),
+///   RenderableComponent(renderable: sprite, syncTransform: true),
+/// ]);
 /// ```
 ///
 /// ## Animated sprites
@@ -215,14 +219,35 @@ class SpriteAtlas {
     String jsonPath, {
     required AssetManager assets,
   }) async {
-    final assetMgr = assets;
-    if (!assetMgr.hasLoader(AssetType.atlas)) {
-      assetMgr.registerLoader(AssetType.atlas, _AtlasAssetLoader());
-    }
+    _registerLoader(assets);
     final asset =
-        await assetMgr.load<AtlasAsset>(jsonPath, AssetType.atlas)
-            as AtlasAsset;
+        await assets.load<AtlasAsset>(jsonPath, AssetType.atlas) as AtlasAsset;
     return asset.atlas!;
+  }
+
+  /// [fromAsset], with a hold on the atlas: [assets] counts it
+  /// ([AssetManager.acquire]), so it stays loaded — its pages undisposed —
+  /// until each [acquire] is given back with `assets.release(jsonPath)`.
+  /// What something that shows the atlas for a while uses, so another
+  /// user's `release` does not take it away.
+  static Future<SpriteAtlas> acquire(
+    String jsonPath, {
+    required AssetManager assets,
+  }) async {
+    _registerLoader(assets);
+    final asset = await assets.acquire(jsonPath, AssetType.atlas) as AtlasAsset;
+    final atlas = asset.atlas;
+    if (atlas == null) {
+      assets.release(jsonPath, AssetType.atlas);
+      throw StateError('The atlas "$jsonPath" was unloaded while it loaded.');
+    }
+    return atlas;
+  }
+
+  static void _registerLoader(AssetManager assets) {
+    if (!assets.hasLoader(AssetType.atlas)) {
+      assets.registerLoader(AssetType.atlas, _AtlasAssetLoader());
+    }
   }
 
   /// Builds an atlas from already-decoded [json], fetching each page's image
@@ -256,8 +281,17 @@ class SpriteAtlas {
     final basePath = _directoryOf(jsonPath);
     final parser = AtlasParser.detect(json, jsonPath: jsonPath);
     final atlas = await parser.parse(json, basePath);
-    for (final page in atlas.pages) {
-      await page.loadImage(assets);
+    try {
+      for (final page in atlas.pages) {
+        await page.loadImage(assets);
+      }
+    } catch (_) {
+      // A later page that cannot be read: the ones read already are let go,
+      // as the atlas is never kept.
+      for (final page in atlas.pages) {
+        page.dispose();
+      }
+      rethrow;
     }
     return atlas;
   }

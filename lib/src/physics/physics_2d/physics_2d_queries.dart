@@ -7,6 +7,7 @@ import 'dart:ui';
 import 'package:just_physics_engine/just_physics_engine.dart';
 
 import '../../ecs/ecs.dart';
+import 'collider_2d_geometry.dart';
 import 'physics_2d_system.dart';
 
 /// What a 2-D query hit.
@@ -49,19 +50,20 @@ final class Physics2DHit {
 /// whether sensors count.
 ///
 /// ```dart
-/// final queries = Physics2DQueries(engine.physics, world.getSystem<Physics2DSystem>()!);
+/// final queries = world.getSystem<Physics2DSystem>()!.queries;
 /// final hit = queries.raycast(eyes, const Offset(1, 0), maxDistance: 300, ignore: guard);
 /// if (hit?.entity?.hasTag('player') ?? false) chase();
 /// ```
 final class Physics2DQueries {
-  /// Queries of [physics]'s bodies, which [system] made.
-  Physics2DQueries(this.physics, this.system);
-
-  /// The physics engine queried.
-  final PhysicsEngine physics;
+  /// Queries of the bodies [system] made — as the 3-D `Physics3DQueries`
+  /// is made from its system. [Physics2DSystem.queries] is one.
+  Physics2DQueries(this.system);
 
   /// What made the bodies, and knows their entities.
   final Physics2DSystem system;
+
+  /// The physics engine queried: [system]'s.
+  PhysicsEngine get physics => system.physics;
 
   /// The first thing a ray from [origin] along [direction] hits within
   /// [maxDistance], or null.
@@ -104,7 +106,7 @@ final class Physics2DQueries {
       for (final hit in physics.castRayAll(ray, exclude: _exclude(ignore)))
         if (_passes(hit.body, layerMask, includeSensors))
           Physics2DHit(
-            entity: system.entityForBody(hit.body),
+            entity: system.entityOf(hit.body),
             body: hit.body,
             point: hit.point,
             normal: hit.normal,
@@ -135,7 +137,7 @@ final class Physics2DQueries {
       if (hit == null) return null;
       if (_passes(hit.body, layerMask, includeSensors)) {
         return Physics2DHit(
-          entity: system.entityForBody(hit.body),
+          entity: system.entityOf(hit.body),
           body: hit.body,
           point: hit.point,
           normal: hit.normal,
@@ -161,13 +163,40 @@ final class Physics2DQueries {
     includeSensors,
   );
 
-  /// The entities whose bodies overlap [rect].
+  /// The entities whose bodies overlap [rect] — their shapes, turned as
+  /// they are, not the boxes round them: a circle whose box only touches a
+  /// corner of [rect] is not in it.
   List<Entity> overlapBox(
     Rect rect, {
     int layerMask = 0xFFFF,
     Entity? ignore,
     bool includeSensors = false,
-  }) => _entities(physics.queryAABB(rect), layerMask, ignore, includeSensors);
+  }) {
+    final box = ShapeProxy2D([
+      rect.topLeft,
+      rect.topRight,
+      rect.bottomRight,
+      rect.bottomLeft,
+    ], 0);
+    return _entities(
+      [
+        for (final body in physics.queryAABB(rect))
+          if (_overlaps(body, box)) body,
+      ],
+      layerMask,
+      ignore,
+      includeSensors,
+    );
+  }
+
+  /// Whether a shape of [body]'s overlaps (or touches) [box].
+  static bool _overlaps(PhysicsBody body, ShapeProxy2D box) {
+    for (final proxy in Collider2DGeometry.proxiesOf(body)) {
+      final d = ShapeDistance2D.between(proxy, box);
+      if (d.overlaps || d.distance <= proxy.radius) return true;
+    }
+    return false;
+  }
 
   Set<PhysicsBody> _exclude(Entity? ignore) {
     final body = ignore == null ? null : system.bodyOf(ignore);
@@ -187,7 +216,7 @@ final class Physics2DQueries {
     final seen = <Entity>{};
     for (final body in bodies) {
       if (!_passes(body, layerMask, includeSensors)) continue;
-      final entity = system.entityForBody(body);
+      final entity = system.entityOf(body);
       if (entity != null && !identical(entity, ignore)) seen.add(entity);
     }
     return seen.toList();

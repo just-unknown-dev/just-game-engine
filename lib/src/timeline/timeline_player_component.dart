@@ -107,7 +107,7 @@ class TimelinePlayerComponent extends Component {
 
   /// Whether [playOnStart] has had its turn: set by the system when it makes
   /// the first playback (and by [playTimeline]), cleared by [reset].
-  bool initialized = false;
+  bool isInitialized = false;
   void Function(TimelinePlayback playback)? _pending;
 
   String? _pathNow;
@@ -121,6 +121,10 @@ class TimelinePlayerComponent extends Component {
   /// [reverse], or here — else [speed].
   double get playingSpeed => _speedNow ?? speed;
   set playingSpeed(double value) => _speedNow = value;
+
+  /// Forgets the rate set at run time ([forwards], [reverse],
+  /// [playingSpeed]): the player plays at the authored [speed] again.
+  void resetSpeed() => _speedNow = null;
 
   /// Whether the timeline is running; false before it has loaded.
   bool get isPlaying => playback?.isPlaying ?? false;
@@ -164,10 +168,11 @@ class TimelinePlayerComponent extends Component {
 
   /// Plays forwards from where it is — from the start when it is at the
   /// end. A timeline that finished at its start (played backwards) turns
-  /// round there, so a relative track keeps the value it is relative to.
+  /// round there, so a relative track keeps the value it is relative to;
+  /// a ping-pong on its way back turns round too.
   void forwards() => _do((p) {
     playingSpeed = playingSpeed.abs();
-    p.speed = playingSpeed;
+    p.direction = 1;
     // A timeline that finished at its end has nowhere to go on to but the
     // start; one sitting at its start turns round there.
     p.play(from: p.time >= p.rangeEnd ? p.rangeStart : null);
@@ -176,7 +181,11 @@ class TimelinePlayerComponent extends Component {
   /// Plays [path] from its start, in place of whatever was playing — what an
   /// animator state with a timeline does on entry. The authored
   /// [timelinePath] stays as it is.
+  ///
+  /// The timeline it replaces ends at once, giving back what it held while
+  /// it ran (a sprite clip, a camera shot).
   void playTimeline(String path) {
+    _runTime = true;
     if (path.trim() == playingTimelinePath.trim() && playback != null) {
       restart();
       return;
@@ -184,15 +193,32 @@ class TimelinePlayerComponent extends Component {
     _pathNow = path;
     reset();
     // Not on start: the timeline was asked for, so it plays either way.
-    initialized = true;
+    isInitialized = true;
     _pending = (p) => p.play(from: p.speed < 0 ? p.duration : 0);
   }
 
+  /// Ends the timeline [playTimeline] started — what an animator does on
+  /// leaving a state with a timeline for one without — and goes back to
+  /// what was authored: [timelinePath] (or [inline]), started again only
+  /// with [playOnStart]. What the ended timeline held while it ran (a
+  /// sprite clip, a camera shot) is given back at once. Does nothing when
+  /// no timeline was asked for at run time.
+  void stopTimeline() {
+    if (!_runTime) return;
+    _runTime = false;
+    _pathNow = null;
+    reset();
+  }
+
+  // A timeline was asked for at run time, and not ended since.
+  bool _runTime = false;
+
   /// Plays back towards the start from where it is — from the end when it
-  /// is at the start.
+  /// is at the start. A ping-pong on its way forwards turns round, and one
+  /// already on its way back carries on back.
   void reverse() => _do((p) {
     playingSpeed = -playingSpeed.abs();
-    p.speed = playingSpeed;
+    p.direction = -1;
     // A timeline that finished at its end turns round there; one sitting
     // at its start has nowhere to go back to but the end.
     p.play(from: p.time <= p.rangeStart ? p.rangeEnd : null);
@@ -225,7 +251,7 @@ class TimelinePlayerComponent extends Component {
   void reset() {
     playback?.dispose();
     playback = null;
-    initialized = false;
+    isInitialized = false;
     _pending = null;
   }
 }

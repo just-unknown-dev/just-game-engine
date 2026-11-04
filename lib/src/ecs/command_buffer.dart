@@ -1,4 +1,4 @@
-part of 'ecs.dart';
+part of 'world.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // Command Buffer — deferred entity/component mutations
@@ -19,12 +19,22 @@ part of 'ecs.dart';
 /// world.commands.destroy(entity);      // deferred
 /// world.commands.create([Health(100)]); // deferred
 ///
-/// // World.update() flushes automatically between system ticks.
+/// // World.update() flushes automatically: before the first system and
+/// // between system ticks.
 /// ```
+///
+/// Commands belong to the world as it was when they were queued: those
+/// still waiting when [World.destroyAllEntities] (a scene swap) or
+/// [World.dispose] clears it are dropped, so an old scene's deferred
+/// `create` never turns up in the next one.
 class CommandBuffer {
   final World _world;
 
   List<_Command> _commands = [];
+
+  /// Moves on whenever the world is cleared; a command queued before that
+  /// is stale.
+  int _epoch = 0;
 
   /// An empty buffer that applies its commands to the given world.
   CommandBuffer(this._world);
@@ -32,34 +42,42 @@ class CommandBuffer {
   /// Schedule entity creation with the given components.
   /// Returns nothing — use [flush] results or query after flush.
   void create(List<Component> components, {String? name}) {
-    _commands.add(_DeferredCreate(components, name));
+    _commands.add(_DeferredCreate(components, name).._epoch = _epoch);
   }
 
   /// Schedule entity destruction; see [World.destroyEntity] for
   /// [withChildren].
   void destroy(Entity entity, {bool withChildren = true}) {
-    _commands.add(_DeferredDestroy(entity, withChildren));
+    _commands.add(_DeferredDestroy(entity, withChildren).._epoch = _epoch);
   }
 
   /// Schedule adding a component to an existing entity.
   void addComponent(Entity entity, Component component) {
-    _commands.add(_DeferredAddComponent(entity, component));
+    _commands.add(_DeferredAddComponent(entity, component).._epoch = _epoch);
   }
 
   /// Schedule removing a component type from an entity.
   void removeComponent<T extends Component>(Entity entity) {
-    _commands.add(_DeferredRemoveComponent(entity, T));
+    _commands.add(_DeferredRemoveComponent(entity, T).._epoch = _epoch);
   }
 
   /// Whether any commands are pending.
   bool get isNotEmpty => _commands.isNotEmpty;
 
+  /// Drops every pending command, including the rest of a flush under way
+  /// (called when the world is cleared).
+  void _dropPending() {
+    _epoch++;
+    _commands = [];
+  }
+
   /// Apply all buffered commands to the world, in the order they were
   /// queued, and clear the buffer.
   ///
-  /// A command on an entity that is gone by then is skipped. Commands queued
-  /// while flushing (by a component's `onAttach`, say) run in this flush,
-  /// after the ones already queued.
+  /// A command on an entity that is gone by then is skipped, and so is one
+  /// queued before the world was last cleared. Commands queued while
+  /// flushing (by a component's `onAttach`, say) run in this flush, after
+  /// the ones already queued.
   ///
   /// A command that throws does not stop the rest: every command is run,
   /// and then the first error is rethrown, with its stack trace.
@@ -70,6 +88,7 @@ class CommandBuffer {
       final batch = _commands;
       _commands = [];
       for (final command in batch) {
+        if (command._epoch != _epoch) continue;
         try {
           command.apply(_world);
         } catch (error, stack) {
@@ -85,6 +104,9 @@ class CommandBuffer {
 }
 
 sealed class _Command {
+  /// The buffer's epoch when this was queued.
+  int _epoch = 0;
+
   void apply(World world);
 }
 

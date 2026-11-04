@@ -28,7 +28,7 @@ void main() {
     });
     world.createEntityWithComponents([
       TransformComponent(position: Vector3.zero()),
-      Collider3DComponent(shape: ColliderShape3D.capsule, radius: 0.3, height: 1.8),
+      Collider3DComponent(shape: Collider3DShape.capsule, radius: 0.3, height: 1.8),
       RigidBody3DComponent(bodyType: BodyType3D.kinematic),
     ], name: 'Player');
     camera = world.createEntityWithComponents([
@@ -83,7 +83,7 @@ void main() {
   test('registered for every brain of an engine by the extension', () {
     final context = EngineContext();
     Physics3D().install(context);
-    expect(CameraRegistries.of(context).stages.stageFor(CameraCollision3DComponent()), isA<CameraCollisionStage>());
+    expect(context.cameraRegistries.stages.stageFor(CameraCollision3DComponent()), isA<CameraCollisionStage>());
     expect(context.definitions.definitionFor(CameraCollision3DComponent()), isNotNull);
   });
 }

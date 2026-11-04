@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_game_engine/just_game_engine_3d.dart';
 import 'package:just_graphics_engine/testing.dart';
+import 'package:just_graphics_engine/just_graphics_engine.dart' show NullGpuDevice, rendererNullShaders;
 
 import 'fixtures.dart';
 
@@ -40,7 +41,7 @@ void main() {
 
       final light = roundTrip(
         Light3DComponent(
-          kind: LightKind.spot,
+          kind: Light3DKind.spot,
           color: const Color(0xFF336699),
           intensity: 42.5,
           range: 12.25,
@@ -48,7 +49,7 @@ void main() {
           outerConeAngle: 0.5,
         ),
       );
-      expect(light.kind, LightKind.spot);
+      expect(light.kind, Light3DKind.spot);
       expect(light.color.toARGB32(), 0xFF336699);
       expect(light.intensity, 42.5);
       expect(light.range, 12.25);
@@ -222,7 +223,7 @@ void main() {
         scene({
           'Sun': [
             TransformComponent(euler: Vector3(-1.5707963267948966, 0, 0)),
-            Light3DComponent(kind: LightKind.directional, intensity: 4),
+            Light3DComponent(kind: Light3DKind.directional, intensity: 4),
           ],
         }),
       );

@@ -5,7 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/painting.dart';
 import 'package:just_dart/just_dart.dart';
 
-import '../ecs.dart' show EntityTarget, EntityTargetKind, TagNames;
+import '../world.dart' show EntityTarget, EntityTargetKind, TagNames;
 import 'field_type.dart';
 import '../../foundation/shape_paint_style.dart';
 

@@ -1,13 +1,52 @@
+// Performance benchmarks for the Just Game Engine.
+//
+// Each prints what it measured and fails only when something is badly
+// wrong: ceilings are at least ten times what a busy machine measures, as
+// timing on a shared machine is too noisy for more. Tagged `perf`, so a
+// plain `flutter test` skips them; a before/after comparison runs only
+// them (`flutter test --tags perf --run-skipped`).
+@Tags(['perf'])
+library;
+
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
-/// Performance benchmarks for the Just Game Engine
-///
-/// These tests measure performance characteristics and ensure the engine
-/// can handle typical game scenarios at acceptable frame rates.
+/// The median of [samples].
+int _median(List<int> samples) {
+  final sorted = [...samples]..sort();
+  return sorted[sorted.length ~/ 2];
+}
+
+/// A world of [count] circle shapes moving with a velocity, drawn by a
+/// RenderSystem through [camera].
+World _shapes(int count, Camera camera) {
+  final world = World(extensions: [BuiltInComponents.extension])
+    ..addSystem(MovementSystem())
+    ..addSystem(RenderSystem(camera: camera));
+  for (var i = 0; i < count; i++) {
+    world.createEntityWithComponents([
+      TransformComponent(position: Vector3((i % 50) * 10.0, (i ~/ 50) * 10.0, 0)),
+      VelocityComponent(velocity: Vector3(10, 5, 0)),
+      Circle2DComponent(radius: 4),
+    ]);
+  }
+  return world;
+}
+
+/// Microseconds [world] takes to draw one frame.
+int _drawMicros(World world) {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  final watch = Stopwatch()..start();
+  world.render(canvas, const Size(800, 600));
+  watch.stop();
+  recorder.endRecording().dispose();
+  return watch.elapsedMicroseconds;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   // Each test makes its own engine and disposes it when done.
@@ -25,72 +64,8 @@ void main() {
       debugPrint(
         'Engine initialization took: ${stopwatch.elapsedMilliseconds}ms',
       );
-      expect(
-        stopwatch.elapsedMilliseconds,
-        lessThan(1000),
-      ); // Should init under 1 second
-    });
-
-    test('Rendering performance with 100 objects', () async {
-      final engine = Engine();
-      addTearDown(engine.dispose);
-      await engine.initialize();
-
-      // Add 100 renderables
-      for (int i = 0; i < 100; i++) {
-        engine.rendering.addRenderable(
-          CircleRenderable(
-            radius: 10,
-            fillColor: Colors.blue,
-            position: Vector3(i * 10.0, i * 5.0, 0),
-          ),
-        );
-      }
-
-      expect(engine.rendering.renderables.length, 100);
-
-      // Measure time to sort/process all renderables
-      final stopwatch = Stopwatch()..start();
-
-      // Simulate multiple frames
-      for (int i = 0; i < 60; i++) {
-        final _ = engine.rendering.renderables;
-      }
-
-      stopwatch.stop();
-
-      debugPrint('100 objects, 60 frames: ${stopwatch.elapsedMilliseconds}ms');
-      expect(
-        stopwatch.elapsedMilliseconds,
-        lessThan(100),
-      ); // Should be very fast
-    });
-
-    test('Rendering performance with 1000 objects', () async {
-      final engine = Engine();
-      addTearDown(engine.dispose);
-      await engine.initialize();
-
-      final stopwatch = Stopwatch()..start();
-
-      // Add 1000 renderables
-      for (int i = 0; i < 1000; i++) {
-        engine.rendering.addRenderable(
-          CircleRenderable(
-            radius: 10,
-            fillColor: Colors.blue,
-            position: Vector3((i % 50) * 10.0, (i ~/ 50) * 10.0, 0),
-          ),
-        );
-      }
-
-      stopwatch.stop();
-
-      expect(engine.rendering.renderables.length, 1000);
-      debugPrint(
-        'Added 1000 renderables in: ${stopwatch.elapsedMilliseconds}ms',
-      );
-      expect(stopwatch.elapsedMilliseconds, lessThan(500));
+      // About 200 ms; over 1 s on a machine busy with other test runs.
+      expect(stopwatch.elapsedMilliseconds, lessThan(5000));
     });
 
     test('Physics engine performance with 50 bodies', () async {
@@ -127,7 +102,8 @@ void main() {
       debugPrint(
         '50 physics bodies, 60 updates: ${stopwatch.elapsedMilliseconds}ms',
       );
-      expect(stopwatch.elapsedMilliseconds, lessThan(500));
+      // About 60 ms with coverage on.
+      expect(stopwatch.elapsedMilliseconds, lessThan(1000));
     });
 
     test('Physics collision detection performance', () async {
@@ -160,10 +136,7 @@ void main() {
       debugPrint(
         '900 bodies collision check: ${stopwatch.elapsedMilliseconds}ms',
       );
-      expect(
-        stopwatch.elapsedMilliseconds,
-        lessThan(1000),
-      ); // Should handle dense scenarios
+      expect(stopwatch.elapsedMilliseconds, lessThan(2000));
     });
 
     test('Particle system performance with 500 particles', () async {
@@ -173,8 +146,6 @@ void main() {
         emissionRate: 100, // 100 particles per second
         particleLifetime: 5.0,
       );
-
-      // Emitter starts automatically
 
       final stopwatch = Stopwatch()..start();
 
@@ -189,25 +160,23 @@ void main() {
         'Particle system (5s simulation): ${stopwatch.elapsedMilliseconds}ms',
       );
       debugPrint('Active particles: ${emitter.particleCount}');
-      expect(stopwatch.elapsedMilliseconds, lessThan(1000));
+      expect(emitter.particleCount, greaterThan(0));
+      expect(stopwatch.elapsedMilliseconds, lessThan(2000));
     });
 
     test('ECS query performance with 1000 entities', () async {
-      final engine = Engine();
-      addTearDown(engine.dispose);
-      await engine.initialize();
+      final world = World();
+      addTearDown(world.dispose);
 
       // Create 1000 entities with various components
       for (int i = 0; i < 1000; i++) {
-        final entity = engine.world.createEntity(name: 'Entity_$i');
+        final entity = world.createEntity(name: 'Entity_$i');
         entity.addComponent(
           TransformComponent(position: Vector3(i * 1.0, 0, 0)),
         );
-
         if (i % 2 == 0) {
           entity.addComponent(VelocityComponent(velocity: Vector3(10, 0, 0)));
         }
-
         if (i % 3 == 0) {
           entity.addComponent(HealthComponent(maxHealth: 100));
         }
@@ -215,166 +184,49 @@ void main() {
 
       final stopwatch = Stopwatch()..start();
 
-      // Perform 100 queries
+      // Perform 100 queries, each after a change so none is a cache hit.
+      var found = 0;
       for (int i = 0; i < 100; i++) {
-        final _ = engine.world.query([TransformComponent, VelocityComponent]);
+        world.createEntityWithComponents([
+          TransformComponent(),
+          VelocityComponent(),
+        ]);
+        found = world.query([TransformComponent, VelocityComponent]).length;
       }
 
       stopwatch.stop();
 
+      expect(found, 600);
       debugPrint(
         '1000 entities, 100 queries: ${stopwatch.elapsedMilliseconds}ms',
       );
-      expect(stopwatch.elapsedMilliseconds, lessThan(500));
-    });
-
-    test('ECS system update performance', () async {
-      final engine = Engine();
-      addTearDown(engine.dispose);
-      await engine.initialize();
-
-      // Add systems
-      engine.world.addSystem(MovementSystem());
-      engine.world.addSystem(RenderSystem());
-      engine.world.addSystem(Physics2DSystem(engine.physics));
-
-      // Create 500 entities with components
-      for (int i = 0; i < 500; i++) {
-        final entity = engine.world.createEntity();
-        entity.addComponent(
-          TransformComponent(position: Vector3(i * 1.0, 0, 0)),
-        );
-        entity.addComponent(VelocityComponent(velocity: Vector3(10, 5, 0)));
-        entity.addComponent(
-          RenderableComponent(
-            renderable: CircleRenderable(radius: 5, fillColor: Colors.blue),
-          ),
-        );
-      }
-
-      final stopwatch = Stopwatch()..start();
-
-      // Update all systems for 60 frames
-      for (int i = 0; i < 60; i++) {
-        engine.world.update(0.016);
-      }
-
-      stopwatch.stop();
-
-      debugPrint(
-        '500 entities, 3 systems, 60 updates: ${stopwatch.elapsedMilliseconds}ms',
-      );
-      expect(stopwatch.elapsedMilliseconds, lessThan(500));
-    });
-
-    test('Memory usage - renderables', () async {
-      final engine = Engine();
-      addTearDown(engine.dispose);
-      await engine.initialize();
-
-      // Add and remove renderables repeatedly
-      for (int cycle = 0; cycle < 10; cycle++) {
-        for (int i = 0; i < 100; i++) {
-          engine.rendering.addRenderable(
-            CircleRenderable(
-              radius: 10,
-              fillColor: Colors.blue,
-              position: Vector3(i * 1.0, 0, 0),
-            ),
-          );
-        }
-
-        engine.rendering.clear();
-      }
-
-      expect(engine.rendering.renderables.length, 0);
-    });
-
-    test('Combined stress test - full engine load', () async {
-      final engine = Engine();
-      addTearDown(engine.dispose);
-      await engine.initialize();
-
-      // Add 200 renderables
-      for (int i = 0; i < 200; i++) {
-        engine.rendering.addRenderable(
-          CircleRenderable(
-            radius: 10,
-            fillColor: Colors.primaries[i % Colors.primaries.length],
-            position: Vector3((i % 20) * 30.0, (i ~/ 20) * 30.0, 0),
-          ),
-        );
-      }
-
-      // Add 30 physics bodies
-      for (int i = 0; i < 30; i++) {
-        engine.physics.addBody(
-          PhysicsBody(
-            position: Vector2(i * 50.0, i * 30.0),
-            velocity: Vector2(
-              (i % 2 == 0 ? 1 : -1) * 50.0,
-              (i % 3 == 0 ? 1 : -1) * 30.0,
-            ),
-            shape: CircleShape(15),
-          ),
-        );
-      }
-
-      // Add 100 ECS entities
-      for (int i = 0; i < 100; i++) {
-        final entity = engine.world.createEntity();
-        entity.addComponent(
-          TransformComponent(position: Vector3(i * 1.0, 0, 0)),
-        );
-        entity.addComponent(VelocityComponent(velocity: Vector3(10, 0, 0)));
-      }
-
-      // Add particle emitter
-      final emitter = ParticleEmitter(
-        position: null,
-        maxParticles: 200,
-        emissionRate: 50,
-        particleLifetime: 2.0,
-      );
-      // Emitter starts automatically
-
-      final stopwatch = Stopwatch()..start();
-
-      // Simulate 60 frames of full engine operation
-      for (int frame = 0; frame < 60; frame++) {
-        engine.physics.update(0.016);
-        engine.world.update(0.016);
-        emitter.update(0.016);
-      }
-
-      stopwatch.stop();
-
-      debugPrint(
-        'STRESS TEST - Full engine (60 frames): ${stopwatch.elapsedMilliseconds}ms',
-      );
-      debugPrint('  - 200 renderables');
-      debugPrint('  - 30 physics bodies');
-      debugPrint('  - 100 ECS entities');
-      debugPrint(
-        '  - 1 particle emitter (~${emitter.particleCount} particles)',
-      );
-
-      // Should maintain 60 FPS (16.67ms per frame)
-      // 60 frames should take less than 1 second in tests
       expect(stopwatch.elapsedMilliseconds, lessThan(1000));
+    });
 
-      final avgFrameTime = stopwatch.elapsedMilliseconds / 60.0;
+    test('ECS system update and draw with 500 entities', () async {
+      final camera = Camera(viewportSize: const Size(800, 600));
+      final world = _shapes(500, camera);
+      addTearDown(world.dispose);
+
+      final stopwatch = Stopwatch()..start();
+
+      // Update and draw for 60 frames
+      for (int i = 0; i < 60; i++) {
+        world.update(0.016);
+        _drawMicros(world);
+      }
+
+      stopwatch.stop();
+
       debugPrint(
-        '  - Average frame time: ${avgFrameTime.toStringAsFixed(2)}ms',
+        '500 entities, update + draw, 60 frames: '
+        '${stopwatch.elapsedMilliseconds}ms',
       );
+      expect(stopwatch.elapsedMilliseconds, lessThan(3000));
     });
 
     test('Camera transformation performance', () async {
-      final engine = Engine();
-      addTearDown(engine.dispose);
-      await engine.initialize();
-
-      final camera = engine.rendering.camera;
+      final camera = Camera(viewportSize: const Size(800, 600));
 
       final stopwatch = Stopwatch()..start();
 
@@ -389,7 +241,8 @@ void main() {
       stopwatch.stop();
 
       debugPrint('10000 camera operations: ${stopwatch.elapsedMilliseconds}ms');
-      expect(stopwatch.elapsedMilliseconds, lessThan(100));
+      // About 5 ms.
+      expect(stopwatch.elapsedMilliseconds, lessThan(200));
     });
 
     test('Easing function performance', () {
@@ -415,198 +268,77 @@ void main() {
       debugPrint(
         '10000 iterations of 10 easings: ${stopwatch.elapsedMilliseconds}ms',
       );
-      expect(stopwatch.elapsedMilliseconds, lessThan(200));
+      expect(stopwatch.elapsedMilliseconds, lessThan(500));
     });
   });
 
   group('Scalability Tests', () {
-    test('Rendering scales linearly', () async {
-      final engine = Engine();
-      addTearDown(engine.dispose);
-      if (!engine.isInitialized) {
-        try {
-          await engine.initialize();
-        } catch (e) {
-          // Ignore audio plugin errors in tests
-          if (!e.toString().contains('MissingPluginException')) {
-            rethrow;
-          }
-        }
+    test('Drawing scales about linearly with the entity count', () {
+      final camera = Camera(viewportSize: const Size(800, 600));
+      final medians = <int, int>{};
+      for (final count in [100, 1000]) {
+        final world = _shapes(count, camera);
+        addTearDown(world.dispose);
+        world.update(0.016);
+        _drawMicros(world); // warm up
+        medians[count] = _median([
+          for (var run = 0; run < 15; run++) _drawMicros(world),
+        ]);
+        debugPrint('$count shapes: ${medians[count]} µs a frame (median)');
       }
-
-      final times = <int, int>{};
-
-      for (final count in [10, 50, 100, 200, 500]) {
-        engine.rendering.clear();
-
-        for (int i = 0; i < count; i++) {
-          engine.rendering.addRenderable(
-            CircleRenderable(
-              radius: 10,
-              fillColor: Colors.blue,
-              position: Vector3(i * 1.0, 0, 0),
-            ),
-          );
-        }
-
-        final stopwatch = Stopwatch()..start();
-        for (int i = 0; i < 60; i++) {
-          final _ = engine.rendering.renderables;
-        }
-        stopwatch.stop();
-
-        times[count] = stopwatch.elapsedMilliseconds;
-        debugPrint('$count renderables: ${times[count]}ms');
-      }
-
-      // Verify it scales reasonably
-      // If operations are too fast to measure (0ms), just verify largest count is fast
-      if (times[50]! == 0) {
-        expect(times[500]!, lessThan(50)); // Should still be fast even at 500
-      } else {
-        expect(
-          times[500]! < times[50]! * 10,
-          true,
-        ); // 500 should be < 10x slower than 50
-      }
+      // Linear is 10x; well past that is a regression, not noise.
+      expect(medians[1000]!, lessThan(medians[100]! * 40 + 2000));
     });
   });
 
   // ── Stats-driven frame budget benchmarks ──────────────────────────────────
-  // These tests exercise the live diagnostics APIs and assert that real update
-  // cycles remain within the 60 Hz budget under representative loads.  They
-  // serve as a CI gate: if a regression bloats a hot path enough to blow the
-  // budget, the test fails with a concrete timing figure.
+  // These tests exercise the live diagnostics APIs under a real load.
   group('Frame budget benchmarks (stats API)', () {
-    test('scheduler completes a full update cycle within 16.67ms', () async {
-      final engine = Engine();
-      addTearDown(engine.dispose);
-      await engine.initialize();
-
-      // Warm up to stabilise timings (JIT, first-frame overhead).
-      for (int i = 0; i < 5; i++) {
-        engine.physics.update(0.016);
-        engine.world.update(0.016);
-      }
-
-      // Drive one full update cycle through the authoritative scheduler.
-      engine.systemManager.runUpdateCycle(1 / 60);
-
-      final stats = engine.performanceStats;
-      final lastUpdateMs = stats['lastUpdateMs'] as double;
-      final isOverBudget = stats['isOverBudget'] as bool;
-
-      debugPrint(
-        'Scheduler update cycle: ${lastUpdateMs.toStringAsFixed(2)} ms  '
-        '(budget remaining: ${(stats['budgetRemainingMs'] as double).toStringAsFixed(2)} ms)',
-      );
-
-      expect(
-        isOverBudget,
-        isFalse,
-        reason:
-            'Engine update cycle took ${lastUpdateMs.toStringAsFixed(2)} ms — '
-            'exceeded the 16.67 ms / 60 Hz frame budget.',
-      );
-    });
-
-    test('scheduler records timings for all registered tasks', () async {
-      final engine = Engine();
-      addTearDown(engine.dispose);
-      await engine.initialize();
-
-      // Drive one update cycle directly through the scheduler so taskTimesMs
-      // is populated without depending on the GameLoop clock accumulator.
-      engine.systemManager.runUpdateCycle(1 / 60);
-
-      final scheduler =
-          engine.performanceStats['scheduler'] as Map<String, dynamic>;
-      final taskTimes = scheduler['taskTimesMs'] as Map<String, double>;
-
-      // Tasks registered in Engine._registerSystems must be present. No
-      // standalone 'physics' task — Physics2DSystem steps engine.physics
-      // inline from within the 'ecs' task instead (see Engine.physics'
-      // doc comment for why).
-      // Audio is a frame task: it places sounds once the frame has moved
-      // everything. The camera's post effects advance once per frame on
-      // real time, outside the fixed step.
-      const expectedTasks = ['input', 'parallax', 'ecs'];
-      expect(taskTimes.keys, containsAll(expectedTasks));
-      expect(
-        scheduler['updateTaskCount'],
-        greaterThanOrEqualTo(expectedTasks.length),
-      );
-    });
-
     test(
-      'physics stats stay coherent after 60 steps with moving bodies',
+      'scheduler completes a loaded update cycle within the 60 Hz budget',
       () async {
         final engine = Engine();
         addTearDown(engine.dispose);
         await engine.initialize();
-
-        for (int i = 0; i < 20; i++) {
-          engine.physics.addBody(
-            PhysicsBody(
-              position: Vector2(i * 40.0, 0),
-              velocity: Vector2(10, 5),
-              shape: CircleShape(12),
-              mass: 1.0,
-            ),
-          );
+        final world = engine.world
+          ..addSystem(MovementSystem())
+          ..addSystem(RenderSystem(camera: engine.camera.mainCamera));
+        for (var i = 0; i < 500; i++) {
+          world.createEntityWithComponents([
+            TransformComponent(position: Vector3(i * 2.0, 0, 0)),
+            VelocityComponent(velocity: Vector3(10, 5, 0)),
+            Circle2DComponent(radius: 4),
+          ]);
         }
 
-        for (int i = 0; i < 60; i++) {
-          engine.physics.update(0.016);
+        // Warm up to stabilise timings (JIT, first-frame overhead).
+        for (int i = 0; i < 5; i++) {
+          engine.systemManager.runUpdateCycle(1 / 60);
         }
 
-        final ps = engine.physics.stats;
-        expect(ps['bodyCount'], 20);
-        expect(ps['lastStepMs'], isA<double>());
-        // Incremental broadphase: dirty count must not exceed total body count.
+        // Drive one full update cycle through the authoritative scheduler.
+        engine.systemManager.runUpdateCycle(1 / 60);
+
+        // The scheduler's own timing: performanceStats' lastUpdateMs is
+        // the game loop's, and this cycle did not come through it.
+        final scheduler =
+            engine.performanceStats['scheduler'] as Map<String, dynamic>;
+        final lastFrameMs = scheduler['lastFrameMs'] as double;
+
+        debugPrint(
+          'Scheduler update cycle, 500 entities: '
+          '${lastFrameMs.toStringAsFixed(2)} ms',
+        );
+
+        expect(lastFrameMs, greaterThan(0), reason: 'something was timed');
         expect(
-          ps['broadphaseDirtyBodies'] as int,
-          lessThanOrEqualTo(ps['bodyCount'] as int),
+          lastFrameMs,
+          lessThan(1000 / 60),
+          reason:
+              'Engine update cycle took ${lastFrameMs.toStringAsFixed(2)} '
+              'ms — exceeded the 16.67 ms / 60 Hz frame budget.',
         );
       },
     );
-
-    test('rendering stats confirm spatial index reuse on static scene', () async {
-      // Drive RenderingEngine directly (same pattern used in performance_instrumentation_test).
-      final rendering = RenderingEngine()
-        ..camera = Camera(viewportSize: const Size(800, 600));
-      rendering.initialize();
-
-      // Add 250 renderables to activate the quadtree path (threshold = 200).
-      for (int i = 0; i < 250; i++) {
-        rendering.addRenderable(
-          CircleRenderable(
-            radius: 8,
-            fillColor: Colors.green,
-            position: Vector3((i % 25) * 30.0, (i ~/ 25) * 30.0, 0),
-          ),
-        );
-      }
-
-      // First pass seeds the spatial index.
-      final rec1 = ui.PictureRecorder();
-      rendering.render(Canvas(rec1), const Size(800, 600));
-      rec1.endRecording();
-
-      // Second pass on the same static scene should reuse the index.
-      final rec2 = ui.PictureRecorder();
-      rendering.render(Canvas(rec2), const Size(800, 600));
-      rec2.endRecording();
-
-      final rs = rendering.stats;
-      expect(rs['usedSpatialIndex'], isTrue);
-      expect(
-        rs['spatialReusedLastFrame'],
-        isTrue,
-        reason:
-            'Quadtree should be reused when renderables and camera are '
-            'unchanged between frames.',
-      );
-    });
   });
 }

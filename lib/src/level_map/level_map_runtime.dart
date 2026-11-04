@@ -71,6 +71,10 @@ class LevelMapRuntime {
   /// Tilesets by slot, once loaded.
   final List<TilesetData?> tilesets = [];
   final List<ui.Image?> _images = [];
+
+  /// Whether each of [_images] is this runtime's own to dispose: a clone the
+  /// sprite loader handed over, not a picture [TileAssets] keeps.
+  final List<bool> _ownsImage = [];
   final Map<int, ui.Image> _mirrored = {};
 
   /// Bumped whenever tilesets or images change, for the drawing to redo.
@@ -94,6 +98,10 @@ class LevelMapRuntime {
 
   final Map<int, Set<TileCoord>> _hiddenCells = {};
 
+  /// [_hiddenCells] again, by layer and then chunk ([TileChunkStore.keyOf]):
+  /// what the drawing reads, a chunk at a time.
+  final Map<int, Map<int, _HiddenChunk>> _hiddenChunks = {};
+
   /// Cells not drawn, by layer — a crumbled block, say. A read-only copy
   /// of the map (its sets are views): change it through
   /// [LevelMapHandle.setCellsHidden], which also bumps [hiddenRevision].
@@ -111,8 +119,48 @@ class LevelMapRuntime {
 
   int _hiddenRevision = 0;
 
-  /// Bumped whenever [hiddenCells] changes, so the drawing is rebuilt.
+  /// Bumped whenever [hiddenCells] changes.
   int get hiddenRevision => _hiddenRevision;
+
+  /// Bumped whenever a cell of chunk ([cx], [cy]) of layer [layerId] is
+  /// hidden or shown again: what the drawing of that chunk is keyed on, so
+  /// a crumbling block rebuilds its own chunk only. 0 while none ever was.
+  int hiddenRevisionOf(int layerId, int cx, int cy) =>
+      _hiddenChunks[layerId]?[TileChunkStore.keyOf(cx, cy)]?.revision ?? 0;
+
+  /// The hidden cells of chunk ([cx], [cy]) of layer [layerId], read-only,
+  /// as their places in the chunk (row by row, `y * 16 + x` within it);
+  /// null when none are.
+  Set<int>? hiddenInChunk(int layerId, int cx, int cy) {
+    final cells = _hiddenChunks[layerId]?[TileChunkStore.keyOf(cx, cy)]?.cells;
+    return cells == null || cells.isEmpty ? null : UnmodifiableSetView(cells);
+  }
+
+  void _setHidden(int layerId, Iterable<TileCoord> cells, bool hidden) {
+    final set = _hiddenCells.putIfAbsent(layerId, () => {});
+    final chunks = _hiddenChunks.putIfAbsent(layerId, () => {});
+    var changed = false;
+    for (final c in cells) {
+      if (!(hidden ? set.add(c) : set.remove(c))) continue;
+      changed = true;
+      final cx = TileChunkStore.chunkIndexOf(c.x);
+      final cy = TileChunkStore.chunkIndexOf(c.y);
+      final chunk = chunks.putIfAbsent(
+        TileChunkStore.keyOf(cx, cy),
+        _HiddenChunk.new,
+      );
+      final at =
+          (c.y - cy * TileChunkStore.size) * TileChunkStore.size +
+          (c.x - cx * TileChunkStore.size);
+      if (hidden) {
+        chunk.cells.add(at);
+      } else {
+        chunk.cells.remove(at);
+      }
+      chunk.revision++;
+    }
+    if (changed) _hiddenRevision++;
+  }
 
   /// An editor's view: layers faded (below 1) or hidden entirely. Not part
   /// of the map.
@@ -150,21 +198,32 @@ class LevelMapRuntime {
   /// Whether [dispose] has been called.
   bool get isDisposed => _disposed;
 
-  /// Lets go of what this runtime made: the mirrored tileset images (GPU
-  /// memory) and the drawing's cached batches. Loads still in flight are
-  /// dropped when they finish. Called by whoever drops the runtime — the
-  /// `LevelMapSystem` when a map is replaced, cleared or leaves the world,
-  /// and [LevelMaps.release].
+  /// Lets go of what this runtime made: the tileset images it owns, the
+  /// mirrored ones (GPU memory) and the drawing's cached batches. Loads
+  /// still in flight are dropped — and what they load disposed — when they
+  /// finish. Called by whoever drops the runtime — the `LevelMapSystem`
+  /// when a map is replaced, cleared or leaves the world, and
+  /// [LevelMaps.release].
   ///
-  /// A disposed runtime loads nothing more and draws no mirrored tiles; a
-  /// map that is still wanted gets a new one.
+  /// A disposed runtime loads nothing more and draws nothing; a map that is
+  /// still wanted gets a new one.
   void dispose() {
     if (_disposed) return;
     _disposed = true;
     _loadGeneration++;
     _loading = null;
     _disposeMirrored();
+    _disposeImages();
+    _painter?.dispose();
     _painter = null;
+  }
+
+  void _disposeImages() {
+    for (var i = 0; i < _images.length; i++) {
+      if (_ownsImage[i]) _images[i]?.dispose();
+    }
+    _images.clear();
+    _ownsImage.clear();
   }
 
   void _disposeMirrored() {
@@ -215,8 +274,7 @@ class LevelMapRuntime {
         !_samePaths(_loadedPaths, base.tilesets);
     if (!changed) return _loading ?? Future.value();
     _loadedAssetsRevision = tiles.revision;
-    final paths = _loadedPaths = [...base.tilesets];
-    final generation = ++_loadGeneration;
+    final paths = [...base.tilesets];
     // Tilesets already in memory are taken at once, so a map whose tilesets
     // are loaded collides in the very frame it appears.
     final ready = [
@@ -226,6 +284,16 @@ class LevelMapRuntime {
     for (var i = 0; i < paths.length; i++) {
       if (paths[i] != null && ready[i] == null) allReady = false;
     }
+    if (allReady &&
+        tilesetsReady &&
+        _samePaths(_loadedPaths, paths) &&
+        _sameTilesets(ready, tilesets)) {
+      // Something else in the tile assets changed — another file loaded or
+      // forgotten, this one put again as it was: nothing to load again.
+      return _loading ?? Future.value();
+    }
+    _loadedPaths = paths;
+    final generation = ++_loadGeneration;
     if (allReady) {
       _applyTilesets(ready);
       return _loading = _loadImages(generation, ready);
@@ -240,6 +308,14 @@ class LevelMapRuntime {
     tilesetsReady = true;
     collisionDirty.addAll(base.layers.map((l) => l.id));
     assetsRevision++;
+  }
+
+  static bool _sameTilesets(List<TilesetData?> a, List<TilesetData?> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!identical(a[i], b[i])) return false;
+    }
+    return true;
   }
 
   static bool _samePaths(List<String?> a, List<String?> b) {
@@ -270,26 +346,39 @@ class LevelMapRuntime {
 
   Future<void> _loadImages(int generation, List<TilesetData?> sets) async {
     final images = <ui.Image?>[];
+    final owned = <bool>[];
     for (final ts in sets) {
-      if (ts == null || ts.image.isEmpty) {
-        images.add(null);
-        continue;
+      ui.Image? image;
+      var own = false;
+      if (ts != null && ts.image.isNotEmpty) {
+        try {
+          image = context.tiles.builtInImage(ts.image);
+          if (image == null) {
+            // Asked before the load: whether what it hands over is ours.
+            final loader = context.sprites;
+            own = loader.callerDisposesImages;
+            image = await loader.loadImage(ts.image);
+          }
+        } catch (error) {
+          // Its tiles are not drawn; they still collide.
+          context.tiles.report(ts.image, error, what: 'tileset image');
+          image = null;
+          own = false;
+        }
       }
-      try {
-        images.add(
-          context.tiles.builtInImage(ts.image) ??
-              await context.sprites.loadImage(ts.image),
-        );
-      } catch (error) {
-        // Its tiles are not drawn; they still collide.
-        context.tiles.report(ts.image, error, what: 'tileset image');
-        images.add(null);
-      }
+      images.add(image);
+      owned.add(own);
     }
-    if (generation != _loadGeneration) return;
-    _images
-      ..clear()
-      ..addAll(images);
+    if (generation != _loadGeneration) {
+      // Overtaken by a later load, or the runtime is gone.
+      for (var i = 0; i < images.length; i++) {
+        if (owned[i]) images[i]?.dispose();
+      }
+      return;
+    }
+    _disposeImages();
+    _images.addAll(images);
+    _ownsImage.addAll(owned);
     _disposeMirrored();
     assetsRevision++;
   }
@@ -489,14 +578,7 @@ class LevelMapHandle {
     Iterable<TileCoord> cells,
     bool hidden,
   ) {
-    final set = runtime._hiddenCells.putIfAbsent(layer.id, () => {});
-    final before = set.length;
-    if (hidden) {
-      set.addAll(cells);
-    } else {
-      set.removeAll(cells);
-    }
-    if (set.length != before) runtime._hiddenRevision++;
+    runtime._setHidden(layer.id, cells, hidden);
   }
 }
 
@@ -654,8 +736,8 @@ abstract final class LevelMaps {
   }
 
   /// Lets [world]'s [TileAssets] forget every map file and tileset no map in
-  /// it
-  /// uses — switched off or not — so a game that goes from level to level
+  /// it uses — switched off or not — and its sprite loader the tileset
+  /// images only those drew from, so a game that goes from level to level
   /// does not keep them all. Call it once the next level is loaded.
   ///
   /// Not for an editor, which keeps the maps it edits in [TileAssets].
@@ -665,16 +747,37 @@ abstract final class LevelMaps {
     for (final e in world.entities) {
       final c = e.getComponent<LevelMapComponent>();
       if (c == null) continue;
-      final path = c.mapPath.trim();
-      if (c.usesFile) keep.add(path);
-      final data =
-          c.runtime?.base ?? (c.usesFile ? tiles.loadedMap(path) : c.inline);
-      for (final ts in data?.tilesets ?? const <String?>[]) {
+      if (c.usesFile) keep.add(c.mapPath.trim());
+      for (final ts in _dataOf(c, tiles)?.tilesets ?? const <String?>[]) {
         if (ts != null) keep.add(ts);
       }
     }
-    tiles.retainOnly(keep);
+    final sprites = world.context.sprites;
+    for (final image in tiles.retainOnly(keep)) {
+      sprites.evict(image);
+    }
   }
+
+  /// The 2-D material files the layers of [world]'s maps are drawn
+  /// through — switched off or not — as far as their maps are read.
+  static Set<String> materialsIn(World world) {
+    final tiles = world.context.tiles;
+    final materials = <String>{};
+    for (final e in world.entities) {
+      final c = e.getComponent<LevelMapComponent>();
+      if (c == null) continue;
+      for (final layer in _dataOf(c, tiles)?.layers ?? const <MapLayerData>[]) {
+        if (layer.material.isNotEmpty) materials.add(layer.material);
+      }
+    }
+    return materials;
+  }
+
+  /// The map [c] draws: its runtime's, else the file's as read, else the
+  /// scene's own.
+  static LevelMapData? _dataOf(LevelMapComponent c, TileAssets tiles) =>
+      c.runtime?.base ??
+      (c.usesFile ? tiles.loadedMap(c.mapPath.trim()) : c.inline);
 
   static bool _sameSource(Object? a, Object? b) =>
       a is String ? a == b : identical(a, b);
@@ -705,4 +808,10 @@ class LevelMapLoadFailure {
 
   @override
   String toString() => 'LevelMapLoadFailure($path: $error)';
+}
+
+/// The hidden cells of one chunk of a layer, by their place in it.
+class _HiddenChunk {
+  final Set<int> cells = {};
+  int revision = 0;
 }

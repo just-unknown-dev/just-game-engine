@@ -1,4 +1,40 @@
-part of 'ecs.dart';
+/// The ECS core's types, in one library for the access they share:
+/// [World] — the central manager for entities, systems and queries — with
+/// what it is made of as parts:
+/// - [Component] — pure data, no logic
+/// - [Archetype] — cache-friendly dense storage grouped by component set
+/// - [Entity] — lightweight handle (ID + component access)
+/// - [System] — logic that operates on matching entities
+/// - the [CommandBuffer], the [EventBus], [EntityPrefab], tags
+///   ([TagComponent]) and [EntityTarget]
+///
+/// Not a barrel: `ecs.dart` exports it with the rest of the folder.
+library;
+
+import 'dart:collection';
+import 'dart:math';
+import 'dart:ui' show Canvas, Size;
+
+import 'package:flutter/foundation.dart'
+    show debugPrint, kDebugMode, kReleaseMode;
+import 'package:meta/meta.dart' show internal;
+
+import 'engine_context.dart';
+import 'system_priorities.dart';
+import 'transform/children_component.dart';
+import 'transform/parent_component.dart';
+import 'transform/transform_component.dart';
+import 'transform/transform_hierarchy.dart';
+
+part 'component.dart';
+part 'archetype.dart';
+part 'entity.dart';
+part 'system.dart';
+part 'command_buffer.dart';
+part 'event_bus.dart';
+part 'entity_prefab.dart';
+part 'tag_component.dart';
+part 'entity_target.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // World
@@ -293,6 +329,9 @@ class World {
     final replaced = identical(to, from)
         ? from!._columns[type]![entity._archetypeRow]
         : null;
+    // The entity's own component added again: nothing changes, and it is
+    // neither detached nor attached a second time.
+    if (identical(replaced, component)) return;
 
     _move(entity, to, type, component);
     // A new type goes after the entity's others; a replaced one keeps its
@@ -306,7 +345,7 @@ class World {
     // hear of it: what a system keeps of the old one is out of date.
     _touch(to);
 
-    if (replaced != null && !identical(replaced, component)) {
+    if (replaced != null) {
       _detached(entity, replaced, replacedBy: component);
     }
     _attached(entity, component);
@@ -336,6 +375,7 @@ class World {
   /// [component] is now [entity]'s.
   void _attached(Entity entity, Component component) {
     if (component is TagComponent) _tagIndex.attach(entity, component);
+    if (component is TransformComponent) component.bindWorld(this);
     if (component is ParentComponent) {
       component.bindRelink(
         (from, to) => _relinkChild(entity, from, to),
@@ -350,6 +390,7 @@ class World {
   /// [replacedBy]), or its entity destroyed.
   void _detached(Entity entity, Component component, {Component? replacedBy}) {
     if (component is TagComponent) _tagIndex.detach(entity, component);
+    if (component is TransformComponent) component.bindWorld(null);
     if (component is ParentComponent) {
       component.bindRelink(null);
       // A new link to the same parent keeps the child's place in its list.
@@ -358,7 +399,40 @@ class World {
           replacedBy.parentId == component.parentId;
       if (!sameParent) _relinkChild(entity, component.parentId, null);
     }
+    if (component is ChildrenComponent) {
+      _childrenDetached(entity, component, replacedBy);
+    }
     component.onDetach(entity.id);
+  }
+
+  /// [parent]'s `ChildrenComponent` [old] went — the list the hierarchy,
+  /// the active state and destroy-with-children walk. A new one taking its
+  /// place ([replacedBy]) lists the children still linked to [parent];
+  /// with none, they are cut loose (their parent link cleared, each a root
+  /// where it stands), so no child is left linked to a parent that no
+  /// longer lists it.
+  void _childrenDetached(
+    Entity parent,
+    ChildrenComponent old,
+    Component? replacedBy,
+  ) {
+    final linked = [
+      for (final id in old.childIds)
+        if (_entityMap[id] case final child?)
+          if (!identical(child, parent) &&
+              child.getComponent<ParentComponent>()?.parentId == parent.id)
+            child,
+    ];
+    if (linked.isEmpty) return;
+    if (replacedBy is ChildrenComponent) {
+      for (final child in linked) {
+        replacedBy.addChild(child.id);
+      }
+      return;
+    }
+    for (final child in linked) {
+      child.getComponent<ParentComponent>()!.parentId = null;
+    }
   }
 
   /// [child]'s `ParentComponent` went from naming [from] to naming [to]:
@@ -502,15 +576,19 @@ class World {
   Iterable<Entity> get activeEntities =>
       _entities.where((e) => e._activeInHierarchy);
 
-  /// Initialize the world
+  /// Initialize the world: every system in it is initialized
+  /// ([System.initialize]), in the order they run. One added afterwards is
+  /// initialized as it is added — also one added by another system's
+  /// `initialize`.
   void initialize() {
     if (_initialized) return;
+    // First, so a system added by one of these is initialized by addSystem.
+    _initialized = true;
 
     for (final system in _running) {
       if (identical(system._addedTo, this)) system.initialize();
     }
 
-    _initialized = true;
     if (kDebugMode) {
       debugPrint('ECS World initialized with ${_systems.length} systems');
     }
@@ -679,11 +757,27 @@ class World {
   ///
   /// Every component is detached ([Component.onDetach]). Ids keep counting
   /// from where they were: the next entity does not reuse an old one's id.
+  /// Deferred [commands] still waiting are dropped: they were meant for
+  /// the entities that are gone, and must not reach the next scene.
+  /// [clearCount] goes up by one.
+  ///
+  /// A component whose `onDetach` throws does not stop the rest; the first
+  /// error is rethrown once every component has been detached.
   void destroyAllEntities() {
-    _clearEntities();
+    _clearEntities().rethrowFirst();
   }
 
-  void _clearEntities() {
+  int _clearCount = 0;
+
+  /// How many times this world has been cleared ([destroyAllEntities]) —
+  /// for a system that keeps state about the scene as a whole (a camera's
+  /// last shot) to tell that a new one began.
+  int get clearCount => _clearCount;
+
+  _Failures _clearEntities() {
+    final failures = _Failures();
+    _clearCount++;
+    commands._dropPending();
     final gone = _entities.toList(growable: false);
     final parts = [for (final e in gone) e.components.toList()];
 
@@ -717,9 +811,12 @@ class World {
         }
         // No longer this world's to keep in step.
         if (component is ParentComponent) component.bindRelink(null);
-        component.onDetach(gone[i].id);
+        if (component is TransformComponent) component.bindWorld(null);
+        final id = gone[i].id;
+        failures.run(() => component.onDetach(id));
       }
     }
+    return failures;
   }
 
   /// Add a system to the world.
@@ -762,8 +859,8 @@ class World {
     return byPriority != 0 ? byPriority : a._addOrder.compareTo(b._addOrder);
   }
 
-  /// Runs every active [FrameSystem], in priority order: once per rendered
-  /// frame, after its fixed updates (see [FrameSystem.frame]).
+  /// Runs every active [PerFrame], in priority order: once per rendered
+  /// frame, after its fixed updates (see [PerFrame.frame]).
   ///
   /// When one ran, the [transformHierarchy] settles again afterwards, so
   /// the children of what a frame system moved follow it in the same frame
@@ -771,12 +868,12 @@ class World {
   void frame(double deltaTime, double alpha) {
     var ran = false;
     for (final system in _running) {
-      if (system is! FrameSystem ||
+      if (system is! PerFrame ||
           !system.isActive ||
           !identical(system._addedTo, this)) {
         continue;
       }
-      (system as FrameSystem).frame(deltaTime, alpha);
+      (system as PerFrame).frame(deltaTime, alpha);
       ran = true;
       if (commands.isNotEmpty) commands.flush();
     }
@@ -789,13 +886,19 @@ class World {
   /// Safe while the systems run — a system may remove itself, or another,
   /// from its own update; one removed before its turn does not run. A
   /// system that is not in this world is left alone.
+  ///
+  /// The system is out of the world before either callback runs, so one
+  /// that throws leaves it removed; [System.dispose] runs even when
+  /// [System.onRemovedFromWorld] threw, and the first error is rethrown.
   void removeSystem(System system) {
     if (!identical(system._addedTo, this)) return;
     system._addedTo = null;
-    system.onRemovedFromWorld();
     _systems.remove(system);
     _systemsSnapshot = null;
-    system.dispose();
+    (_Failures()
+          ..run(system.onRemovedFromWorld)
+          ..run(system.dispose))
+        .rethrowFirst();
   }
 
   /// Remove **all** systems from the world.
@@ -810,19 +913,27 @@ class World {
   ///
   /// Safe while the systems run: the rest of that update skips the systems
   /// removed, and systems added afterwards run from the next update on.
-  void clearSystems() {
+  ///
+  /// A callback that throws does not stop the rest: every system is
+  /// removed and told, then the first error is rethrown.
+  void clearSystems() => _clearSystems().rethrowFirst();
+
+  _Failures _clearSystems() {
     final removed = List.of(_systems);
     for (final system in removed) {
       system._addedTo = null;
     }
-    for (final system in removed) {
-      system.onRemovedFromWorld();
-      system.dispose();
-    }
-    // Only those: one added by a callback above stays.
-    final gone = Set<System>.identity()..addAll(removed);
-    _systems.removeWhere(gone.contains);
+    // Out first, so a callback that throws leaves none behind; one added
+    // by a callback below stays.
+    _systems.clear();
     _systemsSnapshot = null;
+    final failures = _Failures();
+    for (final system in removed) {
+      failures
+        ..run(system.onRemovedFromWorld)
+        ..run(system.dispose);
+    }
+    return failures;
   }
 
   /// Get a system by type
@@ -838,6 +949,10 @@ class World {
   /// Systems may add and remove systems — themselves included — and clear
   /// them all ([clearSystems]) while this runs: a system removed before its
   /// turn does not run, and one added runs from the next update on.
+  ///
+  /// Deferred [commands] queued since the last update — from a UI
+  /// callback, an event handler — are applied first, so the systems see
+  /// them (also in a world with no systems); then again after each system.
   void update(double deltaTime) {
     _updateCount++;
     final profile = profiling;
@@ -848,6 +963,10 @@ class World {
     }
     if (_lastSystemTimesMs.isNotEmpty) _lastSystemTimesMs.clear();
     var flushCount = 0;
+    if (commands.isNotEmpty) {
+      commands.flush();
+      flushCount++;
+    }
 
     var hierarchyDone = !transformHierarchy.enabled;
     for (final system in _running) {
@@ -1038,13 +1157,18 @@ class World {
   ///
   /// A context this world made for itself ([World] with no `context`) is
   /// disposed with it; one it was given belongs to whoever gave it.
+  ///
+  /// A system or component callback that throws does not stop the rest:
+  /// everything above still happens, and the first error is rethrown at
+  /// the end.
   void dispose() {
-    clearSystems();
-    _clearEntities();
+    final failures = _clearSystems();
+    failures.absorb(_clearEntities());
     events.clear();
     _initialized = false;
-    if (_ownsContext) context.dispose();
+    if (_ownsContext) failures.run(context.dispose);
     if (kDebugMode) debugPrint('ECS World disposed');
+    failures.rethrowFirst();
   }
 
   /// Statistics, made when read. `activeEntities` counts the entities
@@ -1091,6 +1215,39 @@ class _QueryCacheEntry {
       if (!list.contains(t)) return false;
     }
     return true;
+  }
+}
+
+/// Runs callbacks that must all run, keeping the first error to rethrow
+/// once they have.
+class _Failures {
+  Object? _error;
+  StackTrace? _stack;
+
+  /// Runs [callback], remembering what it throws if nothing threw before.
+  void run(void Function() callback) {
+    try {
+      callback();
+    } catch (error, stack) {
+      if (_error == null) {
+        _error = error;
+        _stack = stack;
+      }
+    }
+  }
+
+  /// Takes [other]'s first error when this has none.
+  void absorb(_Failures other) {
+    if (_error == null && other._error != null) {
+      _error = other._error;
+      _stack = other._stack;
+    }
+  }
+
+  /// Rethrows the first error, if there was one.
+  void rethrowFirst() {
+    final error = _error;
+    if (error != null) Error.throwWithStackTrace(error, _stack!);
   }
 }
 

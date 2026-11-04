@@ -44,30 +44,45 @@ class SpriteAtlasPage {
   ///
   /// The page keeps its own handle — a [ui.Image.clone] of the cached image
   /// — so unloading the image asset does not leave the atlas's sprites
-  /// drawing a disposed image; [dispose] releases it.
+  /// drawing a disposed image; [dispose] releases it. It also holds the image
+  /// asset in [assets] ([AssetManager.acquire]) while it is loaded, so the
+  /// decoded image goes once the last atlas page using it is disposed.
   Future<void> loadImage(AssetManager assets) async {
     if (image != null) return;
-    final imgAsset = await assets.loadImage(imagePath);
+    final imgAsset = await assets.acquireImage(imagePath);
     final cached = imgAsset.image;
     if (cached == null) {
+      assets.release(imagePath, AssetType.image);
       throw StateError('Failed to decode atlas page texture: $imagePath');
     }
     image = _ownedImage = cached.clone();
+    _heldIn = assets;
   }
 
   /// The handle [loadImage] made, which this page disposes.
   ui.Image? _ownedImage;
 
-  /// Releases the image handle [loadImage] took; the page is unloaded
-  /// after. An image given to the constructor, or set from outside, belongs
-  /// to whoever gave it and is left alone. Sprites made from the page share
-  /// its image: done when the atlas is unloaded, after they are gone.
+  /// Where [loadImage] holds the page's image asset.
+  AssetManager? _heldIn;
+
+  /// Releases the image handle [loadImage] took, and — a microtask later —
+  /// its hold on the image asset; the page is unloaded after. An image given to the constructor,
+  /// or set from outside, belongs to whoever gave it and is left alone.
+  /// Sprites made from the page share its image: done when the atlas is
+  /// unloaded, after they are gone.
   void dispose() {
     final owned = _ownedImage;
     if (owned == null) return;
     _ownedImage = null;
     if (identical(image, owned)) image = null;
     owned.dispose();
+    final assets = _heldIn;
+    _heldIn = null;
+    // Given back after the asset manager is done with whatever unloaded the
+    // atlas: an unloadAll still walking its assets is not changed under it.
+    if (assets != null) {
+      scheduleMicrotask(() => assets.release(imagePath, AssetType.image));
+    }
   }
 
   /// Whether this page's texture has been loaded into GPU memory.

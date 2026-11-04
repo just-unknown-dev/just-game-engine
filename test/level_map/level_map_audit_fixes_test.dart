@@ -25,7 +25,7 @@ const _imageInHiddenGroup = '''<?xml version="1.0" encoding="UTF-8"?>
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('F10 an image layer carries its groups\' look', () async {
+  test('an image layer carries its groups\' look', () async {
     final result = TiledInterop.importMap(
       await tiled.TileMapParser.parse(_imageInHiddenGroup),
       tilesetPath: (i, _) => 'set#$i',
@@ -47,7 +47,7 @@ void main() {
     expect(plain.tint, isNull);
   });
 
-  test('F11 a chunk holds exactly one chunk of cells', () {
+  test('a chunk holds exactly one chunk of cells', () {
     expect(
       () => TileChunkData(0, 0, Uint32List(10)),
       throwsA(isA<ArgumentError>()),
@@ -57,7 +57,7 @@ void main() {
     expect(TileChunkData(1, 2).cells, hasLength(TileChunkStore.cellsPerChunk));
   });
 
-  test('F12 a map body is a box or a polygon — exactly one', () {
+  test('a map body is a box or a polygon — exactly one', () {
     expect(
       () => MapBodySpec(kind: 'solid', center: Offset.zero),
       throwsArgumentError,
@@ -81,37 +81,34 @@ void main() {
     );
   });
 
-  test(
-    'F13 hidden cells change only through the handle, which redraws',
-    () async {
-      final world = World()..initialize();
-      addTearDown(world.dispose);
-      final data = LevelMapData();
-      final layer = data.addLayer(name: 'Front');
-      final entity = world.createEntityWithComponents([
-        TransformComponent(),
-        LevelMapComponent(inline: data),
-      ]);
-      await LevelMaps.preload(world);
-      final handle = LevelMaps.of(world, entity)!;
-      final runtime = handle.runtime;
+  test('hidden cells change only through the handle, which redraws', () async {
+    final world = World()..initialize();
+    addTearDown(world.dispose);
+    final data = LevelMapData();
+    final layer = data.addLayer(name: 'Front');
+    final entity = world.createEntityWithComponents([
+      TransformComponent(),
+      LevelMapComponent(inline: data),
+    ]);
+    await LevelMaps.preload(world);
+    final handle = LevelMaps.of(world, entity)!;
+    final runtime = handle.runtime;
 
-      expect(
-        () => runtime.hiddenCells[layer.id] = {const TileCoord(0, 0)},
-        throwsUnsupportedError,
-      );
-      final before = runtime.hiddenRevision;
-      handle.setCellsHidden(layer, const [TileCoord(1, 0)], true);
-      expect(runtime.hiddenRevision, before + 1);
-      expect(runtime.hiddenCellsOf(layer.id), {const TileCoord(1, 0)});
-      expect(
-        () => runtime.hiddenCellsOf(layer.id)!.add(const TileCoord(2, 0)),
-        throwsUnsupportedError,
-      );
-      expect(
-        () => runtime.hiddenCells[layer.id]!.clear(),
-        throwsUnsupportedError,
-      );
-    },
-  );
+    expect(
+      () => runtime.hiddenCells[layer.id] = {const TileCoord(0, 0)},
+      throwsUnsupportedError,
+    );
+    final before = runtime.hiddenRevision;
+    handle.setCellsHidden(layer, const [TileCoord(1, 0)], true);
+    expect(runtime.hiddenRevision, before + 1);
+    expect(runtime.hiddenCellsOf(layer.id), {const TileCoord(1, 0)});
+    expect(
+      () => runtime.hiddenCellsOf(layer.id)!.add(const TileCoord(2, 0)),
+      throwsUnsupportedError,
+    );
+    expect(
+      () => runtime.hiddenCells[layer.id]!.clear(),
+      throwsUnsupportedError,
+    );
+  });
 }

@@ -128,8 +128,8 @@ void main() {
 
   Future<void> settle() async {
     world.update(0);
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
+    await pumpEventQueue();
+    await pumpEventQueue();
     world.update(0);
   }
 

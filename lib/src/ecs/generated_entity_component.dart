@@ -1,7 +1,7 @@
 /// Marks an entity a system built from other data at runtime.
 library;
 
-import 'ecs.dart';
+import 'world.dart';
 
 /// Tags an entity that a system made from other data while the game runs —
 /// the static bodies a tile map's collision is built from, say.

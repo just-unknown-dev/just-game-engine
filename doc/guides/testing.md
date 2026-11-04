@@ -55,7 +55,7 @@ void main() {
     await engine.initialize();
 
     SceneLoader.loadString(engine.world, """
-      {"version": 9, "name": "test", "mode": "2d", "entities": [
+      {"version": 11, "name": "test", "mode": "2d", "entities": [
         {"name": "Spawn", "components": [
           {"type": "TransformComponent", "fields": {}},
           {"type": "SpawnComponent", "fields": {"spawner": "player"}}
@@ -104,6 +104,7 @@ test('a pressed key reaches the actions', () async {
 
 - `SceneLoader.loadString` and `SceneLoader.load` read a scene without an asset bundle.
 - `SceneLoader.loadAsset` reads through `world.context.bundle`. An engine made with `Engine(context: EngineContext(bundle: myTestBundle))` loads from a test bundle of your own, such as a `CachingAssetBundle` subclass that serves files from a map.
+- `SceneLoader.loadManifest` does not use the context's bundle: it reads `scenes.json` from Flutter's `rootBundle` unless you pass it one, so give it the same test bundle with `loadManifest(bundle: myTestBundle)`.
 - A context you pass in is yours to dispose: call `context.dispose()` once the engine has been disposed.
 
 ## Widget tests

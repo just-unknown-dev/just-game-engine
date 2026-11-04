@@ -50,13 +50,16 @@ import 'cull_state_component.dart';
 /// position.
 ///
 /// Entities must explicitly carry a [CullStateComponent] to participate —
-/// nothing else is affected. The [hysteresisMargin] avoids visibility
+/// nothing else is affected. What the culler borrowed it gives back when
+/// it is removed from the world (every hidden renderable shown, every
+/// entity active again), or when an entity loses its
+/// [CullStateComponent]. The [hysteresisMargin] avoids visibility
 /// flicker for entities sitting right on the render boundary (e.g. during
 /// camera spring micro-movement): once visible, an entity needs to cross
 /// slightly further out before it's culled back out.
 ///
 /// ```dart
-/// world.addSystem(ViewCullingSystem(camera: engine.cameraSystem.mainCamera));
+/// world.addSystem(ViewCullingSystem(camera: engine.camera.mainCamera));
 /// enemy.addComponent(CullStateComponent()); // opt in — the player shouldn't get one
 /// ```
 class ViewCullingSystem extends System {
@@ -79,17 +82,11 @@ class ViewCullingSystem extends System {
 
   /// A culler for [camera] with a render area 1.2× the view, an active
   /// area 2× it and a 24-unit hysteresis margin, unless told otherwise.
-  /// `gridCellSize` is ignored.
   ViewCullingSystem({
     required this.camera,
     this.renderRadiusMultiplier = 1.2,
     this.activeRadiusMultiplier = 2.0,
     this.hysteresisMargin = 24.0,
-    @Deprecated(
-      'Unused: culling tests every opted-in entity directly, which is '
-      'cheaper than keeping a grid in step. Will be removed in 3.0.',
-    )
-    double gridCellSize = 256.0,
   });
 
   @override
@@ -109,13 +106,83 @@ class ViewCullingSystem extends System {
   /// frustum an entity is always active.
   double activeDistance = 100.0;
 
+  bool _inWorld = false;
+
+  @override
+  void onAddedToWorld() => _inWorld = true;
+
+  @override
+  void onRemovedFromWorld() => _giveBack();
+
+  @override
+  void dispose() => _giveBack();
+
+  /// Gives back what the culler borrowed, as it leaves the world: every
+  /// renderable it hid is shown, and every culled entity is active again —
+  /// with nothing left to show them, they used to stay hidden and frozen.
+  /// Switched-off entities included.
+  void _giveBack() {
+    if (!_inWorld) return;
+    _inWorld = false;
+    for (final archetype in world.queryArchetypes(const [CullStateComponent])) {
+      final culls = archetype.getColumn(CullStateComponent)!;
+      final renderables = archetype.getColumn(RenderableComponent);
+      for (var i = 0; i < culls.length; i++) {
+        final cull = culls[i] as CullStateComponent;
+        if (cull.hidesRenderable) {
+          final hidden =
+              cull.hiddenRenderable ??
+              (renderables?[i] as RenderableComponent?)?.renderable;
+          hidden?.visible = true;
+        }
+        cull
+          ..hidesRenderable = false
+          ..hiddenRenderable = null
+          ..isActive = true;
+      }
+    }
+  }
+
+  /// Hides [renderable] when it leaves the render area and shows it again
+  /// when it comes back — only what the culler itself hid (see the class
+  /// doc).
+  static void _cull(
+    CullStateComponent cull,
+    Renderable? renderable,
+    bool show,
+  ) {
+    if (renderable == null) return;
+    if (cull.hidesRenderable &&
+        cull.hiddenRenderable != null &&
+        !identical(cull.hiddenRenderable, renderable)) {
+      // The entity's renderable was replaced while it was hidden: what it
+      // hid is no longer drawn, and the new one is culled afresh.
+      cull
+        ..hidesRenderable = false
+        ..hiddenRenderable = null;
+    }
+    if (!show) {
+      if (!cull.hidesRenderable && renderable.visible) {
+        renderable.visible = false;
+        cull
+          ..hidesRenderable = true
+          ..hiddenRenderable = renderable;
+      }
+    } else if (cull.hidesRenderable) {
+      renderable.visible = true;
+      cull
+        ..hidesRenderable = false
+        ..hiddenRenderable = null;
+    }
+  }
+
   @override
   void update(double deltaTime) {
     if (!camera.isPlanar) {
       _update3D();
       return;
     }
-    final visible = camera.getVisibleBounds();
+    final visible = camera.visibleBounds;
     final cx = visible.center.dx, cy = visible.center.dy;
 
     // The render rect, the same rect with the hysteresis margin, and the
@@ -148,17 +215,7 @@ class ViewCullingSystem extends System {
             : _overlaps(rl, rt, rr, rb);
         cull.isVisible = show;
         cull.isActive = _overlaps(al, at, ar, ab);
-
-        if (renderable == null) continue;
-        if (!show) {
-          if (!cull.hidesRenderable && renderable.visible) {
-            renderable.visible = false;
-            cull.hidesRenderable = true;
-          }
-        } else if (cull.hidesRenderable) {
-          renderable.visible = true;
-          cull.hidesRenderable = false;
-        }
+        _cull(cull, renderable, show);
       }
     }
   }
@@ -288,18 +345,11 @@ class ViewCullingSystem extends System {
         cull.isVisible = show;
         cull.isActive = show || _centre.distanceTo(_eye) <= activeDistance;
 
-        final renderable =
-            (renderables?[i] as RenderableComponent?)?.renderable;
-        if (renderable == null) continue;
-        if (!show) {
-          if (!cull.hidesRenderable && renderable.visible) {
-            renderable.visible = false;
-            cull.hidesRenderable = true;
-          }
-        } else if (cull.hidesRenderable) {
-          renderable.visible = true;
-          cull.hidesRenderable = false;
-        }
+        _cull(
+          cull,
+          (renderables?[i] as RenderableComponent?)?.renderable,
+          show,
+        );
       }
     }
   }
@@ -312,7 +362,7 @@ class ViewCullingSystem extends System {
   /// [renderable].
   void _boundsOf(TransformComponent transform, Renderable? renderable) {
     final position = transform.position;
-    final bounds = renderable?.getBounds();
+    final bounds = renderable?.bounds;
     if (bounds == null) {
       _left = position.x - 0.5;
       _top = position.y - 0.5;
@@ -320,7 +370,7 @@ class ViewCullingSystem extends System {
       _bottom = position.y + 0.5;
       return;
     }
-    // Renderables like Sprite already center getBounds() on their own
+    // Renderables like Sprite already center bounds on their own
     // (world-synced) position, and scale it — turning is all that is
     // left. Local, origin-centered bounds (CustomRenderable-based shapes)
     // need the transform's scale, turn and position. See

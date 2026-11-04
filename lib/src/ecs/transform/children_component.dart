@@ -1,6 +1,6 @@
 library;
 
-import '../ecs.dart';
+import '../world.dart';
 
 /// Children component - Tracks child entities
 class ChildrenComponent extends Component {

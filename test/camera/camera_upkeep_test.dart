@@ -16,14 +16,14 @@ const _dt = 1 / 60;
 
 void main() {
   late World world;
-  late CameraSystem cameras;
+  late CameraEngine cameras;
 
   Camera output() => cameras.mainCamera;
   CameraBrain brain() => cameras.brain;
 
   setUp(() {
     world = World();
-    cameras = CameraSystem()..initialize();
+    cameras = CameraEngine()..initialize();
     cameras.mainCamera.viewportSize = _view;
     cameras.brain.defaultBlend = CameraBlend.cut;
     registerCameraSystems(world, cameras);

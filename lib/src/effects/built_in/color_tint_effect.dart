@@ -11,9 +11,16 @@ part of '../deterministic_effects.dart';
 ///
 /// The entity must have a [RenderableComponent]; if absent the effect no-ops.
 ///
+/// Where the tint works out opaque white — which tints nothing — the
+/// renderable's tint is set to null instead, so fading back to white leaves
+/// it untinted, as it draws cheapest.
+///
 /// ```dart
-/// // Flash red then back to white:
-/// ColorTintEffect(to: Colors.red, durationTicks: 15)
+/// // Flash red, then back to no tint:
+/// SequenceEffect(children: [
+///   ColorTintEffect(to: Colors.red, durationTicks: 8),
+///   ColorTintEffect(to: Colors.white, durationTicks: 7),
+/// ])
 /// ```
 class ColorTintEffect extends DeterministicEffect {
   /// Explicit start colour. When `null` the entity's current
@@ -55,8 +62,14 @@ class ColorTintEffect extends DeterministicEffect {
     // Absolute lerp — set tint directly (not additive delta).
     final currT = tAt(currElapsed);
     final currEased = easing.transform(currT);
-    renderable.renderable.tint = Color.lerp(effectiveFrom, to, currEased);
+    final tint = Color.lerp(effectiveFrom, to, currEased)!;
+    // Opaque white tints nothing: no tint draws the same, and a renderable
+    // with a tint costs more to draw (a layer, or a folded paint, and no
+    // shape batching) — so fading back to white leaves none behind.
+    renderable.renderable.tint = tint.toARGB32() == _white ? null : tint;
   }
+
+  static const int _white = 0xFFFFFFFF;
 
   @override
   void reset() {

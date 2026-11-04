@@ -32,7 +32,7 @@ void main() {
             matches(RegExp(r'^[a-z_0-9]+_3d_[0-9a-f]{8}$')),
             reason: schema.type,
           );
-          expect(ids.add(schema.id), isTrue, reason: 'unique id');
+          expect(ids.add(schema.id!), isTrue, reason: 'unique id');
         }
         // Bodies, colliders, characters, six joints and camera collision.
         expect(ids, hasLength(10));
@@ -55,7 +55,7 @@ void main() {
           initialVelocity: Vector3(1, 2, 3),
         ),
         Collider3DComponent(
-          shape: ColliderShape3D.heightField,
+          shape: Collider3DShape.heightField,
           size: Vector3(2, 3, 4),
           radius: 0.7,
           model: 'assets/models/rock.glb',
@@ -178,21 +178,21 @@ void main() {
     test('round shapes take the largest scale across them', () {
       expect(
         shapes.build(
-          Collider3DComponent(shape: ColliderShape3D.sphere, radius: 1),
+          Collider3DComponent(shape: Collider3DShape.sphere, radius: 1),
           Vector3(1, 3, 2),
         ),
         const SphereShape3D(3),
       );
       expect(
         shapes.build(
-          Collider3DComponent(shape: ColliderShape3D.capsule, radius: 0.5, height: 3),
+          Collider3DComponent(shape: Collider3DShape.capsule, radius: 0.5, height: 3),
           Vector3(2, 1, 1),
         ),
         const CapsuleShape3D(0.5, 1),
       );
       expect(
         shapes.build(
-          Collider3DComponent(shape: ColliderShape3D.cylinder, radius: 0.5, height: 2),
+          Collider3DComponent(shape: Collider3DShape.cylinder, radius: 0.5, height: 2),
           Vector3(1, 1, 1),
         ),
         const CylinderShape3D(1, 0.5),
@@ -202,7 +202,7 @@ void main() {
     test('a capsule too short for a straight part is a ball', () {
       expect(
         shapes.build(
-          Collider3DComponent(shape: ColliderShape3D.capsule, radius: 1, height: 1.5),
+          Collider3DComponent(shape: Collider3DShape.capsule, radius: 1, height: 1.5),
           Vector3(1, 1, 1),
         ),
         const SphereShape3D(1),
@@ -226,12 +226,12 @@ void main() {
         final geometry = _Geometry();
         final meshes = Collider3DShapes(geometry: geometry);
         final collider = Collider3DComponent(
-          shape: ColliderShape3D.mesh,
+          shape: Collider3DShape.mesh,
           model: 'a.glb',
         );
         final first = meshes.build(collider, Vector3(1, 1, 1));
         final second = meshes.build(
-          Collider3DComponent(shape: ColliderShape3D.mesh, model: 'a.glb'),
+          Collider3DComponent(shape: Collider3DShape.mesh, model: 'a.glb'),
           Vector3(1, 1, 1),
         );
         expect(identical(first, second), isTrue);
@@ -246,7 +246,7 @@ void main() {
       final geometry = _Geometry()..ready = false;
       final meshes = Collider3DShapes(geometry: geometry);
       final collider = Collider3DComponent(
-        shape: ColliderShape3D.convexHull,
+        shape: Collider3DShape.convexHull,
         model: 'a.glb',
       );
       expect(meshes.build(collider, Vector3(1, 1, 1)), isNull);
@@ -259,7 +259,7 @@ void main() {
 
     test('a height field needs its samples', () {
       final field = Collider3DComponent(
-        shape: ColliderShape3D.heightField,
+        shape: Collider3DShape.heightField,
         heights: [for (var i = 0; i < 16; i++) i < 8 ? 0.0 : 1.0],
         heightFieldSize: 4,
         cellSize: 2,

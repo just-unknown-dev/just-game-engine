@@ -27,9 +27,9 @@ Future<void> loadLevelData(Engine engine) async {
 - Loading a path that is already loaded returns the cached asset. `getImage`, `getJson` and `get<T>(path)` return what is loaded, or null.
 - `ImageAsset` has `image` (a `dart:ui` image), `width` and `height`; `JsonAsset` has the decoded `data`; `TextAsset` has `content`.
 - `unload(path)` unloads every type loaded at that path, and `unloadAll()` everything.
-- `totalMemoryUsage`, `assetCount` and `getCacheStats()` say what is loaded.
+- `totalMemoryUsage`, `assetCount` and `cacheStats` say what is loaded.
 
-Image, audio, text, JSON and binary loaders are built in. The atlas loader is registered the first time `SpriteAtlas.fromAsset` runs. Fonts, shaders and models have no loader until you add one with `registerLoader(type, loader)`; loading one before that throws an `AssetLoadException`. Engine loaders that need the asset manager take it as a parameter, for example `Sprite.fromAsset(path, assets: engine.assets)`; see [Sprites](/docs/sprites).
+Image, audio, text, JSON and binary loaders are built in. The atlas loader is registered the first time `SpriteAtlas.fromAsset` runs. Fonts and shaders have no loader until you add one with `registerLoader(type, loader)`; loading one before that throws an `AssetLoadException`. Models get theirs from `Graphics3D`, which registers an `AssetType.model` loader as it starts; a 2-D game has none. Engine loaders that need the asset manager take it as a parameter, for example `Sprite.fromAsset(path, assets: engine.assets)`; see [Sprites](/docs/sprites).
 
 ## Groups and reference counting
 
@@ -92,4 +92,4 @@ On the first launch of 2.0, the engine moves the keys it left in the shared file
 
 ## Memory diagnostics
 
-The engine re-exports the `just_memory` diagnostics it uses: `MemoryProfiler`, `PoolManager` and the snapshot types. `engine.cache.captureProfile()` returns a `MemoryProfileSnapshot`, and `engine.assets.getCacheStats()` reports loaded assets by type and their memory use. For the profiling tools and stats overlays, see [Debugging](/docs/debugging).
+The engine re-exports the `just_memory` diagnostics it uses: `MemoryProfiler`, `PoolManager` and the snapshot types. `engine.cache.captureProfile()` returns a `MemoryProfileSnapshot`, and `engine.assets.cacheStats` reports loaded assets by type and their memory use. For the profiling tools and stats overlays, see [Debugging](/docs/debugging).

@@ -8,7 +8,7 @@ The Just Game Engine editor is a level editor that runs inside your game while y
 
 ## Install
 
-The editor is a dev dependency: only your editor entry point imports it, so it never ships, and a release build also leaves out the native plugins only the editor brings. Add it from the project folder with `flutter pub add --dev just_game_engine_editor`, which puts `just_game_engine_editor: ^0.1.0-dev.1` under `dev_dependencies`. It needs `just_game_engine` 2.0.0-dev.2 or newer and Flutter 3.47.1.
+The editor is a dev dependency: only your editor entry point imports it, so it never ships, and a release build also leaves out the native plugins only the editor brings. Add it from the project folder with `flutter pub add --dev just_game_engine_editor`, which puts it under `dev_dependencies`. Each editor release is made for one engine release: use the one made for `just_game_engine` 2.0.0-dev.4, with Flutter 3.47.1 or newer.
 
 ## The editor entry point
 
@@ -98,7 +98,7 @@ ComponentDefinition<MyHealthComponent> get myHealthDefinition =>
       type: 'MyHealthComponent',
       create: MyHealthComponent.new,
       fields: [
-        SchemaField(
+        FieldDefinition(
           name: 'maxHp',
           kind: FieldTypes.integer,
           min: 0,
@@ -179,7 +179,7 @@ class MyGameModule extends EditorModule {
 - **Prefabs** in `sharedPrefabs` appear in every Level Designer. Prefabs in `prefabs` make the module a Level Designer of its own, picked in the designer switch.
 - **More contributions:** scene-tree icons (`entityIcons`), docks, toolbar buttons, settings pages, commands and key bindings, checks for the Problems dock, kinds of file for the Assets dock, and the tags its code relies on.
 - **Lifecycle:** `onRegister` runs once and `onReassemble` after each hot reload. Everything a module contributes is rebuilt from it on every reload, so nothing piles up.
-- **Built-ins:** the editor's own tools arrive the same way, as `BuiltInEditorModule`, `BuiltInMaterialsModule` and, for a game with 3D graphics, `BuiltInGraphicsModule`. Kits and plugins build their modules on `just_editor_core`, which this package re-exports.
+- **Built-ins:** the editor's own tools arrive the same way, as `BuiltInEditorModule`, `BuiltInMaterialsModule`, `BuiltInAssetStoreModule` (the Asset Store, for plugins, kits and assets) and, for a game with 3D graphics, `BuiltInGraphicsModule`. Kits and plugins build their modules on `just_editor_core`, which this package re-exports.
 
 ## Open the editor
 

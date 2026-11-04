@@ -45,7 +45,7 @@ class _Model extends ModelAsset {
   void unload() => markAsUnloaded();
 
   @override
-  int getMemoryUsage() => 36;
+  int get memoryUsage => 36;
 }
 
 class _ModelLoader extends AssetLoader {

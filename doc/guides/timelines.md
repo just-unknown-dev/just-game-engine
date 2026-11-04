@@ -6,7 +6,7 @@ A timeline animates component fields over time, and can also play sprite clips, 
 
 Timelines are assets: a `.timeline.json` file (format 3), or a `TimelineAsset` stored inline in the component that plays it. The editor's Timeline dock authors them, with a dope sheet, a curve editor, record mode and motion paths drawn in the level (see [The editor](/docs/editor)). The files are plain JSON, so you can also write them by hand or build them in code.
 
-`TimelineSystem` plays them and `TimelineTriggerSystem` starts them from trigger areas. Both come with `DefaultSystem.sprites`.
+`TimelineSystem` plays them and `TimelineTriggerSystem` starts them from trigger areas. Both come with `DefaultSystem.timelines` (or `registerTimelineSystems(world)`).
 
 ## A timeline file
 
@@ -93,7 +93,7 @@ All but the first two are block tracks: a list of `blocks`, each with a `start` 
 }
 ```
 
-> **Note:** Blocks that run to the very end of a `once` timeline hold there: a camera shot keeps its camera until the player stops, and activation and sprite-clip blocks keep their state. End a shot block before the timeline ends to hand the camera back, as `boss_intro` does.
+> **Note:** Activation and sprite-clip blocks that run to the very end of a `once` timeline hold there, keeping their state. A camera shot block that runs to the end is released when the timeline finishes, so the camera goes back to gameplay; a ping-pong timeline turning at its end keeps the shot.
 
 ## Playing from code
 
@@ -117,8 +117,8 @@ void addDoor(Engine engine) {
     TimelineTriggerComponent(
       width: 200,
       height: 200,
-      onEnter: TimelineTriggerAction.play,
-      onExit: TimelineTriggerAction.reverse,
+      enterAction: TimelineTriggerAction.play,
+      exitAction: TimelineTriggerAction.reverse,
     ),
   ], name: 'Door');
 
@@ -140,7 +140,7 @@ The player's controls work even before the timeline has loaded: the last one ask
 - `from` and `to` play only part of the timeline, in seconds, so one asset can serve several entities differently.
 - `isPlaying`, `isFinished`, `time` and `progress` say where it is.
 
-A `TimelineTriggerComponent` drives a player when a target walks into its rectangle, centred on its entity (128 by 128 by default; the entity's scale and rotation are ignored). It is set off by entities tagged `player` unless you give it another `target`, and drives its own entity's player unless `playerName` names another. `onEnter` (`restart` by default) and `onExit` (`nothing` by default) take a `TimelineTriggerAction`: `play`, `restart`, `reverse`, `pause`, `stop` or `nothing`. `oneShot: true` fires once.
+A `TimelineTriggerComponent` drives a player when a target walks into its rectangle, centred on its entity (128 by 128 by default; the entity's scale and rotation are ignored). It is set off by entities tagged `player` unless you give it another `target`, and drives its own entity's player unless `playerName` names another. `enterAction` (`restart` by default) and `exitAction` (`nothing` by default) take a `TimelineTriggerAction`: `play`, `restart`, `reverse`, `pause`, `stop` or `nothing`. `oneShot: true` fires once.
 
 ## Events and signals
 

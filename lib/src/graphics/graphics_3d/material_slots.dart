@@ -1,6 +1,6 @@
 import '../../ecs/ecs.dart';
-import 'graphics_components.dart';
-import 'shapes/primitive_3d.dart';
+import 'model_components.dart';
+import 'shapes/primitive_3d_component.dart';
 
 /// Where an entity's material file goes: its shape's [Primitive3DComponent.material],
 /// or — for a model — the file drawn for every one of its materials
@@ -10,7 +10,8 @@ abstract final class MaterialSlots {
   /// What holds [entity]'s material file — its shape, else its model —
   /// or null when it draws nothing a material file can go on.
   static Component? holderOf(Entity entity) =>
-      entity.getComponent<Primitive3DComponent>() ?? entity.getComponent<ModelComponent>();
+      entity.getComponent<Primitive3DComponent>() ??
+      entity.getComponent<ModelComponent>();
 
   /// The material file [entity] is drawn with; empty for its own look.
   static String materialOf(Entity entity) {

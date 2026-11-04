@@ -148,7 +148,7 @@ void main() {
     return (entity, source);
   }
 
-  group('P2 requests on a source', () {
+  group('requests on a source', () {
     test('pause, resume and stop, at the next update', () async {
       final (entity, source) = await playing();
       final shape = entity.components.length;
@@ -243,7 +243,7 @@ void main() {
     });
   });
 
-  group('P2 one-shots', () {
+  group('one-shots', () {
     test('play at the next update, flat or placed, with nothing added', () {
       final hit = world.createEntityWithComponents([
         TransformComponent(position: Vector3(3, 4, 5)),
@@ -277,7 +277,7 @@ void main() {
     });
   });
 
-  group('A13 a sound still loading', () {
+  group('a sound still loading', () {
     for (final (name, stop) in <(String, void Function(World, AudioSystem))>[
       ('stopAll()', (_, system) => system.stopAll()),
       ('the system removed', (world, system) => world.removeSystem(system)),
@@ -298,7 +298,7 @@ void main() {
     }
   });
 
-  group('A14 a switched-off entity', () {
+  group('a switched-off entity', () {
     test('pauses its sound, which plays on when it is back on', () async {
       final (entity, source) = await playing();
       entity.isActive = false;
@@ -407,7 +407,7 @@ void main() {
     });
   });
 
-  group('C2 suspend', () {
+  group('suspend', () {
     test('pauses what plays and plays on only that', () async {
       final (_, playingSource) = await playing('a.wav');
       final (_, pausedSource) = await playing('b.wav');
@@ -445,7 +445,7 @@ void main() {
     });
   });
 
-  test('P11 the queries are the same lists every time', () {
+  test('the queries are the same lists every time', () {
     expect(
       identical(system.requiredComponents, system.requiredComponents),
       isTrue,

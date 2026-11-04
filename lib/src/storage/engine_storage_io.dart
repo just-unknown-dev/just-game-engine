@@ -9,13 +9,16 @@ library;
 import 'dart:io';
 
 import 'package:just_storage/just_storage.dart';
+import 'package:meta/meta.dart' show internal;
 import 'package:path_provider/path_provider.dart';
 
 /// The folder, in the app's support directory, that holds the engine's
 /// `just_storage.json`.
+@internal
 const String engineStorageFolder = 'just_game_engine';
 
 /// `<application support>/just_game_engine/just_storage.json`.
+@internal
 Future<JustStandardStorage> openEngineStorage() async {
   final support = await getApplicationSupportDirectory();
   return JustStorage.standard(

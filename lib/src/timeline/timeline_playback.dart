@@ -24,7 +24,7 @@ class TimelineEventFired {
 /// One timeline being played by one entity. The ECS system drives one per
 /// player component; an editor drives its own to preview, and a game can
 /// make one with no component at all.
-class TimelinePlayback implements TimelineContext {
+class TimelinePlayback implements TrackContext {
   /// Plays [asset] in [world]. Tracks of a kind the asset was read without
   /// but [world]'s context knows (`context.trackKinds`) are read again
   /// first, so they play.
@@ -35,7 +35,7 @@ class TimelinePlayback implements TimelineContext {
     void Function(TimelineEventFired event)? onEvent,
     bool isPreview = false,
     int depth = 0,
-    void Function(Component component, SchemaField field)? onWillWrite,
+    void Function(Component component, FieldDefinition field)? onWillWrite,
     Future<TimelineAsset> Function(String path)? loader,
   }) : this._(
          world.context.trackKinds.resolve(asset),
@@ -82,8 +82,8 @@ class TimelinePlayback implements TimelineContext {
   /// one a timeline nested in it fires. Null ignores them.
   final void Function(TimelineEventFired event)? onEvent;
 
-  /// See [TimelineContext.willWrite].
-  final void Function(Component component, SchemaField field)? onWillWrite;
+  /// See [TrackContext.willWrite].
+  final void Function(Component component, FieldDefinition field)? onWillWrite;
 
   /// One per track, in the asset's order.
   final List<TrackRunner> runners;
@@ -106,6 +106,7 @@ class TimelinePlayback implements TimelineContext {
   bool _playing = false;
 
   /// A `once` timeline got to its end (or, backwards, its start).
+  @override
   bool get isFinished => _finished;
   bool _finished = false;
 
@@ -114,6 +115,43 @@ class TimelinePlayback implements TimelineContext {
 
   // +1, or -1 on the way back of a ping-pong.
   int _bounce = 1;
+
+  /// Which way the clock runs: 1 forwards, −1 backwards — [speed]'s sign,
+  /// turned round while a ping-pong is on its way back.
+  ///
+  /// Setting it asks for that way from where the playhead is: [speed]
+  /// keeps its size and takes the sign, and a ping-pong on its way back
+  /// stops being turned round. Zero counts as forwards.
+  int get direction => (speed < 0 ? -1 : 1) * _bounce;
+  set direction(int value) {
+    speed = value < 0 ? -speed.abs() : speed.abs();
+    _bounce = 1;
+  }
+
+  // How far the clock has run since play last started over, in seconds of
+  // timeline: what [laps] counts.
+  double _travelled = 0;
+
+  /// How many times through the stretch being played ([playLength]) the
+  /// clock has run since play last started over — from an edge, a marker
+  /// or [stop]. It counts on past 1 for a loop or a ping-pong (each way
+  /// counting once), where [progress] folds back to 0–1: what an
+  /// animator's exit time is measured by. 1 when there is no length to
+  /// run.
+  double get laps {
+    final length = playLength;
+    return length <= 0 ? 1 : _travelled / length;
+  }
+
+  // Entities a track of this playback, or of one nested in it, switched
+  // off (and not back on since): see [holdsOwnerOff].
+  final Set<Entity> _switchedOff = {};
+
+  // While [update] steps: a [pause] from an event handler ends the step,
+  // and the playhead parks on the event that called it ([_eventTime]).
+  bool _stepping = false;
+  double? _eventTime;
+  double? _parkAt;
 
   // Bumped by whatever throws the clock somewhere else — stop, seek, a
   // restart, dispose. A step compares it with the value it began with: an
@@ -169,7 +207,7 @@ class TimelinePlayback implements TimelineContext {
   /// The wrap in force: [wrap] when set, else the asset's own.
   TimelineWrap get effectiveWrap => wrap ?? asset.wrap;
 
-  // ── TimelineContext ──────────────────────────────────────────────────────
+  // ── TrackContext ──────────────────────────────────────────────────────
 
   @override
   Entity? resolve(TrackBinding binding, {bool includeInactive = false}) {
@@ -194,11 +232,50 @@ class TimelinePlayback implements TimelineContext {
   }
 
   @override
-  void emit(String name, [String payload = '']) =>
+  void emit(String name, [String payload = '', double? time]) {
+    _eventTime = time;
+    try {
       onEvent?.call(TimelineEventFired(owner, name, payload));
+    } finally {
+      _eventTime = null;
+    }
+  }
 
   @override
-  void willWrite(Component component, SchemaField field) =>
+  void switchActive(Entity entity, bool active) {
+    entity.isActive = active;
+    _noteSwitched(entity, active);
+  }
+
+  void _noteSwitched(Entity entity, bool active) {
+    if (active) {
+      _switchedOff.remove(entity);
+    } else {
+      _switchedOff.add(entity);
+    }
+    // The playback a player steps is the outermost one: it must know too.
+    _parent?._noteSwitched(entity, active);
+  }
+
+  /// Whether a track of this playback — an activation track, or one in a
+  /// timeline nested in it — has switched off [owner] or a parent of it,
+  /// which is still off. The world then leaves [owner] out of its queries,
+  /// so whoever steps playbacks by them must step this one anyway: only
+  /// it can switch the entity back on.
+  bool get holdsOwnerOff {
+    if (_switchedOff.isEmpty) return false;
+    Entity? at = owner;
+    // Up the hierarchy; the bound only guards against a broken one.
+    for (var depth = 0; at != null && depth < 256; depth++) {
+      if (!at.isActive && _switchedOff.contains(at)) return true;
+      final parent = at.getComponent<ParentComponent>()?.parentId;
+      at = parent == null ? null : world.getEntity(parent);
+    }
+    return false;
+  }
+
+  @override
+  void willWrite(Component component, FieldDefinition field) =>
       onWillWrite?.call(component, field);
 
   @override
@@ -276,7 +353,17 @@ class TimelinePlayback implements TimelineContext {
 
   /// Stops the clock where it is; [play] carries on from there. Nothing is
   /// rewound or undone.
-  void pause() => _playing = false;
+  ///
+  /// Called from an event handler, the step that fired the event goes no
+  /// further: later events in it do not fire, and the playhead stays on
+  /// the event (on the end of the step, for an event of a nested
+  /// timeline), so playing on does not fire it again.
+  void pause() {
+    _playing = false;
+    if (!_stepping) return;
+    _generation++;
+    _parkAt = _eventTime ?? _advancingTo;
+  }
 
   /// Stops and rewinds. What the timeline animated stays where it is.
   ///
@@ -284,11 +371,13 @@ class TimelinePlayback implements TimelineContext {
   /// further: later events in it do not fire.
   void stop() {
     _generation++;
+    _parkAt = null;
     _playing = false;
     _finished = false;
     if (_begun) _end();
     _time = rangeStart;
     _bounce = 1;
+    _travelled = 0;
   }
 
   /// Jumps to [time] and shows it. Events in between do not fire — nor,
@@ -296,6 +385,7 @@ class TimelinePlayback implements TimelineContext {
   /// ping-pong sets off forwards from there.
   void seek(double time) {
     _generation++;
+    _parkAt = null;
     _ensureBegun();
     final (lo, hi) = bounds;
     _time = time.clamp(lo, hi);
@@ -308,16 +398,19 @@ class TimelinePlayback implements TimelineContext {
   /// run.
   void dispose() {
     _generation++;
+    _parkAt = null;
     _playing = false;
     if (_begun) _end();
   }
 
   void _restart(double at) {
     _generation++;
+    _parkAt = null;
     if (_begun) _end();
     final (lo, hi) = bounds;
     _time = at.clamp(lo, hi);
     _bounce = 1;
+    _travelled = 0;
     _ensureBegun();
     _touchStart = true;
   }
@@ -326,6 +419,7 @@ class TimelinePlayback implements TimelineContext {
     if (_begun) return;
     _begun = true;
     _resolved.clear();
+    _switchedOff.removeWhere((e) => !e.isAlive || e.isActive);
     for (final r in runners) {
       r.begin(this);
     }
@@ -343,8 +437,26 @@ class TimelinePlayback implements TimelineContext {
   /// Moves time on by [deltaTime] and shows the result.
   void update(double deltaTime) {
     if (!_playing) return;
-    // Events fire as the step passes them, and a handler may stop, seek or
-    // restart this playback; from then on the step is over.
+    _stepping = true;
+    try {
+      _step(deltaTime);
+    } finally {
+      _stepping = false;
+      _advancingTo = null;
+    }
+    // Paused by an event handler: the playhead stays on the event.
+    final park = _parkAt;
+    if (park != null) {
+      _parkAt = null;
+      final (lo, hi) = bounds;
+      _time = park.clamp(lo, hi).toDouble();
+      apply();
+    }
+  }
+
+  void _step(double deltaTime) {
+    // Events fire as the step passes them, and a handler may stop, seek,
+    // pause or restart this playback; from then on the step is over.
     final step = _stepGeneration = _generation;
     final (lo, hi) = bounds;
     final length = hi - lo;
@@ -372,7 +484,10 @@ class TimelinePlayback implements TimelineContext {
     // every lap would only fire the same events again and again. A
     // ping-pong's round trip is two lengths, so the remainder is of that.
     if (remaining > length * 4) {
-      remaining = length * 2 + remaining % (length * 2);
+      final kept = length * 2 + remaining % (length * 2);
+      // The laps jumped over still count as played.
+      _travelled += remaining - kept;
+      remaining = kept;
     }
 
     // What sits exactly where play begins happens as it begins.
@@ -388,13 +503,16 @@ class TimelinePlayback implements TimelineContext {
       if (direction > 0 ? target < hi : target > lo) {
         _advance(_time, target);
         if (_generation != step) return;
+        _travelled += remaining;
         _time = target;
         break;
       }
       final edge = direction > 0 ? hi : lo;
       _advance(_time, edge);
       if (_generation != step) return;
-      remaining -= (edge - _time).abs();
+      final run = (edge - _time).abs();
+      remaining -= run;
+      _travelled += run;
       _time = edge;
       final wrap = effectiveWrap;
       if (wrap == TimelineWrap.once) {
@@ -416,7 +534,12 @@ class TimelinePlayback implements TimelineContext {
     apply();
   }
 
+  // The time the step under way is running to, for a pause from a nested
+  // timeline's event, whose own time is on another clock.
+  double? _advancingTo;
+
   void _advance(double from, double to) {
+    _advancingTo = to;
     for (var i = 0; i < runners.length; i++) {
       if (!asset.tracks[i].muted) runners[i].advance(this, from, to);
       if (isInterrupted) return;

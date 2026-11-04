@@ -301,7 +301,7 @@ class LocaleSelector extends StatelessWidget {
 /// Text(context.t('ui.start_game'))
 /// Text(context.tr('game.hp', {'current': 80, 'max': 100}))
 /// ```
-extension L10nContext on BuildContext {
+extension BuildContextLocalization on BuildContext {
   /// Looks up [key] in the nearest [LocalizationScope]; without one, gives
   /// [key] itself (with [args] filled in).
   String t(String key, [Map<String, Object?> args = const {}]) =>

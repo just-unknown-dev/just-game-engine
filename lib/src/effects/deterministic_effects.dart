@@ -51,12 +51,6 @@ import 'effect_context.dart';
 import 'effect_player.dart';
 import 'deterministic_effect.dart';
 
-export 'effect_handle.dart';
-export 'effect_context.dart';
-export 'effect_player.dart';
-export 'deterministic_effect.dart';
-export 'effect_component.dart';
-
 part 'easing_type.dart';
 
 part 'built_in/move_effect.dart';

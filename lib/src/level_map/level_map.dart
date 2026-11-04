@@ -18,7 +18,7 @@ export 'tile_stamp.dart';
 export 'tiled_interop.dart';
 export 'tileset_data.dart';
 export 'wang/wang_filler.dart';
-export 'wang/wang_templates.dart';
+export 'wang/wang_template.dart';
 export 'level_map_component.dart';
 export 'map_body_component.dart';
 export 'level_map_system.dart';

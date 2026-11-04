@@ -56,7 +56,7 @@ void main() {
       viewportSize: view,
     );
     expect(
-      camera.getVisibleBounds(),
+      camera.visibleBounds,
       Rect.fromCenter(center: const Offset(1000, 500), width: 400, height: 300),
     );
     expect(camera.isVisible(const Offset(1199, 500)), isTrue);

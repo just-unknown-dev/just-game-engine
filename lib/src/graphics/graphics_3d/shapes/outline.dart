@@ -1,7 +1,10 @@
 import 'dart:math' as math;
 
+import 'package:meta/meta.dart' show internal;
+
 /// Plane outlines: the maths behind a polygon shape. A point is (x, y) in
 /// the outline's own plane; for `Polygon3DComponent` that is (x, z) on the ground.
+@internal
 abstract final class Outline {
   static const double _eps = 1e-9;
 

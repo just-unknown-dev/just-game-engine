@@ -11,9 +11,6 @@ import 'tracks/block_tracks.dart';
 import 'tracks/event_track.dart';
 import 'tracks/property_track.dart';
 
-/// Who a track acts on: [EntityTargetKind], by its timeline name.
-typedef TrackBindingKind = EntityTargetKind;
-
 /// Who a track acts on, looked up when the timeline plays — never an id, so
 /// a timeline asset fits any scene that has the names it asks for.
 ///
@@ -42,9 +39,9 @@ class TrackBinding extends EntityTarget {
 
   @override
   Object toJson() => switch (kind) {
-    TrackBindingKind.self => 'self',
-    TrackBindingKind.name => {'name': value},
-    TrackBindingKind.tag => {'tag': value},
+    EntityTargetKind.self => 'self',
+    EntityTargetKind.name => {'name': value},
+    EntityTargetKind.tag => {'tag': value},
   };
 
   /// Reads [toJson]'s `'self'`, `{'name': ...}` or `{'tag': ...}`. A bare
@@ -64,7 +61,7 @@ class TrackBinding extends EntityTarget {
 
 /// What a running track can reach: the world, who is playing the timeline,
 /// the entities bindings mean, and a way to say an event happened.
-abstract class TimelineContext {
+abstract class TrackContext {
   /// The world the timeline plays in, where its bindings are looked up.
   World get world;
 
@@ -87,13 +84,20 @@ abstract class TimelineContext {
   /// drive.
   TimelinePlayback child(TimelineAsset asset, Entity owner);
 
-  /// Tells listeners [name] happened on the timeline.
-  void emit(String name, [String payload = '']);
+  /// Tells listeners [name] happened on the timeline — at [time] on its
+  /// clock, when the track knows it: a listener that pauses the playback
+  /// leaves its playhead there, so playing on does not fire it again.
+  void emit(String name, [String payload = '', double? time]);
+
+  /// Switches [entity] on or off: what an activation track does. A
+  /// playback notes it, so that when it switches off its own [owner] — or
+  /// a parent of it — it is still played, and can switch it back on.
+  void switchActive(Entity entity, bool active) => entity.isActive = active;
 
   /// A track is about to write [field] of [component] for the first time
   /// this play. An editor previewing a timeline notes the value here, to put
   /// it back afterwards.
-  void willWrite(Component component, SchemaField field);
+  void willWrite(Component component, FieldDefinition field);
 
   /// Whether the timeline is only being looked at (an editor scrubbing),
   /// so a track must not do what cannot be undone — play a sound, fire a
@@ -113,6 +117,12 @@ abstract class TimelineContext {
   /// [BlockTrack.blockAt]), so what it does lasts once the timeline has
   /// finished. False by default.
   bool endsAt(double time) => false;
+
+  /// Whether a `once` timeline has played to its end (or, backwards, its
+  /// start) and stopped there. What only lasts while the timeline runs — a
+  /// camera shot's raised priority — ends then, even on a block that
+  /// reaches the end. False by default.
+  bool get isFinished => false;
 }
 
 /// One row of a timeline. Immutable: an editor replaces a track to change
@@ -180,19 +190,19 @@ abstract class TimelineTrack {
 /// The running half of a track, made fresh for every playback.
 abstract class TrackRunner {
   /// A play is starting (or starting over): forget what the last one kept.
-  void begin(TimelineContext context) {}
+  void begin(TrackContext context) {}
 
   /// Time moved from [from] to [to] without a jump — backwards when
   /// `to < from`. For what happens *at* a time (an event, a sound's start)
   /// rather than *over* it. A seek does not call this.
-  void advance(TimelineContext context, double from, double to) {}
+  void advance(TrackContext context, double from, double to) {}
 
   /// Make the world look as it should at [time].
-  void apply(TimelineContext context, double time) {}
+  void apply(TrackContext context, double time) {}
 
   /// The playback is over or thrown away: undo what only lasts while the
   /// timeline runs (a raised camera priority), never what it animated.
-  void end(TimelineContext context) {}
+  void end(TrackContext context) {}
 }
 
 /// A track of a kind nobody registered — a package that is not installed —
@@ -251,6 +261,12 @@ class UnknownTrack extends TimelineTrack {
 }
 
 class _NoRunner extends TrackRunner {}
+
+// A new activation track starts with one block, so its entity stays on for
+// that long: an empty one would switch it off the moment the timeline
+// plays.
+ActivationTrack _newActivationTrack() =>
+    ActivationTrack(blocks: const [TimelineBlock(start: 0)]);
 
 /// Reads a track of one kind from its saved form.
 typedef TimelineTrackReader = TimelineTrack Function(Map<String, dynamic> json);
@@ -323,7 +339,7 @@ final class TimelineTrackKinds {
     AudioTrack.kindId: TimelineTrackOffer('Audio', AudioTrack.new),
     ActivationTrack.kindId: TimelineTrackOffer(
       'Activation',
-      ActivationTrack.new,
+      _newActivationTrack,
     ),
     NestedTimelineTrack.kindId: TimelineTrackOffer(
       'Nested timelines',

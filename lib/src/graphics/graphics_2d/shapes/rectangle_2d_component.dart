@@ -7,6 +7,8 @@ import '../../../rendering/renderable_component.dart';
 import '../../../rendering/renderable.dart';
 import 'shape_paint_cache.dart';
 import '../../../foundation/shape_paint_style.dart';
+import '../../../foundation/solid_shape_2d.dart';
+import 'shape_2d_look.dart';
 import 'shape_renderable.dart';
 import 'shape_painting.dart';
 
@@ -17,7 +19,8 @@ import 'shape_painting.dart';
 /// Extends [RenderableComponent] — add it to an entity directly and it draws
 /// itself each frame, reading all fields at draw-time so mutations are
 /// reflected immediately.
-class Rectangle2DComponent extends RenderableComponent {
+class Rectangle2DComponent extends RenderableComponent
+    implements SolidShape2DSource, Shape2DLook {
   /// Width of the rectangle in world units.
   double width;
 
@@ -55,7 +58,7 @@ class Rectangle2DComponent extends RenderableComponent {
   }) {
     late Rectangle2DComponent self;
     final shape = ShapeRenderable(
-      getBoundsCallback: () => Rect.fromCenter(
+      boundsOf: () => Rect.fromCenter(
         center: Offset.zero,
         width: self.width + self.strokeWidth * 2,
         height: self.height + self.strokeWidth * 2,
@@ -99,6 +102,14 @@ class Rectangle2DComponent extends RenderableComponent {
   double _rectRadius = double.nan;
   Rect _rect = Rect.zero;
   RRect? _rrect;
+
+  SolidBox2D? _solid;
+
+  /// Its box, the corners rounded as drawn: what a collider matching the
+  /// shape takes.
+  @override
+  SolidShape2D get solidShape2D =>
+      _solid = SolidBox2D.reuse(_solid, width, height, cornerRadius);
 
   /// Whether [renderable] is still the one this component made, so what it
   /// draws is what the fields say — the question a shape batch asks.
@@ -175,9 +186,48 @@ class Rectangle2DComponent extends RenderableComponent {
   /// Convenience getter for the size as a [Size] object.
   Size get size => Size(width, height);
 
+  _RectangleLook? _look;
+
+  @override
+  Object get look {
+    final l = _look;
+    if (l != null &&
+        l.$1 == width &&
+        l.$2 == height &&
+        identical(l.$3, fillStyle) &&
+        identical(l.$4, strokeStyle) &&
+        l.$5 == filled &&
+        l.$6 == strokeWidth &&
+        l.$7 == cornerRadius &&
+        identical(l.$8, renderable)) {
+      return l;
+    }
+    return _look = (
+      width,
+      height,
+      fillStyle,
+      strokeStyle,
+      filled,
+      strokeWidth,
+      cornerRadius,
+      renderable,
+    );
+  }
+
   @override
   String toString() =>
       'Rectangle(${width}x$height, fillStyle=$fillStyle, '
       'strokeStyle=$strokeStyle, filled=$filled, '
       'stroke=$strokeWidth, radius=$cornerRadius)';
 }
+
+typedef _RectangleLook = (
+  double,
+  double,
+  ShapePaintStyle,
+  ShapePaintStyle,
+  bool,
+  double,
+  double,
+  Renderable,
+);

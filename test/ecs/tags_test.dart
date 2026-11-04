@@ -32,13 +32,9 @@ void main() {
       expect(TagComponent().isEmpty, isTrue);
     });
 
-    test('the one-tag constructor and field still work', () {
-      final tags = TagComponent('player');
-      // ignore: deprecated_member_use_from_same_package
-      expect(tags.tag, 'player');
-      // ignore: deprecated_member_use_from_same_package
-      tags.tag = 'enemy';
-      expect(tags.tags, ['enemy']);
+    test('the one-tag constructor carries that tag, or none', () {
+      expect(TagComponent('player').tags, ['player']);
+      expect(TagComponent(' ').isEmpty, isTrue);
     });
   });
 
@@ -371,7 +367,7 @@ void main() {
       TimelineTriggerComponent(
         width: 100,
         height: 100,
-        onEnter: TimelineTriggerAction.nothing,
+        enterAction: TimelineTriggerAction.nothing,
       ),
     ]);
     tagged([

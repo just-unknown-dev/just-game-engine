@@ -14,6 +14,10 @@ class _Images extends SpriteAssetLoader {
   final ui.Image image;
   final Set<String> missing;
   final List<String> asked = [];
+  final List<String> evicted = [];
+
+  @override
+  void evict(String path) => evicted.add(path);
 
   @override
   Future<ui.Image> loadImage(String path) async {
@@ -286,6 +290,40 @@ void main() {
         );
       },
     );
+
+    test('evictUnused has the sprite loader forget the images only the '
+        'forgotten tilesets used', () async {
+      files
+        ..['assets/b.tileset.json'] = jsonEncode(
+          _tileset(name: 'b', image: 'assets/b.png').toJson(),
+        )
+        ..['assets/c.tileset.json'] = jsonEncode(
+          _tileset(name: 'c', image: 'assets/t.png').toJson(),
+        );
+      final images = _Images(image);
+      world.context.sprites = images;
+      for (final path in [
+        'assets/a.tileset.json',
+        'assets/b.tileset.json',
+        'assets/c.tileset.json',
+      ]) {
+        await world.context.tiles.tileset(path);
+      }
+      world.context.tiles.putTileset(
+        'assets/built.tileset.json',
+        _tileset(name: 'd', image: BuiltInTilesets.basicShapesImage),
+      );
+      world.createEntityWithComponents([
+        TransformComponent(),
+        LevelMapComponent(mapPath: 'assets/maps/a.map.json'),
+      ]);
+      await world.context.tiles.map('assets/maps/a.map.json');
+      LevelMaps.evictUnused(world);
+      // b.png went with b; c's t.png is a's too, which stays; the built-in
+      // picture is no file.
+      expect(images.evicted, ['assets/b.png']);
+      expect(world.context.tiles.retainOnly({}), {'assets/t.png'});
+    });
 
     test("a Tiled map's own tilesets stay while the map does", () {
       world.context.tiles.putMap('assets/maps/t.tmx', LevelMapData());

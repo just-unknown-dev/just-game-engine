@@ -495,7 +495,7 @@ class _Plain extends Renderable {
   @override
   void render(Canvas canvas, Size size) => log.add('plain');
   @override
-  Rect? getBounds() => null;
+  Rect? get bounds => null;
 }
 
 /// Logs each drawVertices as 'vertices'.

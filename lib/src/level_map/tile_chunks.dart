@@ -107,8 +107,11 @@ class TileChunkStore {
   static int keyOf(int cx, int cy) =>
       ((cx + 0x8000) & 0xFFFF) * 0x10000 + ((cy + 0x8000) & 0xFFFF);
 
-  /// The chunk holding cell [x] or [y] along one axis.
-  static int chunkIndexOf(int v) => v >> 4;
+  /// The chunk holding cell [v] along one axis, x or y: [v] divided by
+  /// [size], rounded down — for negative cells too, on every platform. (On
+  /// the web `>>` turns a negative number into a large positive one, so a
+  /// coordinate is never shifted.)
+  static int chunkIndexOf(int v) => (v - (v & 15)) ~/ size;
 
   /// The chunk ([cx], [cy]), or null where nothing was ever painted.
   TileChunkData? chunk(int cx, int cy) =>
@@ -157,14 +160,14 @@ class TileChunkStore {
 
   /// The cell at ([x], [y]); [TileCell.empty] where nothing is.
   int cellAt(int x, int y) {
-    final c = chunk(x >> 4, y >> 4);
+    final c = chunk(chunkIndexOf(x), chunkIndexOf(y));
     return c == null ? TileCell.empty : c.cells[((y & 15) << 4) | (x & 15)];
   }
 
   /// Sets the cell at ([x], [y]). Returns whether it changed.
   bool setCell(int x, int y, int cell) {
-    final cx = x >> 4;
-    final cy = y >> 4;
+    final cx = chunkIndexOf(x);
+    final cy = chunkIndexOf(y);
     final key = keyOf(cx, cy);
     var target = _own[key];
     final index = ((y & 15) << 4) | (x & 15);

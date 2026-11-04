@@ -83,6 +83,14 @@ class DialogueManager {
   final Map<int, DialogueRunner> _entityRunners = {};
   final Set<DialogueRunner> _runners = {};
 
+  /// Each runner's listener on its `isDialogueActive`, taken off when the
+  /// runner is let go or disposed — the signals may be the caller's, and
+  /// outlive it.
+  final Map<DialogueRunner, VoidCallback> _listeners = {};
+
+  /// The runners whose signals this manager made, and so disposes.
+  final Set<DialogueRunner> _ownSignals = {};
+
   /// Runners nobody else holds on to — started by [startDialogue], or
   /// replaced or released for their entity — which are let go as soon as
   /// their dialogue ends. Kept, they piled up for the whole session.
@@ -158,18 +166,17 @@ class DialogueManager {
     );
 
     _runners.add(runner);
+    if (signals == null) _ownSignals.add(runner);
 
     // Keep aggregate active-state signal in sync
-    runner.signals.isDialogueActive.addListener(() {
+    void onActive() {
       final active = runner.signals.isDialogueActive.value;
-      if (active) {
-        // Tracked again if it was let go and has now been restarted.
-        _runners.add(runner);
-      } else {
-        _releaseIfFinished(runner);
-      }
+      if (!active) _releaseIfFinished(runner);
       _syncGlobalState(active: active, graphId: graphId);
-    });
+    }
+
+    runner.signals.isDialogueActive.addListener(onActive);
+    _listeners[runner] = onActive;
 
     return runner;
   }
@@ -213,7 +220,9 @@ class DialogueManager {
     if (runner != null) await _disposeRunner(runner);
   }
 
-  /// Stops and removes [runner] from internal tracking.
+  /// Stops and removes [runner] from internal tracking. Its signals are
+  /// disposed when the manager made them — not those given to
+  /// [createRunner].
   Future<void> disposeRunner(DialogueRunner runner) async {
     _entityRunners.removeWhere((_, v) => v == runner);
     await _disposeRunner(runner);
@@ -235,7 +244,8 @@ class DialogueManager {
   /// asynchronously.  Await `runner.signals.isDialogueActive` to know when it
   /// ends.
   ///
-  /// The manager stops tracking the runner once its dialogue ends; the
+  /// The manager stops tracking the runner once its dialogue ends — a
+  /// [DialogueRunner.start] on it while it runs does not end it — and the
   /// runner itself stays usable for whoever holds it.
   ///
   /// The returned future fails with an [ArgumentError] — and nothing is
@@ -286,7 +296,15 @@ class DialogueManager {
     await runner.stop();
     _runners.remove(runner);
     _transient.remove(runner);
-    runner.signals.dispose();
+    _stopListening(runner);
+    if (_ownSignals.remove(runner)) runner.signals.dispose();
+  }
+
+  void _stopListening(DialogueRunner runner) {
+    final listener = _listeners.remove(runner);
+    if (listener != null) {
+      runner.signals.isDialogueActive.removeListener(listener);
+    }
   }
 
   /// Marks [runner] as held by nobody: let go now if it is not running, or
@@ -300,6 +318,9 @@ class DialogueManager {
     if (runner.isRunning || !_transient.contains(runner)) return;
     _runners.remove(runner);
     _transient.remove(runner);
+    // No longer tracked: nothing of the manager's stays on its signals.
+    _stopListening(runner);
+    _ownSignals.remove(runner);
   }
 
   void _syncGlobalState({required bool active, required String graphId}) {

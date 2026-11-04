@@ -19,7 +19,7 @@ Keys are bound by position, so WASD stays under the left hand on an AZERTY keybo
 
 ## The input asset
 
-Actions live in an asset, not in code. The Input Actions editor in the [editor](/editor) writes these files; you can also write them by hand. List the folder under `flutter: assets:` in `pubspec.yaml`.
+Actions live in an asset, not in code. The Input Actions editor (the `just_input_editor` plugin, from the editor's Asset Store) writes these files; you can also write them by hand. List the folder under `flutter: assets:` in `pubspec.yaml`.
 
 ```json assets/input/game.input.json
 {

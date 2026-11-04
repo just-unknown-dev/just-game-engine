@@ -2,8 +2,11 @@ library;
 
 import 'dart:math' as math;
 
-import '../ecs.dart';
+import '../world.dart';
+import 'children_component.dart';
 import 'hierarchy_math.dart';
+import 'parent_component.dart';
+import 'transform_component.dart';
 
 /// Keeps every child's world transform in step with its parent's.
 ///

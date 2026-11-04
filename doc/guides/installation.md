@@ -22,7 +22,7 @@ just game run            # the game
 just game run --editor   # the game with the level editor (desktop, debug)
 ```
 
-`just create` runs `flutter create`, writes `just.json`, and adds `just_core_cli` and `just_game_engine_cli` to the dev dependencies. It then hands the folder to the game plugin, which lays the game template over it on engine versions that work together, writes the first level (`level_01`), and adds the editor through the Asset Store. If a step fails, `just create` deletes the folder it made (or empties the empty folder you gave it).
+`just create` runs `flutter create`, writes `just.json`, and adds `just_core_cli` and `just_game_engine_cli` to the dev dependencies. It then hands the folder to the game plugin, which lays the game template over it on engine versions that work together, writes the first level (`level_01`), and adds the editor (`just_game_engine_editor`, with `just_asset_store`) from pub.dev as dev dependencies. Plugins and kits come later, from the editor's Asset Store. If a step fails, `just create` deletes the folder it made (or empties the empty folder you gave it).
 
 | Path | What it holds |
 |---|---|
@@ -51,7 +51,7 @@ dependencies:
   # flutter_web_plugins; depending on it here keeps web builds compiling.
   flutter_web_plugins:
     sdk: flutter
-  just_game_engine: ^2.0.0-dev.2
+  just_game_engine: ^2.0.0-dev.4
 
 flutter:
   assets:
@@ -62,7 +62,9 @@ flutter:
     - assets/project/physics.json
 ```
 
-> **Warning:** Write the dev release into the constraint. `^2.0.0` alone does not pick up dev releases, so it will not find 2.0.0-dev.2.
+List only folders and files that exist: Flutter stops the build on an asset entry it cannot find. A new app has none of these yet, so add each folder as you create it, and `assets/project/physics.json` once the editor has written it.
+
+> **Warning:** Write the dev release into the constraint. `^2.0.0` alone does not pick up dev releases, so it will not find 2.0.0-dev.4.
 
 One import gives you the engine: `package:just_game_engine/just_game_engine.dart`. The ready-made widgets (dialogue boxes, on-screen controls, rebinding lists) are in `package:just_game_engine/widgets.dart`; import it only if you use them.
 

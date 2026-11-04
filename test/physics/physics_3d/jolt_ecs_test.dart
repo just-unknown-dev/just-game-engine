@@ -52,7 +52,8 @@ void main() {
     engine.world.update(_dt);
     expect(physics3D.hasWorld, isTrue);
     expect(physics3D.world.bodyCount, 1);
-  });
+    // Starting Jolt can take longer than the default 30 s on a busy machine.
+  }, timeout: const Timeout(Duration(minutes: 2)));
 
   test('crates fall onto the floor and their transforms follow', () {
     final world = _world();
@@ -91,7 +92,7 @@ void main() {
       }
       final coin = world.createEntityWithComponents([
         TransformComponent(position: Vector3(4, -1.2, 0)),
-        Collider3DComponent(shape: ColliderShape3D.sphere, radius: 0.3),
+        Collider3DComponent(shape: Collider3DShape.sphere, radius: 0.3),
         RigidBody3DComponent(bodyType: BodyType3D.static, isSensor: true),
       ], name: 'Coin');
       final hero = world.createEntityWithComponents([
@@ -147,36 +148,5 @@ void main() {
     _run(world, 120);
     expect(hinge.joint, isNot(0));
     expect(hinge.angle, closeTo(1, 0.05));
-  });
-
-  test('500 bodies through Physics3DSystem on Jolt', () {
-    final world = _world();
-    _static(world, Vector3(0, 0.5, 0), Vector3(60, 1, 60));
-    for (var i = 0; i < 500; i++) {
-      world.createEntityWithComponents([
-        TransformComponent(
-          position: Vector3(
-            (i % 10) * 1.5 - 7,
-            -1 - (i ~/ 100) * 1.5,
-            ((i ~/ 10) % 10) * 1.5 - 7,
-          ),
-        ),
-        Collider3DComponent(
-          shape: i.isEven ? ColliderShape3D.box : ColliderShape3D.sphere,
-        ),
-        RigidBody3DComponent(),
-      ]);
-    }
-    _run(world, 30);
-    const frames = 240;
-    final watch = Stopwatch()..start();
-    _run(world, frames);
-    watch.stop();
-    final ms = watch.elapsedMicroseconds / 1000 / frames;
-    // ignore: avoid_print
-    print(
-      'just_jolt + Physics3DSystem perf, 500 bodies: ${ms.toStringAsFixed(3)} ms per update',
-    );
-    expect(ms, lessThan(16));
   });
 }

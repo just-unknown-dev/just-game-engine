@@ -5,8 +5,10 @@ import 'package:flutter/services.dart' show AssetBundle, AssetManifest;
 import 'package:just_dart/just_dart.dart' show Aabb3, JustMatrix4, Vector3;
 import 'package:just_graphics_engine/assets.dart';
 import 'package:just_graphics_engine/renderer.dart';
+import 'package:meta/meta.dart' show internal;
 
 import '../../assets/assets.dart';
+import '../../ecs/ecs.dart';
 
 /// The models a game's scenes use, each loaded once per asset path: read
 /// from [bundle], parsed, uploaded with [uploader].
@@ -22,9 +24,18 @@ final class GraphicsModels {
 
   final Map<String, _Entry> _entries = {};
 
-  /// Called each time a model finishes loading, and when one is to be
-  /// loaded again ([reload]).
+  // Paths [reload] asked for whose new load has not landed yet.
+  final Set<String> _reloading = {};
+
+  /// Called each time a model finishes loading, and when one is let go:
+  /// to be loaded again ([reload]) or no longer kept ([retainOnly],
+  /// [clear]).
   final List<void Function(String path)> listeners = [];
+
+  /// Called once a model [reload] asked for has loaded again — once per
+  /// reload, after [listeners] — so what was made from the old file (3-D
+  /// physics' mesh colliders) is made again from the new one.
+  final List<void Function(String path)> reloadListeners = [];
 
   /// Reads a file in place of [bundle] when it returns bytes; null falls
   /// back to the bundle. An editor sets it to read the project's files,
@@ -32,14 +43,45 @@ final class GraphicsModels {
   /// have yet.
   Future<Uint8List?> Function(String path)? readOverride;
 
-  /// Forgets the model at [path] so the next use loads it again (its file
-  /// or its cooked copy changed), and tells [listeners].
+  /// Every path asked for ([get], [load], [dataOf]) while it is not null:
+  /// the scene renderer sets it while a render provider builds, to learn
+  /// which models that provider draws.
+  @internal
+  Set<String>? asked;
+
+  /// Loads the model at [path] again (its file or its cooked copy
+  /// changed): until the new one arrives [get] is null for it. Tells
+  /// [listeners] now and as it arrives, and [reloadListeners] once it has.
+  /// Nothing happens for a path never asked for.
   void reload(String path) {
     if (_entries.remove(path) == null) return;
-    for (final listener in List.of(listeners)) {
-      listener(path);
-    }
+    _reloading.add(path);
+    _notify(path);
+    // Read now, not when next drawn: what was made from the old file waits
+    // for it.
+    _entry(path);
   }
+
+  /// Lets go of every model not at a path in [keep] — what a level no
+  /// longer draws leaves the GPU — and tells [listeners] of each. A model
+  /// still loading is kept; one asked for again loads again. Returns how
+  /// many went.
+  int retainOnly(Iterable<String> keep) {
+    final kept = keep is Set<String> ? keep : keep.toSet();
+    final gone = [
+      for (final MapEntry(:key, :value) in _entries.entries)
+        if (!kept.contains(key) && value.isSettled) key,
+    ];
+    for (final path in gone) {
+      _entries.remove(path);
+      _notify(path);
+    }
+    return gone.length;
+  }
+
+  /// Lets go of every model that has loaded (or failed to), as
+  /// [retainOnly] with nothing kept.
+  void clear() => retainOnly(const <String>{});
 
   /// Every path asked for so far.
   Iterable<String> get paths => _entries.keys;
@@ -57,26 +99,43 @@ final class GraphicsModels {
   /// Loads the model at [path], or returns the load already under way.
   Future<GpuModel> load(String path) => _entry(path).future;
 
-  _Entry _entry(String path) => _entries.putIfAbsent(path, () {
-    final entry = _Entry();
-    entry.future = _load(path).then(
-      (model) {
-        entry.model = model;
-        for (final listener in List.of(listeners)) {
-          listener(path);
-        }
-        return model;
-      },
-      onError: (Object error) {
-        entry.error = error;
-        debugPrint('just_game_engine: could not load "$path": $error');
-        throw error;
-      },
-    );
-    // A failure is reported once, here; callers polling [get] see null.
-    entry.future.ignore();
-    return entry;
-  });
+  void _notify(String path) {
+    for (final listener in List.of(listeners)) {
+      listener(path);
+    }
+  }
+
+  _Entry _entry(String path) {
+    asked?.add(path);
+    return _entries.putIfAbsent(path, () {
+      final entry = _Entry();
+      // Whether it is still what [path] loads: not let go, or loaded again,
+      // since.
+      bool current() => identical(_entries[path], entry);
+      entry.future = _load(path).then(
+        (model) {
+          entry.model = model;
+          if (!current()) return model;
+          _notify(path);
+          if (_reloading.remove(path)) {
+            for (final listener in List.of(reloadListeners)) {
+              listener(path);
+            }
+          }
+          return model;
+        },
+        onError: (Object error) {
+          entry.error = error;
+          if (current()) _reloading.remove(path);
+          debugPrint('just_game_engine: could not load "$path": $error');
+          throw error;
+        },
+      );
+      // A failure is reported once, here; callers polling [get] see null.
+      entry.future.ignore();
+      return entry;
+    });
+  }
 
   Future<GpuModel> _load(String path) async {
     // A cooked copy beside the file wins: nothing to parse or decode.
@@ -148,6 +207,29 @@ final class _Entry {
   late Future<GpuModel> future;
   GpuModel? model;
   Object? error;
+
+  /// Whether its load is over: loaded, or failed.
+  bool get isSettled => model != null || error != null;
+}
+
+/// The models of the `Graphics3D` running on the engine whose context this
+/// is: for what knows only the context — a timeline scrubbing a clip needs
+/// its length.
+extension ContextGraphicsModels on EngineContext {
+  /// The models of the `Graphics3D` started on this context's engine; null
+  /// when none runs.
+  GraphicsModels? get graphicsModels =>
+      slot(_GraphicsModelsSlot, _GraphicsModelsSlot.new).models;
+
+  /// Set by `Graphics3D` as it starts and stops.
+  @internal
+  set graphicsModels(GraphicsModels? models) =>
+      slot(_GraphicsModelsSlot, _GraphicsModelsSlot.new).models = models;
+}
+
+// Where [ContextGraphicsModels] keeps them; its type is the slot's key.
+final class _GraphicsModelsSlot {
+  GraphicsModels? models;
 }
 
 /// The engine's view of a model loaded by just_graphics_engine: its bounds
@@ -238,7 +320,7 @@ final class GraphicsModelAsset extends ModelAsset {
   }
 
   @override
-  int getMemoryUsage() => 0;
+  int get memoryUsage => 0;
 }
 
 /// Creates [GraphicsModelAsset]s for the engine's asset manager.

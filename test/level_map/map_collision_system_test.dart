@@ -212,10 +212,184 @@ void main() {
 
     final lava = world.query([MapBodyComponent]).single;
     expect(
-      lava.getComponent<TagComponent>()?.tag,
+      lava.getComponent<TagComponent>()?.tags.single,
       'lava:9',
       reason: 'the property of the tile it was built from',
     );
     expect(lava.getComponent<RigidBody2DComponent>()!.isSensor, isTrue);
+  });
+
+  group('a change of cells', () {
+    /// Ids of the bodies by the cells they cover, as `x,y` lists.
+    Map<String, int> byCells(World world) => {
+      for (final e in world.query([MapBodyComponent]))
+        e
+                .getComponent<MapBodyComponent>()!
+                .cells
+                .map((c) => '${c.x},${c.y}')
+                .join(' '):
+            e.id,
+    };
+
+    test('keeps every body it does not touch, and makes only what differs', () {
+      final (world, map, ground) = _world();
+      for (var x = 0; x < 4; x++) {
+        ground.cells.setCell(x, 4, TileCell.make(0, 0));
+        ground.cells.setCell(x + 6, 4, TileCell.make(0, 0));
+        ground.cells.setCell(x, 8, TileCell.make(0, 0));
+      }
+      _run(world, frames: 1);
+      final before = byCells(world);
+      expect(before, hasLength(3));
+
+      LevelMaps.of(
+        world,
+        map,
+      )!.setTile(ground, const TileCoord(7, 4), TileCell.empty);
+      _run(world, frames: 1);
+      final after = byCells(world);
+      expect(after, hasLength(4));
+      // The two platforms not touched are the same bodies.
+      expect(after['0,4 1,4 2,4 3,4'], before['0,4 1,4 2,4 3,4']);
+      expect(after['0,8 1,8 2,8 3,8'], before['0,8 1,8 2,8 3,8']);
+      // The broken one is two new ones.
+      expect(after.containsKey('6,4 7,4 8,4 9,4'), isFalse);
+      expect(after['6,4'], isNot(before['6,4 7,4 8,4 9,4']));
+      expect(after.containsKey('8,4 9,4'), isTrue);
+      // Putting it back makes one again.
+      LevelMaps.of(
+        world,
+        map,
+      )!.setTile(ground, const TileCoord(7, 4), TileCell.make(0, 0));
+      _run(world, frames: 1);
+      expect(byCells(world), hasLength(3));
+      expect(byCells(world)['0,4 1,4 2,4 3,4'], before['0,4 1,4 2,4 3,4']);
+    });
+
+    test('leaves a body standing on another platform in contact', () {
+      final (world, map, ground) = _world();
+      for (var x = 0; x < 8; x++) {
+        ground.cells.setCell(x, 4, TileCell.make(0, 0));
+      }
+      ground.cells.setCell(20, 4, TileCell.make(0, 0));
+      final body = _body(world, const Offset(40, 20));
+      _run(world);
+      expect(body.getComponent<RigidBody2DComponent>()!.isGrounded, isTrue);
+
+      final exits = <CollisionExit2DEvent>[];
+      world.events.on<CollisionExit2DEvent>(exits.add);
+      final handle = LevelMaps.of(world, map)!;
+      handle.setTile(ground, const TileCoord(20, 4), TileCell.empty);
+      _run(world, frames: 2);
+      expect(exits, isEmpty);
+      expect(body.getComponent<RigidBody2DComponent>()!.isGrounded, isTrue);
+    });
+
+    test('rebuilds a body whose tile changed for one of the same shape '
+        'but other properties', () {
+      final (world, _, ground) = _world();
+      world.context.collisionKinds.register(
+        MapCollisionKind(
+          id: 'test.heat',
+          label: 'Heat',
+          decorate: (body, spec, properties) => body.addComponent(
+            TagComponent('heat:${properties.getInt('heat')}'),
+          ),
+        ),
+      );
+      final ts = _tileset()
+        ..tileOrNew(3).collision = TileCollision.full(16, 16, kind: 'test.heat')
+        ..tileOrNew(4).collision = TileCollision.full(
+          16,
+          16,
+          kind: 'test.heat',
+        );
+      ts.tile(3)!.properties.set('heat', 1, TilePropertyType.int);
+      ts.tile(4)!.properties.set('heat', 2, TilePropertyType.int);
+      world.context.tiles.putTileset('test/t.tileset.json', ts);
+      ground.cells.setCell(0, 0, TileCell.make(0, 3));
+      _run(world, frames: 2);
+      expect(
+        world
+            .query([MapBodyComponent])
+            .single
+            .getComponent<TagComponent>()
+            ?.tags,
+        {'heat:1'},
+      );
+
+      final map = world.query([LevelMapComponent]).single;
+      LevelMaps.of(
+        world,
+        map,
+      )!.setTile(ground, const TileCoord(0, 0), TileCell.make(0, 4));
+      _run(world, frames: 1);
+      expect(
+        world
+            .query([MapBodyComponent])
+            .single
+            .getComponent<TagComponent>()
+            ?.tags,
+        {'heat:2'},
+      );
+    });
+  });
+
+  test('a map that moves takes the same bodies with it', () {
+    final (world, map, ground) = _world();
+    for (var x = 0; x < 4; x++) {
+      ground.cells.setCell(x, 4, TileCell.make(0, 0));
+      ground.cells.setCell(x, 8, TileCell.make(0, 1));
+    }
+    _run(world, frames: 1);
+    final before = {
+      for (final e in world.query([MapBodyComponent]))
+        e.id: Vector3.copy(e.getComponent<TransformComponent>()!.position),
+    };
+    expect(before, hasLength(2));
+
+    map.getComponent<TransformComponent>()!.setPositionXY(100, -50);
+    _run(world, frames: 1);
+    final after = world.query([MapBodyComponent]).toList();
+    expect({for (final e in after) e.id}, before.keys.toSet());
+    for (final e in after) {
+      final p = e.getComponent<TransformComponent>()!.position;
+      expect(p.x, closeTo(before[e.id]!.x + 100, 1e-9));
+      expect(p.y, closeTo(before[e.id]!.y - 50, 1e-9));
+    }
+    // And the physics bodies went too.
+    final body = _body(world, const Offset(130, -30));
+    _run(world);
+    expect(body.getComponent<RigidBody2DComponent>()!.isGrounded, isTrue);
+    expect(
+      body.getComponent<TransformComponent>()!.position.y,
+      closeTo(64 - 50 - 6, 1.5),
+    );
+  });
+
+  test('removing the system destroys its bodies; one added again builds '
+      'a single set', () {
+    final (world, _, ground) = _world();
+    for (var x = 0; x < 4; x++) {
+      ground.cells.setCell(x, 4, TileCell.make(0, 0));
+      ground.cells.setCell(x, 8, TileCell.make(0, 1));
+    }
+    _run(world, frames: 1);
+    expect(world.query([MapBodyComponent]), hasLength(2));
+
+    world.removeSystem(world.systems.whereType<MapCollisionSystem>().single);
+    expect(world.query([MapBodyComponent]), isEmpty);
+
+    world.addSystem(MapCollisionSystem());
+    _run(world, frames: 1);
+    expect(world.query([MapBodyComponent]), hasLength(2));
+
+    // Every system replaced, the entities kept: still one set.
+    world.clearSystems();
+    expect(world.query([MapBodyComponent]), isEmpty);
+    world.addSystem(Physics2DSystem(_physics));
+    registerLevelMapSystems(world);
+    _run(world, frames: 1);
+    expect(world.query([MapBodyComponent]), hasLength(2));
   });
 }

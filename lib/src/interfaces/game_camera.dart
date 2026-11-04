@@ -12,7 +12,7 @@ import 'view_volume.dart';
 
 /// Minimal camera interface consumed by ECS render systems.
 ///
-/// The 2-D members ([position], [applyTransform], [getVisibleBounds]) are
+/// The 2-D members ([position], [applyTransform], [visibleBounds]) are
 /// what the Canvas renderer uses. The matrices and [screenToWorldRay]
 /// describe the same camera in 3-D — what a 3-D rendering backend, 3-D
 /// picking or frustum culling reads.
@@ -28,7 +28,7 @@ abstract interface class GameCamera {
   void applyTransform(Canvas canvas, Size size);
 
   /// Return the axis-aligned visible area in world space.
-  Rect getVisibleBounds();
+  Rect get visibleBounds;
 
   /// Orthographic or perspective, and how much it sees.
   CameraLens get lens;

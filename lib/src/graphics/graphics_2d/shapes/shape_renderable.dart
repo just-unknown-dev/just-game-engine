@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:meta/meta.dart' show internal;
 
 import '../../../rendering/renderable.dart';
 
@@ -18,13 +19,14 @@ import '../../../rendering/renderable.dart';
 /// The pixels are those of the transformed draw: a translation moves a
 /// shape by the same amount either way, differing at most in the last bit
 /// of a 32-bit float — well below what a pixel can show.
+@internal
 class ShapeRenderable extends CustomRenderable {
   /// A renderable that draws with [onRenderMoved] while it is unturned,
   /// unscaled, opaque and untinted, and with `onRender` otherwise.
   ShapeRenderable({
     required super.onRender,
     required this.onRenderMoved,
-    super.getBoundsCallback,
+    super.boundsOf,
     super.onRenderFaded,
     super.layer,
   });

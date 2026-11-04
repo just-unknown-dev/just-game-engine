@@ -218,7 +218,7 @@ class _EntityListSignal extends Signal<List<Entity>> {
 }
 
 /// Extension on World to create reactive wrappers.
-extension ReactiveWorldExtension on World {
+extension WorldReactive on World {
   /// Creates a reactive signal wrapper for this world.
   WorldSignal toSignal({String? debugLabel}) {
     return WorldSignal(this, debugLabel: debugLabel);

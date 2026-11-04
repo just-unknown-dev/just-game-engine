@@ -2,6 +2,7 @@
 library;
 
 import 'package:just_storage/just_storage.dart';
+import 'package:meta/meta.dart' show internal;
 
 /// The prefix the engine's keys get in browser storage, which the app's own
 /// `JustStorage.standard()` shares on the web.
@@ -9,10 +10,12 @@ import 'package:just_storage/just_storage.dart';
 /// Not one of the engine's key prefixes (`just_game_engine.cache/`, …), so
 /// the keys the engine wrote before it had a store of its own are told
 /// apart from the ones it writes now.
+@internal
 const String engineStorageNamespace = 'just_game_engine/';
 
 /// The engine's store within [browser]: every key under
 /// [engineStorageNamespace].
+@internal
 JustStandardStorage engineNamespaceOf(JustStandardStorage browser) =>
     NamespacedStorage(browser, engineStorageNamespace);
 
@@ -23,6 +26,7 @@ JustStandardStorage engineNamespaceOf(JustStandardStorage browser) =>
 /// On the web, where `just_storage` keeps every value as its own key in
 /// `localStorage` rather than rewriting one file, this is what gives the
 /// engine a store of its own.
+@internal
 final class NamespacedStorage implements JustStandardStorage {
   /// A view of [inner] holding only the keys that start with [namespace];
   /// nothing is read or copied until it is used.

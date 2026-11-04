@@ -12,6 +12,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_game_engine/widgets.dart';
+import 'package:just_game_engine/src/narrative/runtime/expression_evaluator.dart'
+    show ExpressionEvaluator;
 
 DialogueRunner _runner(
   String yarn, {
@@ -68,7 +70,7 @@ void main() {
       return store;
     }
 
-    test('N1 a right side starting with a variable is evaluated', () async {
+    test('a right side starting with a variable is evaluated', () async {
       final vars = await run(
         r'<<set $rich = $gold >= 100>>',
         DialogueVariableStore()..set('gold', 150),
@@ -82,7 +84,7 @@ void main() {
       expect(copy.getRaw('copy'), 7);
     });
 
-    test('N1 a right side with no value leaves the variable alone, and says '
+    test('a right side with no value leaves the variable alone, and says '
         'so', () async {
       final log = _captureLog();
       final vars = await run(
@@ -96,7 +98,7 @@ void main() {
       expect(log.where((l) => l.contains('left as it was')), hasLength(2));
     });
 
-    test('N7 a comparison of strings is not a string literal', () async {
+    test('a comparison of strings is not a string literal', () async {
       final vars = await run(
         '<<set \$same = "a" == "b">>\n<<set \$name = "Mae">>',
       );
@@ -113,7 +115,7 @@ void main() {
       expect(vars.has('gold to 5'), isFalse);
     });
 
-    test('N5 a <<set>> that is not an assignment does not parse', () {
+    test('a <<set>> that is not an assignment does not parse', () {
       expect(
         () => YarnParser.parse(
           'title: A\n---\n<<set \$gold plus 5>>\n===\n',
@@ -123,7 +125,7 @@ void main() {
       );
     });
 
-    test('N11 <<declare>> gives a first value, and only a first', () async {
+    test('<<declare>> gives a first value, and only a first', () async {
       final fresh = await run(
         '<<declare \$gold = 10>>\n<<declare \$name = "Mae" as String>>',
       );
@@ -138,7 +140,7 @@ void main() {
     });
   });
 
-  group('N4 the expression evaluator', () {
+  group('the expression evaluator', () {
     late ExpressionEvaluator e;
     setUp(
       () => e = ExpressionEvaluator(
@@ -193,7 +195,7 @@ void main() {
     });
   });
 
-  group('N6 option conditions', () {
+  group('option conditions', () {
     test('-> text <<if cond>> is parsed', () {
       final g = YarnParser.parse(
         'title: Start\n---\n-> Buy the sword <<if \$gold >= 10>> #line:buy\n'
@@ -219,7 +221,7 @@ void main() {
     });
   });
 
-  test('N14 escapes in lines are text', () {
+  test('escapes in lines are text', () {
     final l =
         YarnParser.parse(
               'title: Start\n---\n'
@@ -233,7 +235,7 @@ void main() {
   });
 
   group('runner sessions', () {
-    test('N2 stop() works after a restart', () async {
+    test('stop() works after a restart', () async {
       final r = _runner(
         'title: A\n---\nA1\nA2\n===\ntitle: B\n---\nB1\nB2\n===\n',
       );
@@ -249,7 +251,7 @@ void main() {
       await second.timeout(const Duration(seconds: 1));
     });
 
-    test('N8 a command pending from the old session does not drive the new '
+    test('a command pending from the old session does not drive the new '
         'one', () async {
       final gate = Completer<void>();
       final cmds = DialogueCommandRegistry()
@@ -271,7 +273,7 @@ void main() {
       await r.stop();
     });
 
-    test('N9 advance from a line listener', () async {
+    test('advance from a line listener', () async {
       final r = _runner('title: Start\n---\nOne\nTwo\n===\n');
       final seen = <String>[];
       r.signals.currentLine.addListener(() {
@@ -285,7 +287,7 @@ void main() {
       expect(seen, ['One', 'Two']);
     });
 
-    test('N9 a choice picked from a choices listener', () async {
+    test('a choice picked from a choices listener', () async {
       final r = _runner(
         'title: Start\n---\n-> Yes\n    Y\n-> No\n    N\n===\n',
       );
@@ -298,7 +300,7 @@ void main() {
       await r.stop();
     });
 
-    test('N9 stop from a line listener ends the dialogue', () async {
+    test('stop from a line listener ends the dialogue', () async {
       final r = _runner('title: Start\n---\nOne\nTwo\n===\n');
       r.signals.currentLine.addListener(() {
         if (r.signals.currentLine.value != null) r.stop();
@@ -308,7 +310,7 @@ void main() {
       expect(r.signals.activeSpeaker.value, isNull);
     });
 
-    test('N10 a throwing command ends the session', () async {
+    test('a throwing command ends the session', () async {
       final cmds = DialogueCommandRegistry()
         ..register('boom', (_) async => throw StateError('x'));
       final r = _runner(
@@ -320,7 +322,7 @@ void main() {
       expect(_line(r), isNull);
     });
 
-    test('N13 an invalid or unavailable choice is ignored', () async {
+    test('an invalid or unavailable choice is ignored', () async {
       final log = _captureLog();
       final r = _runner(
         'title: Start\n---\n-> Yes\n    Y\n-> No #if false\n    N\nAfter\n'
@@ -341,7 +343,7 @@ void main() {
       await r.stop();
     });
 
-    test('N15 {\$var} in speaker names and command arguments; quoted '
+    test('{\$var} in speaker names and command arguments; quoted '
         'arguments stay whole', () async {
       final vars = DialogueVariableStore()
         ..set('npc', 'Mae')
@@ -367,7 +369,7 @@ void main() {
       await r.stop();
     });
 
-    test('N16 startDialogue with a missing node fails at once, starting '
+    test('startDialogue with a missing node fails at once, starting '
         'nothing', () async {
       final m = DialogueManager()
         ..parseAndRegister('title: Start\n---\nHi\n===\n', id: 'g');
@@ -395,13 +397,13 @@ void main() {
     expect(s.getRaw('name'), 'Mae');
   });
 
-  testWidgets('N12 the typewriter does not split an emoji', (tester) async {
+  testWidgets('the typewriter does not split an emoji', (tester) async {
     final m = DialogueManager()
       ..parseAndRegister('title: Start\n---\nA\u{1F600}B\n===\n', id: 'e');
     final r = m.createRunner('e');
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: DialogueBoxWidget(runner: r, typewriterSpeed: 10)),
+        home: Scaffold(body: DialogueBox(runner: r, typewriterSpeed: 10)),
       ),
     );
     unawaited(r.start('Start'));
@@ -425,35 +427,32 @@ void main() {
   });
 
   group('localization', () {
-    test(
-      'N3 DialogueLocalizer.setLocale switches once the file loads',
-      () async {
-        final loc = DialogueLocalizer(
-          manager: LocalizationManager(),
-          basePath: 'assets/d/dialogue',
-        );
-        final bundle = _Bundle({
-          'assets/d/dialogue_fr.json': '{"hi": "Salut"}',
-          'assets/d/dialogue_en.json': '{"hi": "Hello"}',
-        });
-        await loc.setLocale(const Locale('fr'), bundle: bundle);
-        expect(loc.currentLocale, const Locale('fr'));
-        expect(loc.localize('hi'), 'Salut');
+    test('DialogueLocalizer.setLocale switches once the file loads', () async {
+      final loc = DialogueLocalizer(
+        manager: LocalizationManager(),
+        basePath: 'assets/d/dialogue',
+      );
+      final bundle = _Bundle({
+        'assets/d/dialogue_fr.json': '{"hi": "Salut"}',
+        'assets/d/dialogue_en.json': '{"hi": "Hello"}',
+      });
+      await loc.setLocale(const Locale('fr'), bundle: bundle);
+      expect(loc.currentLocale, const Locale('fr'));
+      expect(loc.localize('hi'), 'Salut');
 
-        // The current locale ('en' at first) is loaded when it has no strings.
-        final fresh = DialogueLocalizer(basePath: 'assets/d/dialogue');
-        await fresh.setLocale(const Locale('en'), bundle: bundle);
-        expect(fresh.localize('hi'), 'Hello');
+      // The current locale ('en' at first) is loaded when it has no strings.
+      final fresh = DialogueLocalizer(basePath: 'assets/d/dialogue');
+      await fresh.setLocale(const Locale('en'), bundle: bundle);
+      expect(fresh.localize('hi'), 'Hello');
 
-        // Back to one already loaded: a switch, no file needed.
-        await loc.loadLocale(const Locale('en'), bundle: bundle);
-        expect(loc.localize('hi'), 'Hello');
-        await loc.setLocale(const Locale('fr'));
-        expect(loc.localize('hi'), 'Salut');
-      },
-    );
+      // Back to one already loaded: a switch, no file needed.
+      await loc.loadLocale(const Locale('en'), bundle: bundle);
+      expect(loc.localize('hi'), 'Hello');
+      await loc.setLocale(const Locale('fr'));
+      expect(loc.localize('hi'), 'Salut');
+    });
 
-    test('L17 two files for one locale and namespace merge', () async {
+    test('two files for one locale and namespace merge', () async {
       final l10n = LocalizationManager();
       final b = _Bundle({
         'ui_en.json': '{"start": "Start", "back": "Back"}',
@@ -468,7 +467,7 @@ void main() {
       expect(l10n.hasTable(const Locale('en'), ns: 'dialogue'), isFalse);
     });
 
-    test('L18 plurals of counts with a fraction, or none at all', () {
+    test('plurals of counts with a fraction, or none at all', () {
       expect(
         StringInterpolator.process('{n, plural, =1{one km} other{{n} km}}', {
           'n': 1.5,
@@ -501,7 +500,7 @@ void main() {
       );
     });
 
-    test('L19 a fallback with a country falls back to its language', () {
+    test('a fallback with a country falls back to its language', () {
       final l = LocalizationManager(fallbackLocale: const Locale('en', 'US'))
         ..registerMap(const Locale('en'), {'hi': 'Hello'})
         ..registerMap(const Locale('en', 'US'), {'color': 'Color'})
@@ -510,7 +509,7 @@ void main() {
       expect(l.t('color'), 'Color');
     });
 
-    test('L20 locales with scripts keep their own tables', () {
+    test('locales with scripts keep their own tables', () {
       const hans = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans');
       const hant = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant');
       const hansCn = Locale.fromSubtags(

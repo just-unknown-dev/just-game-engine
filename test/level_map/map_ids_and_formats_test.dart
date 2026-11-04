@@ -146,14 +146,45 @@ void main() {
   group('formats', () {
     test('a map saved by a newer engine is refused', () {
       expect(
-        () => LevelMapData.fromJson({'format': 3, 'layers': []}),
+        () => LevelMapData.fromJson({'format': 4, 'layers': []}),
         throwsA(
           isA<UnsupportedFormatVersionException>()
-              .having((e) => e.found, 'found', 3)
-              .having((e) => e.supported, 'supported', 2),
+              .having((e) => e.found, 'found', 4)
+              .having((e) => e.supported, 'supported', 3),
         ),
       );
     });
+
+    test(
+      'before form 3 a layer said castsShadows; it reads as castShadows',
+      () {
+        MapLayerData layerOf(Map<String, dynamic> json) =>
+            LevelMapData.fromJson(json).layers.single;
+        final old = layerOf({
+          'format': 1,
+          'layers': [
+            {'id': 1, 'castsShadows': true},
+          ],
+        });
+        expect(old.castShadows, isTrue);
+        expect(old.toJson()['castShadows'], isTrue);
+        expect(old.toJson().containsKey('castsShadows'), isFalse);
+        final unversioned = layerOf({
+          'layers': [
+            {'id': 1, 'castsShadows': true},
+          ],
+        });
+        expect(unversioned.castShadows, isTrue, reason: 'no format: form 1');
+        final current = layerOf({
+          'format': 3,
+          'layers': [
+            {'id': 1, 'castShadows': true},
+          ],
+        });
+        expect(current.castShadows, isTrue);
+        expect(LevelMapData.format, 3);
+      },
+    );
 
     test('form 2 — shapes in layers — still reads, its shapes passed over', () {
       final map = LevelMapData.fromJson({

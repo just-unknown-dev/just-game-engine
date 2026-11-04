@@ -2,7 +2,7 @@
 
 _Gameplay_ · Draw tile maps from the scene, a .map.json file or a Tiled .tmx/.tmj with LevelMapComponent, give layers collision, and change tiles while the game runs.
 
-A level map is layers of tiles. One `LevelMapComponent` puts a whole map in the level at its entity's position; the map is not rotated or scaled with the entity. Maps can be orthogonal, isometric, staggered or hexagonal (`MapOrientation`), and `MapGeometry` places cells exactly as Tiled does, so a map looks and collides the same here as in Tiled. Tiles can be animated, flipped and rotated.
+A level map is layers of tiles. One `LevelMapComponent` puts a whole map in the level at its entity's position; the map is not rotated or scaled with the entity. Maps can be orthogonal, isometric, staggered or hexagonal (`LevelMapOrientation`), and `MapGeometry` places cells exactly as Tiled does, so a map looks and collides the same here as in Tiled. Tiles can be animated, flipped and rotated.
 
 Two default systems run maps: `LevelMapSystem` (priority 110) loads and draws them, and `MapCollisionSystem` (108) builds their collision. Both are in `DefaultSystems.all`; for a world of your own, call `registerLevelMapSystems(world)` and add a `RenderSystem` to draw the layers.
 
@@ -34,7 +34,7 @@ Future<void> startLevel(World world) async {
 }
 ```
 
-`LevelMaps.preload` loads every map in the world and its tilesets; images may still be arriving. A map that will not load does not stop the others: it is left without anything to draw or collide with, logged once, and returned in the list. When you move from level to level, call `LevelMaps.evictUnused(world)` after the next level has loaded to drop tilesets that no map uses any more. Loading scenes is covered in [Scenes](/docs/scenes).
+`LevelMaps.preload` loads every map in the world and its tilesets; images may still be arriving. A map that will not load does not stop the others: it is left without anything to draw or collide with, logged once, and returned in the list. When you move from level to level, call `engine.releaseUnused()` after the next level has loaded: it drops the maps and tilesets no map uses any more (`LevelMaps.evictUnused(world)`, and the tileset images only those drew from), with the 2-D material files and 3-D models the old level alone used. Loading scenes is covered in [Scenes](/docs/scenes).
 
 ## Tiled maps
 

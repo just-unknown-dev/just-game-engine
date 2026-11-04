@@ -252,4 +252,126 @@ void main() {
       expect(bodies(), 0);
     });
   });
+
+  group('tileset images', () {
+    late EngineContext context;
+    late _Clones clones;
+
+    setUp(() {
+      context = EngineContext();
+      context.tiles.putTileset(_tilesetPath, _tileset());
+      context.sprites = clones = _Clones(image);
+    });
+    tearDown(() => context.dispose());
+
+    LevelMapRuntime runtime([LevelMapData? m]) {
+      final data = m ?? _map();
+      return LevelMapRuntime(base: data, source: data, context: context);
+    }
+
+    test('a loader\'s own clones are disposed when replaced and when the '
+        'runtime goes', () async {
+      final rt = runtime();
+      await rt.syncAssets();
+      final first = clones.made.single;
+      expect(rt.imageAt(0), same(first));
+
+      // The tileset is read again: so are its images.
+      context.tiles.putTileset(_tilesetPath, _tileset());
+      await rt.syncAssets();
+      expect(clones.made, hasLength(2));
+      expect(first.debugDisposed, isTrue);
+      final second = clones.made.last;
+      expect(rt.imageAt(0), same(second));
+      expect(second.debugDisposed, isFalse);
+
+      rt.dispose();
+      expect(second.debugDisposed, isTrue);
+      expect(rt.imageAt(0), isNull);
+    });
+
+    test('a load overtaken by a later one disposes what it loaded', () async {
+      final rt = runtime();
+      clones.hold = Completer<void>();
+      final slow = rt.syncAssets();
+      await pumpEventQueue();
+      final held = clones.hold!;
+      clones.hold = null;
+      context.tiles.putTileset(_tilesetPath, _tileset());
+      await rt.syncAssets();
+      final kept = rt.imageAt(0)!;
+      held.complete();
+      await slow;
+      expect(clones.made, hasLength(2));
+      final dropped = clones.made.firstWhere((i) => !identical(i, kept));
+      expect(dropped.debugDisposed, isTrue);
+      expect(kept.debugDisposed, isFalse);
+      expect(rt.imageAt(0), same(kept));
+      rt.dispose();
+    });
+
+    test('images the loader keeps, and built-in pictures, are never '
+        'disposed by the runtime', () async {
+      context.sprites = _Images(image);
+      final m = _map()..addTileset(BuiltInTilesets.basicShapes);
+      final rt = runtime(m);
+      await rt.syncAssets();
+      final builtIn = rt.imageAt(1)!;
+      expect(
+        builtIn,
+        same(context.tiles.builtInImage(BuiltInTilesets.basicShapesImage)),
+      );
+      context.tiles.putTileset(_tilesetPath, _tileset());
+      await rt.syncAssets();
+      rt.dispose();
+      expect(image.debugDisposed, isFalse);
+      expect(builtIn.debugDisposed, isFalse);
+    });
+
+    test('a change elsewhere in the tile assets reloads nothing and leaves '
+        'collision alone', () async {
+      final rt = runtime();
+      await rt.syncAssets();
+      final assets = rt.assetsRevision;
+      final image = rt.imageAt(0);
+      rt.collisionDirty.clear();
+      final mirrored = rt.mirroredAt(0)!;
+
+      // Another file forgotten, and this very tileset put again.
+      context.tiles.evict('assets/other.tileset.json');
+      context.tiles.putTileset(_tilesetPath, rt.tilesets.single!);
+      await rt.syncAssets();
+      expect(clones.made, hasLength(1));
+      expect(rt.imageAt(0), same(image));
+      expect(rt.assetsRevision, assets);
+      expect(rt.collisionDirty, isEmpty);
+      expect(mirrored.debugDisposed, isFalse);
+      rt.dispose();
+    });
+  });
+}
+
+/// Hands out a clone of [image] per load, the caller's to dispose — as the
+/// bundle loader does — keeping each; [hold], while set, keeps a load
+/// waiting.
+class _Clones extends SpriteAssetLoader {
+  _Clones(this.image);
+  final ui.Image image;
+  final List<ui.Image> made = [];
+  Completer<void>? hold;
+
+  @override
+  bool get callerDisposesImages => true;
+
+  @override
+  Future<ui.Image> loadImage(String path) async {
+    final wait = hold;
+    if (wait != null) await wait.future;
+    final clone = image.clone();
+    made.add(clone);
+    return clone;
+  }
+
+  @override
+  Future<SpriteAtlas> loadAtlas(String path) => throw UnimplementedError();
 }

@@ -45,7 +45,7 @@ abstract class Asset {
   void unload();
 
   /// Get memory usage in bytes
-  int getMemoryUsage();
+  int get memoryUsage;
 }
 
 /// Asset types supported by the engine

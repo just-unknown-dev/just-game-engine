@@ -116,8 +116,7 @@ void main() {
 
     // As an editor ticks while the scene is edited.
     world.update(0);
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
+    await pumpEventQueue();
     world.update(0);
     world.update(0);
     expect(animator.currentState, 'jump', reason: 'the graph runs');
@@ -178,7 +177,7 @@ void main() {
     final animator = AnimatorComponent(graphPath: 'hero.animator.json');
     world.createEntityWithComponents([TransformComponent(), sprite, animator]);
     world.update(0);
-    await Future<void>.delayed(Duration.zero);
+    await pumpEventQueue();
     world.update(0);
     expect(sprite.isDriven, isTrue);
     animator.graphPath = '';

@@ -7,13 +7,13 @@ import '../../ecs/ecs.dart';
 import '../../assets/assets.dart';
 import '../../timeline/timeline.dart';
 import 'animation_3d_system.dart';
-import 'graphics_components.dart';
+import 'model_components.dart';
 import 'graphics_3d_definitions.dart';
 import 'lighting/lighting_3d_definitions.dart';
 import 'materials/material_3d_definitions.dart';
 import 'graphics_models.dart';
 import 'graphics_scene_renderer.dart';
-import 'shapes/shape_components.dart';
+import 'shapes/shape_3d_components.dart';
 import 'shapes/shape_3d_definitions.dart';
 import 'skeletal_animation_target.dart';
 import 'skeletal_clip_track.dart';
@@ -45,7 +45,7 @@ import '../../animation/animation_context.dart';
 /// OpenGL ES, a plain `flutter test` — the game runs anyway: scenes and
 /// models load (models for their bounds), the 3-D view shows a short note,
 /// [unsupportedReason] says why and [onUnsupported] hears it once.
-final class Graphics3D implements RefreshableExtension, EngineService {
+final class Graphics3D implements RefreshableExtension, SceneCacheService {
   /// 3-D graphics drawn with [device], or with the platform's GPU when that
   /// is null, at [renderScale] of the physical resolution.
   Graphics3D({
@@ -56,16 +56,21 @@ final class Graphics3D implements RefreshableExtension, EngineService {
   }) : _device = device,
        keepEdges = keepEdges ?? kDebugMode;
 
-  /// Registers the 3-D components into [context], so scenes holding them
-  /// load and save — for tools that read and write 3-D scenes without
-  /// drawing them. Giving the engine a [Graphics3D] does this already.
-  static void registerSchemas(EngineContext context) {
+  /// Registers the 3-D components into [context], with the field type the
+  /// material overrides are saved through, so scenes holding them load and
+  /// save — for tools that read and write 3-D scenes without drawing them.
+  /// Giving the engine a [Graphics3D] does this already.
+  static void registerDefinitions(EngineContext context) {
+    context.fieldTypes.registerAll(
+      Material3DDefinitions.fieldTypes,
+      ifAbsent: true,
+    );
     context.definitions.registerAll(_definitions, ifAbsent: true);
     _registerPlayback(context);
   }
 
   // Every 3-D graphics component, in the order an editor lists them.
-  static List<ComponentSchema> get _definitions => [
+  static List<ComponentDefinition> get _definitions => [
     Graphics3DDefinitions.model,
     ...Material3DDefinitions.all,
     ...Lighting3DDefinitions.all,
@@ -117,6 +122,13 @@ final class Graphics3D implements RefreshableExtension, EngineService {
   /// [sceneRenderer] are there.
   bool get isStarted => _models != null;
 
+  /// Lets go of the models, 3-D material files and maps nothing in the
+  /// engine's world draws with ([GraphicsSceneRenderer.releaseUnused]);
+  /// `Engine.releaseUnused` asks, after a level change. Nothing before the
+  /// engine starts it.
+  @override
+  void releaseUnused() => _scene?.releaseUnused();
+
   /// The renderer; throws before the engine initializes.
   Renderer3D get renderer => _renderer ?? (throw StateError(_notStarted));
 
@@ -139,14 +151,18 @@ final class Graphics3D implements RefreshableExtension, EngineService {
   String get id => 'graphics_3d';
 
   /// Registers the 3-D components, and how animator graphs and timelines
-  /// play clips on a skeleton ([registerSchemas]).
+  /// play clips on a skeleton ([registerDefinitions]).
   @override
-  void install(EngineContext context) => registerSchemas(context);
+  void install(EngineContext context) => registerDefinitions(context);
 
   /// Registers the 3-D components' definitions and playback again, after a
   /// hot reload.
   @override
   void refresh(EngineContext context) {
+    context.fieldTypes.registerAll(
+      Material3DDefinitions.fieldTypes,
+      ifAbsent: true,
+    );
     context.definitions.refresh(_definitions);
     _registerPlayback(context);
   }
@@ -183,19 +199,22 @@ final class Graphics3D implements RefreshableExtension, EngineService {
       AssetType.model,
       _loader = GraphicsModelLoader(models),
     );
-    models.listeners.add(_modelReloaded);
+    context.context.graphicsModels = models;
+    models.reloadListeners.add(_modelReloaded);
     final scene = _scene = GraphicsSceneRenderer(
-      engine: engine,
+      world: () => engine.world,
       renderer: renderer,
       models: models,
       unsupportedReason: _unsupportedReason,
+      frame: () => engine.rendering.drawingFrame,
     )..renderScale = renderScale;
     engine.rendering.addSceneRenderer(scene);
     engine.world.addSystem(_animations = Animation3DSystem(models));
   }
 
-  /// A model was loaded again: the engine's `ModelAsset` takes the new
-  /// file, then 3-D physics rebuilds the colliders made from it.
+  /// A model [GraphicsModels.reload] asked for has loaded again: the
+  /// engine's `ModelAsset` takes the new file, then 3-D physics rebuilds
+  /// the colliders made from it — once a reload.
   Future<void> _modelReloaded(String path) async {
     final engine = _engine;
     if (engine == null) return;
@@ -214,7 +233,8 @@ final class Graphics3D implements RefreshableExtension, EngineService {
 
   /// Takes out what [start] put in — the scene renderer, the animation
   /// system, the model loader — and lets go of the renderer and the
-  /// models: [isStarted] is false again.
+  /// models, the GPU models they hold among them: [isStarted] is false
+  /// again.
   @override
   Future<void> stop() async {
     final engine = _engine;
@@ -231,7 +251,16 @@ final class Graphics3D implements RefreshableExtension, EngineService {
     if (loader != null) {
       engine?.assets.unregisterLoader(AssetType.model, loader);
     }
-    _models?.listeners.remove(_modelReloaded);
+    final models = _models;
+    if (models != null) {
+      models.reloadListeners.remove(_modelReloaded);
+      if (identical(engine?.context.graphicsModels, models)) {
+        engine?.context.graphicsModels = null;
+      }
+      // The model assets the engine still holds keep the models: their GPU
+      // side goes now.
+      models.clear();
+    }
     _scene = null;
     _animations = null;
     _loader = null;

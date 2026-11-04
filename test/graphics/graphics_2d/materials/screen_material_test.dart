@@ -42,15 +42,16 @@ void main() {
     engine.rendering
       ..backgroundColor = const Color(0xFFFF0000)
       ..pixelRatio = 1;
-    final library = Material2DLibrary.of(engine.context);
+    final library = engine.context.material2DLibrary;
     for (final p in _files.keys) {
       library.fileOf(p);
     }
     library.screenProgram;
     for (var i = 0; i < 200; i++) {
       if (library.screenProgram != null &&
-          _files.keys.every((p) => library.fileOf(p) != null))
+          _files.keys.every((p) => library.fileOf(p) != null)) {
         break;
+      }
       await Future<void>.delayed(const Duration(milliseconds: 5));
     }
     expect(library.screenProgram, isNotNull);

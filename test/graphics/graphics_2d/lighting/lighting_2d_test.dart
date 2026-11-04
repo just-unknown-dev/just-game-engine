@@ -126,7 +126,7 @@ void main() {
       ..overlayHooks.add(engine.world.render);
     // World points are view pixels: the camera looks at the view's middle.
     engine.rendering.camera.position = const Offset(20, 15);
-    final library = Material2DLibrary.of(engine.context);
+    final library = engine.context.material2DLibrary;
     for (var i = 0; i < 300; i++) {
       for (final p in _files.keys) {
         library.fileOf(p);
@@ -178,7 +178,7 @@ void main() {
 
   Entity light(
     Offset at, {
-    Color colour = const Color(0xFFFF0000),
+    Color color = const Color(0xFFFF0000),
     double radius = 30,
     double height = 48,
     Light2DKind kind = Light2DKind.point,
@@ -187,7 +187,7 @@ void main() {
     TransformComponent(position: Vector3(at.dx, at.dy, 0), angle: angle),
     Light2DComponent(
       kind: kind,
-      colour: colour,
+      color: color,
       radius: radius,
       height: height,
       falloff: 1,
@@ -233,7 +233,7 @@ void main() {
     final s = sprite(const Offset(20, 15), material: _bumpy);
     final l = light(
       const Offset(34, 15),
-      colour: const Color(0xFFFFFFFF),
+      color: const Color(0xFFFFFFFF),
       height: 2,
     );
     var d = await frame();
@@ -274,7 +274,7 @@ void main() {
       bigSprite(await _big());
       light(
         const Offset(38, 15),
-        colour: const Color(0xFFFFFFFF),
+        color: const Color(0xFFFFFFFF),
         radius: 60,
         height: 2,
       );
@@ -296,7 +296,7 @@ void main() {
       bigSprite(await _big(opaqueRows: 8));
       light(
         const Offset(20, 15),
-        colour: const Color(0xFFFFFFFF),
+        color: const Color(0xFFFFFFFF),
         radius: 60,
         height: 8,
       );
@@ -319,7 +319,7 @@ void main() {
     final s = sprite(const Offset(20, 15), material: _up);
     light(
       const Offset(20, 1),
-      colour: const Color(0xFFFFFFFF),
+      color: const Color(0xFFFFFFFF),
       radius: 40,
       height: 2,
     );
@@ -359,7 +359,7 @@ void main() {
     lighting();
     sprite(const Offset(20, 15), material: _bumpy, z: 0);
     sprite(const Offset(20, 15), z: 1);
-    light(const Offset(6, 15), colour: const Color(0xFFFFFFFF), height: 8);
+    light(const Offset(6, 15), color: const Color(0xFFFFFFFF), height: 8);
     final d = await frame();
     expect(
       at(d, 20, 15).$1,
@@ -429,11 +429,11 @@ void main() {
         lighting();
         box();
         final l = light(const Offset(5, 15), radius: 40, height: 8);
-        l.getComponent<Light2DComponent>()!.castsShadows = false;
+        l.getComponent<Light2DComponent>()!.castShadows = false;
         var d = await frame();
         expect(at(d, 30, 15).$1, greaterThan(12));
 
-        l.getComponent<Light2DComponent>()!.castsShadows = true;
+        l.getComponent<Light2DComponent>()!.castShadows = true;
         for (final e in engine.world.query(const [ShadowCaster2DComponent])) {
           e.getComponent<ShadowCaster2DComponent>()!.enabled = false;
         }
@@ -461,10 +461,10 @@ void main() {
               )!
               as ShadowCaster2DComponent;
       expect([back.depth, back.enabled], [3.0, false]);
-      final layer = MapLayerData(id: 1, castsShadows: true, shadowDepth: 5);
+      final layer = MapLayerData(id: 1, castShadows: true, shadowDepth: 5);
       final again = MapLayerData.fromJson(layer.toJson());
-      expect([again.castsShadows, again.shadowDepth], [true, 5.0]);
-      expect(MapLayerData(id: 2).toJson().containsKey('castsShadows'), isFalse);
+      expect([again.castShadows, again.shadowDepth], [true, 5.0]);
+      expect(MapLayerData(id: 2).toJson().containsKey('castShadows'), isFalse);
     });
   });
 
@@ -536,14 +536,14 @@ void main() {
       final l = back<Light2DComponent>(
         Light2DComponent(
           kind: Light2DKind.spot,
-          colour: const Color(0xFF00FF00),
+          color: const Color(0xFF00FF00),
           radius: 99,
           coneAngle: 30,
-          castsShadows: false,
+          castShadows: false,
         ),
       );
       expect(
-        [l.kind, l.colour, l.radius, l.coneAngle, l.castsShadows],
+        [l.kind, l.color, l.radius, l.coneAngle, l.castShadows],
         [Light2DKind.spot, const Color(0xFF00FF00), 99.0, 30.0, false],
       );
       final g = back<Lighting2DComponent>(

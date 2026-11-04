@@ -177,8 +177,8 @@ abstract final class TileCell {
     (1, true), // H V D
   ];
 
-  /// How to draw [cell]'s tile: mirror it left to right when [mirrored],
-  /// then turn it clockwise by [radians] about its centre. `sideways` says
+  /// How to draw [cell]'s tile: mirror it left to right when `mirrored`,
+  /// then turn it clockwise by `radians` about its centre. `sideways` says
   /// the turned tile is as wide as it was tall (square tiles on their side).
   ///
   /// Tiled's three mirror flags make eight ways a square tile can face;

@@ -16,14 +16,14 @@ const _flashBlue = 'assets/fx/flash_blue.material2d.json';
 
 final _files = <String, String>{
   _flash: jsonEncode({
-    'flash': {'colour': 0xFFFF0000, 'amount': 1},
+    'flash': {'color': 0xFFFF0000, 'amount': 1},
   }),
   _outline: jsonEncode({
-    'outline': {'colour': 0xFF0000FF, 'width': 2},
+    'outline': {'color': 0xFF0000FF, 'width': 2},
   }),
   _flashBlue: jsonEncode({
     'parent': _flash,
-    'flash': {'colour': 0xFF0000FF},
+    'flash': {'color': 0xFF0000FF},
   }),
 };
 
@@ -104,22 +104,21 @@ void main() {
       );
     });
 
-    Future<void> settle() => Future<void>.delayed(Duration.zero);
+    // Every read finished, however many turns of the event loop that takes.
+    Future<void> settle() => pumpEventQueue();
 
     test('a variant over its parent; problems said', () async {
       expect(library.fileOf(_flashBlue), isNull, reason: 'being read');
       await settle();
-      await settle();
       final file = library.fileOf(_flashBlue)!;
       expect(file.isVariant, isFalse);
-      expect(file.colour('flash.colour'), 0xFF0000FF);
+      expect(file.color('flash.color'), 0xFF0000FF);
       expect(file.number('flash.amount'), 1, reason: "the parent's");
       expect(library.sourceOf(_flashBlue)!.isVariant, isTrue);
 
       files['orphan.material2d.json'] =
           '{"parent": "gone.material2d.json", "glow": {}}';
       library.fileOf('orphan.material2d.json');
-      await settle();
       await settle();
       expect(
         library.problemsOf('orphan.material2d.json').single,
@@ -130,7 +129,6 @@ void main() {
 
     test('an unsaved edit, and a file saved again', () async {
       library.fileOf(_flashBlue);
-      await settle();
       await settle();
       final revision = library.revision;
       library.preview(
@@ -173,15 +171,16 @@ void main() {
           _files[path] ?? (throw StateError('no $path'));
       render = RenderSystem(passes: const [], clock: () => 0);
       world.addSystem(render);
-      final library = Material2DLibrary.of(world.context);
+      final library = world.context.material2DLibrary;
       for (final path in _files.keys) {
         library.fileOf(path);
       }
       library.program;
       for (var i = 0; i < 200; i++) {
         if (library.program != null &&
-            _files.keys.every((p) => library.fileOf(p) != null))
+            _files.keys.every((p) => library.fileOf(p) != null)) {
           break;
+        }
         await Future<void>.delayed(const Duration(milliseconds: 5));
       }
       expect(library.program, isNotNull, reason: 'the shader loads in tests');
@@ -262,7 +261,7 @@ void main() {
         green,
         const Offset(40, 16),
         material: _flash,
-        overrides: {'flash.colour': 0xFF0000FF},
+        overrides: {'flash.color': 0xFF0000FF},
       );
       final d = await frame();
       expect(at(d, 8, 16), const Color(0xFFFF0000));
@@ -412,7 +411,7 @@ void main() {
           'vignette.amount',
         ]),
       );
-      expect(channels, isNot(contains('flash.colour')));
+      expect(channels, isNot(contains('flash.color')));
 
       final m = e.getComponent<Material2DComponent>()!;
       final revision = m.revision;

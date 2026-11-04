@@ -40,4 +40,38 @@ abstract class AtlasParser {
     if (app.contains('aseprite')) return AsepriteAtlasParser();
     return TexturePackerAtlasParser();
   }
+
+  /// [name] without its image-file extension (`.png`, `.jpg`, … in any
+  /// case), as packers name frames after the files they packed. Only an
+  /// extension after the last `/` counts, and only an image one: frames
+  /// named `coin.1` and `coin.2`, or a folder `ui.v2/button`, keep their
+  /// dots.
+  static String stripImageExtension(String name) {
+    final slash = name.lastIndexOf('/');
+    final dot = name.lastIndexOf('.');
+    if (dot <= slash + 1) return name;
+    final extension = name.substring(dot + 1).toLowerCase();
+    return _imageExtensions.contains(extension) ? name.substring(0, dot) : name;
+  }
+
+  static const Set<String> _imageExtensions = {
+    'png',
+    'jpg',
+    'jpeg',
+    'gif',
+    'webp',
+    'bmp',
+    'tga',
+    'tif',
+    'tiff',
+    'psd',
+    'ase',
+    'aseprite',
+    'svg',
+    'avif',
+    'ktx',
+    'ktx2',
+    'dds',
+    'pvr',
+  };
 }

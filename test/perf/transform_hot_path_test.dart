@@ -5,6 +5,8 @@
 // benchmarks print ms/frame for the paths that touch every transform every
 // frame, so a run before and after a change can be compared. They assert
 // only generous ceilings: timing on a shared machine is too noisy for more.
+@Tags(['perf'])
+library;
 
 import 'dart:ui' as ui;
 
@@ -71,7 +73,7 @@ void main() {
           position: Vector3((i % 50) * 40.0, (i ~/ 50) * 40.0, 0),
         ),
         RigidBody2DComponent(),
-        Collider2DComponent(shape: ColliderShape2D.circle, radius: 4, showDebugOutline: false),
+        Collider2DComponent(shape: Collider2DShape.circle, radius: 4, showDebugOutline: false),
       ]);
     }
 

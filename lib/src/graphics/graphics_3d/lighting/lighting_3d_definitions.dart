@@ -10,8 +10,8 @@ import 'light_3d_component.dart';
 /// Every one is a 3-D component (`Dimensions.threeD`).
 abstract final class Lighting3DDefinitions {
   /// [Light3DComponent].
-  static ComponentSchema<Light3DComponent> get light3D =>
-      ComponentSchema<Light3DComponent>(
+  static ComponentDefinition<Light3DComponent> get light3D =>
+      ComponentDefinition<Light3DComponent>(
         type: 'Light3DComponent',
         id: 'light_3d_4f9a12d0',
         create: Light3DComponent.new,
@@ -33,36 +33,36 @@ abstract final class Lighting3DDefinitions {
               label: 'Range',
               scrub: const ScrubHint(step: 0.5, fractionDigits: 1, suffix: 'm'),
               visibleWhen: (c) =>
-                  (c as Light3DComponent).kind != LightKind.directional,
+                  (c as Light3DComponent).kind != Light3DKind.directional,
             ),
             'innerConeAngle': FieldHint(
               label: 'Inner cone',
               unit: AngleUnit.degrees,
               scrub: const ScrubHint(step: 1, fractionDigits: 0, suffix: '°'),
               visibleWhen: (c) =>
-                  (c as Light3DComponent).kind == LightKind.spot,
+                  (c as Light3DComponent).kind == Light3DKind.spot,
             ),
             'outerConeAngle': FieldHint(
               label: 'Outer cone',
               unit: AngleUnit.degrees,
               scrub: const ScrubHint(step: 1, fractionDigits: 0, suffix: '°'),
               visibleWhen: (c) =>
-                  (c as Light3DComponent).kind == LightKind.spot,
+                  (c as Light3DComponent).kind == Light3DKind.spot,
             ),
           },
         ),
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'kind',
             kind: const EnumFieldType(
-              LightKind.values,
-              fallback: LightKind.point,
+              Light3DKind.values,
+              fallback: Light3DKind.point,
               id: 'graphics.lightKind',
             ),
             read: (c) => (c as Light3DComponent).kind,
-            write: (c, v) => (c as Light3DComponent).kind = v as LightKind,
+            write: (c, v) => (c as Light3DComponent).kind = v as Light3DKind,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'color',
             kind: FieldTypes.color,
             read: (c) => (c as Light3DComponent).color,
@@ -96,8 +96,8 @@ abstract final class Lighting3DDefinitions {
       );
 
   /// [EnvironmentComponent].
-  static ComponentSchema<EnvironmentComponent>
-  get environment => ComponentSchema<EnvironmentComponent>(
+  static ComponentDefinition<EnvironmentComponent>
+  get environment => ComponentDefinition<EnvironmentComponent>(
     type: 'EnvironmentComponent',
     id: 'environment_3d_b38e5c17',
     create: EnvironmentComponent.new,
@@ -171,7 +171,7 @@ abstract final class Lighting3DDefinitions {
       },
     ),
     fields: [
-      SchemaField(
+      FieldDefinition(
         name: 'sky',
         kind: FieldTypes.boolean,
         read: (c) => (c as EnvironmentComponent).sky,
@@ -193,7 +193,7 @@ abstract final class Lighting3DDefinitions {
         (c, v) => (c as EnvironmentComponent).exposure = v,
         min: 0,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'fog',
         kind: FieldTypes.boolean,
         read: (c) => (c as EnvironmentComponent).fog,
@@ -212,7 +212,7 @@ abstract final class Lighting3DDefinitions {
         (c, v) => (c as EnvironmentComponent).fogStart = v,
         min: 0,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'reflections',
         kind: FieldTypes.boolean,
         read: (c) => (c as EnvironmentComponent).reflections,
@@ -224,7 +224,7 @@ abstract final class Lighting3DDefinitions {
         (c, v) => (c as EnvironmentComponent).reflectionStrength = v,
         min: 0,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'skybox',
         kind: FieldTypes.assetRef,
         read: (c) => (c as EnvironmentComponent).skybox,
@@ -236,31 +236,34 @@ abstract final class Lighting3DDefinitions {
         (c) => (c as EnvironmentComponent).skyboxBlur,
         (c, v) => (c as EnvironmentComponent).skyboxBlur = v.clamp(0.0, 1.0),
         min: 0,
+        max: 1,
       ),
     ],
   );
 
   /// Every lighting component.
-  static List<ComponentSchema> get all => [light3D, environment];
+  static List<ComponentDefinition> get all => [light3D, environment];
 
-  static SchemaField _decimal(
+  static FieldDefinition _decimal(
     String name,
     double Function(Component c) read,
     void Function(Component c, double v) write, {
     double? min,
-  }) => SchemaField(
+    double? max,
+  }) => FieldDefinition(
     name: name,
     kind: FieldTypes.decimal,
     read: read,
     write: (c, v) => write(c, (v as num).toDouble()),
     min: min,
+    max: max,
   );
 
-  static SchemaField _color(
+  static FieldDefinition _color(
     String name,
     Color Function(EnvironmentComponent c) read,
     void Function(EnvironmentComponent c, Color v) write,
-  ) => SchemaField(
+  ) => FieldDefinition(
     name: name,
     kind: FieldTypes.color,
     read: (c) => read(c as EnvironmentComponent),

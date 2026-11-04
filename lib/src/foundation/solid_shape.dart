@@ -10,7 +10,9 @@ import 'dart:typed_data';
 /// collides. Units are the entity's own (metres in 3-D); +Y is down.
 abstract interface class SolidShapeSource {
   /// Equal ([Object.==]) for as long as the shape stays the same: a reader
-  /// builds its own shape again only when this changes.
+  /// builds its own shape again only when this changes. A reader asks every
+  /// step, so the engine's shapes give the same object back while nothing
+  /// changed and asking makes nothing.
   Object get solidKey;
 
   /// The shape as convex parts whose union it is, in its entity's own space
@@ -216,10 +218,13 @@ final class SolidMesh extends SolidPart {
   // changed.
   @override
   bool operator ==(Object other) =>
-      other is SolidMesh && identical(other.positions, positions) && identical(other.indices, indices);
+      other is SolidMesh &&
+      identical(other.positions, positions) &&
+      identical(other.indices, indices);
 
   @override
-  int get hashCode => Object.hash(identityHashCode(positions), identityHashCode(indices));
+  int get hashCode =>
+      Object.hash(identityHashCode(positions), identityHashCode(indices));
 
   @override
   String toString() => 'SolidMesh($triangleCount triangles)';
@@ -266,7 +271,8 @@ final class SolidHeightField extends SolidPart {
       other.z == z;
 
   @override
-  int get hashCode => Object.hash(identityHashCode(heights), sampleCount, cellSize, x, y, z);
+  int get hashCode =>
+      Object.hash(identityHashCode(heights), sampleCount, cellSize, x, y, z);
 
   @override
   String toString() => 'SolidHeightField($sampleCount × $sampleCount)';

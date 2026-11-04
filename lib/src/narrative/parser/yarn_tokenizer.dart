@@ -5,11 +5,14 @@
 /// stream into a [DialogueGraph] AST.
 library;
 
+import 'package:meta/meta.dart' show internal;
+
 // ---------------------------------------------------------------------------
 // Token types
 // ---------------------------------------------------------------------------
 
 /// Classifies the role of a single Yarn Spinner source line.
+@internal
 enum TokenType {
   /// Header key:value pair (e.g. `title: Start`, `tags: hub npc`).
   header,
@@ -65,6 +68,7 @@ enum TokenType {
 // ---------------------------------------------------------------------------
 
 /// A single logical line from a Yarn Spinner source file.
+@internal
 class YarnToken {
   /// The token for source line [lineNumber], of kind [type], with [value]
   /// its content and [indentLevel] its indentation.
@@ -111,6 +115,7 @@ class YarnToken {
 /// ```dart
 /// final tokens = YarnTokenizer.tokenize(yarnSource);
 /// ```
+@internal
 class YarnTokenizer {
   /// Tokenizes [source] and returns the full token list.
   static List<YarnToken> tokenize(String source) {

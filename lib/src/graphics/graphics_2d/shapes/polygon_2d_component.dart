@@ -6,6 +6,8 @@ import '../../../rendering/renderable_component.dart';
 import '../../../rendering/renderable.dart';
 import 'shape_paint_cache.dart';
 import '../../../foundation/shape_paint_style.dart';
+import '../../../foundation/solid_shape_2d.dart';
+import 'shape_2d_look.dart';
 import 'shape_painting.dart';
 
 /// Polygon shape component.
@@ -15,7 +17,8 @@ import 'shape_painting.dart';
 /// Extends [RenderableComponent] — add it to an entity directly and it draws
 /// itself each frame, reading all fields at draw-time so mutations are
 /// reflected immediately.
-class Polygon2DComponent extends RenderableComponent {
+class Polygon2DComponent extends RenderableComponent
+    implements SolidShape2DSource, Shape2DLook {
   /// Vertices of the polygon in local (entity-relative) space.
   ///
   /// The polygon is drawn by connecting consecutive vertices and closing
@@ -54,7 +57,7 @@ class Polygon2DComponent extends RenderableComponent {
       filled: filled,
       strokeWidth: strokeWidth,
       renderable: CustomRenderable(
-        getBoundsCallback: () {
+        boundsOf: () {
           if (self.vertices.isEmpty) return Rect.zero;
           double minX = self.vertices.first.dx, maxX = minX;
           double minY = self.vertices.first.dy, maxY = minY;
@@ -87,6 +90,53 @@ class Polygon2DComponent extends RenderableComponent {
     required this.strokeWidth,
     required super.renderable,
   });
+
+  SolidPolygon2D? _solid;
+
+  /// The polygon through [vertices] — none for fewer than three: what a
+  /// collider matching the shape takes.
+  @override
+  SolidShape2D? get solidShape2D =>
+      _solid = SolidPolygon2D.reuse(_solid, vertices);
+
+  // The vertices [look] last saw, and how often they have changed: the
+  // list may be edited in place, so it is compared with a copy.
+  final List<Offset> _lookPoints = [];
+  int _vertexChanges = 0;
+  (int, ShapePaintStyle, ShapePaintStyle, bool, double, Renderable)? _look;
+
+  @override
+  Object get look {
+    final points = vertices;
+    var same = points.length == _lookPoints.length;
+    for (var i = 0; same && i < points.length; i++) {
+      same = points[i] == _lookPoints[i];
+    }
+    if (!same) {
+      _lookPoints
+        ..clear()
+        ..addAll(points);
+      _vertexChanges++;
+    }
+    final l = _look;
+    if (l != null &&
+        l.$1 == _vertexChanges &&
+        identical(l.$2, fillStyle) &&
+        identical(l.$3, strokeStyle) &&
+        l.$4 == filled &&
+        l.$5 == strokeWidth &&
+        identical(l.$6, renderable)) {
+      return l;
+    }
+    return _look = (
+      _vertexChanges,
+      fillStyle,
+      strokeStyle,
+      filled,
+      strokeWidth,
+      renderable,
+    );
+  }
 
   // Paints, the path and its bounds, kept between frames. The path is
   // rebuilt when a vertex changes — [vertices] is compared with the copy it

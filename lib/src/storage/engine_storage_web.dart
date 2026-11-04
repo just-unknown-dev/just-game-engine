@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'dart:js_interop';
 
 import 'package:just_storage/just_storage.dart';
+import 'package:meta/meta.dart' show internal;
 
 import 'namespaced_storage.dart';
 
@@ -16,6 +17,7 @@ import 'namespaced_storage.dart';
 /// and the app's own `JustStorage.standard().clear()` or `readAll()` would
 /// then reach the engine's cache and settings (players' key bindings). The
 /// engine's keys sit beside the app's, not among them.
+@internal
 Future<JustStandardStorage> openEngineStorage() async =>
     engineNamespaceOf(_BrowserStorage(_localStorage));
 
@@ -111,8 +113,20 @@ final class _BrowserStorage implements JustStandardStorage {
     Map<String, dynamic> Function(T value) toJson,
   ) => write(key, jsonEncode(toJson(value)));
 
+  /// A stream of [key]'s new values. Once its last listener cancels, the
+  /// stream is closed and forgotten; watching [key] again makes a new one.
   @override
-  Stream<String?> watch(String key) => _watchers
-      .putIfAbsent(key, () => StreamController<String?>.broadcast())
-      .stream;
+  Stream<String?> watch(String key) {
+    final existing = _watchers[key];
+    if (existing != null) return existing.stream;
+    late final StreamController<String?> controller;
+    controller = StreamController<String?>.broadcast(
+      onCancel: () {
+        if (identical(_watchers[key], controller)) _watchers.remove(key);
+        controller.close();
+      },
+    );
+    _watchers[key] = controller;
+    return controller.stream;
+  }
 }

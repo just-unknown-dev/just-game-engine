@@ -48,87 +48,6 @@ void main() {
     });
   });
 
-  group('ParallaxSystem', () {
-    test('initializes correctly', () {
-      final system = ParallaxSystem();
-      expect(system.isInitialized, false);
-      system.initialize();
-      expect(system.isInitialized, true);
-    });
-
-    test('double initialize is safe', () {
-      final system = ParallaxSystem();
-      system.initialize();
-      system.initialize(); // no-op
-      expect(system.isInitialized, true);
-    });
-
-    test('addBackground / removeBackground', () {
-      final system = ParallaxSystem();
-      system.initialize();
-
-      final bg = ParallaxBackground();
-      system.addBackground(bg);
-      expect(system.backgroundCount, 1);
-      expect(system.backgrounds, contains(bg));
-
-      final removed = system.removeBackground(bg);
-      expect(removed, true);
-      expect(system.backgroundCount, 0);
-    });
-
-    test('removeBackground returns false for unknown background', () {
-      final system = ParallaxSystem();
-      system.initialize();
-      expect(system.removeBackground(ParallaxBackground()), false);
-    });
-
-    test('clear removes all backgrounds', () {
-      final system = ParallaxSystem();
-      system.initialize();
-      system.addBackground(ParallaxBackground());
-      system.addBackground(ParallaxBackground());
-      system.clear();
-      expect(system.backgroundCount, 0);
-    });
-
-    test('dispose clears state', () {
-      final system = ParallaxSystem();
-      system.initialize();
-      system.addBackground(ParallaxBackground());
-      system.dispose();
-      expect(system.isInitialized, false);
-      expect(system.backgroundCount, 0);
-    });
-
-    test('update feeds camera position to all backgrounds', () {
-      final system = ParallaxSystem();
-      system.initialize();
-
-      final bg1 = ParallaxBackground();
-      final bg2 = ParallaxBackground();
-      system.addBackground(bg1);
-      system.addBackground(bg2);
-
-      const cameraPos = Offset(42, 99);
-      system.update(0.016, cameraPos);
-
-      expect(bg1.cameraPosition, cameraPos);
-      expect(bg2.cameraPosition, cameraPos);
-    });
-
-    test('backgrounds list is unmodifiable', () {
-      final system = ParallaxSystem();
-      system.initialize();
-      system.addBackground(ParallaxBackground());
-
-      expect(
-        () => system.backgrounds.add(ParallaxBackground()),
-        throwsUnsupportedError,
-      );
-    });
-  });
-
   group('ParallaxComponent (ECS)', () {
     test('wraps a ParallaxBackground', () {
       final bg = ParallaxBackground();
@@ -147,36 +66,6 @@ void main() {
     test('parallax sits between levelMap and input', () {
       expect(SystemPriorities.parallax, greaterThan(SystemPriorities.input));
       expect(SystemPriorities.parallax, lessThan(SystemPriorities.levelMap));
-    });
-  });
-
-  // A real Engine: without the audio plugin (as in a unit test) it starts
-  // with audio skipped.
-  group('Engine integration', () {
-    test('Engine exposes parallax subsystem after init', () async {
-      final engine = Engine();
-      addTearDown(engine.dispose);
-      await engine.initialize();
-      expect(engine.parallax, isNotNull);
-      expect(engine.parallax.isInitialized, true);
-    });
-
-    test('ParallaxSystem can be retrieved via subsystem', () async {
-      final engine = Engine();
-      addTearDown(engine.dispose);
-      await engine.initialize();
-      final system = engine.subsystem<ParallaxSystem>();
-      expect(system, same(engine.parallax));
-    });
-
-    test('addBackground through engine parallax subsystem', () async {
-      final engine = Engine();
-      addTearDown(engine.dispose);
-      await engine.initialize();
-
-      final bg = ParallaxBackground();
-      engine.parallax.addBackground(bg);
-      expect(engine.parallax.backgroundCount, 1);
     });
   });
 }

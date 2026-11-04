@@ -1,63 +1,86 @@
-/// Draws physics bodies and ray-cast colliders as outlines, for debugging.
+/// Draws the 2-D colliders, characters and ray-cast colliders as outlines,
+/// for debugging.
 library;
 
-import 'dart:ui';
-
-import 'package:just_physics_engine/just_physics_engine.dart' show PhysicsBody;
+import 'package:flutter/material.dart' show Colors;
+import 'package:flutter/painting.dart';
+import 'package:just_physics_engine/just_physics_engine.dart';
 
 import '../../ecs/ecs.dart';
-import '../../camera/output_camera.dart' show Camera;
-import 'collider_geometry.dart';
+import '../../interfaces/game_camera.dart';
+import 'collider_2d_geometry.dart';
+import 'physics_2d_components.dart';
 import 'physics_body_ref_component.dart';
 import 'raycast_collider_component.dart';
 
-/// Outlines every physics body ([PhysicsBodyRefComponent]) and every
-/// [RaycastColliderComponent] in [color], above everything else
+/// The engine's one collider drawer: outlines every [Collider2DComponent]
+/// as the simulation has it — offset, scaled and turned with its body —
+/// coloured by what kind of body it is ([paintFor]), every
+/// [CharacterBody2DComponent]'s shape, every body made outside the ECS
+/// (a [PhysicsBodyRefComponent] with no collider) and every
+/// [RaycastColliderComponent], above everything else
 /// ([SystemPriorities.debug]).
+///
+/// `GameWidget(showDebug: true)` adds one, and an editor adds one while it
+/// shows colliders: the same scene is outlined the same way in both. A
+/// collider that has no body yet — one just added, a scene not yet played —
+/// is drawn from its component. A collider's own
+/// [Collider2DComponent.showDebugOutline] has the last word, after
+/// [outlineFilter].
 ///
 /// Pass [camera] so the outlines follow the world view; see
 /// `RenderSystem.cameraAppliedExternally` for why a system draws in screen
 /// space otherwise.
 class ColliderDebuggerSystem extends System {
-  /// A debugger drawing everything in 1.5-pixel red outlines unless told
-  /// otherwise.
+  /// A debugger outlining everything, [strokeWidth] wide.
   ColliderDebuggerSystem({
     this.camera,
-    this.color = const Color(0xFFFF4D4D),
-    this.strokeWidth = 1.5,
+    this.strokeWidth = 2.0,
     this.includeStaticBodies = true,
     this.includeDynamicBodies = true,
+    this.includeCharacters = true,
     this.includeRaycastColliders = true,
+    this.raycastColor = const Color(0xFFFF4D4D),
+    this.outlineFilter,
   });
 
   /// The camera whose transform the outlines are drawn through; each
   /// render also sets its `viewportSize` to the canvas size. Null draws
   /// world positions as they are, through whatever transform the canvas
   /// already has.
-  final Camera? camera;
-
-  /// Colour of every outline.
-  final Color color;
+  final GameCamera? camera;
 
   /// Outline thickness, in the canvas's units — with a [camera], world
-  /// units, so it scales with the zoom.
+  /// units, so it scales with the zoom. A sensor's is three quarters of it.
   final double strokeWidth;
 
-  /// Whether to outline static bodies — those with a mass of zero or less.
-  /// Only the body's outline is left out: a ray-cast collider on the same
-  /// entity follows [includeRaycastColliders].
+  /// Whether to outline static bodies (and colliders with no rigid body,
+  /// which are static). Only the body's outline is left out: a ray-cast
+  /// collider on the same entity follows [includeRaycastColliders].
   final bool includeStaticBodies;
 
-  /// Whether to outline dynamic bodies — those with a positive mass. Only
+  /// Whether to outline bodies that move — dynamic and kinematic ones. Only
   /// the body's outline is left out: a ray-cast collider on the same
   /// entity follows [includeRaycastColliders].
   final bool includeDynamicBodies;
 
+  /// Whether to outline each [CharacterBody2DComponent]'s shape where it is:
+  /// solid on the ground, faded in the air.
+  final bool includeCharacters;
+
   /// Whether to outline [RaycastColliderComponent]s as `RaycastSystem`
-  /// tests them: a circle of its radius when it has no width or height,
-  /// otherwise an upright box (a missing side its radius either way of the
-  /// centre); nothing for one with no size, which no ray hits.
+  /// tests them, in [raycastColor]: a circle of its radius when it has no
+  /// width or height, otherwise an upright box (a missing side its radius
+  /// either way of the centre); nothing for one with no size, which no ray
+  /// hits.
   final bool includeRaycastColliders;
+
+  /// The colour ray-cast colliders are outlined in.
+  final Color raycastColor;
+
+  /// Which entities are outlined: all of them when null. An editor leaves
+  /// out what it hides.
+  bool Function(Entity entity)? outlineFilter;
 
   @override
   int get priority => SystemPriorities.debug;
@@ -65,79 +88,214 @@ class ColliderDebuggerSystem extends System {
   @override
   List<Type> get requiredComponents => const [TransformComponent];
 
+  // One outline per shape, kept while the shape lives: a body's shape never
+  // changes (a new one is made), so the outlines of bodies drawn every
+  // frame are listed into native paths once.
+  final Expando<Path> _paths = Expando('collider outlines');
+
+  Paint _stroke(Color color, [double scale = 1]) => Paint()
+    ..color = color
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = strokeWidth * scale;
+
+  late final Paint _staticPaint = _stroke(Colors.blue);
+  late final Paint _kinematicPaint = _stroke(Colors.orange);
+  late final Paint _dynamicPaint = _stroke(Colors.green);
+  late final Paint _sleepingPaint = _stroke(
+    Colors.green.withValues(alpha: 0.4),
+  );
+  late final Paint _sensorPaint = _stroke(Colors.yellow, 0.75);
+  late final Paint _characterPaint = _stroke(Colors.lightBlueAccent);
+  late final Paint _characterAirPaint = _stroke(
+    Colors.lightBlueAccent.withValues(alpha: 0.5),
+  );
+  late final Paint _raycastPaint = _stroke(raycastColor, 0.75);
+
+  /// How a collider of [rigid] (none: a static body) is outlined: a sensor
+  /// yellow, a static body blue, a kinematic one orange, a dynamic one
+  /// green — faded while its [body] sleeps.
+  Paint paintFor(RigidBody2DComponent? rigid, [PhysicsBody? body]) {
+    if (rigid == null) return _staticPaint;
+    if (rigid.isSensor) return _sensorPaint;
+    return switch (rigid.bodyType) {
+      BodyType.static => _staticPaint,
+      BodyType.kinematic => _kinematicPaint,
+      BodyType.dynamic =>
+        body != null && !body.isAwake ? _sleepingPaint : _dynamicPaint,
+    };
+  }
+
+  /// [paintFor] a body with no rigid body component, by the body itself.
+  Paint _paintForBody(PhysicsBody body) {
+    if (body.isSensor) return _sensorPaint;
+    return switch (body.effectiveBodyType) {
+      BodyType.static => _staticPaint,
+      BodyType.kinematic => _kinematicPaint,
+      BodyType.dynamic => body.isAwake ? _dynamicPaint : _sleepingPaint,
+    };
+  }
+
+  /// Whether a body that [isStatic] (or not) is outlined at all.
+  bool _includes(bool isStatic) =>
+      isStatic ? includeStaticBodies : includeDynamicBodies;
+
   @override
   void render(Canvas canvas, Size size) {
+    final camera = this.camera;
     if (camera != null) {
-      camera!.viewportSize = size;
+      camera.viewportSize = size;
       canvas.save();
-      camera!.applyTransform(canvas, size);
+      camera.applyTransform(canvas, size);
     }
+    _drawColliders(canvas);
+    _drawBodies(canvas);
+    if (includeCharacters) _drawCharacters(canvas);
+    if (includeRaycastColliders) _drawRaycastColliders(canvas);
+    if (camera != null) canvas.restore();
+  }
 
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-
-    forEach((entity) {
-      final transform = entity.getComponent<TransformComponent>()!;
-      final physicsRef = entity.getComponent<PhysicsBodyRefComponent>();
-
-      if (physicsRef != null) {
-        final body = physicsRef.body;
-        final isStatic = body.mass <= 0;
-        if (isStatic ? includeStaticBodies : includeDynamicBodies) {
-          _drawPhysicsBody(canvas, paint, body);
+  /// Each collider as the simulation has it, at its entity: its body's
+  /// shape once it has one, its component's until then.
+  void _drawColliders(Canvas canvas) {
+    final filter = outlineFilter;
+    final definitions = world.context.definitions;
+    for (final archetype in world.queryArchetypes(const [
+      TransformComponent,
+      Collider2DComponent,
+    ])) {
+      final transforms = archetype.getColumn(TransformComponent)!;
+      final colliders = archetype.getColumn(Collider2DComponent)!;
+      final rigids = archetype.getColumn(RigidBody2DComponent);
+      final refs = archetype.getColumn(PhysicsBodyRefComponent);
+      for (var row = 0; row < transforms.length; row++) {
+        final collider = colliders[row] as Collider2DComponent;
+        if (!collider.showDebugOutline) continue;
+        final entity = archetype.entityAt(row);
+        if (!entity.isActiveInHierarchy) continue;
+        if (filter != null && !filter(entity)) continue;
+        final rigid = rigids?[row] as RigidBody2DComponent?;
+        final body = (refs?[row] as PhysicsBodyRefComponent?)?.body;
+        if (!_includes(body?.isStatic ?? (rigid?.isStatic ?? true))) continue;
+        final transform = transforms[row] as TransformComponent;
+        final shape =
+            body?.shape ??
+            Collider2DGeometry.of(collider, transform, entity, definitions);
+        if (shape == null) continue;
+        canvas
+          ..save()
+          ..translate(transform.position.x, transform.position.y)
+          ..rotate(transform.angle);
+        final paint = paintFor(rigid, body);
+        Collider2DGeometry.paint(canvas, shape, paint, paths: _paths);
+        if (body != null) {
+          for (final extra in body.additionalShapes) {
+            Collider2DGeometry.paint(canvas, extra, paint, paths: _paths);
+          }
         }
+        canvas.restore();
       }
-
-      if (includeRaycastColliders) {
-        final raycast = entity.getComponent<RaycastColliderComponent>();
-        if (raycast != null) {
-          _drawRaycastCollider(canvas, paint, transform, raycast);
-        }
-      }
-    });
-
-    if (camera != null) {
-      canvas.restore();
     }
   }
 
-  /// [body]'s shapes where it is, as the simulation has them: a circle
-  /// round its own centre, capsules, segments and chains too.
-  void _drawPhysicsBody(Canvas canvas, Paint paint, PhysicsBody body) {
-    canvas
-      ..save()
-      ..translate(body.position.x, body.position.y)
-      ..rotate(body.angle);
-    ColliderGeometry.paint(canvas, body.shape, paint);
-    for (final shape in body.additionalShapes) {
-      ColliderGeometry.paint(canvas, shape, paint);
+  /// Bodies made outside the ECS, named on an entity with no collider: as
+  /// the simulation has them, where they are.
+  void _drawBodies(Canvas canvas) {
+    final filter = outlineFilter;
+    for (final archetype in world.queryArchetypes(const [
+      PhysicsBodyRefComponent,
+    ])) {
+      if (archetype.types.contains(Collider2DComponent)) continue;
+      final refs = archetype.getColumn(PhysicsBodyRefComponent)!;
+      for (var row = 0; row < refs.length; row++) {
+        final entity = archetype.entityAt(row);
+        if (!entity.isActiveInHierarchy) continue;
+        final body = (refs[row] as PhysicsBodyRefComponent).body;
+        if (!_includes(body.isStatic)) continue;
+        if (filter != null && !filter(entity)) continue;
+        final paint = _paintForBody(body);
+        canvas
+          ..save()
+          ..translate(body.position.x, body.position.y)
+          ..rotate(body.angle);
+        Collider2DGeometry.paint(canvas, body.shape, paint, paths: _paths);
+        for (final extra in body.additionalShapes) {
+          Collider2DGeometry.paint(canvas, extra, paint, paths: _paths);
+        }
+        canvas.restore();
+      }
     }
-    canvas.restore();
   }
 
-  void _drawRaycastCollider(
-    Canvas canvas,
-    Paint paint,
-    TransformComponent transform,
-    RaycastColliderComponent collider,
-  ) {
-    final center = Offset(transform.position.x, transform.position.y);
-    final w = collider.width, h = collider.height, r = collider.radius;
-    if (r <= 0 && w <= 0 && h <= 0) return;
-    if (r > 0 && w == 0 && h == 0) {
-      canvas.drawCircle(center, r, paint);
-      return;
+  /// Each character's shape where it is, moved yet or not.
+  void _drawCharacters(Canvas canvas) {
+    final filter = outlineFilter;
+    for (final archetype in world.queryArchetypes(const [
+      TransformComponent,
+      CharacterBody2DComponent,
+    ])) {
+      final transforms = archetype.getColumn(TransformComponent)!;
+      final characters = archetype.getColumn(CharacterBody2DComponent)!;
+      for (var row = 0; row < transforms.length; row++) {
+        final entity = archetype.entityAt(row);
+        if (!entity.isActiveInHierarchy) continue;
+        if (filter != null && !filter(entity)) continue;
+        final transform = transforms[row] as TransformComponent;
+        final character = characters[row] as CharacterBody2DComponent;
+        final shape = character.moverShape;
+        final p = shape.points;
+        final outline = p.length == 1
+            ? CircleShape(shape.radius)
+            : p.length == 2
+            ? CapsuleShape(center1: p[0], center2: p[1], radius: shape.radius)
+            : RoundedPolygonShape(p, shape.radius);
+        canvas
+          ..save()
+          ..translate(
+            transform.position.x + character.offset.dx,
+            transform.position.y + character.offset.dy,
+          );
+        Collider2DGeometry.paint(
+          canvas,
+          outline,
+          character.isGrounded ? _characterPaint : _characterAirPaint,
+        );
+        canvas.restore();
+      }
     }
-    // Axis-aligned, as the ray test has it: the entity's angle plays no part.
-    canvas.drawRect(
-      Rect.fromCenter(
-        center: center,
-        width: w > 0 ? w : 2 * r,
-        height: h > 0 ? h : 2 * r,
-      ),
-      paint,
-    );
+  }
+
+  void _drawRaycastColliders(Canvas canvas) {
+    final filter = outlineFilter;
+    for (final archetype in world.queryArchetypes(const [
+      TransformComponent,
+      RaycastColliderComponent,
+    ])) {
+      final transforms = archetype.getColumn(TransformComponent)!;
+      final colliders = archetype.getColumn(RaycastColliderComponent)!;
+      for (var row = 0; row < transforms.length; row++) {
+        final entity = archetype.entityAt(row);
+        if (!entity.isActiveInHierarchy) continue;
+        if (filter != null && !filter(entity)) continue;
+        final transform = transforms[row] as TransformComponent;
+        final collider = colliders[row] as RaycastColliderComponent;
+        final center = Offset(transform.position.x, transform.position.y);
+        final w = collider.width, h = collider.height, r = collider.radius;
+        if (r <= 0 && w <= 0 && h <= 0) continue;
+        if (r > 0 && w == 0 && h == 0) {
+          canvas.drawCircle(center, r, _raycastPaint);
+          continue;
+        }
+        // Axis-aligned, as the ray test has it: the entity's angle plays no
+        // part.
+        canvas.drawRect(
+          Rect.fromCenter(
+            center: center,
+            width: w > 0 ? w : 2 * r,
+            height: h > 0 ? h : 2 * r,
+          ),
+          _raycastPaint,
+        );
+      }
+    }
   }
 }

@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_game_engine_formats/just_game_engine_formats.dart'
+    show V5ToV6;
 
 /// The engine's own definitions, fresh for this file.
 final _coreDefinitions = BuiltInComponents.registry();

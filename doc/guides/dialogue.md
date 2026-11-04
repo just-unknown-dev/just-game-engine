@@ -2,7 +2,7 @@
 
 _Audio & content_ · Write branching dialogue in Yarn Spinner 2.x, run it with DialogueManager and DialogueRunner, show it with the ready-made widgets, and time subtitles with SubtitleController.
 
-Dialogue is written in Yarn Spinner 2.x `.yarn` files. A `DialogueManager` loads them and runs them; each running conversation is a `DialogueRunner` that reports its lines and choices through signals; `DialogueBoxWidget` and `DialogueChoicesWidget` show them. Timed subtitles for cutscenes and voice-over use a `SubtitleController`.
+Dialogue is written in Yarn Spinner 2.x `.yarn` files. A `DialogueManager` loads them and runs them; each running conversation is a `DialogueRunner` that reports its lines and choices through signals; `DialogueBox` and `DialogueChoices` show them. Timed subtitles for cutscenes and voice-over use a `SubtitleController`.
 
 ## Write a script
 
@@ -78,7 +78,7 @@ Future<DialogueManager> setUpDialogue(Engine engine) async {
 
 ## Show it on screen
 
-`DialogueBoxWidget` shows the current line with a typewriter effect: the first tap finishes the line, the next calls `onTap`. It hides itself when there is no line. `DialogueChoicesWidget` lists the options and calls `selectChoice` when one is tapped, showing unavailable options greyed out unless `showUnavailable: false`. Both are in `package:just_game_engine/widgets.dart`.
+`DialogueBox` shows the current line with a typewriter effect: the first tap finishes the line, the next calls `onTap`. It hides itself when there is no line. `DialogueChoices` lists the options and calls `selectChoice` when one is tapped, showing unavailable options greyed out unless `showUnavailable: false`. Both are in `package:just_game_engine/widgets.dart`.
 
 ```dart lib/talk.dart
 import 'package:flutter/material.dart';
@@ -94,8 +94,8 @@ Widget talkScreen(Engine engine, DialogueRunner runner) => GameWidget(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          DialogueChoicesWidget(runner: runner),
-          DialogueBoxWidget(runner: runner, onTap: runner.advance),
+          DialogueChoices(runner: runner),
+          DialogueBox(runner: runner, onTap: runner.advance),
         ],
       ),
     ),
@@ -119,7 +119,7 @@ Add `DialogueSystem(manager: narrative)` to the world for dialogue tied to entit
 
 ## Localized lines
 
-A line tagged `#line:key` is looked up under that key in the `dialogue` namespace; when the key is missing, the line's own text is shown. Give the manager a `DialogueLocalizer` that uses the engine's `LocalizationManager`, as above, so dialogue follows the same locale as the rest of the game. Then load the strings with `l10n.load(locale, path, ns: LocalizationManager.dialogueNamespace)`, or call `localizer.loadLocale(locale)`, which reads `<basePath>_<locale>.json` (`basePath` is `assets/data/dialogue` unless you pass one) and falls back to the bare language and then English. A `DialogueManager()` made without a localizer uses a manager of its own, not the engine's. See [Localization](/docs/localization).
+A line tagged `#line:key` is looked up under that key in the `dialogue` namespace; when the key is missing, the line's own text is shown. Give the manager a `DialogueLocalizer` that uses the engine's `LocalizationManager`, as above, so dialogue follows the same locale as the rest of the game. Then load the strings with `l10n.load(locale, path, ns: LocalizationManager.dialogueNamespace)`, or call `localizer.loadLocale(locale)`, which reads `<basePath>_<locale>.json` (`basePath` is `assets/data/dialogue` unless you pass one) and falls back to the bare language and then English. `loadLocale` also sets that manager's locale, so with the engine's `LocalizationManager` it switches the whole game's language, not just the dialogue's. A `DialogueManager()` made without a localizer uses a manager of its own, not the engine's. See [Localization](/docs/localization).
 
 ## Subtitles
 

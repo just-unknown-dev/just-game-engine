@@ -103,7 +103,7 @@ void main() {
       type: 'ShieldedHealth',
       create: ShieldedHealth.new,
       extraFields: [
-        SchemaField(
+        FieldDefinition(
           name: 'shield',
           kind: FieldTypes.decimal,
           read: (c) => (c as ShieldedHealth).shield,
@@ -124,7 +124,7 @@ void main() {
       type: 'Marker',
       create: Marker.new,
       fields: [
-        SchemaField(
+        FieldDefinition(
           name: 'cell',
           kind: const CellFieldType(),
           read: (c) => (c as Marker).cell,

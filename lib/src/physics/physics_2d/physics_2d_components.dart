@@ -47,7 +47,7 @@ class RigidBody2DComponent extends Component {
   BodyType bodyType;
 
   /// Mass in kg; 0 works it out from the collider's area, as a 3-D body
-  /// does from its volume (see `Physics2DSystem.autoMassPerSquareUnit`: a
+  /// does from its volume (see `Collider2DGeometry.autoMassPerSquareUnit`: a
   /// 100 × 100 square weighs 1000 kg). Only a dynamic body's mass matters.
   double mass;
 
@@ -188,7 +188,7 @@ class RigidBody2DComponent extends Component {
 }
 
 /// The shapes a [Collider2DComponent] can be.
-enum ColliderShape2D {
+enum Collider2DShape {
   /// A box [Collider2DComponent.size] big, its corners rounded by
   /// [Collider2DComponent.cornerRadius].
   box,
@@ -220,11 +220,11 @@ enum ColliderShape2D {
 
 /// The shape of its entity's [RigidBody2DComponent] — or, without one, of a static
 /// body made for it. It follows the entity's scale. Set to
-/// [ColliderShape2D.matchShape] it takes the shape its entity is drawn as.
+/// [Collider2DShape.matchShape] it takes the shape its entity is drawn as.
 class Collider2DComponent extends Component {
   /// A 64 × 64 box, by default.
   Collider2DComponent({
-    this.shape = ColliderShape2D.box,
+    this.shape = Collider2DShape.box,
     Vector2? size,
     this.radius = 32.0,
     this.height = 64.0,
@@ -250,7 +250,7 @@ class Collider2DComponent extends Component {
        scale = scale ?? Vector2(1, 1);
 
   /// Which shape.
-  ColliderShape2D shape;
+  Collider2DShape shape;
 
   /// Box: its full width and height.
   Vector2 size;
@@ -290,8 +290,9 @@ class Collider2DComponent extends Component {
   /// Which side [oneWay] makes it solid from.
   OneWayDirection oneWayDirection;
 
-  /// Whether `Physics2DSystem` draws its outline when outlines are drawn
-  /// (`Physics2DSystem.drawsOutlines`: in the editor while a scene is edited).
+  /// Whether its outline is drawn when colliders are outlined (by a
+  /// `ColliderDebuggerSystem`: in the editor while a scene is edited, or a
+  /// game's debug view).
   bool showDebugOutline;
 
   @override
@@ -299,7 +300,7 @@ class Collider2DComponent extends Component {
 }
 
 /// The shape a [CharacterBody2DComponent] moves as.
-enum CharacterShape2D {
+enum CharacterBody2DShape {
   /// An upright capsule: rounded feet slide over bumps and off ledges.
   capsule,
 
@@ -322,7 +323,7 @@ enum CharacterShape2D {
 class CharacterBody2DComponent extends Component {
   /// A 32 × 48 capsule, by default.
   CharacterBody2DComponent({
-    this.shape = CharacterShape2D.capsule,
+    this.shape = CharacterBody2DShape.capsule,
     this.radius = 16.0,
     this.width = 32.0,
     this.height = 48.0,
@@ -340,7 +341,7 @@ class CharacterBody2DComponent extends Component {
   });
 
   /// The shape it moves as.
-  CharacterShape2D shape;
+  CharacterBody2DShape shape;
 
   /// Radius of its capsule.
   double radius;
@@ -418,7 +419,7 @@ class CharacterBody2DComponent extends Component {
   void jump(double speed) => pendingJump = speed;
 
   /// The shape the mover moves it as.
-  MoverShape get moverShape => shape == CharacterShape2D.box
+  MoverShape get moverShape => shape == CharacterBody2DShape.box
       ? MoverShape.box(width: width, height: height)
       : MoverShape.capsule(radius: radius, height: height);
 

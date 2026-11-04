@@ -98,8 +98,7 @@ void main() {
   /// Lets a pending load finish, then runs a frame of no time.
   Future<void> settle() async {
     world.update(0);
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
+    await pumpEventQueue();
     world.update(0);
   }
 
@@ -325,7 +324,7 @@ void main() {
       ],
     };
 
-    late MigrationResult last;
+    late SceneMigrationResult last;
     List<dynamic> migrated(List<Map<String, dynamic>> components) {
       last = SceneFormat.migrateWithReport(scene(components));
       return ((last.scene['entities'] as List).single as Map)['components']

@@ -3,7 +3,13 @@
 /// links, and tags. Every `EngineContext` has them.
 library;
 
-import '../ecs.dart';
+import '../transform/children_component.dart';
+import '../transform/parent_component.dart';
+import '../transform/transform_component.dart';
+import '../world.dart';
+import 'component_codec.dart';
+import 'component_definition.dart';
+import 'field_type.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
 import 'package:just_dart/just_dart.dart';
@@ -52,14 +58,14 @@ abstract final class EcsDefinitions {
         // physics body sliding in from (0, 0) until its first physics step.
         afterDecode: (c) => (c as TransformComponent).capturePrevious(),
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'position',
             kind: FieldTypes.vector3,
             read: (c) => Vector3.copy((c as TransformComponent).position),
             write: (c, v) =>
                 (c as TransformComponent).position.setFrom(v as Vector3),
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'rotation',
             kind: FieldTypes.euler,
             read: (c) {
@@ -71,7 +77,7 @@ abstract final class EcsDefinitions {
               (c as TransformComponent).setEuler(e.x, e.y, e.z);
             },
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'scale',
             kind: FieldTypes.vector3,
             read: (c) => (c as TransformComponent).scale,
@@ -99,7 +105,7 @@ abstract final class EcsDefinitions {
         create: TagComponent.new,
         // Saved as one `tag` until scene format 7.
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'tags',
             kind: FieldTypes.tagList,
             read: (c) => (c as TagComponent).tags.toList(),
@@ -111,7 +117,9 @@ abstract final class EcsDefinitions {
       );
 
   /// Definition of [ChildrenComponent], saved as `ChildrenComponent`. Its
-  /// `childIds` are saved for reference only and never read back.
+  /// `childIds` are saved for reference only and never read back. It
+  /// cannot be removed in the inspector: the world keeps it for as long as
+  /// the entity has children (unlink them instead).
   static ComponentDefinition<ChildrenComponent>
   get children => ComponentDefinition<ChildrenComponent>(
     type: 'ChildrenComponent',
@@ -121,13 +129,14 @@ abstract final class EcsDefinitions {
       description: 'The entities parented to this one.',
       icon: Icons.account_tree,
       accentColor: Color(0xFF26A69A),
+      deletable: false,
       fields: {'childIds': FieldHint(label: 'Children', editable: false)},
     ),
     create: ChildrenComponent.new,
     fields: [
       // Saved for reference only: ids are not stable across sessions, so the
       // loader re-links children by their parent's name instead.
-      SchemaField(
+      FieldDefinition(
         name: 'childIds',
         kind: FieldTypes.list,
         read: (c) => List<int>.of((c as ChildrenComponent).childIds),
@@ -137,6 +146,7 @@ abstract final class EcsDefinitions {
 
   /// Definition of [ParentComponent], saved as `ParentComponent`. Its
   /// `parentId` is saved for reference only; no local transform is saved.
+  /// `inheritTransform` is saved (a file without it follows its parent).
   static ComponentDefinition<ParentComponent> get parent =>
       ComponentDefinition<ParentComponent>(
         type: 'ParentComponent',
@@ -148,15 +158,30 @@ abstract final class EcsDefinitions {
               'with it. The local values are worked out from where things are.',
           icon: Icons.link,
           accentColor: Color(0xFF26A69A),
-          fields: {'parentId': FieldHint(label: 'Parent', editable: false)},
+          fields: {
+            'parentId': FieldHint(label: 'Parent', editable: false),
+            'inheritTransform': FieldHint(
+              label: 'Follow parent',
+              description:
+                  'Off, the link only groups: the entity keeps its own '
+                  'transform and does not move with its parent.',
+            ),
+          },
         ),
         create: ParentComponent.new,
         fields: [
           // Re-linked by name on load; see childIds.
-          SchemaField(
+          FieldDefinition(
             name: 'parentId',
             kind: FieldTypes.integer,
             read: (c) => (c as ParentComponent).parentId,
+          ),
+          FieldDefinition(
+            name: 'inheritTransform',
+            kind: FieldTypes.boolean,
+            read: (c) => (c as ParentComponent).inheritTransform,
+            write: (c, v) =>
+                (c as ParentComponent).inheritTransform = v as bool? ?? true,
           ),
           // Nothing local is saved: the offset from the parent follows from
           // the world transforms, which are what the file means.

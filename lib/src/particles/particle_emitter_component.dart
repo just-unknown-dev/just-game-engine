@@ -1,22 +1,27 @@
 library;
 
 import '../ecs/ecs.dart';
-import 'particles.dart';
+import 'particle_emitter.dart';
 
 /// ECS component that attaches a [ParticleEmitter] to an entity.
 ///
 /// When used with [ParticleSystem], the emitter is updated every frame and
 /// can optionally track the entity's [TransformComponent] position.
 ///
+/// When the component leaves its entity — removed, replaced, or the
+/// entity destroyed — it disposes its emitter ([ParticleEmitter.dispose]),
+/// releasing the images its renderer made.
+///
 /// ## Example
 /// ```dart
-/// final entity = world.createEntity();
-/// world.addComponent(entity, TransformComponent(position: Offset(100, 200)));
-/// world.addComponent(entity, ParticleEmitterComponent(
-///   emitter: ParticleEffects.fire(position: Offset.zero),
-///   syncPositionFromTransform: true,
-///   removeEntityWhenComplete: true,
-/// ));
+/// world.createEntityWithComponents([
+///   TransformComponent(position: Vector3(100, 200, 0)),
+///   ParticleEmitterComponent(
+///     emitter: ParticleEffects.fire(position: Vector3.zero()),
+///     syncPositionFromTransform: true,
+///     removeEntityWhenComplete: true,
+///   ),
+/// ]);
 /// ```
 class ParticleEmitterComponent extends Component {
   /// The particle emitter managed by this component.
@@ -44,6 +49,9 @@ class ParticleEmitterComponent extends Component {
     this.syncPositionFromTransform = true,
     this.removeEntityWhenComplete = false,
   });
+
+  @override
+  void onDetach(EntityId entityId) => emitter.dispose();
 
   @override
   String toString() =>

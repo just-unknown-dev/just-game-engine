@@ -3,6 +3,7 @@ library;
 import 'dart:math' as math;
 
 import 'package:just_dart/just_dart.dart';
+import 'package:meta/meta.dart' show internal;
 
 import 'transform_component.dart';
 import 'parent_component.dart';
@@ -34,6 +35,7 @@ import 'parent_component.dart';
 ///
 /// Internal to the engine's transform hierarchy (not exported): its scratch
 /// values are shared, so a call must not start inside another.
+@internal
 abstract final class HierarchyMath {
   static final Quaternion _qa = Quaternion.identity();
   static final Quaternion _qb = Quaternion.identity();

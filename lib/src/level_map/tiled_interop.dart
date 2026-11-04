@@ -476,8 +476,8 @@ abstract final class TiledInterop {
 
   // ── Maps ───────────────────────────────────────────────────────────────
 
-  static MapOrientation _orientation(tiled.MapOrientation o) =>
-      MapOrientation.fromName(o.name);
+  static LevelMapOrientation _orientation(tiled.MapOrientation o) =>
+      LevelMapOrientation.fromName(o.name);
 
   /// [map] as an engine map. [tilesetPath] names the `.tileset.json` each
   /// of its tilesets becomes; [imagePath] where each one's image is, both
@@ -521,6 +521,8 @@ abstract final class TiledInterop {
       ],
       backgroundColor: _argb(map.backgroundColor),
       className: map.className,
+      parallaxOriginX: map.parallaxOriginX,
+      parallaxOriginY: map.parallaxOriginY,
       properties: importProperties(map.properties),
     );
 
@@ -912,19 +914,21 @@ abstract final class TiledInterop {
       nextLayerId: nextLayerId,
       nextObjectId: nextObjectId,
       staggerAxis:
-          map.orientation == MapOrientation.staggered ||
-              map.orientation == MapOrientation.hexagonal
+          map.orientation == LevelMapOrientation.staggered ||
+              map.orientation == LevelMapOrientation.hexagonal
           ? tiled.StaggerAxis.fromString(map.staggerAxis.name)
           : null,
       staggerIndex:
-          map.orientation == MapOrientation.staggered ||
-              map.orientation == MapOrientation.hexagonal
+          map.orientation == LevelMapOrientation.staggered ||
+              map.orientation == LevelMapOrientation.hexagonal
           ? tiled.StaggerIndex.fromString(map.staggerIndex.name)
           : null,
-      hexSideLength: map.orientation == MapOrientation.hexagonal
+      hexSideLength: map.orientation == LevelMapOrientation.hexagonal
           ? map.hexSideLength
           : null,
       className: map.className,
+      parallaxOriginX: map.parallaxOriginX,
+      parallaxOriginY: map.parallaxOriginY,
       properties: exportProperties(map.properties),
       tilesets: [
         for (var slot = 0; slot < tilesets.length; slot++)

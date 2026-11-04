@@ -1,4 +1,20 @@
-part of 'particles.dart';
+library;
+
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:flutter/material.dart';
+import 'package:just_memory/just_memory.dart';
+import '../rendering/renderable.dart';
+import '../rendering/shader_filter_support.dart';
+import 'package:just_dart/just_dart.dart';
+
+part 'particle.dart';
+part 'particle_renderer.dart';
+part 'particle_force.dart';
+part 'particle_effect.dart';
+part 'sub_emitter_config.dart';
+part 'particle_effects.dart';
 
 /// Particle emitter — the core class of the advanced particle system.
 ///
@@ -11,7 +27,7 @@ part of 'particles.dart';
 /// world.createEntityWithComponents([
 ///   TransformComponent(),
 ///   ParticleEmitterComponent(
-///     emitter: ParticleEffects.fire(position: Offset(400, 300)),
+///     emitter: ParticleEffects.fire(position: Vector3(400, 300, 0)),
 ///     removeEntityWhenComplete: true,
 ///   ),
 /// ]);
@@ -32,7 +48,8 @@ part of 'particles.dart';
 ///   subEmitters: [
 ///     SubEmitterConfig(
 ///       trigger: SubEmitterTrigger.onDeath,
-///       factory: (pos) => ParticleEffects.sparkle(position: pos),
+///       factory: (at) =>
+///           ParticleEffects.sparkle(position: Vector3(at.dx, at.dy, 0)),
 ///     ),
 ///   ],
 /// );
@@ -119,6 +136,20 @@ class ParticleEmitter extends Renderable {
   /// Auto-stop emitting after [duration] seconds (null = infinite).
   final double? duration;
 
+  /// The area particles are born in: a rectangle this size centred on
+  /// [position], each particle at a random point of it. [Size.zero], the
+  /// default, is the position itself; `Size(800, 0)` is a line 800 wide —
+  /// rain across the top of the screen.
+  final Size spawnArea;
+
+  /// Whether [dispose] also releases [renderer] — the images it made for
+  /// itself (a batched [CircleParticleRenderer]'s disc, a
+  /// [TextParticleRenderer]'s glyph). True by default: a renderer made for
+  /// this emitter goes with it. Pass false for a renderer shared by several
+  /// emitters (a sub-emitter factory handing each child the same one), and
+  /// dispose it yourself when done with it.
+  final bool ownsRenderer;
+
   // ── Runtime state ─────────────────────────────────────────────────────────
 
   /// Whether the emitter is currently emitting new particles.
@@ -150,6 +181,12 @@ class ParticleEmitter extends Renderable {
   // Reusable Paint for shader saveLayer
   final Paint _shaderPaint = Paint();
 
+  // The layer [opacity] and [tint] are applied through, and what it was
+  // last made for.
+  final Paint _fadePaint = Paint();
+  Color? _fadeTint;
+  double _fadeOpacity = -1;
+
   /// Create a [ParticleEmitter].
   ParticleEmitter({
     required this.maxParticles,
@@ -175,6 +212,8 @@ class ParticleEmitter extends Renderable {
     this.shaderBoundsInflation = 20.0,
     this.useBatching = true,
     this.duration,
+    this.spawnArea = Size.zero,
+    this.ownsRenderer = true,
     super.position,
     super.layer,
     super.zOrder,
@@ -228,8 +267,19 @@ class ParticleEmitter extends Renderable {
 
   /// Whether this emitter has finished emitting AND has no live particles
   /// — its own, or its sub-emitters' (a firework's sparks).
+  ///
+  /// An emitter with an [emissionRate] of 0 emits nothing over time — only
+  /// what [burst] sends out — so it counts as finished emitting, whatever
+  /// [duration] says: a burst-only emitter is complete once its burst is
+  /// gone. (Without a [duration] it never was, so a burst-only sub-emitter
+  /// kept running and kept its parent from completing.) One whose rate is
+  /// set to 0 for a while is complete meanwhile, once its particles are
+  /// gone — and [ParticleEmitterComponent.removeEntityWhenComplete] then
+  /// removes it.
   bool get isComplete =>
-      !isEmitting && _particles.isEmpty && _activeSubEmitters.isEmpty;
+      (!isEmitting || emissionRate <= 0) &&
+      _particles.isEmpty &&
+      _activeSubEmitters.isEmpty;
 
   // ── Update ────────────────────────────────────────────────────────────────
 
@@ -266,9 +316,13 @@ class ParticleEmitter extends Renderable {
       isEmitting = false;
     }
 
-    // Forces' own clocks move on once a frame, not once per particle.
+    // Forces learn where the emitter is, and their own clocks move on, once
+    // a frame — not once per particle.
+    final x = position.x, y = position.y;
     for (var i = 0; i < _forces.length; i++) {
-      _forces[i].advance(deltaTime);
+      _forces[i]
+        ..follow(x, y)
+        ..advance(deltaTime);
     }
 
     // Update + cull particles using in-place compaction to avoid per-frame
@@ -302,11 +356,13 @@ class ParticleEmitter extends Renderable {
     }
     _particles.length = writeIndex;
 
-    // Update sub-emitters; remove completed ones
+    // Update sub-emitters; remove completed ones, releasing what their
+    // renderers made.
     _activeSubEmitters.removeWhere((se) {
       se.update(deltaTime);
       if (se.isComplete) {
         _subEmitterOrigins.remove(se);
+        se.dispose();
         return true;
       }
       return false;
@@ -358,10 +414,15 @@ class ParticleEmitter extends Renderable {
         angularVelocity +
         (_random.nextDouble() - 0.5) * angularVelocityVariation * 2;
 
+    var x = position.x, y = position.y;
+    final area = spawnArea;
+    if (area.width > 0) x += (_random.nextDouble() - 0.5) * area.width;
+    if (area.height > 0) y += (_random.nextDouble() - 0.5) * area.height;
+
     final p = _particlePool.acquire();
     p._respawn(
-      position.x,
-      position.y,
+      x,
+      y,
       math.cos(angle) * particleSpeed,
       math.sin(angle) * particleSpeed,
       lifetime.clamp(0.001, double.infinity),
@@ -384,6 +445,11 @@ class ParticleEmitter extends Renderable {
   void render(Canvas canvas, Size size) {
     if (_particles.isEmpty && _activeSubEmitters.isEmpty) return;
 
+    // [opacity] and [tint], when not the defaults: one layer over all of
+    // it, multiplied by the colour — the same for every renderer.
+    final faded = opacity < 1.0 || tint != null;
+    if (faded) canvas.saveLayer(null, _layerPaint());
+
     // Optional per-emitter shader, filtering a layer over the particles.
     // Bounds are only worked out for it. Where shaders cannot filter layers
     // (the web, Skia) the particles draw without it; see
@@ -393,7 +459,7 @@ class ParticleEmitter extends Renderable {
     var layered = false;
     if (layerShader != null &&
         ShaderFilterSupport.check('A ParticleEmitter shader')) {
-      final bounds = getBounds();
+      final bounds = this.bounds;
       if (bounds != null) {
         // Made every frame on purpose: a shader filter copies the uniforms
         // when it is made, so a kept one would freeze an animated effect.
@@ -418,16 +484,37 @@ class ParticleEmitter extends Renderable {
     }
 
     if (layered) canvas.restore();
+    if (faded) canvas.restore();
+  }
+
+  /// The paint of the layer that fades and tints the particles: [tint]
+  /// (white without one) at [opacity], multiplied in. Given a new colour
+  /// filter only when either changed.
+  Paint _layerPaint() {
+    final t = tint;
+    if (t != _fadeTint || opacity != _fadeOpacity) {
+      _fadeTint = t;
+      _fadeOpacity = opacity;
+      final alpha = opacity.clamp(0.0, 1.0);
+      _fadePaint.colorFilter = ColorFilter.mode(
+        t != null
+            ? t.withValues(alpha: t.a * alpha)
+            : Color.fromRGBO(255, 255, 255, alpha),
+        BlendMode.modulate,
+      );
+    }
+    return _fadePaint;
   }
 
   // Particles live in world space.
   @override
   bool get boundsAreWorldSpace => true;
 
+  /// What the live particles cover — this emitter's and its sub-emitters'
+  /// (a firework's sparks, once the rockets are gone): null when there are
+  /// none.
   @override
-  Rect? getBounds() {
-    if (_particles.isEmpty) return null;
-
+  Rect? get bounds {
     double minX = double.infinity;
     double minY = double.infinity;
     double maxX = double.negativeInfinity;
@@ -440,7 +527,16 @@ class ParticleEmitter extends Renderable {
       if (p.x + r > maxX) maxX = p.x + r;
       if (p.y + r > maxY) maxY = p.y + r;
     }
+    for (final se in _activeSubEmitters) {
+      final b = se.bounds;
+      if (b == null) continue;
+      if (b.left < minX) minX = b.left;
+      if (b.top < minY) minY = b.top;
+      if (b.right > maxX) maxX = b.right;
+      if (b.bottom > maxY) maxY = b.bottom;
+    }
 
+    if (minX > maxX) return null;
     return Rect.fromLTRB(minX, minY, maxX, maxY);
   }
 
@@ -460,6 +556,9 @@ class ParticleEmitter extends Renderable {
     }
     _particles.clear();
     _particlePool.clear();
+    for (final se in _activeSubEmitters) {
+      se.dispose();
+    }
     _activeSubEmitters.clear();
     _subEmitterOrigins.clear();
     _emissionAccumulator = 0.0;
@@ -472,4 +571,21 @@ class ParticleEmitter extends Renderable {
 
   /// Remove a force at runtime.
   void removeForce(ParticleForce force) => _forces.remove(force);
+
+  /// Releases what drawing made: [renderer]'s images when the emitter
+  /// [ownsRenderer], and the running sub-emitters'. Its particles are kept,
+  /// and it can be drawn again after — a renderer makes its images again
+  /// when next used.
+  ///
+  /// [ParticleEmitterComponent] calls it when the emitter leaves its
+  /// entity (the component removed or replaced, or the entity destroyed);
+  /// a finished sub-emitter is disposed by its parent; so does a
+  /// `RenderableComponent` holding it.
+  @override
+  void dispose() {
+    if (ownsRenderer) _renderer.dispose();
+    for (final se in _activeSubEmitters) {
+      se.dispose();
+    }
+  }
 }

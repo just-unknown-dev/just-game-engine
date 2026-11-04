@@ -1,6 +1,3 @@
-import 'dart:typed_data';
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
@@ -18,62 +15,13 @@ void main() {
       );
 
       expect(asset.isLoaded, isTrue);
-      expect(manager.refCount('fake://scene.txt'), 1);
+      expect(manager.refCount('fake://scene.txt', AssetType.text), 1);
 
       scope.dispose();
 
-      expect(manager.refCount('fake://scene.txt'), 0);
+      expect(manager.refCount('fake://scene.txt', AssetType.text), 0);
       expect(manager.isLoaded('fake://scene.txt'), isFalse);
     });
-  });
-
-  group('ParticleEmitter pooling', () {
-    test('returns expired particles to the shared pool', () {
-      final emitter = ParticleEmitter(
-        maxParticles: 1,
-        emissionRate: 100,
-        particleLifetime: 0.05,
-        lifetimeVariation: 0.0,
-        sizeVariation: 0.0,
-        speedVariation: 0.0,
-        startSize: 1,
-        endSize: 1,
-        startColor: Colors.white,
-        endColor: Colors.transparent,
-      );
-
-      emitter.update(0.02);
-      expect(emitter.particleCount, 1);
-
-      emitter.isEmitting = false;
-      emitter.update(0.1);
-
-      expect(emitter.particleCount, 0);
-      expect(emitter.pooledParticleCount, 1);
-    });
-  });
-
-  group('CacheManager memory fallback', () {
-    test(
-      'evicts old binary entries when the in-memory budget is exceeded',
-      () async {
-        final cache = CacheManager(
-          maxBinaryEntries: 2,
-          forceMemoryFallback: true,
-        );
-        await cache.initialize();
-
-        await cache.setBinary('cache/one', Uint8List.fromList([1]));
-        await cache.setBinary('cache/two', Uint8List.fromList([2]));
-        expect(await cache.getBinary('cache/one'), isNotNull);
-
-        await cache.setBinary('cache/three', Uint8List.fromList([3]));
-
-        expect(await cache.getBinary('cache/one'), isNotNull);
-        expect(await cache.getBinary('cache/two'), isNull);
-        expect(await cache.getBinary('cache/three'), isNotNull);
-      },
-    );
   });
 }
 
@@ -96,5 +44,5 @@ class _FakeAsset extends Asset {
   }
 
   @override
-  int getMemoryUsage() => 128;
+  int get memoryUsage => 128;
 }

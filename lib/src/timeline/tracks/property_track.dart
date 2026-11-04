@@ -33,7 +33,7 @@ class PropertyAccess {
   final Component component;
 
   /// The field, as the component's definition describes it.
-  final SchemaField field;
+  final FieldDefinition field;
 
   /// The key inside a map-valued field (`x`, `y`, `z`, `dx`, `dy`); empty
   /// for a field that is one value.
@@ -61,7 +61,7 @@ class PropertyAccess {
   };
 
   /// Whether [field] can be keyed at all.
-  static bool canAnimate(SchemaField field) =>
+  static bool canAnimate(FieldDefinition field) =>
       field.write != null &&
       (field.kind.channels.isNotEmpty ||
           channelsByKind.containsKey(field.kind.id) ||
@@ -69,7 +69,7 @@ class PropertyAccess {
           field.kind is EnumFieldType);
 
   /// The channels [field] is keyed by; `['']` for a single value.
-  static List<String> channelsOf(SchemaField field) {
+  static List<String> channelsOf(FieldDefinition field) {
     final own = field.kind.channels;
     if (own.isNotEmpty) return own;
     return channelsByKind[field.kind.id] ?? const [''];
@@ -371,14 +371,14 @@ class PropertyTrackRunner extends TrackRunner {
   double? base;
 
   @override
-  void begin(TimelineContext context) {
+  void begin(TrackContext context) {
     _entity = null;
     _access = null;
     base = null;
   }
 
   @override
-  void apply(TimelineContext context, double time) {
+  void apply(TrackContext context, double time) {
     if (track.curve.isEmpty) return;
     final entity = context.resolve(track.binding);
     if (entity == null) return;

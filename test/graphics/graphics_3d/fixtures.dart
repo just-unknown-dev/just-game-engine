@@ -7,8 +7,8 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show FlutterError;
 import 'package:flutter/services.dart';
 import 'package:just_game_engine/just_game_engine.dart';
-import 'package:just_game_engine/just_game_engine_3d.dart';
 import 'package:just_graphics_engine/testing.dart';
+import 'package:just_graphics_engine/just_graphics_engine.dart' show RenderView;
 
 /// Where [cubeGlb] is served by [TestBundle].
 const cubePath = 'assets/models/cube.glb';

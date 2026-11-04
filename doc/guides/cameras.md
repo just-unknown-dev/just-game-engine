@@ -2,7 +2,7 @@
 
 _Graphics_ · Describe shots with virtual cameras and let the camera brain pick, blend, frame, confine and shake them, in 2D and 3D.
 
-`engine.cameraSystem.mainCamera` is the camera the world is drawn through. You can move it yourself, but most games describe shots instead: entities with a `VirtualCameraComponent`. Each frame the camera brain (`engine.cameraSystem.brain`) picks the enabled shot with the highest priority, blends to it, and writes the result into the main camera.
+`engine.camera.mainCamera` is the camera the world is drawn through. You can move it yourself, but most games describe shots instead: entities with a `VirtualCameraComponent`. Each frame the camera brain (`engine.camera.brain`) picks the enabled shot with the highest priority, blends to it, and writes the result into the main camera.
 
 ## Moving the main camera yourself
 
@@ -14,7 +14,7 @@ import 'package:flutter/painting.dart' show Offset;
 import 'package:just_game_engine/just_game_engine.dart';
 
 void lookAround(Engine engine, Offset tap) {
-  final camera = engine.cameraSystem.mainCamera;
+  final camera = engine.camera.mainCamera;
   camera
     ..lookAt(const Offset(400, 300))
     ..zoom = 2.0;
@@ -22,7 +22,7 @@ void lookAround(Engine engine, Offset tap) {
   // Where a tap on the screen lands in the world, and back.
   final world = camera.screenToWorld(tap);
   final screen = camera.worldToScreen(world);
-  debugPrint('$world is at $screen; in view: ${camera.getVisibleBounds()}');
+  debugPrint('$world is at $screen; in view: ${camera.visibleBounds}');
 }
 ```
 
@@ -37,7 +37,7 @@ A shot is an entity with a `VirtualCameraComponent`:
 - `zoom`, `dutch` (extra roll, in radians) and `enabled`.
 - `standbyUpdate`: `CameraStandbyUpdate.always` keeps a shot settled on its target while it isn't live, instead of snapping when it goes live.
 
-Other components on the same entity shape the shot, as the rest of this page shows. `DefaultSystem.cameras` adds the systems: `CameraTargetGroupSystem` (priority 47), `CameraTriggerSystem` (46) and `CameraBrainSystem` (45), which runs after everything has moved and before rendering, so a shot frames where its target is. Without the default set, call `registerCameraSystems(world, engine.cameraSystem)` once. When you replace a level's entities, call `engine.cameraSystem.brain.reset()` to forget the old cameras.
+Other components on the same entity shape the shot, as the rest of this page shows. `DefaultSystem.cameras` adds the systems: `CameraTargetGroupSystem` (priority 47), `CameraTriggerSystem` (46) and `CameraBrainSystem` (45), which runs after everything has moved and before rendering, so a shot frames where its target is. Without the default set, call `registerCameraSystems(world, engine.camera)` once. When you replace a level's entities, call `engine.camera.brain.reset()` to forget the old cameras.
 
 Blends: `brain.defaultBlend` is a `CameraBlend`, half a second with an ease-in-out `curve` unless you say otherwise, and `CameraBlend.cut` switches at once. `brain.blendTable.rules` holds `CameraBlendRule`s for pairs of cameras by entity name, with `CameraBlendRule.any` (`*`) matching any; the most specific rule wins. `brain.liveCamera` is the live shot, and `brain.onCameraActivated` hears every change.
 
@@ -83,7 +83,7 @@ void addCameras(Engine engine) {
   ], name: 'BossCam');
 
   // Blend over 0.8 s, but cut straight back when leaving the boss room.
-  engine.cameraSystem.brain
+  engine.camera.brain
     ..defaultBlend = const CameraBlend(duration: 0.8)
     ..blendTable.rules.add(
       const CameraBlendRule(from: 'BossCam', blend: CameraBlend.cut),
@@ -92,7 +92,7 @@ void addCameras(Engine engine) {
 
 /// A landing, an explosion: every listening shot near it shakes.
 void thud(Engine engine, Offset where) {
-  engine.cameraSystem.brain.emitImpulse(
+  engine.camera.brain.emitImpulse(
     CameraImpulse(position: where, amplitude: 16, duration: 0.3),
   );
 }

@@ -17,7 +17,7 @@ class _Logged extends Renderable {
   @override
   void render(Canvas canvas, Size size) => log.add('drawn');
   @override
-  Rect? getBounds() => const Rect.fromLTWH(0, 0, 10, 10);
+  Rect? get bounds => const Rect.fromLTWH(0, 0, 10, 10);
 }
 
 void main() {
@@ -78,7 +78,7 @@ void main() {
       rendering.initialize();
       final log = <String>[];
       rendering
-        ..addRenderable(_Logged(log))
+        ..overlayHooks.add((_, _) => log.add('drawn'))
         ..addPostProcessPass(PostProcessPass(shader: program.fragmentShader()));
       rendering.render(Canvas(ui.PictureRecorder()), const Size(100, 100));
       expect(log, ['drawn']);

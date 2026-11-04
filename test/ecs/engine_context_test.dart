@@ -16,7 +16,7 @@ final _markerDefinition = ComponentDefinition<_Marker>(
   type: 'MarkerComponent',
   create: _Marker.new,
   fields: [
-    SchemaField(
+    FieldDefinition(
       name: 'value',
       kind: FieldTypes.integer,
       read: (c) => (c as _Marker).value,
@@ -76,6 +76,12 @@ void main() {
         reason: "a feature's: BuiltInComponents brings it",
       );
       expect(context.fieldTypes.byId(FieldTypes.decimal.id), isNotNull);
+      // The ECS core's own field types and nothing else: no feature's
+      // (physics layers, material overrides).
+      expect(
+        {for (final t in context.fieldTypes.all) t.id},
+        {for (final t in FieldTypes.all) t.id},
+      );
     });
 
     test("BuiltInComponents brings every feature's definitions", () {
@@ -96,6 +102,21 @@ void main() {
       addTearDown(context.dispose);
       expect(context.definitions.types, isEmpty);
       expect(context.fieldTypes.all, isEmpty);
+      // Every feature's registry too, not only the definitions.
+      expect(context.trackKinds.kinds, isEmpty);
+      expect(context.effectTypes.decoderFor('move'), isNull);
+      expect(context.animatorBindings.of('grounded'), isNull);
+      expect(context.collisionKinds.all, isEmpty);
+      expect(
+        context.easings.apply('easeIn', 0.5),
+        0.5,
+        reason: 'unknown easing: linear',
+      );
+      final full = EngineContext();
+      addTearDown(full.dispose);
+      expect(full.trackKinds.kinds, isNotEmpty);
+      expect(full.effectTypes.decoderFor('move'), isNotNull);
+      expect(full.collisionKinds.all, isNotEmpty);
     });
 
     test('an extension is installed once, by id', () {
@@ -168,6 +189,117 @@ void main() {
   });
 
   group('loaders', () {
+    test("the bundle's timeline loader reads with the context's track kinds "
+        'and migrations', () async {
+      final context = EngineContext(
+        bundle: _MapBundle({
+          't.timeline.json': jsonEncode({
+            'tracks': [
+              {'kind': 'kit.cue', 'events': <dynamic>[]},
+            ],
+          }),
+        }),
+      );
+      addTearDown(context.dispose);
+      context.trackKinds.register('kit.cue', EventTrack.fromJson);
+      context.migrations.perTrack.add((track) => {...track, 'name': 'moved'});
+      final asset = await context.timelines('t.timeline.json');
+      final track = asset.tracks.single;
+      expect(track, isNot(isA<UnknownTrack>()), reason: 'the kit kind');
+      expect(track.name, 'moved', reason: "the context's migration rule");
+    });
+
+    test(
+      "the bundle's animator graph loader reads the context's bundle",
+      () async {
+        final bundle = _MapBundle({
+          'g.animator.json': jsonEncode(
+            const AnimatorGraph(states: [AnimatorState(name: 'idle')]).toJson(),
+          ),
+        });
+        final context = EngineContext(bundle: bundle);
+        addTearDown(context.dispose);
+        final graph = await context.animatorGraphs('g.animator.json');
+        expect(graph.states.single.name, 'idle');
+        expect(bundle.reads, ['g.animator.json']);
+      },
+    );
+
+    test(
+      'all six seams: overridden, restored, and back on the bundle',
+      () async {
+        final bundle = _MapBundle({});
+        final context = EngineContext(bundle: bundle);
+        addTearDown(context.dispose);
+        final sprites = context.sprites;
+        final graphs = context.animatorGraphs;
+        final timelines = context.timelines;
+        final tileText = context.tiles.readText;
+        final prefabs = context.prefabs;
+        final materials = context.material2DText;
+
+        final mySprites = BundleSpriteAssetLoader(context.assets);
+        Future<AnimatorGraph> myGraphs(String _) async => const AnimatorGraph();
+        Future<TimelineAsset> myTimelines(String _) async => TimelineAsset();
+        Future<String> myText(String _) async => 'mine';
+        Future<PrefabFile> myPrefabs(String _) async =>
+            PrefabFile(name: 'P', entities: const []);
+        final override = context.overrideLoaders(
+          sprites: mySprites,
+          animatorGraphs: myGraphs,
+          timelines: myTimelines,
+          tileText: myText,
+          prefabs: myPrefabs,
+          material2DText: myText,
+        );
+        expect(context.sprites, same(mySprites));
+        expect(context.animatorGraphs, same(myGraphs));
+        expect(context.timelines, same(myTimelines));
+        expect(context.tiles.readText, same(myText));
+        expect(context.prefabs, same(myPrefabs));
+        expect(context.material2DText, same(myText));
+
+        override.restore();
+        expect(context.sprites, same(sprites));
+        expect(context.animatorGraphs, same(graphs));
+        expect(context.timelines, same(timelines));
+        expect(context.tiles.readText, same(tileText));
+        expect(context.prefabs, same(prefabs));
+        expect(context.material2DText, same(materials));
+
+        context.overrideLoaders(
+          sprites: mySprites,
+          animatorGraphs: myGraphs,
+          timelines: myTimelines,
+          tileText: myText,
+          prefabs: myPrefabs,
+          material2DText: myText,
+        );
+        context.useBundle();
+        // Each reads the bundle again.
+        for (final read in <Future<Object?> Function()>[
+          () => context.animatorGraphs('a.animator.json'),
+          () => context.timelines('a.timeline.json'),
+          () => context.tiles.readText('a.tileset.json'),
+          () => context.prefabs('a.prefab.json'),
+          () => context.material2DText('a.material2d.json'),
+        ]) {
+          await expectLater(read(), throwsA(anything));
+        }
+        expect(
+          bundle.reads,
+          containsAll([
+            'a.animator.json',
+            'a.timeline.json',
+            'a.tileset.json',
+            'a.prefab.json',
+            'a.material2d.json',
+          ]),
+        );
+        expect(context.sprites, isNot(same(mySprites)));
+      },
+    );
+
     test('overrideLoaders swaps the seams of one context only', () async {
       final a = EngineContext(bundle: _MapBundle({'m.txt': 'bundle'}));
       final b = EngineContext();

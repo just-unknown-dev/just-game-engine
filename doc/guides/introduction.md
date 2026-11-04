@@ -30,13 +30,13 @@ Future<void> main() async {
       TransformComponent(position: Vector3(0, 200, 0)),
       Rectangle2DComponent(width: 600, height: 24),
       // A collider alone is a static body; this one is the drawn rectangle.
-      Collider2DComponent(shape: ColliderShape2D.matchShape),
+      Collider2DComponent(shape: Collider2DShape.matchShape),
     ], name: 'Floor')
     ..createEntityWithComponents([
       TransformComponent(position: Vector3(0, -150, 0)),
       Circle2DComponent(radius: 24),
       RigidBody2DComponent(),
-      Collider2DComponent(shape: ColliderShape2D.matchShape),
+      Collider2DComponent(shape: Collider2DShape.matchShape),
     ], name: 'Ball');
 
   engine.start();
@@ -56,10 +56,10 @@ The engine is one package. These are the others you will meet:
 
 | Package | What it is | Version |
 |---|---|---|
-| `just_game_engine` | The engine: the ECS world, scenes, rendering, physics, audio, input and the rest. | `2.0.0-dev.2` |
-| `just_game_engine_editor` | A level editor that runs inside your game in a desktop debug build. See [Level editor](/docs/editor). | `0.1.0-dev.1` |
-| `just_core_cli` | `just`, the command-line tool: it creates projects, checks their setup and upgrades them. | `0.1.1` |
-| `just_game_engine_cli` | The `just game` commands: run, build, scenes, release checks and migrations. See [The just CLI](/docs/cli). | `0.1.2` |
+| `just_game_engine` | The engine: the ECS world, scenes, rendering, physics, audio, input and the rest. | `2.0.0-dev.4` |
+| `just_game_engine_editor` | A level editor that runs inside your game in a desktop debug build. See [Level editor](/docs/editor). | `0.1.0` dev releases, one made for each engine release |
+| `just_core_cli` | `just`, the command-line tool: it creates projects, checks their setup and upgrades them. | `0.1.x` |
+| `just_game_engine_cli` | The `just game` commands: run, build, scenes, release checks and migrations. See [The just CLI](/docs/cli). | `0.1.x` |
 | `just_game_engine_formats` | The saved file formats (scenes, timelines, animator graphs) and their migrations, in pure Dart. The engine re-exports it, and the editor and the CLI migrate files with the same code. | comes with the engine |
 | `just_game_services` | Achievements, sign-in, leaderboards, currency, inventory and ads, as opt-in engine services. See [Game services](/docs/services). | `0.1.0`, not yet on pub.dev |
 
@@ -99,14 +99,14 @@ Under the engine sit packages of the same family: `just_physics_engine` (Box2D v
 
 ## Version status
 
-2.0 is a breaking release, out first as dev releases. The latest is 2.0.0-dev.2, and these docs are written for it. The latest stable release is 1.6.1.
+2.0 is a breaking release, out first as dev releases. The latest is 2.0.0-dev.4, and these docs are written for it. The latest stable release is 1.6.1.
 
-> **Note:** A `^2.0.0` constraint does not pick up dev releases. Depend on `just_game_engine: ^2.0.0-dev.2`, as [Installation](/docs/installation) shows.
+> **Note:** A `^2.0.0` constraint does not pick up dev releases. Depend on `just_game_engine: ^2.0.0-dev.4`, as [Installation](/docs/installation) shows.
 
 - **Coming from 1.x?** Read [Migrating from 1.x](/docs/migration). Scene files saved by earlier versions still load: they are migrated in memory as they are read.
 - **Between dev releases**, read the [CHANGELOG](https://github.com/just-unknown-dev/just-game-engine/blob/main/CHANGELOG.md) before you move up.
 - **The examples site** at [examples.engine.justunknown.com](https://examples.engine.justunknown.com) was written for 1.x.
-- **The editor and the CLI** are first releases: the editor is 0.1.0-dev.1, the `just` tool 0.1.1 and the game plugin 0.1.2.
+- **The editor and the CLI** are first releases (0.1). Use the editor release made for this engine; `just game` keeps the engine's packages on versions that work together.
 
 ## License
 
@@ -116,5 +116,5 @@ The engine, the editor and the CLI packages are open source under the BSD 3-Clau
 
 - **Discord:** ask questions and share what you build at [discord.gg/VXFxVj4Y](https://discord.gg/VXFxVj4Y).
 - **Issues:** report bugs against the [engine](https://github.com/just-unknown-dev/just-game-engine/issues), the [editor](https://github.com/just-unknown-dev/just-game-engine-editor/issues) or the [CLI](https://github.com/just-unknown-dev/just-game-engine-cli/issues).
-- **API reference:** every public class and member is on [pub.dev](https://pub.dev/documentation/just_game_engine/latest/).
+- **API reference:** every public class and member is on [pub.dev](https://pub.dev/documentation/just_game_engine/2.0.0-dev.4/).
 - **The repository's own docs:** the [engine on GitHub](https://github.com/just-unknown-dev/just-game-engine) has its README, QUICKSTART, MIGRATION, ARCHITECTURE and an API map by area.

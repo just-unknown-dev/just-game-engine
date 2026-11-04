@@ -6,10 +6,12 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart' show Matrix4, Offset, Paint, Rect;
+import 'package:meta/meta.dart' show visibleForTesting;
 
 import '../../ecs/ecs.dart';
 import 'render_system.dart';
-import '../../graphics/graphics_2d/materials/material_2d_library.dart';
+import '../../graphics/graphics_2d/materials/materials_2d_context.dart'
+    show ContextMaterials2D;
 import '../screen_pass.dart';
 import '../../graphics/graphics_2d/lighting/light_2d_component.dart';
 
@@ -67,6 +69,15 @@ final class Lighting2DPass implements ScreenPass {
   List<Light2DComponent> get lastLights => List.unmodifiable(_lastLights);
   final List<Light2DComponent> _lastLights = [];
 
+  /// Where the last frame drew each of [lastLights]. For tests.
+  @visibleForTesting
+  List<Offset> get debugLightPositions => List.unmodifiable(_lastPositions);
+  final List<Offset> _lastPositions = [];
+
+  /// How many images the pass holds from the frames it lit. For tests.
+  @visibleForTesting
+  int get debugImageCount => _images.length + _oldImages.length;
+
   /// Whether it draws the normals the frame is lit by instead of lighting
   /// it — an editor's view of them, as a normal map draws them: red, green
   /// the normal's x and y (green up), blue its z; flat is (0.5, 0.5, 1).
@@ -77,8 +88,46 @@ final class Lighting2DPass implements ScreenPass {
   bool get lastHadShadows => _lastHadShadows;
   bool _lastHadShadows = false;
 
+  /// Each light's transform as last seen: whether its previous pose was
+  /// captured in the world's last fixed update, so the light is drawn
+  /// between that pose and its pose — where the render system draws what
+  /// it is on.
+  final Map<TransformComponent, _LightPose> _poses = Map.identity();
+
+  /// The world's update count when [_poses] were last checked.
+  int _posesUpdate = -1;
+
+  /// Counts frames, to drop the poses of lights gone.
+  int _frame = 0;
+
   @override
   bool get active {
+    if (_isActive()) return true;
+    _idle();
+    return false;
+  }
+
+  /// Lets go, while it does not light, of what the last lit frames held:
+  /// their images — two frames' worth, rotated as [paint] does, so after
+  /// two frames off nothing is left — and the world's render system,
+  /// lights and transforms. (They were kept for as long as lighting stayed
+  /// off: a lit cave's images under the unlit level after it.)
+  void _idle() {
+    for (final i in _oldImages) {
+      i.dispose();
+    }
+    _oldImages
+      ..clear()
+      ..addAll(_images);
+    _images.clear();
+    _render = null;
+    _lastLights.clear();
+    _lastPositions.clear();
+    _poses.clear();
+    _posesUpdate = -1;
+  }
+
+  bool _isActive() {
     _lighting = null;
     if (!enabled) return false;
     final w = world();
@@ -101,7 +150,7 @@ final class Lighting2DPass implements ScreenPass {
       }
     }
     if (render == null) return false;
-    final library = Material2DLibrary.of(w.context);
+    final library = w.context.material2DLibrary;
     library.normalsProgram;
     library.shadowsProgram;
     final program = library.lightingProgram;
@@ -205,7 +254,7 @@ final class Lighting2DPass implements ScreenPass {
       md = m[5];
       me = m[12];
       mf = m[13];
-      view = camera.getVisibleBounds();
+      view = camera.visibleBounds;
     }
     var a = 1.0, b = 0.0, c = 0.0, d = 1.0, e = 0.0, f = 0.0;
     final det = ma * md - mb * mc;
@@ -219,35 +268,51 @@ final class Lighting2DPass implements ScreenPass {
     }
     final zoom = math.sqrt(det.abs());
 
-    // The lights that reach the view, nearest its middle first.
+    // The lights that reach the view, nearest its middle first — each where
+    // the render system draws what it is on: between its last two poses
+    // when a fixed update captured it (a light on a moving body), else
+    // where it is.
     final middle = view.center;
-    final found = <(Light2DComponent, TransformComponent, double)>[];
+    final found = <(Light2DComponent, _LightPose, double)>[];
+    final updated = w.updateCount != _posesUpdate;
+    _posesUpdate = w.updateCount;
+    final seen = ++_frame;
+    final alpha = render.interpolation;
     for (final entity in w.query(const [
       Light2DComponent,
       TransformComponent,
     ])) {
       if (!entity.isActiveInHierarchy) continue;
       final light = entity.getComponent<Light2DComponent>()!;
-      if (!light.enabled || light.radius <= 0 || light.intensity <= 0) continue;
       final t = entity.getComponent<TransformComponent>()!;
-      final p = Offset(t.position.x, t.position.y);
+      final pose = _poses[t] ??= _LightPose(t.captureCount);
+      if (updated) pose.check(t);
+      pose
+        ..seen = seen
+        ..place(t, alpha);
+      if (!light.enabled || light.radius <= 0 || light.intensity <= 0) continue;
+      final p = Offset(pose.x, pose.y);
       if (!view.inflate(light.radius).contains(p)) continue;
-      found.add((light, t, (p - middle).distanceSquared));
+      found.add((light, pose, (p - middle).distanceSquared));
     }
+    _poses.removeWhere((_, pose) => pose.seen != seen);
     found.sort((x, y) => x.$3.compareTo(y.$3));
     final count = math.min(found.length, maxLights);
     _lastLights
       ..clear()
       ..addAll(found.take(count).map((l) => l.$1));
+    _lastPositions
+      ..clear()
+      ..addAll(found.take(count).map((l) => Offset(l.$2.x, l.$2.y)));
 
     // Shadows: what casts them, then how far each light reaches each way.
     final rows = <int, int>{};
     for (var i = 0; i < count; i++) {
-      if (found[i].$1.castsShadows) rows[i] = rows.length;
+      if (found[i].$1.castShadows) rows[i] = rows.length;
     }
     var mask = blank, shadowMap = blank;
     var shadows = false;
-    final library = Material2DLibrary.of(w.context);
+    final library = w.context.material2DLibrary;
     final shadowProgram = library.shadowsProgram;
     final maskW = math.max(1, (size.width * maskScale).ceil());
     final maskH = math.max(1, (size.height * maskScale).ceil());
@@ -274,8 +339,8 @@ final class Lighting2DPass implements ScreenPass {
         for (final MapEntry(key: i, value: row) in rows.entries) {
           final t = found[i].$2;
           su
-            ..[8 + row * 4] = ma * t.position.x + mc * t.position.y + me
-            ..[9 + row * 4] = mb * t.position.x + md * t.position.y + mf
+            ..[8 + row * 4] = ma * t.x + mc * t.y + me
+            ..[9 + row * 4] = mb * t.x + md * t.y + mf
             ..[10 + row * 4] = found[i].$1.radius * zoom;
         }
         for (var i = 0; i < su.length; i++) {
@@ -329,16 +394,16 @@ final class Lighting2DPass implements ScreenPass {
       final (light, t, _) = found[i];
       final l = 16 + i * 4, col = 80 + i * 4, s = 144 + i * 4, sl = 216 + i * 4;
       u
-        ..[l] = t.position.x
-        ..[l + 1] = t.position.y
+        ..[l] = t.x
+        ..[l + 1] = t.y
         ..[l + 2] = light.radius
         ..[l + 3] = math.max(light.height, 0.01)
-        ..[col] = light.colour.r * light.intensity
-        ..[col + 1] = light.colour.g * light.intensity
-        ..[col + 2] = light.colour.b * light.intensity
+        ..[col] = light.color.r * light.intensity
+        ..[col + 1] = light.color.g * light.intensity
+        ..[col + 2] = light.color.b * light.intensity
         ..[col + 3] = math.max(light.falloff, 0.01)
-        ..[sl] = ma * t.position.x + mc * t.position.y + me
-        ..[sl + 1] = mb * t.position.x + md * t.position.y + mf
+        ..[sl] = ma * t.x + mc * t.y + me
+        ..[sl + 1] = mb * t.x + md * t.y + mf
         ..[sl + 2] = light.radius * zoom
         ..[sl + 3] = (rows[i] ?? -1).toDouble();
       if (light.kind == Light2DKind.spot) {
@@ -382,6 +447,11 @@ final class Lighting2DPass implements ScreenPass {
 
   /// Lets go of the shaders and images.
   void dispose() {
+    _render = null;
+    _lighting = null;
+    _lastLights.clear();
+    _lastPositions.clear();
+    _poses.clear();
     _shader?.dispose();
     _shader = null;
     _shaderOf = null;
@@ -395,5 +465,44 @@ final class Lighting2DPass implements ScreenPass {
     _oldImages.clear();
     _blank?.dispose();
     _blank = null;
+  }
+}
+
+/// Where a light is drawn this frame, and whether its transform's previous
+/// pose was captured in the world's last fixed update.
+final class _LightPose {
+  _LightPose(this.captures);
+
+  /// The transform's capture count when last checked.
+  int captures;
+
+  /// Whether the last fixed update captured it.
+  bool fresh = false;
+
+  /// The frame it was last seen in.
+  int seen = 0;
+
+  /// Where it is drawn: its position and turn.
+  double x = 0, y = 0, angle = 0;
+
+  /// After a fixed update: whether [t] captured its previous pose in it.
+  void check(TransformComponent t) {
+    final count = t.captureCount;
+    fresh = count != captures;
+    captures = count;
+  }
+
+  /// Places it as [t] is drawn [alpha] of the way between two fixed steps.
+  void place(TransformComponent t, double alpha) {
+    if (fresh && alpha < 1.0) {
+      final prev = t.prevPosition, now = t.position;
+      x = prev.x + (now.x - prev.x) * alpha;
+      y = prev.y + (now.y - prev.y) * alpha;
+      angle = t.prevAngle + (t.angle - t.prevAngle) * alpha;
+    } else {
+      x = t.position.x;
+      y = t.position.y;
+      angle = t.angle;
+    }
   }
 }

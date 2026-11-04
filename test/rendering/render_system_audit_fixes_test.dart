@@ -48,16 +48,29 @@ int _mostApart(List<int> a, List<int> b) {
 }
 
 class _Logged extends Renderable {
-  _Logged(this.name, this.log, {super.layer, super.zOrder, this.bounds});
+  _Logged(this.name, this.log, {super.layer, super.zOrder});
   final String name;
   final List<String> log;
-  final Rect? bounds;
 
   @override
   void render(Canvas canvas, Size size) => log.add(name);
 
   @override
-  Rect? getBounds() => bounds;
+  Rect? get bounds => null;
+}
+
+/// A dot of radius 2 at its own position, in world space.
+class _WorldDot extends Renderable {
+  _WorldDot(Vector3 at) : super(position: at);
+
+  @override
+  bool get boundsAreWorldSpace => true;
+
+  @override
+  void render(Canvas canvas, Size size) {}
+
+  @override
+  Rect? get bounds => Rect.fromCircle(center: position.toOffset(), radius: 2);
 }
 
 /// Logs each sprite it was given when it is flushed, by name of its image.
@@ -90,13 +103,13 @@ class _FakeBatch implements SpriteBatchRenderer {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('R1: a rolled camera', () {
+  group('a rolled camera', () {
     test('at a quarter turn sees the box around its turned view', () {
       final camera = Camera(
         viewportSize: const Size(1600, 900),
         rotation: math.pi / 2,
       );
-      final bounds = camera.getVisibleBounds();
+      final bounds = camera.visibleBounds;
       expect(bounds.center.dx, closeTo(0, 1e-9));
       expect(bounds.width, closeTo(900, 1e-6));
       expect(bounds.height, closeTo(1600, 1e-6));
@@ -130,17 +143,10 @@ void main() {
       expect(camera.viewVolume.intersectsAabb(Aabb3.fromRect(rect)), isTrue);
 
       final view = FrameView()..update(camera, camera.viewportSize);
-      expect(view.visibleRect, camera.getVisibleBounds());
+      expect(view.visibleRect, camera.visibleBounds);
       expect(view.visibleRect.contains(corner), isTrue);
 
-      // The legacy engine's culling, and the culling system.
-      final rendering = RenderingEngine()..camera = camera;
-      rendering.initialize();
-      final log = <String>[];
-      rendering.addRenderable(_Logged('corner', log, bounds: rect));
-      rendering.render(Canvas(ui.PictureRecorder()), camera.viewportSize);
-      expect(log, ['corner']);
-
+      // The culling system.
       final world = World();
       addTearDown(world.dispose);
       world.addSystem(
@@ -154,11 +160,7 @@ void main() {
         TransformComponent(position: Vector3.fromXY(corner.dx, corner.dy)),
         CullStateComponent(),
         RenderableComponent(
-          renderable: CircleRenderable(
-            radius: 2,
-            fillColor: Colors.red,
-            position: Vector3.fromXY(corner.dx, corner.dy),
-          ),
+          renderable: _WorldDot(Vector3.fromXY(corner.dx, corner.dy)),
         ),
       ]);
       world.update(0.016);
@@ -172,13 +174,13 @@ void main() {
         zoom: 2,
       );
       expect(
-        camera.getVisibleBounds(),
+        camera.visibleBounds,
         Rect.fromCenter(center: const Offset(10, 20), width: 400, height: 300),
       );
     });
   });
 
-  group('R2: tint and opacity fade a sprite once', () {
+  group('tint and opacity fade a sprite once', () {
     const tint = Color(0xFF3399CC);
     late ui.Image white;
     setUpAll(() async => white = await _solid(8, 8, Colors.white));
@@ -294,7 +296,7 @@ void main() {
     });
   });
 
-  group('R3: batching keeps the order across images', () {
+  group('batching keeps the order across images', () {
     late ui.Image one, two;
     setUpAll(() async {
       one = await createTestImage(width: 8, height: 4);
@@ -322,26 +324,12 @@ void main() {
       // C used to join A's batch and draw under B.
       expect(log, ['one', 'two', 'one']);
     });
-
-    test('in the legacy engine', () {
-      final log = <String>[];
-      final rendering = RenderingEngine()
-        ..camera = Camera(viewportSize: const Size(800, 600))
-        ..spriteBatchFactory = factory(log);
-      rendering
-        ..initialize()
-        ..addRenderable(Sprite(image: one))
-        ..addRenderable(Sprite(image: two))
-        ..addRenderable(Sprite(image: one));
-      rendering.render(Canvas(ui.PictureRecorder()), const Size(800, 600));
-      expect(log, ['one', 'two', 'one']);
-    });
   });
 
-  test('R4: the frame layers open before the background is drawn', () {
+  test('the frame layers open before the background is drawn', () {
     final camera = Camera(viewportSize: const Size(100, 100));
     camera.effectManager.addEffect(
-      MotionBlurEffect(velocityFn: () => const Offset(1000, 0)),
+      MotionBlurEffect(velocity: () => const Offset(1000, 0)),
     );
     final rendering = RenderingEngine()..camera = camera;
     rendering.initialize();
@@ -381,7 +369,7 @@ void main() {
       return List.of(log);
     }
 
-    group('R20: without a LayerComponent the renderable sorts itself', () {
+    group('without a LayerComponent the renderable sorts itself', () {
       test('by its own layer and zOrder', () {
         world.createEntityWithComponents([
           TransformComponent(),
@@ -433,7 +421,7 @@ void main() {
       });
     });
 
-    group('R21: y-sorted renderables stay on their layer', () {
+    group('y-sorted renderables stay on their layer', () {
       Entity at(String name, double y, {int layer = 0, bool ySort = true}) =>
           world.createEntityWithComponents([
             TransformComponent(position: Vector3.fromXY(0, y)),
@@ -483,7 +471,7 @@ void main() {
     });
   });
 
-  group('R22: a shaded renderable layer', () {
+  group('a shaded renderable layer', () {
     late ui.Image image;
     setUpAll(() async => image = await createTestImage(width: 8, height: 4));
 
@@ -508,7 +496,7 @@ void main() {
 
     test('is the bounds as they are when the sprite is not turned', () {
       final sprite = Sprite(image: image, position: Vector3.fromXY(10, 20));
-      expect(RenderSystem.debugShaderBounds(sprite), sprite.getBounds());
+      expect(RenderSystem.debugShaderBounds(sprite), sprite.bounds);
     });
   });
 }

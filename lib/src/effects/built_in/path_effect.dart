@@ -112,7 +112,10 @@ class PathEffect extends DeterministicEffect {
     if (prevElapsed == 0) {
       _capturedStart = Vector3.copy(transform.position);
     }
-    final origin = _capturedStart!;
+    // No start captured: the entity had no transform on the first tick.
+    // Like the other effects, the run then leaves it alone.
+    final origin = _capturedStart;
+    if (origin == null) return;
 
     final prevT = easing.transform(tAt(prevElapsed));
     final currT = easing.transform(tAt(currElapsed));

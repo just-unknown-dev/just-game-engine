@@ -18,7 +18,7 @@
 /// - [DialogueComponent], [DialogueTriggerComponent] — ECS components
 /// - [DialogueSystem] — ECS system
 ///
-/// The dialogue widgets (`DialogueBoxWidget`, `DialogueChoicesWidget`) are in
+/// The dialogue widgets (`DialogueBox`, `DialogueChoices`) are in
 /// `package:just_game_engine/widgets.dart`.
 library;
 
@@ -30,11 +30,9 @@ export 'graph/dialogue_choice.dart';
 export 'graph/dialogue_variable_store.dart';
 
 // Parser
-export 'parser/yarn_tokenizer.dart';
 export 'parser/yarn_parser.dart';
 
 // Runtime
-export 'runtime/expression_evaluator.dart';
 export 'runtime/dialogue_condition_registry.dart';
 export 'runtime/dialogue_command_registry.dart';
 export 'runtime/dialogue_runner.dart';

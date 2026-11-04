@@ -2,7 +2,7 @@
 library;
 
 import '../../../ecs/ecs.dart';
-import '../../../ecs/serialization/schema_fields.dart';
+import '../../../ecs/serialization/field_definitions.dart';
 import '../../../foundation/dimensions.dart';
 import 'capsule_2d_component.dart';
 import 'circle_2d_component.dart';
@@ -15,18 +15,18 @@ import '../../../foundation/shape_paint_style.dart';
 
 /// The 2-D shape components: rectangle, circle, capsule, line and polygon.
 abstract final class Shape2DDefinitions {
-  static SchemaField _style(
+  static FieldDefinition _style(
     String name,
     ShapePaintStyle Function(Component) read,
     void Function(Component, ShapePaintStyle) write,
-  ) => SchemaField(
+  ) => FieldDefinition(
     name: name,
     kind: FieldTypes.shapePaintStyle,
     read: read,
     write: (c, v) => write(c, v as ShapePaintStyle),
   );
 
-  static List<SchemaField> _styleFields<T extends Component>(
+  static List<FieldDefinition> _styleFields<T extends Component>(
     ShapePaintStyle Function(T) fill,
     void Function(T, ShapePaintStyle) setFill,
     ShapePaintStyle Function(T) stroke,
@@ -42,12 +42,12 @@ abstract final class Shape2DDefinitions {
       (c) => stroke(c as T),
       (c, v) => setStroke(c as T, v),
     ),
-    SchemaFields.boolean(
+    FieldDefinitions.boolean(
       'filled',
       (c) => filled(c as T),
       (c, v) => setFilled(c as T, v),
     ),
-    SchemaFields.decimal(
+    FieldDefinitions.decimal(
       'strokeWidth',
       (c) => strokeWidth(c as T),
       (c, v) => setStrokeWidth(c as T, v),
@@ -100,13 +100,13 @@ abstract final class Shape2DDefinitions {
         ),
         create: () => Rectangle2DComponent(width: 64, height: 64),
         fields: [
-          SchemaFields.decimal(
+          FieldDefinitions.decimal(
             'width',
             (c) => (c as Rectangle2DComponent).width,
             (c, v) => (c as Rectangle2DComponent).width = v,
             min: 1,
           ),
-          SchemaFields.decimal(
+          FieldDefinitions.decimal(
             'height',
             (c) => (c as Rectangle2DComponent).height,
             (c, v) => (c as Rectangle2DComponent).height = v,
@@ -122,7 +122,7 @@ abstract final class Shape2DDefinitions {
             (c) => c.strokeWidth,
             (c, v) => c.strokeWidth = v,
           ),
-          SchemaFields.decimal(
+          FieldDefinitions.decimal(
             'cornerRadius',
             (c) => (c as Rectangle2DComponent).cornerRadius,
             (c, v) => (c as Rectangle2DComponent).cornerRadius = v,
@@ -158,7 +158,7 @@ abstract final class Shape2DDefinitions {
         ),
         create: () => Circle2DComponent(radius: 32),
         fields: [
-          SchemaFields.decimal(
+          FieldDefinitions.decimal(
             'radius',
             (c) => (c as Circle2DComponent).radius,
             (c, v) => (c as Circle2DComponent).radius = v,
@@ -208,13 +208,13 @@ abstract final class Shape2DDefinitions {
         ),
         create: () => Capsule2DComponent(width: 32, height: 64),
         fields: [
-          SchemaFields.decimal(
+          FieldDefinitions.decimal(
             'width',
             (c) => (c as Capsule2DComponent).width,
             (c, v) => (c as Capsule2DComponent).width = v,
             min: 1,
           ),
-          SchemaFields.decimal(
+          FieldDefinitions.decimal(
             'height',
             (c) => (c as Capsule2DComponent).height,
             (c, v) => (c as Capsule2DComponent).height = v,
@@ -235,8 +235,8 @@ abstract final class Shape2DDefinitions {
       );
 
   /// [Line2DComponent], from `line_editor_component.dart`.
-  static ComponentSchema<Line2DComponent> get line =>
-      ComponentSchema<Line2DComponent>(
+  static ComponentDefinition<Line2DComponent> get line =>
+      ComponentDefinition<Line2DComponent>(
         type: 'Line2DComponent',
         hints: const ComponentHints(
           dimensions: Dimensions.twoD,
@@ -277,7 +277,7 @@ abstract final class Shape2DDefinitions {
         create: () => Line2DComponent(end: const Offset(100, 0)),
         extent: const _LineExtent(),
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'startX',
             kind: FieldTypes.decimal,
             read: (c) => (c as Line2DComponent).start.dx,
@@ -286,7 +286,7 @@ abstract final class Shape2DDefinitions {
               l.start = Offset((v as num).toDouble(), l.start.dy);
             },
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'startY',
             kind: FieldTypes.decimal,
             read: (c) => (c as Line2DComponent).start.dy,
@@ -295,7 +295,7 @@ abstract final class Shape2DDefinitions {
               l.start = Offset(l.start.dx, (v as num).toDouble());
             },
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'endX',
             kind: FieldTypes.decimal,
             read: (c) => (c as Line2DComponent).end.dx,
@@ -304,7 +304,7 @@ abstract final class Shape2DDefinitions {
               l.end = Offset((v as num).toDouble(), l.end.dy);
             },
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'endY',
             kind: FieldTypes.decimal,
             read: (c) => (c as Line2DComponent).end.dy,
@@ -313,14 +313,14 @@ abstract final class Shape2DDefinitions {
               l.end = Offset(l.end.dx, (v as num).toDouble());
             },
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'strokeColor',
             kind: FieldTypes.shapePaintStyle,
             read: (c) => (c as Line2DComponent).strokeStyle,
             write: (c, v) =>
                 (c as Line2DComponent).strokeStyle = v as ShapePaintStyle,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'strokeW',
             kind: FieldTypes.decimal,
             read: (c) => (c as Line2DComponent).strokeWidth,
@@ -328,7 +328,7 @@ abstract final class Shape2DDefinitions {
                 (c as Line2DComponent).strokeWidth = (v as num).toDouble(),
             min: 0.0,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'roundCaps',
             kind: FieldTypes.boolean,
             read: (c) => (c as Line2DComponent).roundCaps,
@@ -338,88 +338,88 @@ abstract final class Shape2DDefinitions {
       );
 
   /// [Polygon2DComponent], from `polygon_editor_component.dart`.
-  static ComponentSchema<Polygon2DComponent> get polygon =>
-      ComponentSchema<Polygon2DComponent>(
-        type: 'Polygon2DComponent',
-        hints: const ComponentHints(
-          dimensions: Dimensions.twoD,
-          name: 'Polygon',
-          group: 'Rendering',
-          icon: Icons.pentagon_outlined,
-          accentColor: Color(0xFF42A5F5),
-          fieldGroups: {
-            'Shape': ['vertCount', 'vertices'],
-            'Appearance': ['filled', 'fillColor', 'strokeColor', 'strokeW'],
-          },
-          fields: {
-            'vertCount': FieldHint(label: 'Verts', editable: false),
-            'vertices': FieldHint(label: 'Vertices'),
-            'filled': FieldHint(label: 'Filled'),
-            'fillColor': FieldHint(label: 'Fill'),
-            'strokeColor': FieldHint(label: 'Stroke Color'),
-            'strokeW': FieldHint(
-              label: 'Stroke',
-              scrub: ScrubHint(step: 0.5, fractionDigits: 1),
-            ),
-          },
+  static ComponentDefinition<Polygon2DComponent>
+  get polygon => ComponentDefinition<Polygon2DComponent>(
+    type: 'Polygon2DComponent',
+    hints: const ComponentHints(
+      dimensions: Dimensions.twoD,
+      name: 'Polygon',
+      group: 'Rendering',
+      icon: Icons.pentagon_outlined,
+      accentColor: Color(0xFF42A5F5),
+      fieldGroups: {
+        'Shape': ['vertCount', 'vertices'],
+        'Appearance': ['filled', 'fillColor', 'strokeColor', 'strokeW'],
+      },
+      fields: {
+        'vertCount': FieldHint(label: 'Verts', editable: false),
+        'vertices': FieldHint(label: 'Vertices'),
+        'filled': FieldHint(label: 'Filled'),
+        'fillColor': FieldHint(label: 'Fill'),
+        'strokeColor': FieldHint(label: 'Stroke Color'),
+        'strokeW': FieldHint(
+          label: 'Stroke',
+          scrub: ScrubHint(step: 0.5, fractionDigits: 1),
         ),
-        id: 'polygon_671a97e0',
-        create: () => Polygon2DComponent(
-          vertices: const [
-            Offset(-32, -32),
-            Offset(32, -32),
-            Offset(32, 32),
-            Offset(-32, 32),
-          ],
-        ),
-        extent: const _PolygonExtent(),
-        fields: [
-          SchemaField(
-            name: 'vertCount',
-            kind: FieldTypes.integer,
-            read: (c) => (c as Polygon2DComponent).vertices.length,
-          ),
-          // The shape itself. The descriptor this schema was transcribed from
-          // saved only the count, so every polygon reloaded as the default
-          // square. A file without this key still loads that way.
-          SchemaField(
-            name: 'vertices',
-            kind: FieldTypes.offsetList,
-            read: (c) => (c as Polygon2DComponent).vertices,
-            write: (c, v) => (c as Polygon2DComponent).vertices = (v as List)
-                .cast<Offset>()
-                .toList(),
-          ),
-          SchemaField(
-            name: 'filled',
-            kind: FieldTypes.boolean,
-            read: (c) => (c as Polygon2DComponent).filled,
-            write: (c, v) => (c as Polygon2DComponent).filled = v as bool,
-          ),
-          SchemaField(
-            name: 'fillColor',
-            kind: FieldTypes.shapePaintStyle,
-            read: (c) => (c as Polygon2DComponent).fillStyle,
-            write: (c, v) =>
-                (c as Polygon2DComponent).fillStyle = v as ShapePaintStyle,
-          ),
-          SchemaField(
-            name: 'strokeColor',
-            kind: FieldTypes.shapePaintStyle,
-            read: (c) => (c as Polygon2DComponent).strokeStyle,
-            write: (c, v) =>
-                (c as Polygon2DComponent).strokeStyle = v as ShapePaintStyle,
-          ),
-          SchemaField(
-            name: 'strokeW',
-            kind: FieldTypes.decimal,
-            read: (c) => (c as Polygon2DComponent).strokeWidth,
-            write: (c, v) =>
-                (c as Polygon2DComponent).strokeWidth = (v as num).toDouble(),
-            min: 0.0,
-          ),
-        ],
-      );
+      },
+    ),
+    id: 'polygon_671a97e0',
+    create: () => Polygon2DComponent(
+      vertices: const [
+        Offset(-32, -32),
+        Offset(32, -32),
+        Offset(32, 32),
+        Offset(-32, 32),
+      ],
+    ),
+    extent: const _PolygonExtent(),
+    fields: [
+      FieldDefinition(
+        name: 'vertCount',
+        kind: FieldTypes.integer,
+        read: (c) => (c as Polygon2DComponent).vertices.length,
+      ),
+      // The shape itself. The descriptor this definition was transcribed from
+      // saved only the count, so every polygon reloaded as the default
+      // square. A file without this key still loads that way.
+      FieldDefinition(
+        name: 'vertices',
+        kind: FieldTypes.offsetList,
+        read: (c) => (c as Polygon2DComponent).vertices,
+        write: (c, v) => (c as Polygon2DComponent).vertices = (v as List)
+            .cast<Offset>()
+            .toList(),
+      ),
+      FieldDefinition(
+        name: 'filled',
+        kind: FieldTypes.boolean,
+        read: (c) => (c as Polygon2DComponent).filled,
+        write: (c, v) => (c as Polygon2DComponent).filled = v as bool,
+      ),
+      FieldDefinition(
+        name: 'fillColor',
+        kind: FieldTypes.shapePaintStyle,
+        read: (c) => (c as Polygon2DComponent).fillStyle,
+        write: (c, v) =>
+            (c as Polygon2DComponent).fillStyle = v as ShapePaintStyle,
+      ),
+      FieldDefinition(
+        name: 'strokeColor',
+        kind: FieldTypes.shapePaintStyle,
+        read: (c) => (c as Polygon2DComponent).strokeStyle,
+        write: (c, v) =>
+            (c as Polygon2DComponent).strokeStyle = v as ShapePaintStyle,
+      ),
+      FieldDefinition(
+        name: 'strokeW',
+        kind: FieldTypes.decimal,
+        read: (c) => (c as Polygon2DComponent).strokeWidth,
+        write: (c, v) =>
+            (c as Polygon2DComponent).strokeWidth = (v as num).toDouble(),
+        min: 0.0,
+      ),
+    ],
+  );
 
   /// Every one of them.
   static List<ComponentCodec> get all => [

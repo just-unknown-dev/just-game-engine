@@ -6,7 +6,7 @@ import '../../../ecs/ecs.dart';
 // the web included (where it simply draws nothing).
 
 /// The kind of a [Light3DComponent].
-enum LightKind {
+enum Light3DKind {
   /// Light from far away along the entity's forward (+Z) axis: the sun.
   directional,
 
@@ -22,7 +22,7 @@ enum LightKind {
 class Light3DComponent extends Component {
   /// A light of [kind].
   Light3DComponent({
-    this.kind = LightKind.point,
+    this.kind = Light3DKind.point,
     this.color = const Color(0xFFFFFFFF),
     this.intensity = 10.0,
     this.range = 0.0,
@@ -31,7 +31,7 @@ class Light3DComponent extends Component {
   });
 
   /// Directional, point or spot.
-  LightKind kind;
+  Light3DKind kind;
 
   /// Its colour (sRGB, as picked).
   Color color;

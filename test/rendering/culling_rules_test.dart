@@ -1,5 +1,6 @@
 // View culling: the game keeps the say over `visible`, bounds follow the
-// transform's scale and turn, and the spatial grid reuses what it can.
+// transform's scale and turn, what the culler borrowed it gives back, and
+// the spatial grid reuses what it can.
 
 import 'dart:math' as math;
 
@@ -16,11 +17,25 @@ class _WorldBox extends Renderable {
   bool get boundsAreWorldSpace => true;
 
   @override
-  Rect? getBounds() => Rect.fromCenter(
+  Rect? get bounds => Rect.fromCenter(
     center: position.toOffset(),
     width: w * scale.x,
     height: h * scale.y,
   );
+
+  @override
+  void render(Canvas canvas, Size size) {}
+}
+
+/// A dot of radius 5 at its own position, in world space.
+class _Dot extends Renderable {
+  _Dot({super.position});
+
+  @override
+  bool get boundsAreWorldSpace => true;
+
+  @override
+  Rect? get bounds => Rect.fromCircle(center: position.toOffset(), radius: 5);
 
   @override
   void render(Canvas canvas, Size size) {}
@@ -51,13 +66,7 @@ void main() {
     RenderableComponent(
       // A built-in renderable's bounds are in world space, at its own
       // position — where RenderSystem puts it, synced to the transform.
-      renderable:
-          renderable ??
-          CircleRenderable(
-            radius: 5,
-            fillColor: Colors.red,
-            position: Vector3.fromXY(x, y),
-          ),
+      renderable: renderable ?? _Dot(position: Vector3.fromXY(x, y)),
     ),
   ]);
 
@@ -70,7 +79,7 @@ void main() {
     e.getComponent<RenderableComponent>()!.renderable.position.x = x;
   }
 
-  group('the game keeps the say over visible (C22)', () {
+  group('the game keeps the say over visible', () {
     test('an entity hidden on screen stays hidden', () {
       final e = spawn(0, 0);
       e.getComponent<RenderableComponent>()!.renderable.visible = false;
@@ -109,7 +118,65 @@ void main() {
     });
   });
 
-  group('bounds follow the transform (C22)', () {
+  group('what the culler borrowed it gives back', () {
+    late ViewCullingSystem culler;
+
+    setUp(() {
+      world.clearSystems();
+      culler = ViewCullingSystem(camera: camera);
+      world.addSystem(culler);
+    });
+
+    test('removed, it shows what it hid and wakes what it froze', () {
+      final e = spawn(5000, 0);
+      final off = spawn(5000, 0)..isActive = false;
+      world.update(0.016);
+      off.isActive = true;
+      world.update(0.016);
+      off.isActive = false;
+      expect(visible(e), isFalse);
+      expect(cull(e).isActive, isFalse);
+      expect(visible(off), isFalse);
+
+      world.removeSystem(culler);
+      expect(visible(e), isTrue, reason: 'it used to stay hidden for good');
+      expect(cull(e).isActive, isTrue, reason: 'and frozen');
+      expect(cull(e).hidesRenderable, isFalse);
+      expect(visible(off), isTrue, reason: 'switched-off entities too');
+    });
+
+    test('removed, it leaves alone what the game hid', () {
+      final e = spawn(0, 0);
+      world.update(0.016);
+      e.getComponent<RenderableComponent>()!.renderable.visible = false;
+      world.removeSystem(culler);
+      expect(visible(e), isFalse);
+    });
+
+    test('an entity losing its cull state while hidden is shown again', () {
+      final e = spawn(5000, 0);
+      world.update(0.016);
+      expect(visible(e), isFalse);
+      e.removeComponent<CullStateComponent>();
+      expect(visible(e), isTrue, reason: 'nothing would ever show it again');
+    });
+
+    test('a renderable replaced while hidden is culled too', () {
+      final e = spawn(5000, 0);
+      world.update(0.016);
+      final old = e.getComponent<RenderableComponent>()!.renderable;
+      expect(old.visible, isFalse);
+      final fresh = _Dot(position: Vector3.fromXY(5000, 0));
+      e.getComponent<RenderableComponent>()!.renderable = fresh;
+      world.update(0.016);
+      expect(fresh.visible, isFalse, reason: 'it used to be drawn off screen');
+      moveTo(e, 0);
+      world.update(0.016);
+      expect(fresh.visible, isTrue);
+    });
+  });
+
+  group('bounds follow the transform', () {
     // A bar 10 wide at x = 700: its right edge must pass 480 to be seen.
 
     test('scale', () {
@@ -176,7 +243,7 @@ void main() {
     });
   });
 
-  group('the spatial grid (P12)', () {
+  group('the spatial grid', () {
     Rect at(double x, double y) =>
         Rect.fromCenter(center: Offset(x, y), width: 1, height: 1);
 
@@ -213,6 +280,5 @@ void main() {
 /// Local bounds centred on the origin, as the shape components' are.
 Renderable _box(double w, double h) => CustomRenderable(
   onRender: (canvas, size) {},
-  getBoundsCallback: () =>
-      Rect.fromCenter(center: Offset.zero, width: w, height: h),
+  boundsOf: () => Rect.fromCenter(center: Offset.zero, width: w, height: h),
 );

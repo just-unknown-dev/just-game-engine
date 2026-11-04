@@ -114,6 +114,9 @@ class AnimatorSystem extends System {
   /// animator is gone, switched off, or plays another graph now.
   void _release(Entity entity) {
     if (!entity.isAlive) return;
+    // A state's timeline first: ending, it gives back what it held (a
+    // sprite clip) before the sprite goes back to what was authored.
+    entity.getComponent<TimelinePlayerComponent>()?.stopTimeline();
     final sprite = entity.getComponent<SpriteAnimationComponent>();
     if (sprite != null) {
       sprite.release();
@@ -192,7 +195,15 @@ class AnimatorSystem extends System {
         }
       }
       final entered = graph.stateNamed(next.to)!;
-      _enter(entity, animator, sprite, target, entered, fade: next.duration);
+      _enter(
+        entity,
+        animator,
+        sprite,
+        target,
+        entered,
+        fade: next.duration,
+        leaving: graph.stateNamed(animator.currentState),
+      );
       _blend(entity, animator, sprite, target, entered, 0);
     });
 
@@ -241,17 +252,19 @@ class AnimatorSystem extends System {
     double? progress;
     for (final t in candidates) {
       if (t.hasExitTime) {
-        // A state that plays a timeline is done when the timeline is.
+        // A state that plays a timeline is done when the timeline is — or,
+        // for one that loops, when it has gone round: its laps count up
+        // past 1, as a looping clip's do.
         final player =
             (graph.stateNamed(animator.currentState)?.timeline ?? '').isEmpty
             ? null
             : entity.getComponent<TimelinePlayerComponent>();
         final state = graph.stateNamed(animator.currentState)!;
-        progress ??=
-            player?.progress ??
-            (sprite != null
-                ? _progress(entity, sprite)
-                : target!.progress(entity, animator, state));
+        progress ??= player != null
+            ? player.playback?.laps ?? 0
+            : sprite != null
+            ? _progress(entity, sprite)
+            : target!.progress(entity, animator, state);
         final done =
             player?.isFinished ??
             sprite?.isComplete ??
@@ -297,27 +310,39 @@ class AnimatorSystem extends System {
     AnimationTarget? target,
     AnimatorState state, {
     double fade = 0,
+    AnimatorState? leaving,
   }) {
     final from = animator.currentState;
     animator
       ..previousState = from
       ..currentState = state.name
       ..stateTime = 0.0;
+    // The timeline before the clip: the one the state being left played
+    // ends here — replaced, or stopped when this state has none — and
+    // gives back the clip it held, before this state sets its own.
+    final player = entity.getComponent<TimelinePlayerComponent>();
+    if (player != null) {
+      if (state.timeline.isNotEmpty) {
+        player.playTimeline(state.timeline);
+      } else if (leaving != null && leaving.timeline.isNotEmpty) {
+        player.stopTimeline();
+      }
+    }
     if (sprite != null) {
-      // A sprite can't blend: a blend tree plays its heaviest motion.
-      final clip = state.blend == null
-          ? state.clipName
-          : _heaviest(state.blend!, animator) ?? state.clipName;
+      // A sprite can't blend: a blend tree plays its heaviest motion, at
+      // its own speed.
+      final motion = state.blend == null
+          ? null
+          : _heaviest(state.blend!, animator);
       sprite
-        ..playingSpeed = state.speed
-        ..switchClip(clip, restartIfSame: true, loop: state.loop);
+        ..playingSpeed = state.speed * (motion?.speed ?? 1)
+        ..switchClip(
+          motion?.clip ?? state.clipName,
+          restartIfSame: true,
+          loop: state.loop,
+        );
     } else {
       target!.enter(entity, state, fade: fade);
-    }
-    if (state.timeline.isNotEmpty) {
-      entity.getComponent<TimelinePlayerComponent>()?.playTimeline(
-        state.timeline,
-      );
     }
     _changes.add(AnimatorStateChange(entity, from, state.name));
   }
@@ -338,14 +363,20 @@ class AnimatorSystem extends System {
     }
     final tree = state.blend;
     if (tree == null || sprite == null) return;
-    final clip = _heaviest(tree, animator);
-    if (clip != null && clip != sprite.playingClip) {
-      sprite.switchClip(clip, restartIfSame: false, loop: state.loop);
+    final motion = _heaviest(tree, animator);
+    if (motion != null && motion.clip != sprite.playingClip) {
+      sprite
+        ..playingSpeed = state.speed * motion.speed
+        ..switchClip(motion.clip, restartIfSame: false, loop: state.loop);
     }
   }
 
-  /// The clip of [tree]'s heaviest motion for [animator]'s parameters.
-  static String? _heaviest(AnimatorBlendTree tree, AnimatorComponent animator) {
+  /// [tree]'s heaviest motion for [animator]'s parameters; null when it
+  /// has none.
+  static AnimatorBlendMotion? _heaviest(
+    AnimatorBlendTree tree,
+    AnimatorComponent animator,
+  ) {
     if (tree.motions.isEmpty) return null;
     final x = AnimatorParameter.asNumber(animator.parameters[tree.parameter]);
     final y = AnimatorParameter.asNumber(animator.parameters[tree.parameterY]);
@@ -354,7 +385,7 @@ class AnimatorSystem extends System {
     for (var i = 1; i < weights.length; i++) {
       if (weights[i] > weights[best]) best = i;
     }
-    return tree.motions[best].clip;
+    return tree.motions[best];
   }
 
   @override

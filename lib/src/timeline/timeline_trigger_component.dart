@@ -36,8 +36,8 @@ class TimelineTriggerComponent extends Component {
     this.height = 128,
     this.target = const EntityTarget.tag('player'),
     this.playerName = '',
-    this.onEnter = TimelineTriggerAction.restart,
-    this.onExit = TimelineTriggerAction.nothing,
+    this.enterAction = TimelineTriggerAction.restart,
+    this.exitAction = TimelineTriggerAction.nothing,
     this.oneShot = false,
   });
 
@@ -57,10 +57,10 @@ class TimelineTriggerComponent extends Component {
   String playerName;
 
   /// What the player is told to do when a target comes in.
-  TimelineTriggerAction onEnter;
+  TimelineTriggerAction enterAction;
 
   /// What the player is told to do when the last target inside has left.
-  TimelineTriggerAction onExit;
+  TimelineTriggerAction exitAction;
 
   /// Fires on the first entry only.
   bool oneShot;
@@ -71,7 +71,7 @@ class TimelineTriggerComponent extends Component {
   /// this changes.
   bool isInside = false;
 
-  /// Whether the trigger has done its entry — and its exit, when [onExit]
+  /// Whether the trigger has done its entry — and its exit, when [exitAction]
   /// does something. From then on a [oneShot] trigger does nothing.
   bool hasFired = false;
 
@@ -81,5 +81,5 @@ class TimelineTriggerComponent extends Component {
       Rect.fromCenter(center: centre, width: width, height: height);
 
   @override
-  String toString() => 'TimelineTrigger($width×$height, ${onEnter.name})';
+  String toString() => 'TimelineTrigger($width×$height, ${enterAction.name})';
 }

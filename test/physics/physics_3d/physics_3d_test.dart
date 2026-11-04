@@ -124,10 +124,10 @@ void main() {
     expect(loaded.mass, 4);
   });
 
-  test('registerSchemas teaches a bare context the components, for tools', () {
+  test('registerDefinitions teaches a bare context the components, for tools', () {
     final context = EngineContext();
     addTearDown(context.dispose);
-    Physics3D.registerSchemas(context);
+    Physics3D.registerDefinitions(context);
     expect(context.definitions.definitionByType('CharacterBody3DComponent'), isNotNull);
   });
 }

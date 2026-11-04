@@ -3,7 +3,7 @@ library;
 
 import 'package:flutter/painting.dart' show Offset, Rect;
 
-import 'camera_targets.dart';
+import 'camera_target_resolver.dart';
 import '../ecs/ecs.dart';
 import 'camera_target_components.dart';
 import 'virtual_camera_component.dart';
@@ -76,11 +76,12 @@ class CameraTargetGroupSystem extends System {
 /// [CameraTriggerMode.enableWhileInside] the camera is enabled while the
 /// target is inside *any* of them — and switched off once none of them
 /// asks for it, even when the last one was switched off, destroyed or
-/// pointed at another camera while it held the camera on. In [CameraTriggerMode.boostPriority] each
-/// trigger adds its own boost, and takes back exactly what it added: when
-/// the target leaves, when its `amount` is edited (the new amount replaces
-/// the old), and when the trigger is switched off, destroyed or loses its
-/// component while the boost is in force.
+/// pointed at another camera while it held the camera on. In
+/// [CameraTriggerMode.boostPriority] each trigger adds its own boost, and
+/// takes back exactly what it added: when the target leaves, when its
+/// `amount` is edited (the new amount replaces the old), and when the
+/// trigger is switched off, destroyed or loses its component while the
+/// boost is in force. Removing the system gives back everything at once.
 class CameraTriggerSystem extends System {
   final CameraTargetResolver _targets = CameraTargetResolver();
 
@@ -155,6 +156,25 @@ class CameraTriggerSystem extends System {
         return true;
       });
     }
+  }
+
+  /// Taken out of the world (or the world's systems cleared): what the
+  /// triggers borrowed is given back — every boost in force is taken off
+  /// its camera, and every camera they held on is switched off — so the
+  /// cameras' saved fields are as authored again.
+  @override
+  void onRemovedFromWorld() {
+    _boosts.forEach((trigger, applied) {
+      applied.vcam.priority -= applied.amount;
+      trigger.isBoosted = false;
+    });
+    _boosts.clear();
+    for (final vcam in _heldOn) {
+      vcam.enabled = false;
+    }
+    _heldOn.clear();
+    _holding.clear();
+    super.onRemovedFromWorld();
   }
 
   /// Keeps [trigger]'s boost on [vcam] at the trigger's current amount.

@@ -7,7 +7,9 @@ import '../camera_stage.dart';
 import '../camera_state.dart';
 
 /// Body: keeps the target inside its dead zone, easing when it leaves and
-/// never letting it out of the soft zone.
+/// never letting it out of the soft zone. While the target is missing the
+/// camera holds where it last settled; the first target it ever frames is
+/// snapped to.
 class FramingStage extends CameraStage<CameraFramingComponent> {
   /// Stateless; the brain registers one for [CameraFramingComponent].
   const FramingStage();
@@ -27,14 +29,18 @@ class FramingStage extends CameraStage<CameraFramingComponent> {
     if (targetAt == null) {
       // Nothing to frame: hold where the camera last settled, or where its
       // entity sits if it never has.
-      if (!memory.initialized) memory.position = state.position;
+      if (!memory.isInitialized) memory.position = state.position;
       // Whatever comes back is measured afresh, not from where it vanished.
       memory.previousTargetPosition = null;
       memory.extra.remove(_targetKey);
       return state.copyWith(position: memory.position);
     }
 
-    final snap = context.snap || !memory.initialized;
+    // The first target ever framed is snapped to, as on a first frame: a
+    // camera authored before its player spawns does not pan to it.
+    final framedBefore = memory.extra[_framedKey] == true;
+    memory.extra[_framedKey] = true;
+    final snap = context.snap || !memory.isInitialized || !framedBefore;
     final view = context.viewAt(state.zoom);
     final aim =
         targetAt + _lookahead(context, framing, targetAt, view, dt, snap);
@@ -142,6 +148,7 @@ class FramingStage extends CameraStage<CameraFramingComponent> {
   }
 
   static const Object _targetKey = #framingTarget;
+  static const Object _framedKey = #framingFramed;
 
   static bool _isTeleport(Offset moved, Size view) =>
       !view.isEmpty &&

@@ -258,14 +258,25 @@ final class TileAssets {
   /// failure kept for one: a Tiled map's tilesets stay while the map does.
   /// Nothing happens (and [revision] stays) when all of it is kept.
   ///
+  /// Returns the tileset images only the forgotten tilesets drew from —
+  /// none a kept tileset uses, and no built-in picture — for whoever loaded
+  /// them to let go of too (`LevelMaps.evictUnused` tells the sprite
+  /// loader).
+  ///
   /// Not for an authoring tool that edits maps here in place
   /// ([loadedMap]): what it forgets is read again from the file.
-  void retainOnly(Set<String> paths) {
+  Set<String> retainOnly(Set<String> paths) {
     bool gone(String key) {
       if (paths.contains(key)) return false;
       final hash = key.indexOf('#');
       return hash < 0 || !paths.contains(key.substring(0, hash));
     }
+
+    final images = <String>{
+      for (final MapEntry(:key, :value) in _tilesets.entries)
+        if (gone(key) && value.image.isNotEmpty && !isVirtual(value.image))
+          value.image,
+    };
 
     final before =
         _tilesets.length +
@@ -286,6 +297,10 @@ final class TileAssets {
         _mapLoads.length +
         _failures.length;
     if (after != before) _revision++;
+    for (final kept in _tilesets.values) {
+      images.remove(kept.image);
+    }
+    return images;
   }
 
   /// Forgets everything loaded. The built-in tilesets stay.

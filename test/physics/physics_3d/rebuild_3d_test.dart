@@ -221,7 +221,7 @@ void main() {
       _crate(world);
       final ground = world.createEntityWithComponents([
         TransformComponent(position: Vector3(0, 0.5, 0)),
-        Collider3DComponent(shape: ColliderShape3D.mesh, model: 'ground.glb'),
+        Collider3DComponent(shape: Collider3DShape.mesh, model: 'ground.glb'),
       ], name: 'Ground');
       final log = _Log(world);
       _run(world, 2);
@@ -248,7 +248,7 @@ void main() {
 
   test('collider shapes are kept within their limits', () {
     final shapes = Collider3DShapes(geometry: _Geometry());
-    final mesh = Collider3DComponent(shape: ColliderShape3D.mesh, model: 'a.glb');
+    final mesh = Collider3DComponent(shape: Collider3DShape.mesh, model: 'a.glb');
     final first = shapes.build(mesh, Vector3(1, 1, 1));
     for (var i = 0; i < Collider3DShapes.modelLimit * 2; i++) {
       shapes.build(mesh, Vector3(1, 1, 1));

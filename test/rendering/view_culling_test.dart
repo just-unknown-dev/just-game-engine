@@ -2,6 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
+/// A dot of radius 5 at its own position, in world space.
+class _Dot extends Renderable {
+  _Dot({super.position});
+
+  @override
+  bool get boundsAreWorldSpace => true;
+
+  @override
+  Rect? get bounds => Rect.fromCircle(center: position.toOffset(), radius: 5);
+
+  @override
+  void render(Canvas canvas, Size size) {}
+}
+
 void main() {
   late World world;
   late Camera camera;
@@ -24,11 +38,7 @@ void main() {
       RenderableComponent(
         // Where RenderSystem puts it: its bounds are in world space, at its
         // own position, which the render system syncs to the transform.
-        renderable: CircleRenderable(
-          radius: 5,
-          fillColor: Colors.red,
-          position: Vector3.fromXY(x, y),
-        ),
+        renderable: _Dot(position: Vector3.fromXY(x, y)),
       ),
     ]);
   }
@@ -127,9 +137,7 @@ void main() {
   test('entities without CullStateComponent are left untouched', () {
     final entity = world.createEntityWithComponents([
       TransformComponent(position: Vector3.fromXY(50000, 50000)),
-      RenderableComponent(
-        renderable: CircleRenderable(radius: 5, fillColor: Colors.blue),
-      ),
+      RenderableComponent(renderable: _Dot()),
     ]);
 
     world.update(0.016);

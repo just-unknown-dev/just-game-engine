@@ -4,15 +4,15 @@ import 'package:just_dart/just_dart.dart' show Aabb3;
 
 import '../../ecs/ecs.dart';
 import '../../foundation/dimensions.dart';
-import 'graphics_components.dart';
+import 'model_components.dart';
 
 /// How the 3-D model components (models, animation players, sockets) are
 /// saved and shown in an editor. Lights, materials and shapes have their own
 /// (`Lighting3DDefinitions`, `Material3DDefinitions`, `Shape3DDefinitions`).
 abstract final class Graphics3DDefinitions {
   /// [ModelComponent].
-  static ComponentSchema<ModelComponent> get model =>
-      ComponentSchema<ModelComponent>(
+  static ComponentDefinition<ModelComponent> get model =>
+      ComponentDefinition<ModelComponent>(
         type: 'ModelComponent',
         id: 'model_3d_7c21e4b9',
         create: ModelComponent.new,
@@ -37,13 +37,13 @@ abstract final class Graphics3DDefinitions {
           },
         ),
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'model',
             kind: FieldTypes.assetRef,
             read: (c) => (c as ModelComponent).model,
             write: (c, v) => (c as ModelComponent).model = v as String? ?? '',
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'materials',
             kind: FieldTypes.map,
             read: (c) =>
@@ -55,13 +55,13 @@ abstract final class Graphics3DDefinitions {
                     '${e.key}': e.value as String,
             },
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'castShadows',
             kind: FieldTypes.boolean,
             read: (c) => (c as ModelComponent).castShadows,
             write: (c, v) => (c as ModelComponent).castShadows = v as bool,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'visible',
             kind: FieldTypes.boolean,
             read: (c) => (c as ModelComponent).visible,
@@ -71,8 +71,8 @@ abstract final class Graphics3DDefinitions {
       );
 
   /// [AnimationPlayerComponent].
-  static ComponentSchema<AnimationPlayerComponent> get animationPlayer =>
-      ComponentSchema<AnimationPlayerComponent>(
+  static ComponentDefinition<AnimationPlayerComponent> get animationPlayer =>
+      ComponentDefinition<AnimationPlayerComponent>(
         type: 'AnimationPlayerComponent',
         id: 'animation_player_3d_91d6a2c4',
         create: AnimationPlayerComponent.new,
@@ -98,7 +98,7 @@ abstract final class Graphics3DDefinitions {
           },
         ),
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'clip',
             kind: FieldTypes.text,
             read: (c) => (c as AnimationPlayerComponent).clip,
@@ -110,13 +110,13 @@ abstract final class Graphics3DDefinitions {
             (c) => (c as AnimationPlayerComponent).speed,
             (c, v) => (c as AnimationPlayerComponent).speed = v,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'loop',
             kind: FieldTypes.boolean,
             read: (c) => (c as AnimationPlayerComponent).loop,
             write: (c, v) => (c as AnimationPlayerComponent).loop = v as bool,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'playing',
             kind: FieldTypes.boolean,
             read: (c) => (c as AnimationPlayerComponent).playing,
@@ -133,8 +133,8 @@ abstract final class Graphics3DDefinitions {
       );
 
   /// [SocketComponent].
-  static ComponentSchema<SocketComponent> get socket =>
-      ComponentSchema<SocketComponent>(
+  static ComponentDefinition<SocketComponent> get socket =>
+      ComponentDefinition<SocketComponent>(
         type: 'SocketComponent',
         id: 'socket_3d_5e0b7f13',
         create: SocketComponent.new,
@@ -148,7 +148,7 @@ abstract final class Graphics3DDefinitions {
           fields: {'node': FieldHint(label: 'Joint')},
         ),
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'node',
             kind: FieldTypes.text,
             read: (c) => (c as SocketComponent).node,
@@ -158,14 +158,14 @@ abstract final class Graphics3DDefinitions {
       );
 
   /// Every model component.
-  static List<ComponentSchema> get all => [model, animationPlayer, socket];
+  static List<ComponentDefinition> get all => [model, animationPlayer, socket];
 
-  static SchemaField _decimal(
+  static FieldDefinition _decimal(
     String name,
     double Function(Component c) read,
     void Function(Component c, double v) write, {
     double? min,
-  }) => SchemaField(
+  }) => FieldDefinition(
     name: name,
     kind: FieldTypes.decimal,
     read: read,

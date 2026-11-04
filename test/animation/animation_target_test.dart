@@ -77,7 +77,7 @@ void main() {
 
   Future<void> settle() async {
     world.update(1 / 60); // starts loading the graph
-    await Future<void>.delayed(Duration.zero);
+    await pumpEventQueue();
   }
 
   test('an entity without a sprite plays on the target that drives it', () async {

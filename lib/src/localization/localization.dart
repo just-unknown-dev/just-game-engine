@@ -8,7 +8,7 @@
 ///
 /// The widgets built on it — `LocalizationBuilder`, `LocalizedText`,
 /// `LocaleSelector` — and the `context.t()` / `context.tr()` extension
-/// (`L10nContext`) are in `package:just_game_engine/widgets.dart`.
+/// (`BuildContextLocalization`) are in `package:just_game_engine/widgets.dart`.
 library;
 
 export 'locale_string_table.dart';

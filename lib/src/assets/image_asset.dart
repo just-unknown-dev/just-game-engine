@@ -68,7 +68,7 @@ class ImageAsset extends Asset {
   }
 
   @override
-  int getMemoryUsage() {
+  int get memoryUsage {
     if (_image != null) {
       return _image!.width * _image!.height * 4; // RGBA
     }

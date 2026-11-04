@@ -38,4 +38,8 @@ class SubtitleController {
     _activeCueText = null;
     currentText.value = null;
   }
+
+  /// Releases [currentText]. The controller is not used again afterwards;
+  /// take any `SubtitleOverlay` showing it down first.
+  void dispose() => currentText.dispose();
 }

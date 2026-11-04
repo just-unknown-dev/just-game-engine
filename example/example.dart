@@ -47,7 +47,7 @@ Future<Engine> createGame() async {
     ),
     RigidBody2DComponent(restitution: 0, lockRotation: true), // stays upright
     Collider2DComponent(
-      shape: ColliderShape2D.matchShape,
+      shape: Collider2DShape.matchShape,
     ), // the rectangle drawn
     InputComponent(), // player 1's actions, copied in by InputSystem
     TagComponent('player'),
@@ -63,7 +63,7 @@ Future<Engine> createGame() async {
         fillStyle: const ShapePaintStyle(color: Color(0xFFFFB74D)),
       ),
       RigidBody2DComponent(restitution: 0.1),
-      Collider2DComponent(shape: ColliderShape2D.matchShape),
+      Collider2DComponent(shape: Collider2DShape.matchShape),
     ], name: 'Crate $i');
   }
   world.createEntityWithComponents([
@@ -73,7 +73,7 @@ Future<Engine> createGame() async {
       fillStyle: const ShapePaintStyle(color: Color(0xFFE57373)),
     ),
     RigidBody2DComponent(restitution: 0.6),
-    Collider2DComponent(shape: ColliderShape2D.matchShape),
+    Collider2DComponent(shape: Collider2DShape.matchShape),
   ], name: 'Ball');
 
   // The game's own rule, as a system of its own.
@@ -145,7 +145,7 @@ class ExampleApp extends StatelessWidget {
 /// their defaults.
 const levelScene = '''
 {
-  "version": 9,
+  "version": 11,
   "name": "example",
   "entities": [
     {

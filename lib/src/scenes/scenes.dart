@@ -4,6 +4,17 @@ library;
 
 export 'scene_loader.dart';
 export 'prefab_components.dart';
+// The scene format: its version and migration (`SceneFormat`), what a
+// migration did, the play order and naming rules, and new levels' starters.
+export 'package:just_game_engine_formats/just_game_engine_formats.dart'
+    show
+        MigrationNote,
+        MigrationRun,
+        SceneFormat,
+        SceneManifest,
+        SceneMigrationResult,
+        SceneNames,
+        SceneStarters;
 export 'package:just_game_engine_formats/just_game_engine_formats.dart'
     show
         PrefabApply,

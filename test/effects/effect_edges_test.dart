@@ -2,7 +2,6 @@
 // effects fast-forwarded, fades along easings that overshoot, absolute
 // paths, mirrored scales, and rollback done twice.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
@@ -34,9 +33,7 @@ void main() {
     addTearDown(world.dispose);
     entity = world.createEntityWithComponents([
       TransformComponent(position: Vector3.fromXY(100, 100)),
-      RenderableComponent(
-        renderable: CircleRenderable(radius: 1, fillColor: Colors.red),
-      ),
+      RenderableComponent(renderable: CustomRenderable(onRender: (_, _) {})),
     ]);
   });
   EffectContext at(int t) => EffectContext(entity: entity, currentTick: t);

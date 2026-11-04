@@ -80,7 +80,7 @@ class MapGeometry {
   /// and [staggerIndex] matter only on staggered and hexagonal maps,
   /// [hexSideLength] only on hexagonal ones.
   MapGeometry({
-    this.orientation = MapOrientation.orthogonal,
+    this.orientation = LevelMapOrientation.orthogonal,
     required int tileWidth,
     required int tileHeight,
     this.staggerAxis = TileStaggerAxis.y,
@@ -89,7 +89,7 @@ class MapGeometry {
   }) : tileWidth = _size(orientation, tileWidth),
        tileHeight = _size(orientation, tileHeight),
        hexSideLength =
-           orientation == MapOrientation.hexagonal && hexSideLength > 0
+           orientation == LevelMapOrientation.hexagonal && hexSideLength > 0
            ? hexSideLength
            : 0 {
     final sx = staggerAxis == TileStaggerAxis.x;
@@ -111,17 +111,17 @@ class MapGeometry {
     hexSideLength: map.hexSideLength,
   );
 
-  static bool _isStaggered(MapOrientation o) =>
-      o == MapOrientation.staggered || o == MapOrientation.hexagonal;
+  static bool _isStaggered(LevelMapOrientation o) =>
+      o == LevelMapOrientation.staggered || o == LevelMapOrientation.hexagonal;
 
   /// A tile side as the grid uses it: even on staggered and hexagonal maps,
   /// whose renderers in Tiled work on even sizes, and never so small that
   /// finding a cell divides by nothing.
-  static int _size(MapOrientation o, int size) =>
+  static int _size(LevelMapOrientation o, int size) =>
       _isStaggered(o) ? math.max(2, size & ~1) : math.max(1, size);
 
   /// The shape and layout of the cells.
-  final MapOrientation orientation;
+  final LevelMapOrientation orientation;
 
   /// Width of a cell's box, in pixels: at least 1, and on staggered and
   /// hexagonal maps even and at least 2 (an odd width is rounded down).
@@ -161,15 +161,15 @@ class MapGeometry {
   /// The top-left of cell ([x], [y])'s box.
   Offset cellOrigin(int x, int y) {
     switch (orientation) {
-      case MapOrientation.orthogonal:
+      case LevelMapOrientation.orthogonal:
         return Offset(x * tileWidth.toDouble(), y * tileHeight.toDouble());
-      case MapOrientation.isometric:
+      case LevelMapOrientation.isometric:
         return Offset(
           (x - y) * tileWidth / 2 - tileWidth / 2,
           (x + y) * tileHeight / 2,
         );
-      case MapOrientation.staggered:
-      case MapOrientation.hexagonal:
+      case LevelMapOrientation.staggered:
+      case LevelMapOrientation.hexagonal:
         if (_staggerX) {
           return Offset(
             x * _columnWidth,
@@ -196,17 +196,17 @@ class MapGeometry {
     final w = tileWidth.toDouble();
     final h = tileHeight.toDouble();
     switch (orientation) {
-      case MapOrientation.orthogonal:
+      case LevelMapOrientation.orthogonal:
         return [o, o + Offset(w, 0), o + Offset(w, h), o + Offset(0, h)];
-      case MapOrientation.isometric:
-      case MapOrientation.staggered:
+      case LevelMapOrientation.isometric:
+      case LevelMapOrientation.staggered:
         return [
           o + Offset(w / 2, 0),
           o + Offset(w, h / 2),
           o + Offset(w / 2, h),
           o + Offset(0, h / 2),
         ];
-      case MapOrientation.hexagonal:
+      case LevelMapOrientation.hexagonal:
         if (_staggerX) {
           return [
             o + Offset(_sideOffsetX, 0),
@@ -253,18 +253,18 @@ class MapGeometry {
   /// The cell [point] is in.
   TileCoord cellAt(Offset point) {
     switch (orientation) {
-      case MapOrientation.orthogonal:
+      case LevelMapOrientation.orthogonal:
         return TileCoord(
           (point.dx / tileWidth).floor(),
           (point.dy / tileHeight).floor(),
         );
-      case MapOrientation.isometric:
+      case LevelMapOrientation.isometric:
         final u = point.dx / tileWidth;
         final v = point.dy / tileHeight;
         return TileCoord((v + u).floor(), (v - u).floor());
-      case MapOrientation.staggered:
+      case LevelMapOrientation.staggered:
         return _staggeredCellAt(point);
-      case MapOrientation.hexagonal:
+      case LevelMapOrientation.hexagonal:
         // Tiled picks the nearest centre, which matches the outline only
         // for regular hexagons; a stretched one would give its corners to a
         // neighbour. The outline decides.
@@ -412,22 +412,22 @@ class MapGeometry {
     final x = c.x;
     final y = c.y;
     switch (orientation) {
-      case MapOrientation.orthogonal:
-      case MapOrientation.isometric:
+      case LevelMapOrientation.orthogonal:
+      case LevelMapOrientation.isometric:
         return [
           TileCoord(x, y - 1),
           TileCoord(x + 1, y),
           TileCoord(x, y + 1),
           TileCoord(x - 1, y),
         ];
-      case MapOrientation.staggered:
+      case LevelMapOrientation.staggered:
         return [
           _topRight(x, y),
           _bottomRight(x, y),
           _bottomLeft(x, y),
           _topLeft(x, y),
         ];
-      case MapOrientation.hexagonal:
+      case LevelMapOrientation.hexagonal:
         return _staggerX
             ? [
                 TileCoord(x, y - 1),
@@ -454,14 +454,14 @@ class MapGeometry {
   /// short. What culling and area tools start from.
   TileRange cellRange(Rect area) {
     switch (orientation) {
-      case MapOrientation.orthogonal:
+      case LevelMapOrientation.orthogonal:
         return TileRange(
           (area.left / tileWidth).floor(),
           (area.top / tileHeight).floor(),
           (area.right / tileWidth).ceil(),
           (area.bottom / tileHeight).ceil(),
         );
-      case MapOrientation.isometric:
+      case LevelMapOrientation.isometric:
         final corners = [
           cellAt(area.topLeft),
           cellAt(area.topRight),
@@ -474,8 +474,8 @@ class MapGeometry {
           corners.map((c) => c.x).reduce(math.max) + 2,
           corners.map((c) => c.y).reduce(math.max) + 2,
         );
-      case MapOrientation.staggered:
-      case MapOrientation.hexagonal:
+      case LevelMapOrientation.staggered:
+      case LevelMapOrientation.hexagonal:
         final stepX = _staggerX ? _columnWidth : tileWidth + _sideLengthX;
         final stepY = _staggerX ? tileHeight + _sideLengthY : _rowHeight;
         return TileRange(
@@ -543,11 +543,11 @@ class MapGeometry {
   // works on the lattice and maps back. Hexagons have none.
 
   /// Whether cells map onto a square lattice.
-  bool get hasLattice => orientation != MapOrientation.hexagonal;
+  bool get hasLattice => orientation != LevelMapOrientation.hexagonal;
 
   /// [c] on the lattice.
   TileCoord toLattice(TileCoord c) {
-    if (orientation != MapOrientation.staggered) return c;
+    if (orientation != LevelMapOrientation.staggered) return c;
     final x = c.x;
     final y = c.y;
     if (!_staggerX) {
@@ -597,39 +597,40 @@ class MapGeometry {
 
   /// [c] in coordinates where a block of cells keeps its shape.
   TileCoord toStable(TileCoord c) => switch (orientation) {
-    MapOrientation.hexagonal => toAxial(c),
-    MapOrientation.staggered => toLattice(c),
+    LevelMapOrientation.hexagonal => toAxial(c),
+    LevelMapOrientation.staggered => toLattice(c),
     _ => c,
   };
 
   /// The cell at stable coordinates [s].
   TileCoord fromStable(TileCoord s) => switch (orientation) {
-    MapOrientation.hexagonal => fromAxial(s),
-    MapOrientation.staggered => fromLattice(s),
+    LevelMapOrientation.hexagonal => fromAxial(s),
+    LevelMapOrientation.staggered => fromLattice(s),
     _ => s,
   };
 
   /// A stable offset [d] mirrored left to right on screen.
   TileCoord mirrorH(TileCoord d) => switch (orientation) {
-    MapOrientation.orthogonal => TileCoord(-d.x, d.y),
-    MapOrientation.isometric || MapOrientation.staggered => TileCoord(d.y, d.x),
-    MapOrientation.hexagonal =>
+    LevelMapOrientation.orthogonal => TileCoord(-d.x, d.y),
+    LevelMapOrientation.isometric ||
+    LevelMapOrientation.staggered => TileCoord(d.y, d.x),
+    LevelMapOrientation.hexagonal =>
       _staggerX ? TileCoord(-d.x, d.y + d.x) : TileCoord(-d.x - d.y, d.y),
   };
 
   /// A stable offset [d] mirrored top to bottom on screen.
   TileCoord mirrorV(TileCoord d) => switch (orientation) {
-    MapOrientation.orthogonal => TileCoord(d.x, -d.y),
-    MapOrientation.isometric ||
-    MapOrientation.staggered => TileCoord(-d.y, -d.x),
-    MapOrientation.hexagonal =>
+    LevelMapOrientation.orthogonal => TileCoord(d.x, -d.y),
+    LevelMapOrientation.isometric ||
+    LevelMapOrientation.staggered => TileCoord(-d.y, -d.x),
+    LevelMapOrientation.hexagonal =>
       _staggerX ? TileCoord(d.x, -d.y - d.x) : TileCoord(d.x + d.y, -d.y),
   };
 
   /// A stable offset [d] turned one step on screen: a quarter turn, or a
   /// sixth on a hexagonal map.
   TileCoord turn(TileCoord d, {bool clockwise = true}) {
-    if (orientation == MapOrientation.hexagonal) {
+    if (orientation == LevelMapOrientation.hexagonal) {
       // Cube coordinates (q, r, s = −q − r): a sixth of a turn right is
       // (−r, −s, −q), left is (−s, −q, −r).
       final q = d.x;
@@ -641,19 +642,19 @@ class MapGeometry {
 
   /// [cell]'s tile mirrored left to right on screen, as [mirrorH] mirrors
   /// its place.
-  int mirrorCellH(int cell) => orientation == MapOrientation.hexagonal
+  int mirrorCellH(int cell) => orientation == LevelMapOrientation.hexagonal
       ? TileCell.mirroredHexH(cell)
       : TileCell.mirroredH(cell);
 
   /// [cell]'s tile mirrored top to bottom on screen, as [mirrorV] mirrors
   /// its place.
-  int mirrorCellV(int cell) => orientation == MapOrientation.hexagonal
+  int mirrorCellV(int cell) => orientation == LevelMapOrientation.hexagonal
       ? TileCell.mirroredHexV(cell)
       : TileCell.mirroredV(cell);
 
   /// [cell]'s tile turned one step the same way as [turn].
   int turnCell(int cell, {bool clockwise = true}) =>
-      orientation == MapOrientation.hexagonal
+      orientation == LevelMapOrientation.hexagonal
       ? TileCell.rotatedHex(cell, clockwise ? 1 : -1)
       : clockwise
       ? TileCell.rotatedRight(cell)
@@ -661,7 +662,7 @@ class MapGeometry {
 
   /// The cell at lattice point [l].
   TileCoord fromLattice(TileCoord l) {
-    if (orientation != MapOrientation.staggered) return l;
+    if (orientation != LevelMapOrientation.staggered) return l;
     final u = l.x;
     final v = l.y;
     if (!_staggerX) {

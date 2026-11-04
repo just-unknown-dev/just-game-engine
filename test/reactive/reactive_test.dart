@@ -218,10 +218,15 @@ void main() {
       expect(es.isActive.value, isTrue);
     });
 
-    test('sync does not throw', () {
+    test('sync picks up a component replaced since', () {
       final es = EntitySignal(entity);
-      es.component<HpComponent>(); // materialize signal
-      expect(() => es.sync(), returnsNormally);
+      final signal = es.component<HpComponent>(); // materialize signal
+      entity.addComponent(HpComponent(5));
+      es.sync();
+      expect(signal.value?.hp, 5.0);
+      entity.removeComponent<HpComponent>();
+      es.sync();
+      expect(signal.value, isNull);
     });
   });
 
@@ -281,9 +286,14 @@ void main() {
 
     test('sync cleans up signals for destroyed entities', () {
       final e = world.createEntity();
-      ws.entitySignal(e); // materialize
+      final kept = world.createEntity();
+      final first = ws.entitySignal(e); // materialize
+      final keptSignal = ws.entitySignal(kept);
       world.destroyEntity(e);
-      expect(() => ws.sync(), returnsNormally);
+      ws.sync();
+      expect(ws.entitySignalById(e.id), isNull);
+      expect(identical(ws.entitySignal(e), first), isFalse, reason: 'dropped');
+      expect(identical(ws.entitySignal(kept), keptSignal), isTrue);
     });
   });
 
@@ -316,10 +326,24 @@ void main() {
       expect(count, 0);
     });
 
-    test('propertySignal stores and returns value', () {
+    test('propertySignal reads the property, and follows each change', () {
       final comp = ReactiveHp(50);
-      final sig = comp.propertySignal<double>('hp', 50);
+      final sig = comp.propertySignal<double>('hp', () => comp.hp);
       expect(sig.value, 50.0);
+      var heard = 0;
+      sig.addListener(() => heard++);
+      comp.hp = 10;
+      expect(heard, 1);
+      expect(sig.value, 10.0, reason: 'the new value, not the first one');
+      expect(
+        identical(comp.propertySignal<double>('hp', () => 0), sig),
+        isTrue,
+      );
+      comp.batchChanges(() {
+        comp.hp = 3;
+        comp.hp = 4;
+      });
+      expect(sig.value, 4.0);
     });
   });
 
@@ -367,6 +391,30 @@ void main() {
         expect(sys.processed, containsAll([e1.id, e2.id]));
       },
     );
+
+    test('the first update processes everything, also with one already '
+        'dirty', () {
+      final busy = world.createEntityWithComponents([HpComponent(1)]);
+      final quiet = world.createEntityWithComponents([HpComponent(2)]);
+      sys.markDirty(busy); // a regen timer: dirty every frame
+      world.update(0.016);
+      expect(sys.processed, containsAll([busy.id, quiet.id]));
+      expect(sys.processed.where((id) => id == busy.id), hasLength(1));
+    });
+
+    test('newcomers after the first update are processed', () {
+      final signal = WorldSignal(world);
+      addTearDown(signal.dispose);
+      sys.setWorldSignal(signal);
+      final busy = world.createEntityWithComponents([HpComponent(1)]);
+      sys.markDirty(busy);
+      world.update(0.016);
+      sys.processed.clear();
+      final late_ = world.createEntityWithComponents([HpComponent(3)]);
+      sys.markDirty(busy);
+      world.update(0.016);
+      expect(sys.processed, containsAll([busy.id, late_.id]));
+    });
 
     test('subsequent update only processes dirty entities', () {
       world.createEntityWithComponents([HpComponent(1)]);

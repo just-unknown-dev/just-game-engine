@@ -3,8 +3,9 @@
 /// casters.
 library;
 
+import '../../../ecs/serialization/built_in_field_types.dart';
 import '../../../ecs/serialization/component_codec.dart';
-import '../../../ecs/serialization/component_schema.dart';
+import '../../../ecs/serialization/component_definition.dart';
 import '../../../ecs/serialization/field_type.dart';
 import '../../../foundation/dimensions.dart';
 import 'light_2d_component.dart';
@@ -16,8 +17,8 @@ import 'shadow_caster_2d_component.dart';
 /// casters.
 abstract final class Lighting2DDefinitions {
   /// [Light2DComponent].
-  static ComponentSchema<Light2DComponent> get light2D =>
-      ComponentSchema<Light2DComponent>(
+  static ComponentDefinition<Light2DComponent> get light2D =>
+      ComponentDefinition<Light2DComponent>(
         type: 'Light2DComponent',
         id: 'light_2d_8b5e2f94',
         create: Light2DComponent.new,
@@ -32,7 +33,7 @@ abstract final class Lighting2DDefinitions {
           accentColor: const Color(0xFFFFCA28),
           fields: {
             'kind': const FieldHint(label: 'Kind'),
-            'colour': const FieldHint(label: 'Colour'),
+            'color': const FieldHint(label: 'Colour'),
             'intensity': const FieldHint(
               label: 'Intensity',
               scrub: ScrubHint(step: 0.1, fractionDigits: 2),
@@ -64,12 +65,12 @@ abstract final class Lighting2DDefinitions {
               visibleWhen: (c) =>
                   (c as Light2DComponent).kind == Light2DKind.spot,
             ),
-            'castsShadows': const FieldHint(label: 'Casts shadows'),
+            'castShadows': const FieldHint(label: 'Casts shadows'),
             'enabled': const FieldHint(label: 'Enabled'),
           },
         ),
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'kind',
             kind: const EnumFieldType(
               Light2DKind.values,
@@ -79,13 +80,13 @@ abstract final class Lighting2DDefinitions {
             read: (c) => (c as Light2DComponent).kind,
             write: (c, v) => (c as Light2DComponent).kind = v as Light2DKind,
           ),
-          SchemaField(
-            name: 'colour',
+          FieldDefinition(
+            name: 'color',
             kind: FieldTypes.color,
-            read: (c) => (c as Light2DComponent).colour,
-            write: (c, v) => (c as Light2DComponent).colour = v as Color,
+            read: (c) => (c as Light2DComponent).color,
+            write: (c, v) => (c as Light2DComponent).color = v as Color,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'intensity',
             kind: FieldTypes.decimal,
             read: (c) => (c as Light2DComponent).intensity,
@@ -93,7 +94,7 @@ abstract final class Lighting2DDefinitions {
                 (c as Light2DComponent).intensity = (v as num).toDouble(),
             min: 0,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'radius',
             kind: FieldTypes.decimal,
             read: (c) => (c as Light2DComponent).radius,
@@ -101,7 +102,7 @@ abstract final class Lighting2DDefinitions {
                 (c as Light2DComponent).radius = (v as num).toDouble(),
             min: 0,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'height',
             kind: FieldTypes.decimal,
             read: (c) => (c as Light2DComponent).height,
@@ -109,7 +110,7 @@ abstract final class Lighting2DDefinitions {
                 (c as Light2DComponent).height = (v as num).toDouble(),
             min: 0,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'falloff',
             kind: FieldTypes.decimal,
             read: (c) => (c as Light2DComponent).falloff,
@@ -117,7 +118,7 @@ abstract final class Lighting2DDefinitions {
                 (c as Light2DComponent).falloff = (v as num).toDouble(),
             min: 0.1,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'coneAngle',
             kind: FieldTypes.decimal,
             read: (c) => (c as Light2DComponent).coneAngle,
@@ -125,7 +126,7 @@ abstract final class Lighting2DDefinitions {
                 (c as Light2DComponent).coneAngle = (v as num).toDouble(),
             min: 0,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'coneSoftness',
             kind: FieldTypes.decimal,
             read: (c) => (c as Light2DComponent).coneSoftness,
@@ -133,13 +134,13 @@ abstract final class Lighting2DDefinitions {
                 (c as Light2DComponent).coneSoftness = (v as num).toDouble(),
             min: 0,
           ),
-          SchemaField(
-            name: 'castsShadows',
+          FieldDefinition(
+            name: 'castShadows',
             kind: FieldTypes.boolean,
-            read: (c) => (c as Light2DComponent).castsShadows,
-            write: (c, v) => (c as Light2DComponent).castsShadows = v as bool,
+            read: (c) => (c as Light2DComponent).castShadows,
+            write: (c, v) => (c as Light2DComponent).castShadows = v as bool,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'enabled',
             kind: FieldTypes.boolean,
             read: (c) => (c as Light2DComponent).enabled,
@@ -149,8 +150,8 @@ abstract final class Lighting2DDefinitions {
       );
 
   /// [Lighting2DComponent].
-  static ComponentSchema<Lighting2DComponent> get lighting2D =>
-      ComponentSchema<Lighting2DComponent>(
+  static ComponentDefinition<Lighting2DComponent> get lighting2D =>
+      ComponentDefinition<Lighting2DComponent>(
         type: 'Lighting2DComponent',
         id: 'lighting_2d_3f61c8a2',
         create: Lighting2DComponent.new,
@@ -177,19 +178,19 @@ abstract final class Lighting2DDefinitions {
           },
         ),
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'enabled',
             kind: FieldTypes.boolean,
             read: (c) => (c as Lighting2DComponent).enabled,
             write: (c, v) => (c as Lighting2DComponent).enabled = v as bool,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'ambient',
             kind: FieldTypes.color,
             read: (c) => (c as Lighting2DComponent).ambient,
             write: (c, v) => (c as Lighting2DComponent).ambient = v as Color,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'ambientIntensity',
             kind: FieldTypes.decimal,
             read: (c) => (c as Lighting2DComponent).ambientIntensity,
@@ -197,7 +198,7 @@ abstract final class Lighting2DDefinitions {
                 (v as num).toDouble(),
             min: 0,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'shadowSoftness',
             kind: FieldTypes.decimal,
             read: (c) => (c as Lighting2DComponent).shadowSoftness,
@@ -209,8 +210,8 @@ abstract final class Lighting2DDefinitions {
       );
 
   /// [ShadowCaster2DComponent].
-  static ComponentSchema<ShadowCaster2DComponent> get shadowCaster2D =>
-      ComponentSchema<ShadowCaster2DComponent>(
+  static ComponentDefinition<ShadowCaster2DComponent> get shadowCaster2D =>
+      ComponentDefinition<ShadowCaster2DComponent>(
         type: 'ShadowCaster2DComponent',
         id: 'shadow_caster_2d_d29a4c17',
         create: ShadowCaster2DComponent.new,
@@ -235,13 +236,13 @@ abstract final class Lighting2DDefinitions {
           },
         ),
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'enabled',
             kind: FieldTypes.boolean,
             read: (c) => (c as ShadowCaster2DComponent).enabled,
             write: (c, v) => (c as ShadowCaster2DComponent).enabled = v as bool,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'depth',
             kind: FieldTypes.decimal,
             read: (c) => (c as ShadowCaster2DComponent).depth,

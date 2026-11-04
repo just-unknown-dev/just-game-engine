@@ -36,7 +36,7 @@ class BinaryAsset extends Asset {
   }
 
   @override
-  int getMemoryUsage() {
+  int get memoryUsage {
     return _data?.length ?? 0;
   }
 }

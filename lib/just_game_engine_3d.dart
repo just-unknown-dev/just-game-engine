@@ -16,8 +16,10 @@
 /// - [GraphicsSceneRenderer], which draws the world from the engine's
 ///   camera; [GraphicsModels], the loaded models; [Material3DLibrary], the
 ///   material files; [Animation3DSystem], which plays clips.
-/// - just_graphics_engine itself, re-exported: the renderer ([Renderer3D],
-///   [RenderScene]), model loading, the GPU layer and [Scene3DView].
+/// - What a game names of just_graphics_engine: the renderer
+///   ([Renderer3D], [RenderScene], [Scene3DView]), its settings, model and
+///   material data, mesh building, and the GPU device and resources the
+///   engine hands out. The renderer's plumbing stays in that package.
 ///
 /// Physics:
 /// - [Physics3D], the service that saves, loads and simulates the
@@ -38,13 +40,110 @@
 /// (0, +9.81, 0).
 library;
 
-export 'package:just_graphics_engine/just_graphics_engine.dart';
-export 'package:just_physics_engine/physics_3d.dart' hide Quaternion, Vector3;
+// What a game names through the engine — and the math types the 3-D API
+// takes, as the main library exports them; the renderer's plumbing
+// (pipelines, GPU commands, cooking, test doubles) is left in
+// just_graphics_engine.
+export 'package:just_graphics_engine/just_graphics_engine.dart'
+    show
+        Aabb3,
+        AlphaMode,
+        BloomSettings,
+        DirectionalLight,
+        DynamicResolution,
+        Environment,
+        EnvironmentMapData,
+        Frustum,
+        GpuDevice,
+        GpuEnvironmentMap,
+        GpuMaterial,
+        GpuModel,
+        GpuPrimitive,
+        GpuTexture,
+        JustMatrix4,
+        LightData,
+        LightType,
+        MaterialData,
+        Matrix4,
+        MaterialOverride,
+        MeshBuilder,
+        MeshData,
+        MeshInstance,
+        ModelData,
+        ModelFetch,
+        ModelImportSettings,
+        ModelUploader,
+        Plane,
+        PrimitiveData,
+        PunctualLight,
+        Quaternion,
+        Ray3,
+        RenderScene,
+        RenderStats,
+        RenderViewMode,
+        Renderer3D,
+        SamplerData,
+        Scene3DFrameCallback,
+        Scene3DView,
+        ShadowSettings,
+        ShapeMesh,
+        ShapeUv,
+        TextureCompression,
+        TextureData,
+        TextureRef,
+        UvMode,
+        Vector2,
+        Vector3,
+        createGpuDevice,
+        kSkinFloats,
+        kVertexFloats,
+        loadModelData;
+export 'package:just_physics_engine/physics_3d.dart'
+    show
+        BodySettings3D,
+        BodyType3D,
+        BoxShape3D,
+        CapsuleShape3D,
+        CharacterContact3D,
+        CharacterSettings3D,
+        CharacterState3D,
+        CompoundShape3D,
+        ConvexHullShape3D,
+        CylinderShape3D,
+        GroundState3D,
+        HeightFieldShape3D,
+        JointKind3D,
+        JointSettings3D,
+        JoltPhysicsEngine,
+        MeshShape3D,
+        MotionQuality3D,
+        MotorState3D,
+        Physics3DUnsupportedError,
+        PhysicsEngine3D,
+        PhysicsEvent3D,
+        PhysicsEventType3D,
+        PhysicsWorld3D,
+        PhysicsWorldSettings3D,
+        QueryFilter3D,
+        QueryHit3D,
+        Shape3D,
+        SixDofAxisMode3D,
+        SphereShape3D,
+        TransformedShape3D;
+
+// The 3-D material files' format, which the 3-D material library reads.
+export 'package:just_game_engine_formats/just_game_engine_formats.dart'
+    show
+        Material3DAlpha,
+        MaterialChain,
+        Material3DFile,
+        Material3DKind,
+        Material3DUv;
 
 export 'src/graphics/graphics_3d/animation_3d_system.dart'
     hide PlayerScratch, samplePlayer;
 export 'src/graphics/graphics_3d/graphics_3d.dart';
-export 'src/graphics/graphics_3d/graphics_components.dart';
+export 'src/graphics/graphics_3d/model_components.dart';
 export 'src/graphics/graphics_3d/graphics_3d_definitions.dart';
 export 'src/graphics/graphics_3d/graphics_models.dart';
 export 'src/graphics/graphics_3d/graphics_scene_renderer.dart';
@@ -55,11 +154,13 @@ export 'src/graphics/graphics_3d/lighting/lighting_3d_definitions.dart';
 export 'src/graphics/graphics_3d/materials/linear_color.dart';
 export 'src/graphics/graphics_3d/materials/material_3d_definitions.dart';
 export 'src/graphics/graphics_3d/materials/material_3d_library.dart';
+export 'src/graphics/graphics_3d/materials/material_3d_overrides_field_type.dart';
 export 'src/graphics/graphics_3d/materials/material_overrides_3d_component.dart';
 export 'src/graphics/graphics_3d/material_slots.dart';
 export 'src/graphics/graphics_3d/render_providers.dart';
-export 'src/graphics/graphics_3d/shapes/primitive_3d.dart';
-export 'src/graphics/graphics_3d/shapes/shape_components.dart';
+export 'src/graphics/graphics_3d/shapes/primitive_3d_component.dart'
+    hide ShapeValues;
+export 'src/graphics/graphics_3d/shapes/shape_3d_components.dart';
 export 'src/graphics/graphics_3d/shapes/shape_3d_definitions.dart';
 export 'src/graphics/graphics_3d/skeletal_animation_target.dart';
 export 'src/graphics/graphics_3d/skeletal_clip_track.dart';

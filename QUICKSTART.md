@@ -2,7 +2,7 @@
 
 This guide takes a Flutter developer from an empty app to a small game: shapes on screen, a player you steer, physics, sprites, levels loaded from JSON, cameras, timelines, particles, sound and UI. Most steps have one complete Dart file: paste it into your project and call its functions from the `main` of step 2, after `await engine.initialize()`.
 
-It is written for **just_game_engine 2.0.0-dev.1** (Flutter 3.47.1 or newer). Coming from 1.x? Read [MIGRATION.md](MIGRATION.md) first. For the short version, read [Your first game](doc/guides/quick-start.md).
+It is written for **just_game_engine 2.0.0-dev.4** (Flutter 3.47.1 or newer). Coming from 1.x? Read [MIGRATION.md](MIGRATION.md) first. For the short version, read [Your first game](doc/guides/quick-start.md).
 
 1. [Install](#1-install)
 2. [Your first game](#2-your-first-game)
@@ -32,7 +32,7 @@ Add the engine to `pubspec.yaml`, and list the folders your game loads assets fr
 dependencies:
   flutter:
     sdk: flutter
-  just_game_engine: ^2.0.0-dev.1
+  just_game_engine: ^2.0.0-dev.4
 
 flutter:
   assets:
@@ -70,7 +70,7 @@ Future<void> main() async {
   await engine.initialize();
 
   // The camera's position is the world point in the middle of the screen.
-  engine.cameraSystem.mainCamera
+  engine.camera.mainCamera
     ..lookAt(Offset.zero)
     ..zoom = 1.0;
 
@@ -146,7 +146,7 @@ Give a `ParentComponent` no local values and the child stays where its `Transfor
 
 To move the turret on the tank later, change its `ParentComponent.localPosition` (for example `localPosition.y = -40`). Destroying the tank destroys the turret; pass `withChildren: false` to `world.destroyEntity` to keep the children.
 
-**Systems run by priority, highest first** — not in the order you add them. The world sorts its systems each time one is added, so set a system's priority before adding it (overriding the `priority` getter is simplest). The constants are in `SystemPriorities`:
+**Systems run by priority, highest first** — the order you add them matters only between systems of equal priority. The world sorts its systems each time one is added, so set a system's priority before adding it (overriding the `priority` getter is simplest). The constants are in `SystemPriorities`:
 
 | Priority | Constant | What runs |
 |---:|---|---|
@@ -316,8 +316,11 @@ void buildPlayground(Engine engine) {
       height: 40,
       fillStyle: const ShapePaintStyle(color: Colors.brown),
     ),
-    // Static ground: a collider is enough. Match shape follows the rectangle.
-    Collider2DComponent(shape: ColliderShape2D.matchShape),
+    // Static ground. A collider alone would do, but it has no bounce, and a
+    // contact bounces only as much as the less bouncy body: give it some.
+    RigidBody2DComponent(bodyType: BodyType.static, restitution: 0.7),
+    // Match shape follows the rectangle.
+    Collider2DComponent(shape: Collider2DShape.matchShape),
   ], name: 'Ground');
 
   world.createEntityWithComponents([
@@ -328,7 +331,7 @@ void buildPlayground(Engine engine) {
       fillStyle: const ShapePaintStyle(color: Colors.red),
     ),
     RigidBody2DComponent(restitution: 0.7),
-    Collider2DComponent(shape: ColliderShape2D.circle, radius: 20),
+    Collider2DComponent(shape: Collider2DShape.circle, radius: 20),
     TagComponent('ball'),
   ], name: 'Ball');
 
@@ -395,7 +398,7 @@ Entity addCharacter(World world) => world.createEntityWithComponents([
   TransformComponent(),
   InputComponent(),
   Rectangle2DComponent(width: 32, height: 48),
-  CharacterBody2DComponent(shape: CharacterShape2D.box, width: 32, height: 48),
+  CharacterBody2DComponent(shape: CharacterBody2DShape.box, width: 32, height: 48),
   TagComponent('player'),
 ], name: 'Hero');
 
@@ -423,14 +426,14 @@ A character's own body is kinematic, so sensors see it and dynamic bodies bump i
 
 - Collider shapes (`Collider2DComponent.shape`): `box` (`size`, optional `cornerRadius`), `circle` (`radius`), `capsule` (`radius`, `height`), `polygon` (`points`), `segment` and `chain` (`points`, `loop`), and `matchShape` — whatever the entity draws (a rectangle, circle, polygon or sprite), followed as it changes. Centred on the entity unless `offset` moves them; `rotation` and `scale` turn and stretch the collider itself. It also grows and shrinks with the entity's scale, as its sprite does.
 - Rigid bodies are dynamic by default. `bodyType: BodyType.static` never moves; `BodyType.kinematic` moves only by the velocity you set (moving platforms). On the collider, `oneWay: true` makes a platform you can jump up through.
-- The defaults are the same as in 3-D: `friction: 0.5`, `restitution: 0` (no bounce), `mass: 0` (worked out from the collider's area: a 100 × 100 box weighs 1000 kg, as a 1 m cube does in 3-D) and a little damping (`linearDamping: 0.05`, `angularDamping: 0.05`). Bounce comes from `restitution` on both bodies; give both some for a bouncy hit. A character usually wants `friction: 0` (so it slides down walls instead of sticking to them) and `lockRotation: true`.
+- The defaults are the same as in 3-D: `friction: 0.5`, `restitution: 0` (no bounce), `mass: 0` (worked out from the collider's area: a 100 × 100 box weighs 1000 kg, as a 1 m cube does in 3-D) and a little damping (`linearDamping: 0.05`, `angularDamping: 0.05`). Bounce comes from `restitution` on both bodies: a contact takes the smaller of the two, so give both some for a bouncy hit (a collider alone has none). A character usually wants `friction: 0` (so it slides down walls instead of sticking to them) and `lockRotation: true`.
 - Collision layers: put a body on a layer from 0 (the default) to 15, name the layers and say which collide in `assets/project/physics.json` (a `PhysicsLayers`; the editor's Physics Layers dock writes it), and list that file under `flutter: assets:`. A body's own `collidesWith` overrides the grid.
 - `isGrounded`, `groundEntity`, `groundNormal`, `linearVelocity` and `angularVelocity` on `RigidBody2DComponent` are kept up to date for you.
 - Push from code with `addForce`, `addImpulse`, `addTorque`, `addAngularImpulse`, `setVelocity` and `setAngularVelocity`; they apply at the next step.
 - Events: `CollisionEnter2DEvent` (the two entities, the contact `point` and `normal`) when a contact begins, `CollisionExit2DEvent` when it ends, `CollisionStay2DEvent` every step in between once you set `Physics2DSystem.reportContactStay`, and `SensorEnter2DEvent` / `SensorExit2DEvent` (`sensor` and `other`) for sensors.
-- Queries: `Physics2DQueries(engine.physics, physicsSystem)` casts rays and circles and finds overlaps, filtered by layer.
+- Queries: `engine.world.getSystem<Physics2DSystem>()!.queries` (a `Physics2DQueries`) casts rays and circles and finds overlaps, filtered by layer.
 - To teleport a body, write its `TransformComponent`. The physics system moves the body to match.
-- Debug builds draw every collider's outline over the game; `showDebugOutline: false` on the collider hides one. Release builds never draw them.
+- Collider outlines are drawn by a `ColliderDebuggerSystem`, only while one is in the world: `GameWidget(showDebug: true)` adds one, or add your own with `engine.world.addSystem(ColliderDebuggerSystem(camera: engine.camera.mainCamera))`. Its `outlineFilter` picks the entities, and `showDebugOutline: false` on a collider hides its own.
 
 ---
 
@@ -578,7 +581,7 @@ A level is a scene: a JSON file listing entities and their components. The Just 
 
 ```json
 {
-  "version": 9,
+  "version": 11,
   "name": "level_01",
   "mode": "2d",
   "entities": [
@@ -639,10 +642,9 @@ Future<void> changeLevel(
   List<Spawner> spawners,
   String name,
 ) async {
-  engine.world.destroyAllEntities();
-  engine.cameraSystem.brain.reset(); // forget the old level's cameras
+  engine.world.destroyAllEntities(); // the camera brain starts over too
   await startLevel(engine, spawners, name: name);
-  LevelMaps.evictUnused(engine.world); // drop tilesets no map uses now
+  engine.releaseUnused(); // let go of what only the old level used
 }
 
 /// A level map from a file.
@@ -668,7 +670,7 @@ void breakTile(World world, Offset point) {
 
 ## 8. Cameras
 
-`engine.cameraSystem.mainCamera` is the camera the world is drawn through. You can move it by hand (`lookAt`, `zoom`), as in step 2. Games usually describe **shots** instead: entities with a `VirtualCameraComponent`. Each frame the camera brain picks the enabled shot with the highest priority, blends to it, and writes the result into the main camera. With no shots in the world, the brain leaves the main camera alone.
+`engine.camera.mainCamera` is the camera the world is drawn through. You can move it by hand (`lookAt`, `zoom`), as in step 2. Games usually describe **shots** instead: entities with a `VirtualCameraComponent`. Each frame the camera brain picks the enabled shot with the highest priority, blends to it, and writes the result into the main camera. With no shots in the world, the brain leaves the main camera alone.
 
 ```dart
 import 'dart:ui' show Offset;
@@ -713,12 +715,12 @@ void addCameras(Engine engine) {
   ], name: 'BossCam');
 
   // How long switching shots takes; CameraBlend.cut switches at once.
-  engine.cameraSystem.brain.defaultBlend = const CameraBlend(duration: 0.8);
+  engine.camera.brain.defaultBlend = const CameraBlend(duration: 0.8);
 }
 
 /// A landing, an explosion: every listening shot near it shakes.
 void thud(Engine engine, Offset where) {
-  engine.cameraSystem.brain.emitImpulse(
+  engine.camera.brain.emitImpulse(
     CameraImpulse(position: where, amplitude: 16, duration: 0.3),
   );
 }
@@ -782,8 +784,8 @@ void addDoor(Engine engine) {
     TimelineTriggerComponent(
       width: 200,
       height: 200,
-      onEnter: TimelineTriggerAction.play,
-      onExit: TimelineTriggerAction.reverse,
+      enterAction: TimelineTriggerAction.play,
+      exitAction: TimelineTriggerAction.reverse,
     ),
   ], name: 'Door');
 
@@ -830,7 +832,7 @@ final List<Spawner> spawners = [
       InputComponent(),
       Rectangle2DComponent(width: 32, height: 48),
       RigidBody2DComponent(friction: 0, lockRotation: true),
-      Collider2DComponent(shape: ColliderShape2D.matchShape),
+      Collider2DComponent(shape: Collider2DShape.matchShape),
       TagComponent('player'),
     ], name: 'Player'),
   ),
@@ -932,7 +934,7 @@ Entity addWaterfall(World world) => world.createEntityWithComponents([
   AudioSourceComponent(
     clipPath: 'assets/audio/waterfall.ogg',
     loop: true,
-    is3d: true,
+    is3D: true,
     minDistance: 50,
     maxDistance: 800,
     farCutoff: 1500,
@@ -1036,7 +1038,7 @@ class _PauseMenuView extends GameLayerController {
 }
 ```
 
-`package:just_game_engine/widgets.dart` also has `RebindList` (the controls, each with a button to rebind it), `DialogueBoxWidget` and `DialogueChoicesWidget`, `SubtitleOverlay`, `LocalizedText` and `GameCameraControls` (zoom by wheel, pinch or buttons).
+`package:just_game_engine/widgets.dart` also has `RebindList` (the controls, each with a button to rebind it), `DialogueBox` and `DialogueChoices`, `SubtitleOverlay`, `LocalizedText` and `GameCameraControls` (zoom by wheel, pinch or buttons).
 
 For HUDs and menus designed in an editor, saved as `.ui.json` screens, and text and buttons placed in the level itself, use the `just_ui_editor` package: `JustGameUi.install(engine)` puts its screens on `engine.layers`.
 
@@ -1044,7 +1046,9 @@ For HUDs and menus designed in an editor, saved as `.ui.json` screens, and text 
 
 ## 14. Services
 
-Achievements, sign-in, leaderboards, a currency wallet, an inventory and ads are in a separate package, `just_game_services`. Nothing runs unless you list it. Services start as the engine initializes and stop when it is disposed.
+Achievements, sign-in, leaderboards, a currency wallet, an inventory and ads are in a separate package, `just_game_services`. Nothing runs unless you list it. Services start as the engine initializes, in the order listed, and stop when it is disposed.
+
+> **Note:** `just_game_services` is not on pub.dev yet, so the dependency below will not resolve until it is published. Watch the [engine repository](https://github.com/just-unknown-dev/just-game-engine) for its release.
 
 ```yaml
 dependencies:
@@ -1132,7 +1136,7 @@ void main() {
     await engine.initialize();
 
     SceneLoader.loadString(engine.world, '''
-      {"version": 9, "name": "test", "mode": "2d", "entities": [
+      {"version": 11, "name": "test", "mode": "2d", "entities": [
         {"name": "Spawn", "components": [
           {"type": "TransformComponent", "fields": {}},
           {"type": "SpawnComponent", "fields": {"spawner": "player"}}
@@ -1174,7 +1178,7 @@ void main() {
 - [README.md](README.md) — an overview of every feature.
 - [MIGRATION.md](MIGRATION.md) — moving a 1.x game to 2.0.
 - [example/example.dart](example/example.dart) — a complete example you can run.
-- [API reference](https://pub.dev/documentation/just_game_engine/latest/) on pub.dev.
+- [API reference](https://pub.dev/documentation/just_game_engine/2.0.0-dev.4/) on pub.dev (`latest` there is the 1.x line).
 - [ARCHITECTURE.md](ARCHITECTURE.md) — how the engine is built inside.
 - [CHANGELOG.md](CHANGELOG.md) — what changed in each release.
 - [Contributing](https://github.com/just-unknown-dev/just-game-engine/blob/main/CONTRIBUTING.md) and [issues](https://github.com/just-unknown-dev/just-game-engine/issues).

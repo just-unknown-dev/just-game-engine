@@ -46,10 +46,15 @@ class InputSystem extends System {
   }
 
   void _copy(InputActions actions, InputComponent into) {
+    // Rewritten in full from the live actions: an action that went with a
+    // replaced input asset (or map) keeps no held value behind.
     into
       ..pressed.clear()
       ..released.clear()
-      ..performed.clear();
+      ..performed.clear()
+      ..down.clear()
+      ..axes.clear()
+      ..vectors.clear();
     for (final name in maps) {
       final map = actions.map(name);
       if (map == null) continue;

@@ -1,4 +1,4 @@
-part of 'particles.dart';
+part of 'particle_emitter.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Abstract base
@@ -27,6 +27,14 @@ abstract class ParticleRenderer {
       render(canvas, p);
     }
   }
+
+  /// Releases what the renderer made for itself to draw with — an image
+  /// drawn once and kept. It may be used again after: it makes them again
+  /// when next drawing. Its [ParticleEmitter] calls it when it is disposed
+  /// (see [ParticleEmitter.ownsRenderer]). Nothing to release by default;
+  /// an image handed to a renderer is the caller's, and never released by
+  /// it.
+  void dispose() {}
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -36,7 +44,7 @@ abstract class ParticleRenderer {
 /// Sets a paint to a particle's colour: worked out as a number (the colour
 /// [Particle.currentColor] lerps, without lerping a [Color]), and set only
 /// when it differs from the last.
-final class _ParticleColour {
+final class _ParticleColor {
   int _argb = -1;
 
   void apply(Paint paint, Particle p) {
@@ -61,7 +69,8 @@ final class _ParticleColour {
 /// are all one [Canvas.drawRawAtlas] of a white disc drawn once, tinted by
 /// each particle's colour: much cheaper for many particles, but not the
 /// same pixel for pixel (the disc's edge is an image's, scaled). Call
-/// [dispose] when done with a batched renderer to release the disc.
+/// [dispose] when done with a batched renderer to release the disc (its
+/// emitter does, when it is disposed).
 class CircleParticleRenderer extends ParticleRenderer {
   /// Circles drawn one by one, or all in one draw when [batched].
   CircleParticleRenderer({this.batched = false});
@@ -71,11 +80,11 @@ class CircleParticleRenderer extends ParticleRenderer {
 
   /// Paint reused across all draw calls to avoid per-frame allocation.
   final Paint _paint = Paint()..style = PaintingStyle.fill;
-  final _ParticleColour _colour = _ParticleColour();
+  final _ParticleColor _color = _ParticleColor();
 
   @override
   void render(Canvas canvas, Particle particle) {
-    _colour.apply(_paint, particle);
+    _color.apply(_paint, particle);
     final radius = particle.currentSize / 2.0;
     canvas.drawCircle(Offset(particle.x, particle.y), radius, _paint);
   }
@@ -147,6 +156,7 @@ class CircleParticleRenderer extends ParticleRenderer {
 
   /// Releases the disc a batched renderer draws from; it is drawn again if
   /// the renderer is used after.
+  @override
   void dispose() {
     _disc?.dispose();
     _disc = null;
@@ -156,12 +166,12 @@ class CircleParticleRenderer extends ParticleRenderer {
 /// Renders each particle as a filled square (axis-aligned, rotatable).
 class SquareParticleRenderer extends ParticleRenderer {
   final Paint _paint = Paint()..style = PaintingStyle.fill;
-  final _ParticleColour _colour = _ParticleColour();
+  final _ParticleColor _color = _ParticleColor();
   final Path _path = Path();
 
   @override
   void render(Canvas canvas, Particle particle) {
-    _colour.apply(_paint, particle);
+    _color.apply(_paint, particle);
     final s = particle.currentSize;
     final half = s / 2.0;
 
@@ -196,12 +206,12 @@ class SquareParticleRenderer extends ParticleRenderer {
 /// Renders each particle as a filled triangle.
 class TriangleParticleRenderer extends ParticleRenderer {
   final Paint _paint = Paint()..style = PaintingStyle.fill;
-  final _ParticleColour _colour = _ParticleColour();
+  final _ParticleColor _color = _ParticleColor();
   final Path _path = Path();
 
   @override
   void render(Canvas canvas, Particle particle) {
-    _colour.apply(_paint, particle);
+    _color.apply(_paint, particle);
     final s = particle.currentSize;
     final half = s / 2.0;
 
@@ -222,12 +232,12 @@ class TriangleParticleRenderer extends ParticleRenderer {
 /// Renders each particle as a 5-pointed star.
 class StarParticleRenderer extends ParticleRenderer {
   final Paint _paint = Paint()..style = PaintingStyle.fill;
-  final _ParticleColour _colour = _ParticleColour();
+  final _ParticleColor _color = _ParticleColor();
   final Path _path = Path();
 
   @override
   void render(Canvas canvas, Particle particle) {
-    _colour.apply(_paint, particle);
+    _color.apply(_paint, particle);
     final radius = particle.currentSize / 2.0;
 
     canvas.save();
@@ -371,7 +381,7 @@ class AnimatedSpriteParticleRenderer extends ParticleRenderer {
   final List<Rect> frames;
 
   final Paint _paint = Paint()..filterQuality = FilterQuality.medium;
-  final _ParticleColour _colour = _ParticleColour();
+  final _ParticleColor _color = _ParticleColor();
 
   /// Draws each particle as one of [frames] (at least one, asserted) of
   /// [sheet], stepping through them evenly over its lifetime, in a square
@@ -387,7 +397,7 @@ class AnimatedSpriteParticleRenderer extends ParticleRenderer {
     );
     final src = frames[frameIndex];
     final size = particle.currentSize;
-    _colour.apply(_paint, particle);
+    _color.apply(_paint, particle);
 
     canvas.save();
     canvas.translate(particle.x, particle.y);
@@ -413,7 +423,7 @@ class LineParticleRenderer extends ParticleRenderer {
   final double strokeWidth;
 
   final Paint _paint = Paint()..style = PaintingStyle.stroke;
-  final _ParticleColour _colour = _ParticleColour();
+  final _ParticleColor _color = _ParticleColor();
 
   /// Streaks [strokeWidth] wide (2 by default) while a particle is at its
   /// start size, thinner or thicker in proportion as its size changes.
@@ -421,7 +431,7 @@ class LineParticleRenderer extends ParticleRenderer {
 
   @override
   void render(Canvas canvas, Particle particle) {
-    _colour.apply(_paint, particle);
+    _color.apply(_paint, particle);
     _paint.strokeWidth =
         strokeWidth * particle.currentSize / particle.startSize;
     canvas.drawLine(particle.previousPosition, particle.position, _paint);
@@ -438,7 +448,7 @@ class CustomPathParticleRenderer extends ParticleRenderer {
   final Path path;
 
   final Paint _paint = Paint()..style = PaintingStyle.fill;
-  final _ParticleColour _colour = _ParticleColour();
+  final _ParticleColor _color = _ParticleColor();
 
   /// Fills [path] in each particle's colour, scaled by its size and turned
   /// by its rotation.
@@ -446,7 +456,7 @@ class CustomPathParticleRenderer extends ParticleRenderer {
 
   @override
   void render(Canvas canvas, Particle particle) {
-    _colour.apply(_paint, particle);
+    _color.apply(_paint, particle);
     final size = particle.currentSize;
 
     canvas.save();
@@ -473,7 +483,8 @@ class CustomPathParticleRenderer extends ParticleRenderer {
 /// drawn, or use [BlendMode.dstIn], which keeps the glyph's own colours and
 /// takes only the particle's opacity.
 ///
-/// Call [dispose] when done with the renderer to release the image.
+/// Call [dispose] when done with the renderer to release the image (its
+/// emitter does, when it is disposed).
 class TextParticleRenderer extends ParticleRenderer {
   /// The glyph or emoji to display.
   final String glyph;
@@ -589,6 +600,7 @@ class TextParticleRenderer extends ParticleRenderer {
   }
 
   /// Releases the glyph image. The renderer draws it again if used after.
+  @override
   void dispose() {
     _image?.dispose();
     _image = null;

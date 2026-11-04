@@ -24,13 +24,18 @@ Vector3 cameraForward(double pitch, double yaw) => Vector3(
   return (-math.atan2(direction.y, flat), math.atan2(direction.x, direction.z));
 }
 
-/// The target's 3-D position, or the camera's own when it has none.
-Vector3 _anchor(CameraStageContext context, CameraState state) =>
-    context.targetPosition3 ??
-    Vector3(state.position.dx, state.position.dy, state.z);
+/// [value] kept between [a] and [b], whichever is the lower: a lowest
+/// pitch typed above the highest must not throw every frame.
+double _between(double value, double a, double b) =>
+    value.clamp(math.min(a, b), math.max(a, b)).toDouble();
 
 /// Body: circles the target at a distance, turned by the component's yaw
 /// and pitch, the pivot easing after the target.
+///
+/// A camera that follows a target holds its pivot while the target is
+/// missing (destroyed, or not spawned yet), and snaps to the target the
+/// first time it has one. A camera that follows nothing circles its own
+/// spot.
 class OrbitFollowStage extends CameraStage<OrbitFollowComponent> {
   /// Stateless; the brain registers one for [OrbitFollowComponent].
   const OrbitFollowStage();
@@ -46,22 +51,39 @@ class OrbitFollowStage extends CameraStage<OrbitFollowComponent> {
     double dt,
   ) {
     final memory = context.memory;
-    final target = _anchor(context, state)..add(orbit.pivot);
     final pivot = memory.extra[this] as Vector3?;
+    // Read, never changed: every stage after this one reads it too.
+    final anchor = context.targetPosition3;
     final Vector3 at;
-    if (pivot == null || context.snap || !memory.initialized) {
-      at = Vector3.copy(target);
+    if (anchor == null && context.vcam.hasTarget) {
+      // The target is missing this frame: hold the pivot where it was. A
+      // camera that has never had one frames from its own spot without
+      // remembering it, so the target, once there, is snapped to.
+      at =
+          pivot ??
+          Vector3(
+            state.position.dx + orbit.pivot.x,
+            state.position.dy + orbit.pivot.y,
+            state.z + orbit.pivot.z,
+          );
     } else {
-      final k = CameraStage.damp(orbit.damping, dt);
-      at = pivot
-        ..setValues(
-          pivot.x + (target.x - pivot.x) * k,
-          pivot.y + (target.y - pivot.y) * k,
-          pivot.z + (target.z - pivot.z) * k,
-        );
+      final tx = (anchor?.x ?? state.position.dx) + orbit.pivot.x;
+      final ty = (anchor?.y ?? state.position.dy) + orbit.pivot.y;
+      final tz = (anchor?.z ?? state.z) + orbit.pivot.z;
+      if (pivot == null || context.snap) {
+        at = Vector3(tx, ty, tz);
+      } else {
+        final k = CameraStage.damp(orbit.damping, dt);
+        at = pivot
+          ..setValues(
+            pivot.x + (tx - pivot.x) * k,
+            pivot.y + (ty - pivot.y) * k,
+            pivot.z + (tz - pivot.z) * k,
+          );
+      }
+      memory.extra[this] = at;
     }
-    memory.extra[this] = at;
-    final pitch = orbit.pitch.clamp(orbit.minPitch, orbit.maxPitch);
+    final pitch = _between(orbit.pitch, orbit.minPitch, orbit.maxPitch);
     final distance = orbit.distance.clamp(
       orbit.minDistance,
       math.max(orbit.minDistance, orbit.maxDistance),
@@ -82,7 +104,8 @@ class OrbitFollowStage extends CameraStage<OrbitFollowComponent> {
 }
 
 /// Body: at the target's eyes, looking where the component's yaw and pitch
-/// say.
+/// say. While the target is missing the camera stays where its eyes last
+/// were; a camera that follows nothing looks from its own spot.
 class FirstPersonStage extends CameraStage<FirstPersonComponent> {
   /// Stateless; the brain registers one for [FirstPersonComponent].
   const FirstPersonStage();
@@ -97,11 +120,24 @@ class FirstPersonStage extends CameraStage<FirstPersonComponent> {
     CameraState state,
     double dt,
   ) {
-    final at = _anchor(context, state)..add(eyes.eye);
+    final memory = context.memory;
+    final last = memory.extra[this] as Vector3?;
+    // Read, never changed: every stage after this one reads it too.
+    final anchor = context.targetPosition3;
+    final Vector3 at;
+    if (anchor == null && context.vcam.hasTarget && last != null) {
+      at = last;
+    } else {
+      final x = (anchor?.x ?? state.position.dx) + eyes.eye.x;
+      final y = (anchor?.y ?? state.position.dy) + eyes.eye.y;
+      final z = (anchor?.z ?? state.z) + eyes.eye.z;
+      at = (last ?? Vector3.zero())..setValues(x, y, z);
+      if (anchor != null) memory.extra[this] = at;
+    }
     return state.copyWith(
       position: Offset(at.x, at.y),
       z: at.z,
-      pitch: eyes.pitch.clamp(eyes.minPitch, eyes.maxPitch),
+      pitch: _between(eyes.pitch, eyes.minPitch, eyes.maxPitch),
       yaw: eyes.yaw,
     );
   }
@@ -135,7 +171,7 @@ class LookAtStage extends CameraStage<LookAtComponent> {
     final last = memory.extra[this] as (double, double)?;
     if (last != null &&
         !context.snap &&
-        memory.initialized &&
+        memory.isInitialized &&
         look.damping > 0) {
       final k = CameraStage.damp(look.damping, dt);
       pitch = last.$1 + (pitch - last.$1) * k;

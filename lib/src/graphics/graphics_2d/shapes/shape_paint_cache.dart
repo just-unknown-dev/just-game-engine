@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:meta/meta.dart' show internal;
 
 import '../../../foundation/shape_paint_style.dart';
 
@@ -16,6 +17,7 @@ import '../../../foundation/shape_paint_style.dart';
 ///
 /// Styles are compared by identity: [ShapePaintStyle] and [ShapeGradient]
 /// are immutable, so assign a new style to change one.
+@internal
 class ShapePaintCache {
   /// The fill paint, as last prepared by [fill].
   final Paint fillPaint = Paint();

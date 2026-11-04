@@ -6,6 +6,7 @@ import 'package:just_game_engine_formats/just_game_engine_formats.dart';
 import 'dart:convert';
 
 import 'timeline_track.dart';
+import 'tracks/block_tracks.dart';
 import 'tracks/property_track.dart';
 
 /// What happens when time reaches the end.
@@ -153,6 +154,15 @@ class TimelineAsset {
             '${track.binding.label} has two tracks for ${track.path}.',
           );
         }
+      }
+      if (track is ActivationTrack && track.blocks.isEmpty) {
+        final who = track.binding.isSelf
+            ? 'the entity playing it'
+            : track.binding.label;
+        problems.add(
+          'An activation track has no blocks: it keeps $who switched off '
+          'for the whole timeline.',
+        );
       }
       if (!track.binding.isSelf && track.binding.value.trim().isEmpty) {
         problems.add('The track "${track.summary}" is bound to nobody.');

@@ -1,4 +1,4 @@
-part of 'ecs.dart';
+part of 'world.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // System
@@ -10,9 +10,10 @@ part of 'ecs.dart';
 /// between physics steps, a look that reads this frame's mouse movement.
 ///
 /// Implement it alongside [System] (`class MySystem extends System
-/// implements FrameSystem`). Systems that don't implement it pay nothing,
-/// and none of the engine's 2-D systems do.
-abstract interface class FrameSystem {
+/// implements PerFrame`). Systems that don't implement it pay nothing;
+/// of the engine's own, `RenderSystem`, `CameraBrainSystem` and
+/// `AudioSystem` do.
+abstract interface class PerFrame {
   /// One rendered frame: [deltaTime] seconds since the last (scaled by the
   /// game's time scale); [alpha] how far the frame lies between the last
   /// two fixed updates (0..1), for blending a pose from its previous step to

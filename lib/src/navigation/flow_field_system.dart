@@ -82,7 +82,9 @@ class FlowFieldSystem extends System {
     }
     _timeSinceRecompute = 0;
 
-    final target = world.findEntityByName(targetName);
+    // Only one active in the hierarchy: a switched-off "Player" (a template,
+    // a corpse) neither draws the horde nor hides the live one.
+    final target = world.findEntityByName(targetName, includeInactive: false);
     final targetPos = target?.getComponent<TransformComponent>()?.position;
     if (targetPos == null) {
       _bounds = null;

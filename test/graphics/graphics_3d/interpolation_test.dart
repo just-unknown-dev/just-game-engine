@@ -1,13 +1,15 @@
 // Between fixed updates the renderer draws an entity on the way from its
 // previous pose to its pose when whatever moves it captured that previous
 // pose in the last update (as physics does), and where it is otherwise: a
-// transform only gameplay writes has a stale previous pose.
+// transform only gameplay writes has a stale previous pose. What a kit's
+// render provider draws is drawn the same way.
 @Tags(['graphics3d'])
 library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_game_engine/just_game_engine_3d.dart';
+import 'package:just_graphics_engine/just_graphics_engine.dart' show NullGpuDevice, rendererNullShaders;
 
 import 'fixtures.dart';
 
@@ -26,6 +28,23 @@ final class _Mover extends System {
   void update(double deltaTime) {
     if (capture) transform.capturePrevious();
     transform.position.x += 1;
+  }
+}
+
+/// A kit's component, drawn as one cube by [_KitProvider].
+class _Kit extends Component {}
+
+class _KitProvider extends RenderProvider<_Kit> {
+  @override
+  Object? revisionOf(_Kit component) => 0;
+
+  @override
+  void build(RenderProviderContext context, Entity entity, _Kit component, RenderProviderOutput out) {
+    final cube = Cube3DComponent();
+    final mesh = context.shapes.meshFor(cube, Vector3(1, 1, 1))!;
+    out
+      ..addMesh(mesh, context.shapes.materialFor(cube))
+      ..addBatch(mesh, context.shapes.materialFor(cube), [Matrix4.identity()]);
   }
 }
 
@@ -132,5 +151,21 @@ void main() {
     for (var i = 0; i < 16; i++) {
       expect(drawn[i], closeTo(expected.storage[i], 1e-9), reason: 'm[$i]');
     }
+  });
+  test('what a render provider draws is drawn between the two poses too', () {
+    engine.world.context.renderProviders.register(_KitProvider());
+    final transform = TransformComponent();
+    engine.world.createEntity(name: 'kit')
+      ..addComponent(transform)
+      ..addComponent(_Kit());
+    engine.world.addSystem(_Mover(transform));
+    final renderer = service.sceneRenderer..update(view);
+
+    engine.world.update(1 / 60);
+    renderer.update(view..interpolation = 0.25);
+    expect(renderer.scene.instances.single.world.storage[12], closeTo(0.25, 1e-9));
+    expect(renderer.scene.batches.single.bounds.min.x, closeTo(-0.25, 1e-9));
+    renderer.update(view..interpolation = 1);
+    expect(renderer.scene.instances.single.world.storage[12], 1);
   });
 }

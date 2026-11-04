@@ -100,7 +100,7 @@ class MainMenu extends StatelessWidget {
 - `LocalizedText(key, args: ..., ns: ..., style: ...)` is a `Text` that rebuilds when the locale changes.
 - `LocalizationBuilder` rebuilds its subtree on every locale change and hands you the manager.
 - `LocaleSelector` shows a tappable label for each locale and switches to it.
-- `context.t(key)` and `context.tr(key, args)` (the `L10nContext` extension) look a key up in the nearest scope. They do not rebuild when the locale changes, so use them inside a `LocalizationBuilder`.
+- `context.t(key)` and `context.tr(key, args)` (the `BuildContextLocalization` extension) look a key up in the nearest scope. They do not rebuild when the locale changes, so use them inside a `LocalizationBuilder`.
 - `LocalizationScope.of(context)` returns the manager itself.
 
 Strings resolved once stay as they were when the locale changes: for example, `SubtitleTrack.localized` resolves its cues when it is made. See [Dialogue & subtitles](/docs/dialogue).

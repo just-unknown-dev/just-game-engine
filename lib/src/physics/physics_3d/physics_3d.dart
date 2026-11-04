@@ -66,11 +66,17 @@ final class Physics3D implements RefreshableExtension, EngineService {
        gravity =
            gravity ?? Vector3(0, PhysicsWorldSettings3D.standardGravity, 0);
 
-  /// Registers the 3-D physics components into [context], so scenes holding
-  /// them load and save — for tools that read and write 3-D scenes without
-  /// simulating them. Giving the engine a [Physics3D] does this already.
-  static void registerSchemas(EngineContext context) =>
-      context.definitions.registerAll(Physics3DDefinitions.all, ifAbsent: true);
+  /// Registers the 3-D physics components into [context], with the field
+  /// types they are saved through, so scenes holding them load and save —
+  /// for tools that read and write 3-D scenes without simulating them.
+  /// Giving the engine a [Physics3D] does this already.
+  static void registerDefinitions(EngineContext context) {
+    context.fieldTypes.registerAll(
+      Physics3DDefinitions.fieldTypes,
+      ifAbsent: true,
+    );
+    context.definitions.registerAll(Physics3DDefinitions.all, ifAbsent: true);
+  }
 
   /// Whether 3-D physics can run here, so a game can show something else
   /// instead of failing to start.
@@ -142,19 +148,25 @@ final class Physics3D implements RefreshableExtension, EngineService {
 
   @override
   void install(EngineContext context) {
-    registerSchemas(context);
+    registerDefinitions(context);
     // Every brain of the engine keeps its cameras out of walls.
-    CameraRegistries.of(
-      context,
-    ).stages.register(const CameraCollisionStage(), override: true);
+    context.cameraRegistries.stages.register(
+      const CameraCollisionStage(),
+      override: true,
+    );
   }
 
   @override
   void refresh(EngineContext context) {
+    context.fieldTypes.registerAll(
+      Physics3DDefinitions.fieldTypes,
+      ifAbsent: true,
+    );
     context.definitions.refresh(Physics3DDefinitions.all);
-    CameraRegistries.of(
-      context,
-    ).stages.register(const CameraCollisionStage(), override: true);
+    context.cameraRegistries.stages.register(
+      const CameraCollisionStage(),
+      override: true,
+    );
   }
 
   // ── EngineService ─────────────────────────────────────────────────────

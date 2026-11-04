@@ -33,7 +33,7 @@ import '../shader_component.dart';
 /// final program = await FragmentProgram.fromAsset('shaders/chromatic.frag');
 ///
 /// final vfxEntity = world.createEntity();
-/// world.addComponent(vfxEntity, ShaderComponent(
+/// vfxEntity.addComponent(ShaderComponent(
 ///   program: program,
 ///   isPostProcess: true,
 ///   passOrder: 1,
@@ -136,6 +136,9 @@ class PostProcessSystem extends System {
         );
         _registeredPasses[entity.id] = registered = _Registered(pass);
         _renderingEngine.addPostProcessPass(pass);
+        // The component switches it off if it leaves before this system
+        // next runs.
+        comp.postProcessPass = pass;
       } else {
         // Sync mutable properties every frame (cheap assignments). The
         // rendering engine re-sorts when a pass order changes.

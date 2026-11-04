@@ -1,4 +1,4 @@
-part of 'ecs.dart';
+part of 'world.dart';
 
 /// Unique identifier for an entity
 typedef EntityId = int;

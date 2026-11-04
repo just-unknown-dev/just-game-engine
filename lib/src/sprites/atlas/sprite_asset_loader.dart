@@ -31,6 +31,24 @@ abstract class SpriteAssetLoader {
   /// Forgets [path], so the next load reads it again. A loader that does not
   /// cache has nothing to do.
   void evict(String path) {}
+
+  /// [loadAtlas], and a hold on the atlas for the caller: what loads through
+  /// a cache that counts its users stays loaded until each [acquireAtlas]
+  /// is matched by a [releaseAtlas] of the same [path]. What the sprite
+  /// systems use for what they show. A loader that counts nothing — that
+  /// keeps what it loads, or hands out what the caller owns — loads.
+  Future<SpriteAtlas> acquireAtlas(String path) => loadAtlas(path);
+
+  /// Gives back one hold [acquireAtlas] took on [path].
+  void releaseAtlas(String path) {}
+
+  /// [loadImage], and a hold on the image for the caller, given back by
+  /// [releaseImage]; see [acquireAtlas]. The image returned is the caller's
+  /// to dispose when [callerDisposesImages] says so, as from [loadImage].
+  Future<ui.Image> acquireImage(String path) => loadImage(path);
+
+  /// Gives back one hold [acquireImage] took on [path].
+  void releaseImage(String path) {}
 }
 
 /// Loads through an asset manager — the engine's (`context.assets`) — which
@@ -55,4 +73,39 @@ class BundleSpriteAssetLoader extends SpriteAssetLoader {
   @override
   Future<SpriteAtlas> loadAtlas(String path) =>
       SpriteAtlas.fromAsset(path, assets: assets);
+
+  /// Counted by [assets] ([AssetManager.acquire]): the atlas, and its pages,
+  /// are unloaded once every hold on it is given back.
+  @override
+  Future<SpriteAtlas> acquireAtlas(String path) =>
+      SpriteAtlas.acquire(path, assets: assets);
+
+  @override
+  void releaseAtlas(String path) => assets.release(path, AssetType.atlas);
+
+  /// Counted by [assets]; the image returned is a clone, the caller's own.
+  @override
+  Future<ui.Image> acquireImage(String path) async {
+    final asset = await assets.acquireImage(path);
+    final image = asset.image;
+    if (image == null) {
+      assets.release(path, AssetType.image);
+      throw Exception('Failed to load image asset: $path');
+    }
+    return image.clone();
+  }
+
+  @override
+  void releaseImage(String path) => assets.release(path, AssetType.image);
+
+  /// Lets [assets] unload [path] — unless something holds it
+  /// ([acquireAtlas], [acquireImage], an atlas page): the images this loader
+  /// hands out are clones, which stay usable.
+  @override
+  void evict(String path) {
+    if (assets.refCount(path, AssetType.image) == 0 &&
+        assets.refCount(path, AssetType.atlas) == 0) {
+      assets.unload(path);
+    }
+  }
 }

@@ -8,7 +8,7 @@ Tags label entities so systems can find them: `player`, `enemy`, `boss`. Targets
 
 A `TagComponent` holds any number of tags. The world keeps an index of them, so looking tagged entities up is cheap; don't query `TagComponent` and compare strings yourself.
 
-```dart lib/tags.dart
+```dart lib/tag_component.dart
 void tagsAndTargets(World world) {
   final boss = world.createEntityWithComponents([
     TransformComponent(position: Vector3(900, 0, 0)),
@@ -27,7 +27,7 @@ void tagsAndTargets(World world) {
 ```
 
 - `TagComponent('enemy')` holds one tag and `TagComponent.of([...])` several; blanks and repeats are dropped.
-- On an entity, `hasTag`, `addTag` (which adds a `TagComponent` if there is none), `removeTag` and `tags` work directly. On the component, use `tags`, `has`, `add` and `remove`; the single `tag` getter is deprecated.
+- On an entity, `hasTag`, `addTag` (which adds a `TagComponent` if there is none), `removeTag` and `tags` work directly. On the component, use `tags`, `has`, `add` and `remove`; 1.x's single `tag` is gone.
 - `world.findTagged(tag)` returns the oldest switched-on entity with the tag, or null, and `world.allTagged(tag)` returns all of them, oldest first. Pass `includeInactive: true` to include switched-off entities. `world.tagsInUse` lists every tag in use.
 - Switched-off entities (`entity.isActive = false`) are left out of tag lookups and targets, and so is everything under them in the hierarchy (`entity.isActiveInHierarchy`).
 - Tag names use letters, digits, `_` and `-`, and are case-sensitive (`TagNames.isValid`).
@@ -68,7 +68,7 @@ final List<Spawner> spawners = [
       InputComponent(),
       Rectangle2DComponent(width: 32, height: 48),
       RigidBody2DComponent(friction: 0, lockRotation: true),
-      Collider2DComponent(shape: ColliderShape2D.matchShape),
+      Collider2DComponent(shape: Collider2DShape.matchShape),
       TagComponent('player'),
     ], name: 'Player'),
   ),

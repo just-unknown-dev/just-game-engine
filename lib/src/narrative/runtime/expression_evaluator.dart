@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
+import 'package:meta/meta.dart' show internal;
 
 import '../graph/dialogue_variable_store.dart';
 import 'dialogue_condition_registry.dart';
@@ -40,6 +41,7 @@ import 'dialogue_condition_registry.dart';
 /// eval.evaluateBool('[playerHasKey]');
 /// eval.evaluate(r'$gold + 5');
 /// ```
+@internal
 class ExpressionEvaluator {
   /// An evaluator reading `$name` from [variables] and calling `[name]`
   /// from [conditions]; it keeps no state of its own between calls.

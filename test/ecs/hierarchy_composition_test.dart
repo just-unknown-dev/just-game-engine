@@ -109,7 +109,7 @@ void expectSame(Entity a, Entity b, String when) {
 }
 
 void main() {
-  test('matches composing every child every frame, bit for bit (P17)', () {
+  test('matches composing every child every frame, bit for bit', () {
     final fresh = World();
     final reference = World()..transformHierarchy.enabled = false;
     final a = build(fresh);

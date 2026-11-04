@@ -6,7 +6,7 @@ Everything a 2D game shows is drawn by one ECS system, `RenderSystem`, inside th
 
 ## What the rendering systems do
 
-`EngineConfig(defaultSystems: DefaultSystems.all)` includes `DefaultSystem.rendering`, which adds two systems. Both draw through `engine.cameraSystem.mainCamera`.
+`EngineConfig(defaultSystems: DefaultSystems.all)` includes `DefaultSystem.rendering`, which adds two systems. Both draw through `engine.camera.mainCamera`.
 
 | System | Priority | What it draws |
 |---|---|---|
@@ -113,15 +113,15 @@ Sprites batch on their own: consecutive sprites from one image, drawn at one uni
 `RenderSystem` has two more switches, both off by default. Set them on the default one, for example `engine.world.getSystem<RenderSystem>()?.batchShapes = true`:
 
 - `batchShapes` draws runs of rectangles with square corners and circles in one `Canvas.drawVertices` call, when their fill and outline are plain colours and the entity is fully opaque, untinted and has no shader. Edges are not anti-aliased and a circle becomes a 16- or 24-sided polygon, so use it for many small shapes: bullets, debris, blockouts.
-- `cullOffscreen` skips renderables whose bounds lie wholly outside the view. Level-map layers and particle emitters are always drawn, and it is only as good as each renderable's `getBounds`.
+- `cullOffscreen` skips renderables whose bounds lie wholly outside the view. Level-map layers and particle emitters are always drawn, and it is only as good as each renderable's `bounds`.
 
-For large levels, `ViewCullingSystem` also stops simulating what is far away. Add it yourself with `world.addSystem(ViewCullingSystem(camera: engine.cameraSystem.mainCamera))`; only entities you give a `CullStateComponent` take part, so don't give one to the player. Outside the render area (1.2 times the view by default) an entity's renderable is hidden. Outside the active area (2 times the view) its `CullStateComponent.isActive` turns false and `MovementSystem` and `Physics2DSystem` skip it; check the same flag in your own systems, such as AI. A `hysteresisMargin` (24 units) stops entities on the edge from flickering.
+For large levels, `ViewCullingSystem` also stops simulating what is far away. Add it yourself with `world.addSystem(ViewCullingSystem(camera: engine.camera.mainCamera))`; only entities you give a `CullStateComponent` take part, so don't give one to the player. Outside the render area (1.2 times the view by default) an entity's renderable is hidden. Outside the active area (2 times the view) its `CullStateComponent.isActive` turns false and `MovementSystem` and `Physics2DSystem` skip it; check the same flag in your own systems, such as AI. A `hysteresisMargin` (24 units) stops entities on the edge from flickering.
 
 ## Drawing your own things
 
 There are three ways in, depending on where the drawing belongs:
 
-- In the world, sorted with everything else: put a `RenderableComponent(renderable: CustomRenderable(onRender: ...))` on an entity. `onRender` draws in the entity's own space, and `getBoundsCallback` gives the bounds that culling uses. `TextRenderable` draws a line of text the same way.
+- In the world, sorted with everything else: put a `RenderableComponent(renderable: CustomRenderable(onRender: ...))` on an entity. `onRender` draws in the entity's own space, and `boundsOf` gives the bounds that culling uses. `TextRenderable` draws a line of text the same way.
 - On the screen: add a callback to `engine.rendering.overlayHooks` (over the world) or `backgroundHooks` (behind it). These `RenderHookChain`s run in screen space, outside the camera transform, in ascending `order`. `GameWidget` adds the world's own drawing at order 0 and the engine adds plugin overlays at 100. `remove` takes a hook out, and `addIfAbsent` never adds one twice.
 - After the renderables, in world space: give `RenderSystem` extra `passes`. A `RenderPass` runs inside the camera transform, in ascending `order`. The default list is one `ComponentPainterPass` (order 100), which draws components whose definition has a painter, such as `just_ui_editor`'s world-space text; keep it in your own list.
 
@@ -141,7 +141,7 @@ class AxesPass extends RenderPass {
 
   @override
   void render(Canvas canvas, RenderContext context, RenderPassFilter filter) {
-    final view = context.camera?.getVisibleBounds();
+    final view = context.camera?.visibleBounds;
     if (view == null) return;
     canvas
       ..drawLine(Offset(view.left, 0), Offset(view.right, 0), _paint)
@@ -159,8 +159,10 @@ Future<Engine> startWithAxes() async {
   await engine.initialize();
   engine.world.addSystem(
     RenderSystem(
-      camera: engine.cameraSystem.mainCamera,
+      camera: engine.camera.mainCamera,
       statsSink: engine.rendering,
+      // What moves in a 2-D material (a wave, a shine) reads this clock.
+      clock: () => engine.time.totalTime,
       passes: [ComponentPainterPass(), AxesPass()],
     ),
   );
@@ -171,7 +173,7 @@ Future<Engine> startWithAxes() async {
     include: {DefaultSystem.rendering},
   );
 
-  // A crosshair in screen space, over the world (order 0).
+  // A crosshair in screen space, over the world (which draws at order 0).
   engine.rendering.overlayHooks.add((canvas, size) {
     final c = size.center(Offset.zero);
     final paint = Paint()..color = Colors.white;
@@ -215,13 +217,13 @@ Future<void> addBackground(Engine engine) async {
 - `engine.world.getSystem<RenderSystem>()?.stats` holds `drawCalls`, `renderedObjects`, `culledObjects` and `batchedSprites` for the world alone, without the extra passes' drawing. In tests, `RenderSystem.debugDrawOrder()` lists the draw order.
 - [Debugging](/docs/debugging) covers the on-screen tools.
 
-## The deprecated legacy path
+## The removed legacy path
 
-Adding renderables to the rendering engine directly, as 1.x games did, still works in 2.0 but is deprecated and will be removed in 3.0:
+Adding renderables to the rendering engine directly, as 1.x games did, is gone in 2.0:
 
-| Deprecated | Use instead |
+| Removed | Use instead |
 |---|---|
-| `engine.rendering.addRenderable`, `removeRenderable`, `useSpatialIndex` and the other spatial-index members | An entity with a `RenderableComponent`; `cullOffscreen` for culling |
+| `engine.rendering.addRenderable`, `removeRenderable`, `renderables`, `useSpatialIndex` and the other spatial-index and layer members | An entity with a `RenderableComponent`; `cullOffscreen` for culling |
 | `engine.parallax`, `ParallaxSystem` | `ParallaxComponent` and `ParallaxRenderSystem` |
 | `onRenderOverlay`, `onRenderBackground` | `overlayHooks`, `backgroundHooks` |
 

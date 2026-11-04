@@ -1,8 +1,10 @@
 /// Camera System
 ///
 /// The output camera — what everything renders through. The brain that
-/// decides what it shows, and the `CameraSystem` that owns both, are in
-/// `lib/src/ecs/systems/camera/`.
+/// decides what it shows (`camera_brain.dart`), and the `CameraEngine` that
+/// owns both (`camera_engine.dart`), are beside it. This file imports only
+/// `interfaces/` and the camera state and effects, so the rendering
+/// contracts can use it.
 library;
 
 import 'dart:math' as math;
@@ -141,10 +143,16 @@ class Camera implements GameCamera {
     lens: lens,
   );
 
+  /// [value] clamped to [[minZoom], [maxZoom]] — taken the other way round
+  /// when [minZoom] is the higher, rather than throwing.
+  double _clampZoom(double value) => value
+      .clamp(math.min(minZoom, maxZoom), math.max(minZoom, maxZoom))
+      .toDouble();
+
   /// Shows [state]. Zoom is clamped to [[minZoom], [maxZoom]].
   void apply(CameraState state) {
     position = state.position;
-    zoom = state.zoom.clamp(minZoom, maxZoom);
+    zoom = _clampZoom(state.zoom);
     rotation = state.rotation;
     z = state.z;
     pitch = state.pitch;
@@ -159,7 +167,7 @@ class Camera implements GameCamera {
   void setPosition(Offset newPosition) => position = newPosition;
 
   /// Set the camera zoom, clamped to [[minZoom], [maxZoom]].
-  void setZoom(double newZoom) => zoom = newZoom.clamp(minZoom, maxZoom);
+  void setZoom(double newZoom) => zoom = _clampZoom(newZoom);
 
   /// Translate the camera by [delta] in world units.
   void moveBy(Offset delta) => position += delta;
@@ -177,7 +185,7 @@ class Camera implements GameCamera {
   /// ```
   void zoomToPoint(Offset worldPoint, double targetZoom) {
     final previous = zoom;
-    zoom = targetZoom.clamp(minZoom, maxZoom);
+    zoom = _clampZoom(targetZoom);
     position = worldPoint - (worldPoint - position) * (previous / zoom);
   }
 
@@ -290,12 +298,17 @@ class Camera implements GameCamera {
   /// from the camera out through the pixel. Written into [out] when given.
   @override
   Ray3 screenToWorldRay(Offset screen, [Ray3? out]) {
-    final ray = out ?? Ray3();
-    final w = viewportSize.width > 0 ? viewportSize.width : 1.0;
-    final h = viewportSize.height > 0 ? viewportSize.height : 1.0;
-    final nx = screen.dx / w * 2 - 1, ny = screen.dy / h * 2 - 1;
     viewProjectionInto(_inverse);
     _inverse.invert();
+    return _rayThrough(screen.dx, screen.dy, out ?? Ray3());
+  }
+
+  /// The ray through the pixel ([sx], [sy]) into [ray], with [_inverse]
+  /// already holding the inverse view-projection.
+  Ray3 _rayThrough(double sx, double sy, Ray3 ray) {
+    final w = viewportSize.width > 0 ? viewportSize.width : 1.0;
+    final h = viewportSize.height > 0 ? viewportSize.height : 1.0;
+    final nx = sx / w * 2 - 1, ny = sy / h * 2 - 1;
     _v.setValues(nx, ny, 0);
     _inverse.transformPointInto(_v, _v);
     _w.setValues(nx, ny, 1);
@@ -324,11 +337,11 @@ class Camera implements GameCamera {
   @override
   ViewVolume get viewVolume {
     if (isPlanar) {
-      _planarVolume.planarBounds = getVisibleBounds();
+      _planarVolume.planarBounds = visibleBounds;
       return _planarVolume;
     }
     viewProjectionInto(_volumeMatrix);
-    _frustumVolume.update(_volumeMatrix, getVisibleBounds());
+    _frustumVolume.update(_volumeMatrix, visibleBounds);
     return _frustumVolume;
   }
 
@@ -382,7 +395,7 @@ class Camera implements GameCamera {
   /// the world plane z = 0 its corners see (everything, when a corner misses
   /// it).
   @override
-  Rect getVisibleBounds() {
+  Rect get visibleBounds {
     if (!isPlanar) return _visibleOnPlane();
     final w = viewportSize.width / zoom, h = viewportSize.height / zoom;
     if (rotation == 0.0) {
@@ -398,32 +411,33 @@ class Camera implements GameCamera {
 
   Rect _visibleOnPlane() {
     final w = viewportSize.width, h = viewportSize.height;
-    double? l, t, r, b;
-    for (final corner in [
-      Offset.zero,
-      Offset(w, 0),
-      Offset(0, h),
-      Offset(w, h),
-    ]) {
-      final p = _onWorldPlane(corner);
-      if (p == null) {
+    // One inverse for all four corners.
+    viewProjectionInto(_inverse);
+    _inverse.invert();
+    var l = double.infinity, t = double.infinity;
+    var r = double.negativeInfinity, b = double.negativeInfinity;
+    for (var corner = 0; corner < 4; corner++) {
+      _rayThrough(corner.isOdd ? w : 0, corner < 2 ? 0 : h, _ray);
+      final hit = _ray.intersectZ();
+      if (hit == null) {
         // A corner that misses the plane sees to the horizon.
         return Rect.fromCenter(center: position, width: 1e9, height: 1e9);
       }
-      l = l == null ? p.dx : math.min(l, p.dx);
-      t = t == null ? p.dy : math.min(t, p.dy);
-      r = r == null ? p.dx : math.max(r, p.dx);
-      b = b == null ? p.dy : math.max(b, p.dy);
+      _ray.atInto(hit, _v);
+      l = math.min(l, _v.x);
+      t = math.min(t, _v.y);
+      r = math.max(r, _v.x);
+      b = math.max(b, _v.y);
     }
-    return Rect.fromLTRB(l!, t!, r!, b!);
+    return Rect.fromLTRB(l, t, r, b);
   }
 
   /// Whether the world point [point] is on screen. For a rolled 2-D camera
   /// that is the turned rectangle the screen shows, not the box around it;
-  /// otherwise whether [point] lies inside [getVisibleBounds].
+  /// otherwise whether [point] lies inside [visibleBounds].
   bool isVisible(Offset point) {
     if (!isPlanar || rotation == 0.0) {
-      return getVisibleBounds().contains(point);
+      return visibleBounds.contains(point);
     }
     final s = worldToScreen(point);
     return s.dx >= 0 &&
@@ -432,13 +446,17 @@ class Camera implements GameCamera {
         s.dy < viewportSize.height;
   }
 
-  /// Whether the world rectangle [rect] overlaps [getVisibleBounds] — for a
+  /// Whether the world rectangle [rect] overlaps [visibleBounds] — for a
   /// rolled camera the box around the screen, so a rectangle near a corner
   /// may count as visible while just off screen. A null [rect] — nothing
-  /// known about its size — counts as visible.
+  /// known about its size — counts as visible, and an inside-out one (the
+  /// bounds of something flipped) counts as the box it spans.
   bool isRectVisible(Rect? rect) {
     if (rect == null) return true;
-    return getVisibleBounds().overlaps(rect);
+    final box = rect.left <= rect.right && rect.top <= rect.bottom
+        ? rect
+        : Rect.fromPoints(rect.topLeft, rect.bottomRight);
+    return visibleBounds.overlaps(box);
   }
 
   /// Back to the origin at zoom 1 with no roll, depth, pitch or yaw, the

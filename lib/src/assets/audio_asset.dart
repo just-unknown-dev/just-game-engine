@@ -60,7 +60,7 @@ class AudioAsset extends Asset {
   }
 
   @override
-  int getMemoryUsage() {
+  int get memoryUsage {
     return _audioData?.length ?? 0;
   }
 }

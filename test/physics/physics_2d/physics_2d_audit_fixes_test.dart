@@ -1,5 +1,6 @@
-// Physics fixes from the 2.0.0 final pass: a weld is made again when either
-// anchor changes (F21); the prismatic joint's editor groups name only its
+// Physics fixes from the 2.0.0 final pass: a weld is never made again for
+// an anchor no backend takes, a wheel is for its axle (F21, PHY-2); the
+// prismatic joint's editor groups name only its
 // fields (F21); without native wheel joints a wheel is the physics engine's
 // own wheel joint, its motor spinning the wheel (F24); a ray collider with
 // no size is hit by nothing (F28); a collision event needs no penetration
@@ -16,9 +17,7 @@ const _frame = 1 / 60;
   final physics = PhysicsEngine.pureDart()..initialize();
   physics.setGravity(0, 0);
   final world = World()..initialize();
-  world
-    ..addSystem(Physics2DSystem(physics))
-    ..addSystem(PhysicsJointBindingSystem(physics));
+  world.addSystem(Physics2DSystem(physics));
   addTearDown(() {
     world.dispose();
     physics.dispose();
@@ -40,7 +39,7 @@ Entity _box(
 ], name: name);
 
 void main() {
-  test('F21 a weld is made again when its second anchor changes', () {
+  test('a joint is made again only for an anchor its backend takes', () {
     final (:world, :physics) = _setUp();
     final weld = FixedJoint2DComponent(
       connectedBody: const EntityTarget.name('B'),
@@ -54,13 +53,27 @@ void main() {
     world.update(_frame);
     expect(physics.joints.single, same(first), reason: 'nothing changed');
 
-    weld.connectedAnchor = const Offset(4, 0);
+    // A weld takes no anchor on either backend: nothing to make again for.
+    weld
+      ..anchor = const Offset(4, 0)
+      ..connectedAnchor = const Offset(4, 0);
     world.update(_frame);
-    expect(physics.joints, hasLength(1));
-    expect(physics.joints.single, isNot(same(first)));
+    expect(physics.joints.single, same(first));
+
+    // A wheel's axle is taken (natively): changing it makes it again.
+    weld.enabled = false;
+    final wheel = WheelJoint2DComponent(
+      connectedBody: const EntityTarget.name('B'),
+    );
+    _box(world, x: 60, extra: [wheel]);
+    world.update(_frame);
+    final made = physics.joints.single;
+    wheel.connectedAnchor = const Offset(2, 0);
+    world.update(_frame);
+    expect(physics.joints.single, isNot(same(made)));
   });
 
-  test('F21 every field a definition groups or rows is one of its fields', () {
+  test('every field a definition groups or rows is one of its fields', () {
     for (final definition in BuiltInComponents.registry().definitions) {
       final type = definition.type;
       final names = {for (final f in definition.fields) f.name};
@@ -77,7 +90,7 @@ void main() {
     }
   });
 
-  test('F24 without native wheel joints a wheel is a wheel joint', () {
+  test('without native wheel joints a wheel is a wheel joint', () {
     final (:world, :physics) = _setUp();
     _box(
       world,
@@ -98,12 +111,12 @@ void main() {
     expect((
       wheel.springStiffness,
       wheel.springDamping,
-    ), PhysicsJointBindingSystem.dartSpring(30, 0.5));
+    ), Physics2DJoints.dartSpring(30, 0.5));
     expect(wheel.motorEnabled, isTrue);
     expect((wheel.motorSpeed, wheel.maxMotorTorque), (7.0, 90.0));
   });
 
-  group('F28 ray colliders', () {
+  group('ray colliders', () {
     late World world;
     late RaycastSystem rays;
 
@@ -124,16 +137,16 @@ void main() {
 
     test('one with no size at all is hit by nothing', () {
       target(RaycastColliderComponent());
-      expect(rays.castRay(rightward()), isNull);
+      expect(rays.raycast(rightward()), isNull);
     });
 
     test('one with a radius is hit', () {
       final e = target(RaycastColliderComponent(radius: 5));
-      expect(rays.castRay(rightward())?.entity, same(e));
+      expect(rays.raycast(rightward())?.entity, same(e));
     });
   });
 
-  test('F29 a collision event is made without a depth', () {
+  test('a collision event is made without a depth', () {
     final world = World()..initialize();
     addTearDown(world.dispose);
     final a = world.createEntity();

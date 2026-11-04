@@ -1,54 +1,30 @@
 /// Rendering Engine (Graphics)
 ///
-/// Handles visual representation, 2D sprites, shapes, text rendering, and effects.
-/// This module manages the rendering pipeline for the game engine using Flutter Canvas.
+/// The frame: background, scene renderers, the world (through the overlay
+/// hooks), post-process and screen passes, camera effects.
 library;
 
-import 'dart:collection';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'render_hook_chain.dart';
-import 'render_stats.dart';
+import 'render_stats_sink.dart';
 import '../interfaces/frame_view.dart';
 import 'scene_renderer.dart';
-import 'renderable.dart';
-import 'sprite_batch.dart';
-import 'sprite_batching.dart';
 import 'shader_filter_support.dart';
 import 'screen_pass.dart';
 import 'post_processing/post_process_pass.dart';
 import '../camera/output_camera.dart';
-import '../interfaces/rendering_interfaces.dart';
-import 'package:just_dart/just_dart.dart';
-
-export 'renderable.dart';
-export 'sprite_batch.dart';
-export '../interfaces/frame_view.dart';
-export 'scene_renderer.dart';
-export 'render_stats.dart';
 
 /// Main rendering engine class responsible for graphics rendering
 ///
-/// This class manages the rendering pipeline, camera, and all renderable objects.
-/// It uses Flutter's Canvas API for 2D rendering.
+/// This class runs the frame — what the camera sees, through the post-process
+/// and screen passes — using Flutter's Canvas API. What the world holds is
+/// drawn by its `RenderSystem`, which [GameWidget] runs from [overlayHooks].
 ///
 /// It is also a [RenderStatsSink]: the ECS world's `RenderSystem` reports
 /// what it draws here, so [stats] count the whole frame.
 class RenderingEngine implements RenderStatsSink {
-  /// List of all renderable objects
-  final List<Renderable> _renderables = [];
-
-  /// Set for O(1) membership checks in addRenderable
-  final Set<Renderable> _renderableSet = {};
-
-  /// Rendering layers — LinkedHashSet per layer for O(1) add/remove.
-  final Map<int, LinkedHashSet<Renderable>> _layers = {};
-
-  /// Sorted-by-zOrder snapshot of each layer, rebuilt when [_layersDirty].
-  /// The render loop iterates this instead of [_layers] to maintain zOrder.
-  final Map<int, List<Renderable>> _sortedLayerLists = {};
-
   /// Main camera
   late Camera camera;
 
@@ -59,50 +35,20 @@ class RenderingEngine implements RenderStatsSink {
   bool _initialized = false;
 
   /// Called in screen space after the background clear but before the
-  /// camera transform. [ParallaxSystem] paints its backgrounds here.
+  /// scene renderers. `ParallaxRenderSystem` paints its backgrounds here.
   final RenderHookChain backgroundHooks = RenderHookChain();
 
-  /// Called inside the camera-transformed context after every subsystem
-  /// layer, so ECS world rendering (and anything drawn over it) shares the
-  /// one camera transform. [GameWidget] adds `engine.world.render`.
+  /// Called in screen space after the scene renderers: the ECS world —
+  /// [GameWidget] adds `engine.world.render`, whose `RenderSystem` applies
+  /// the camera itself — then anything drawn over it (an editor, at order
+  /// [screenPassOrder]).
   ///
   /// A chain, not a single field: several things — the world, an editor, a
   /// debug overlay — draw here, and with a single field the first writer won
   /// and the rest were silently dropped.
   final RenderHookChain overlayHooks = RenderHookChain();
 
-  RenderHook? _legacyBackground;
-  RenderHook? _legacyOverlay;
-
-  /// The hook last assigned through the setter, for callers that still read
-  /// it back.
-  @Deprecated('Use backgroundHooks.add / remove')
-  RenderHook? get onRenderBackground => _legacyBackground;
-
-  /// Assigning replaces only the hook this setter previously added; hooks
-  /// added through [backgroundHooks] directly are untouched.
-  @Deprecated('Use backgroundHooks.add / remove')
-  set onRenderBackground(RenderHook? hook) {
-    if (_legacyBackground != null) backgroundHooks.remove(_legacyBackground!);
-    _legacyBackground = hook;
-    if (hook != null) backgroundHooks.add(hook);
-  }
-
-  /// The hook last assigned through the setter, for callers that still read
-  /// it back.
-  @Deprecated('Use overlayHooks.add / remove')
-  RenderHook? get onRenderOverlay => _legacyOverlay;
-
-  /// Assigning replaces only the hook this setter previously added; hooks
-  /// added through [overlayHooks] directly are untouched.
-  @Deprecated('Use overlayHooks.add / remove')
-  set onRenderOverlay(RenderHook? hook) {
-    if (_legacyOverlay != null) overlayHooks.remove(_legacyOverlay!);
-    _legacyOverlay = hook;
-    if (hook != null) overlayHooks.add(hook);
-  }
-
-  /// Debug mode flag
+  /// Debug mode flag: draws the frame's numbers in the top-left corner.
   bool debugMode = false;
 
   /// The least time between two frames a [GameWidget] of the engine draws;
@@ -138,6 +84,15 @@ class RenderingEngine implements RenderStatsSink {
   /// each frame by the engine from the game loop. [view] passes it on.
   double interpolation = 1.0;
 
+  int _frames = 0;
+  bool _drawing = false;
+
+  /// The frame [render] is drawing (counted from 1) while it draws; null
+  /// between frames. Every view drawn within one frame sees the world as
+  /// it is then — an editor's panes, its preview of the game's camera — so
+  /// a scene renderer can look the world over once for all of them.
+  int? get drawingFrame => _drawing ? _frames : null;
+
   /// The camera of the frame being drawn, as matrices — filled at most once
   /// a frame, and only when read, so a 2-D game pays nothing for it.
   FrameView get view {
@@ -148,60 +103,11 @@ class RenderingEngine implements RenderStatsSink {
     return _view;
   }
 
-  /// Optional factory for creating [SpriteBatchRenderer] instances.
-  /// Defaults to the built-in [SpriteBatch] implementation. A [SpriteBatch]
-  /// it returns is set to the filter quality of the sprites it batches.
-  SpriteBatchFactory spriteBatchFactory = (ui.Image atlas) =>
-      SpriteBatch(atlas);
-
-  /// Sprite batches by atlas image (the object, not a hash of it) and filter
-  /// quality; one a frame does not use is dropped at its end.
-  final SpriteBatchCache _batchCache = SpriteBatchCache();
-
-  /// Batches holding sprites not drawn yet, in the order first used.
-  final List<SpriteBatchRenderer> _pendingBatches = [];
-
-  /// Reused to work out how each sprite is batched.
-  final SpriteBatchPlan _plan = SpriteBatchPlan();
-
-  /// How many sprite batches are kept — one per image and filter quality
-  /// drawn in the last frame. For tests.
-  @visibleForTesting
-  int get debugSpriteBatchCount => _batchCache.length;
-
-  /// Spatial index for fast viewport culling.
-  ///
-  /// When [useSpatialIndex] is `true` and there are more than
-  /// [_spatialThreshold] renderables, the quadtree is rebuilt each frame and
-  /// used to query only those renderables overlapping the camera viewport.
-  /// For smaller scenes the O(n) scan is faster due to lower overhead.
-  @Deprecated(
-    'Only renderables added with addRenderable are culled by it. Use '
-    'RenderSystem(cullOffscreen: true) for entities. Removed in 3.0.',
-  )
-  bool get useSpatialIndex => _useSpatialIndex;
-  @Deprecated(
-    'Only renderables added with addRenderable are culled by it. Use '
-    'RenderSystem(cullOffscreen: true) for entities. Removed in 3.0.',
-  )
-  set useSpatialIndex(bool value) => _useSpatialIndex = value;
-  bool _useSpatialIndex = true;
-  static const int _spatialThreshold = 200;
-  Quadtree<Renderable>? _quadtree;
-  final List<Renderable> _quadtreeResults = [];
-  final Set<Renderable> _spatialVisibleSet = <Renderable>{};
-  final Map<Renderable, Rect?> _boundsCache = <Renderable, Rect?>{};
-  final Map<Renderable, int> _trackedLayers = <Renderable, int>{};
-  final Map<Renderable, int> _trackedZOrders = <Renderable, int>{};
-  Rect? _spatialIndexBounds;
-  bool _spatialIndexDirty = true;
-
   double _lastRenderTimeMs = 0.0;
   int _lastDrawCallCount = 0;
   int _lastRenderedCount = 0;
   int _lastCulledCount = 0;
   int _lastBatchedSpriteCount = 0;
-  bool _lastUsedSpatialIndex = false;
 
   // What other drawers reported this frame ([addFrameStats]).
   int _reportedDrawCalls = 0;
@@ -221,9 +127,6 @@ class RenderingEngine implements RenderStatsSink {
     _reportedCulled += culledObjects;
     _reportedBatchedSprites += batchedSprites;
   }
-
-  int _spatialRebuildCount = 0;
-  bool _spatialReusedLastFrame = false;
 
   // Persistent Stopwatch instance — reused every frame to avoid heap allocation.
   final Stopwatch _renderStopwatch = Stopwatch();
@@ -258,12 +161,12 @@ class RenderingEngine implements RenderStatsSink {
   /// the one before drew; see [render].
   final List<ScreenPass> screenPasses = [];
 
-  /// Overlay hooks below this order are drawn under a [screenPass], and
-  /// those at it or above (an editor's) over it.
+  /// Overlay hooks below this order are drawn under the [screenPasses], and
+  /// those at it or above (an editor's) over them.
   static const int screenPassOrder = 100;
 
-  /// How many device pixels a logical pixel is, for the image a
-  /// [screenPass] is drawn from; the view's own when null.
+  /// How many device pixels a logical pixel is, for the image the
+  /// [screenPasses] are drawn from; the view's own when null.
   double? pixelRatio;
 
   double get _pixelRatio =>
@@ -319,39 +222,13 @@ class RenderingEngine implements RenderStatsSink {
 
   // ── Cached Paint objects (avoid per-frame allocation) ──────────────────
   final Paint _backgroundPaint = Paint();
-  final Paint _debugBoundsPaint = Paint()
-    ..color =
-        const Color(0x8000FF00) // green at 50% alpha
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 1.0;
-  final Paint _debugOriginPaint = Paint()..color = const Color(0xFFFF0000);
 
-  /// Cached TextPainter for debug info overlay.
-  final TextPainter _debugTextPainter = TextPainter(
-    textDirection: TextDirection.ltr,
-  );
-
-  // ── Cached layer key list (avoids per-frame allocation) ────────────────
-  final List<int> _sortedLayerKeys = [];
-  bool _layersDirty = true;
+  /// Lays out the debug overlay ([debugMode]); made when first drawn, let
+  /// go by [dispose].
+  TextPainter? _debugTextPainter;
 
   /// Get initialization status
   bool get isInitialized => _initialized;
-
-  /// Get all renderables (sorted by layer then zOrder)
-  @Deprecated(
-    'Lists only renderables added with addRenderable. Query the world for '
-    'RenderableComponent instead. Removed in 3.0.',
-  )
-  List<Renderable> get renderables {
-    final sorted = List<Renderable>.from(_renderables);
-    sorted.sort((a, b) {
-      final layerCompare = a.layer.compareTo(b.layer);
-      if (layerCompare != 0) return layerCompare;
-      return a.zOrder.compareTo(b.zOrder);
-    });
-    return List.unmodifiable(sorted);
-  }
 
   /// Initialize the rendering engine
   void initialize() {
@@ -361,218 +238,12 @@ class RenderingEngine implements RenderStatsSink {
     if (kDebugMode) debugPrint('Rendering Engine initialized');
   }
 
-  /// Add a renderable object to the scene
-  ///
-  /// [renderable] - The object to render
-  @Deprecated(
-    'Add a RenderableComponent holding the renderable to an entity; '
-    'RenderSystem draws it. Removed in 3.0.',
-  )
-  void addRenderable(Renderable renderable) => _addRenderable(renderable);
-
-  void _addRenderable(Renderable renderable) {
-    if (_renderableSet.add(renderable)) {
-      _renderables.add(renderable);
-      _trackRenderable(renderable);
-      _addToLayer(renderable);
-      _spatialIndexDirty = true;
-    }
-  }
-
-  /// Remove a renderable object from the scene
-  ///
-  /// [renderable] - The object to remove
-  @Deprecated(
-    'Destroy the entity holding the RenderableComponent, or remove the '
-    'component. Removed in 3.0.',
-  )
-  void removeRenderable(Renderable renderable) => _removeRenderable(renderable);
-
-  void _removeRenderable(Renderable renderable) {
-    if (_renderableSet.remove(renderable)) {
-      _renderables.remove(renderable);
-      // Out of the layer it was filed under before the tracking goes: a
-      // renderable moved to another layer since the last frame is still in
-      // its old one, and used to stay there — drawn — after removal.
-      _removeFromLayer(renderable);
-      _untrackRenderable(renderable);
-      _spatialIndexDirty = true;
-    }
-  }
-
-  /// Add a renderable to its layer
-  void _addToLayer(Renderable renderable) {
-    _layers
-        .putIfAbsent(renderable.layer, () => LinkedHashSet<Renderable>())
-        .add(renderable);
-    _layersDirty = true;
-  }
-
-  /// Remove a renderable from the layer it is filed under
-  void _removeFromLayer(Renderable renderable) {
-    final filed = _trackedLayers[renderable] ?? renderable.layer;
-    _layers[filed]?.remove(renderable);
-    if (filed != renderable.layer) {
-      _layers[renderable.layer]?.remove(renderable);
-    }
-    _layersDirty = true;
-  }
-
-  void _trackRenderable(Renderable renderable) {
-    _trackedLayers[renderable] = renderable.layer;
-    _trackedZOrders[renderable] = renderable.zOrder;
-    _boundsCache[renderable] = renderable.getBounds();
-  }
-
-  void _untrackRenderable(Renderable renderable) {
-    _trackedLayers.remove(renderable);
-    _trackedZOrders.remove(renderable);
-    _boundsCache.remove(renderable);
-  }
-
-  /// Mark layer sorting as dirty after direct renderable mutation.
-  @Deprecated(
-    'Only for renderables added with addRenderable; RenderSystem sorts '
-    'and culls entities itself. Removed in 3.0.',
-  )
-  void markLayerOrderDirty() {
-    _layersDirty = true;
-  }
-
-  /// Mark the spatial index as dirty after direct transform mutation.
-  @Deprecated(
-    'Only for renderables added with addRenderable; RenderSystem sorts '
-    'and culls entities itself. Removed in 3.0.',
-  )
-  void markSpatialIndexDirty() {
-    _spatialIndexDirty = true;
-  }
-
-  /// Clear all renderables
+  /// Drops every post-process pass.
   void clear() {
-    _renderables.clear();
-    _renderableSet.clear();
-    _layers.clear();
-    _sortedLayerLists.clear();
-    _boundsCache.clear();
-    _trackedLayers.clear();
-    _trackedZOrders.clear();
-    _quadtree = null;
-    _quadtreeResults.clear();
-    _spatialVisibleSet.clear();
-    _spatialIndexBounds = null;
-    _spatialIndexDirty = true;
-    _layersDirty = true;
     _postProcessPasses.clear();
     _postProcessPassSet.clear();
     _sortedPasses.clear();
     _passListDirty = false;
-    _batchCache.clear();
-    _pendingBatches.clear();
-  }
-
-  void _refreshRenderableTracking() {
-    for (final renderable in _renderables) {
-      final previousLayer = _trackedLayers[renderable];
-      if (previousLayer == null) {
-        _trackRenderable(renderable);
-        _layersDirty = true;
-        _spatialIndexDirty = true;
-      } else if (previousLayer != renderable.layer) {
-        _layers[previousLayer]?.remove(renderable); // O(1) — LinkedHashSet
-        _layers
-            .putIfAbsent(renderable.layer, () => LinkedHashSet<Renderable>())
-            .add(renderable); // O(1) — Set.add is idempotent
-        _trackedLayers[renderable] = renderable.layer;
-        _layersDirty = true;
-      }
-
-      final previousZ = _trackedZOrders[renderable];
-      if (previousZ != renderable.zOrder) {
-        _trackedZOrders[renderable] = renderable.zOrder;
-        _layersDirty = true;
-      }
-    }
-  }
-
-  /// Rebuild the sorted-by-zOrder render lists from the layer sets.
-  void _sortRenderables() {
-    for (final entry in _layers.entries) {
-      (_sortedLayerLists[entry.key] ??= [])
-        ..clear()
-        ..addAll(entry.value)
-        ..sort((a, b) => a.zOrder.compareTo(b.zOrder));
-    }
-    // Prune entries for layers that have been removed.
-    _sortedLayerLists.removeWhere((k, _) => !_layers.containsKey(k));
-  }
-
-  /// Brings every renderable's bounds up to date, and the quadtree with
-  /// them; true when the tree can answer this frame.
-  ///
-  /// While anything moves the tree is not rebuilt — that cost a rebuild
-  /// every frame of any game with something moving — and the frame tests
-  /// each renderable's bounds against the view instead, which is no dearer
-  /// than the bounds pass itself. Once everything is still the tree is
-  /// built again and reused until something moves or leaves it.
-  bool _refreshSpatialIndex(Rect visibleRect) {
-    var moved = false;
-    var left = visibleRect.left - visibleRect.width;
-    var top = visibleRect.top - visibleRect.height;
-    var right = visibleRect.right + visibleRect.width;
-    var bottom = visibleRect.bottom + visibleRect.height;
-    for (final renderable in _renderables) {
-      final bounds = renderable.getBounds();
-      if (_boundsCache[renderable] != bounds) {
-        _boundsCache[renderable] = bounds;
-        moved = true;
-      }
-      if (bounds != null) {
-        if (bounds.left < left) left = bounds.left;
-        if (bounds.top < top) top = bounds.top;
-        if (bounds.right > right) right = bounds.right;
-        if (bounds.bottom > bottom) bottom = bounds.bottom;
-      }
-    }
-
-    if (moved) {
-      _spatialIndexDirty = true;
-      _spatialReusedLastFrame = false;
-      return false;
-    }
-
-    final treeCoversVisibleRect =
-        _spatialIndexBounds != null &&
-        _spatialIndexBounds!.contains(visibleRect.topLeft) &&
-        _spatialIndexBounds!.contains(visibleRect.bottomRight);
-
-    if (!_spatialIndexDirty && _quadtree != null && treeCoversVisibleRect) {
-      _spatialReusedLastFrame = true;
-      return true;
-    }
-
-    final sceneBounds = Rect.fromLTRB(left, top, right, bottom);
-    _quadtree = Quadtree<Renderable>(bounds: sceneBounds);
-    for (final entry in _boundsCache.entries) {
-      _quadtree!.insert(entry.key, entry.value);
-    }
-    _spatialIndexBounds = sceneBounds;
-    _spatialIndexDirty = false;
-    _spatialReusedLastFrame = false;
-    _spatialRebuildCount++;
-    return true;
-  }
-
-  /// Draws every sprite batched so far; returns how many draw calls that
-  /// was.
-  int _flushPending(Canvas canvas) {
-    final n = _pendingBatches.length;
-    if (n == 0) return 0;
-    for (final batch in _pendingBatches) {
-      batch.flush(canvas);
-    }
-    _pendingBatches.clear();
-    return n;
   }
 
   /// Whether the post-process pass order still holds — a pass's
@@ -588,24 +259,38 @@ class RenderingEngine implements RenderStatsSink {
 
   /// Render a frame
   ///
-  /// [canvas] - Flutter canvas to render to
+  /// [output] - Flutter canvas to render to
   /// [size] - Size of the rendering area
   ///
   /// The frame, in order:
   ///
-  /// 1. post-process layers are opened, and the camera's pre-effects run
-  ///    (motion blur), so they take in everything below;
-  /// 2. clear to [backgroundColor];
-  /// 3. [backgroundHooks], in screen space (parallax);
-  /// 4. the [sceneRenderers], in screen space, from [view] — where a 3-D
+  /// 1. post-process layers are opened, and — when [screenPasses] are
+  ///    active — the frame is drawn into their layers or an image of it;
+  /// 2. the camera's pre-effects run (motion blur), so they take in
+  ///    everything below;
+  /// 3. clear to [backgroundColor];
+  /// 4. [backgroundHooks], in screen space (parallax);
+  /// 5. the [sceneRenderers], in screen space, from [view] — where a 3-D
   ///    backend draws its image;
-  /// 5. the renderables, through the camera transform, layer by layer;
-  /// 6. [overlayHooks] — the ECS world, then anything drawn over it (an
-  ///    editor, at order 100);
-  /// 7. the camera's post-effects, the post-process layers closing, and the
-  ///    screen-space camera effects (fade, letterbox).
+  /// 6. [overlayHooks] below [screenPassOrder] — the ECS world;
+  /// 7. the camera's post-effects; the screen passes are drawn, then the
+  ///    overlay hooks from [screenPassOrder] on (an editor's);
+  /// 8. the post-process layers close, and the screen-space camera effects
+  ///    (fade, letterbox) are drawn.
+  ///
+  /// While it runs, [drawingFrame] is the frame's number.
   void render(Canvas output, Size size) {
     if (!_initialized) return;
+    _frames++;
+    _drawing = true;
+    try {
+      _renderFrame(output, size);
+    } finally {
+      _drawing = false;
+    }
+  }
+
+  void _renderFrame(Canvas output, Size size) {
     _viewStale = true;
     for (final f in _oldScreenFrames) {
       f.dispose();
@@ -619,9 +304,6 @@ class RenderingEngine implements RenderStatsSink {
       ..reset()
       ..start();
     var drawCalls = 1; // background clear
-    var renderedCount = 0;
-    var culledCount = 0;
-    var batchedSpriteCount = 0;
     // Counts reported outside a frame belong to none.
     _reportedDrawCalls = 0;
     _reportedRendered = 0;
@@ -630,11 +312,6 @@ class RenderingEngine implements RenderStatsSink {
 
     // Update camera viewport
     camera.viewportSize = size;
-
-    _refreshRenderableTracking();
-    if (_layersDirty) {
-      _sortRenderables();
-    }
 
     // ── Post-process: push offscreen layers (outermost first) ─────────────
     // Each active pass wraps the whole frame — background and parallax
@@ -682,9 +359,8 @@ class RenderingEngine implements RenderStatsSink {
 
     // ── Camera effect pre-render (inside post-process context) ───────────
     // Called AFTER post-process layers are pushed so the motion-blur
-    // saveLayer is innermost — wrapping the background, subsystem
-    // renderables and ECS entities, while post-process shaders see the
-    // already-blurred output.
+    // saveLayer is innermost — wrapping the background and the ECS world,
+    // while post-process shaders see the already-blurred output.
     camera.effectManager.preRender(canvas, size);
 
     // Clear background
@@ -694,7 +370,7 @@ class RenderingEngine implements RenderStatsSink {
       _backgroundPaint,
     );
 
-    // Render parallax backgrounds in screen space (before camera transform).
+    // Render parallax backgrounds in screen space.
     backgroundHooks(canvas, size);
 
     // ── Scene renderers (a 3-D backend's image), screen space ─────────────
@@ -705,120 +381,8 @@ class RenderingEngine implements RenderStatsSink {
       }
     }
 
-    // Save canvas state
-    canvas.save();
-
-    // Apply camera transform
-    camera.applyTransform(canvas, size);
-
-    // Build spatial index when the scene is large enough to benefit.
-    final visibleRect = camera.getVisibleBounds();
-    final useTree = _useSpatialIndex && _renderables.length > _spatialThreshold;
-
-    _lastUsedSpatialIndex = useTree;
-    _batchCache
-      ..factory = spriteBatchFactory
-      ..beginFrame();
-
-    Set<Renderable>? spatialVisible;
-    var linearFromCache = false;
-    if (useTree) {
-      if (_refreshSpatialIndex(visibleRect)) {
-        _quadtreeResults.clear();
-        _quadtree?.queryRect(visibleRect, _quadtreeResults);
-        _spatialVisibleSet
-          ..clear()
-          ..addAll(_quadtreeResults);
-        spatialVisible = _spatialVisibleSet;
-      } else {
-        // Something moved: test the bounds just gathered, tree untouched.
-        linearFromCache = true;
-        _lastUsedSpatialIndex = false;
-      }
-    } else {
-      _spatialReusedLastFrame = false;
-    }
-
-    // Render by layer (sorted, cached key list)
-    if (_layersDirty) {
-      _sortedLayerKeys
-        ..clear()
-        ..addAll(_layers.keys)
-        ..sort();
-      _layersDirty = false;
-    }
-    // Sprites batch in draw order: a batch is drawn before anything that
-    // is not batched, before a sprite from another image, when the zOrder
-    // changes, and at the end of the layer, so a plain renderable — or
-    // another atlas's sprite — between two sprites stays between them. (Batches
-    // used to be drawn only after the whole layer, over everything in it.)
-    for (final layerIndex in _sortedLayerKeys) {
-      final layer = _sortedLayerLists[layerIndex];
-      if (layer == null) continue;
-      var batchZ = 0;
-
-      for (final renderable in layer) {
-        if (!renderable.visible) {
-          culledCount++;
-          continue;
-        }
-
-        // Spatial culling: use quadtree result when available, else AABB
-        // test. The tree holds only renderables with bounds; one without is
-        // always drawn.
-        if (spatialVisible != null) {
-          if (!spatialVisible.contains(renderable) &&
-              _boundsCache[renderable] != null) {
-            culledCount++;
-            continue;
-          }
-        } else if (!camera.isRectVisible(
-          linearFromCache ? _boundsCache[renderable] : renderable.getBounds(),
-        )) {
-          culledCount++;
-          continue;
-        }
-
-        // Attempt to batch BatchableSprite renderables
-        if (renderable is BatchableSprite && _plan.plan(renderable)) {
-          if (_pendingBatches.isNotEmpty && renderable.zOrder != batchZ) {
-            drawCalls += _flushPending(canvas);
-          }
-          batchZ = renderable.zOrder;
-          final batch = _batchCache.batchFor(_plan.image!, _plan.quality);
-          // Only the newest batch takes more: joining an older one would
-          // draw this sprite under what another image's batch queued since.
-          if (_pendingBatches.isEmpty ||
-              !identical(_pendingBatches.last, batch)) {
-            drawCalls += _flushPending(canvas);
-            _pendingBatches.add(batch);
-          }
-          _plan.addTo(batch);
-
-          renderedCount++;
-          batchedSpriteCount++;
-          if (debugMode) _renderDebug(canvas, renderable);
-          continue;
-        }
-
-        // Fallback: individual draw call, over what was batched before it.
-        drawCalls += _flushPending(canvas);
-        renderable.render(canvas, size);
-        drawCalls++;
-        renderedCount++;
-        if (debugMode) _renderDebug(canvas, renderable);
-      }
-
-      // Flush what is still batched in this layer.
-      drawCalls += _flushPending(canvas);
-    }
-    _batchCache.endFrame();
-
-    // Restore canvas state (end of subsystem camera context)
-    canvas.restore();
-
     // Invoke overlay callback (ECS world systems) — inside the motion-blur
-    // layer so ECS entities are blurred along with subsystem renderables.
+    // layer so ECS entities are blurred.
     if (plan == null) {
       overlayHooks(canvas, size);
     } else {
@@ -862,34 +426,24 @@ class RenderingEngine implements RenderStatsSink {
     _lastRenderTimeMs = _renderStopwatch.elapsedMicroseconds / 1000.0;
     // The ECS world's drawing, reported by its RenderSystem, counts too.
     _lastDrawCallCount = drawCalls + _reportedDrawCalls;
-    _lastRenderedCount = renderedCount + _reportedRendered;
-    _lastCulledCount = culledCount + _reportedCulled;
-    _lastBatchedSpriteCount = batchedSpriteCount + _reportedBatchedSprites;
-  }
-
-  /// Render debug information for a renderable
-  void _renderDebug(Canvas canvas, Renderable renderable) {
-    final bounds = renderable.getBounds();
-    if (bounds != null) {
-      canvas.drawRect(bounds, _debugBoundsPaint);
-    }
-
-    // Draw origin point
-    canvas.drawCircle(renderable.position.toOffset(), 3, _debugOriginPaint);
+    _lastRenderedCount = _reportedRendered;
+    _lastCulledCount = _reportedCulled;
+    _lastBatchedSpriteCount = _reportedBatchedSprites;
   }
 
   /// Render debug information
   void _renderDebugInfo(Canvas canvas, Size size) {
-    _debugTextPainter
+    final painter = _debugTextPainter ??= TextPainter(
+      textDirection: TextDirection.ltr,
+    );
+    painter
       ..text = TextSpan(
         text:
-            'Renderables: ${_renderables.length}\n'
             'Camera: (${camera.position.dx.toStringAsFixed(1)}, '
             '${camera.position.dy.toStringAsFixed(1)})\n'
             'Zoom: ${camera.zoom.toStringAsFixed(2)}\n'
             'Render: ${_lastRenderTimeMs.toStringAsFixed(2)} ms\n'
-            'Draws: $_lastDrawCallCount | Culled: $_lastCulledCount\n'
-            'Spatial Index: ${_lastUsedSpatialIndex ? 'on' : 'off'}',
+            'Draws: $_lastDrawCallCount | Culled: $_lastCulledCount',
         style: const TextStyle(
           color: Colors.white,
           fontSize: 12,
@@ -897,36 +451,32 @@ class RenderingEngine implements RenderStatsSink {
         ),
       )
       ..layout();
-    _debugTextPainter.paint(canvas, const Offset(10, 10));
+    painter.paint(canvas, const Offset(10, 10));
   }
 
-  /// Clean up rendering resources
+  /// Clean up rendering resources: the post-process passes, the frame
+  /// images the screen passes drew from, and the debug overlay's text.
   void dispose() {
     clear();
+    // A recorded picture keeps what it drew with; these handles are the
+    // engine's own.
+    for (final f in [..._oldScreenFrames, ..._screenFrames]) {
+      f.dispose();
+    }
+    _oldScreenFrames.clear();
+    _screenFrames.clear();
+    _debugTextPainter?.dispose();
+    _debugTextPainter = null;
     _initialized = false;
     if (kDebugMode) debugPrint('Rendering Engine disposed');
   }
 
-  /// Get the number of renderables
-  @Deprecated(
-    'Counts only renderables added with addRenderable; query the world '
-    'for RenderableComponent instead. Removed in 3.0.',
-  )
-  int get renderableCount => _renderables.length;
-
-  /// Get the number of layers
-  @Deprecated(
-    'Counts only renderables added with addRenderable; query the world '
-    'for RenderableComponent instead. Removed in 3.0.',
-  )
-  int get layerCount => _layers.length;
-
   /// Lightweight rendering diagnostics from the last frame.
   ///
-  /// The counts are the whole frame's — the renderables added here and
-  /// whatever reported into [addFrameStats] while the frame was drawn, the
-  /// ECS world's `RenderSystem` among them (when made with this engine as
-  /// its `statsSink`, as the default systems are):
+  /// The counts are the whole frame's — the background clear, the screen
+  /// passes, and whatever reported into [addFrameStats] while the frame was
+  /// drawn, the ECS world's `RenderSystem` among them (when made with this
+  /// engine as its `statsSink`, as the default systems are):
   ///
   /// * `drawCalls` — canvas draws: the background clear, each thing drawn
   ///   by itself, and each batch (of sprites, or of shapes) as one;
@@ -934,19 +484,14 @@ class RenderingEngine implements RenderStatsSink {
   /// * `culledObjects` — things skipped as hidden or off screen;
   /// * `batchedSprites` — sprites drawn in batches.
   ///
-  /// `renderables` and `layers` count only renderables added with
-  /// [addRenderable]; `lastRenderMs` times the whole of [render].
+  /// `lastRenderMs` times the whole of [render]; `postProcessPasses` counts
+  /// the enabled post-process passes.
   Map<String, dynamic> get stats => {
-    'renderables': _renderables.length,
-    'layers': _layers.length,
     'lastRenderMs': _lastRenderTimeMs,
     'drawCalls': _lastDrawCallCount,
     'renderedObjects': _lastRenderedCount,
     'culledObjects': _lastCulledCount,
     'batchedSprites': _lastBatchedSpriteCount,
-    'usedSpatialIndex': _lastUsedSpatialIndex,
-    'spatialRebuilds': _spatialRebuildCount,
-    'spatialReusedLastFrame': _spatialReusedLastFrame,
     'postProcessPasses': _postProcessPasses.where((p) => p.enabled).length,
   };
 }

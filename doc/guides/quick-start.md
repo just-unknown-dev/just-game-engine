@@ -23,7 +23,7 @@ Future<void> main() async {
   await engine.initialize();
 
   // The camera's position is the world point in the middle of the screen.
-  engine.cameraSystem.mainCamera
+  engine.camera.mainCamera
     ..lookAt(Offset.zero)
     ..zoom = 1.0;
 
@@ -104,19 +104,22 @@ Entity addTurret(World world, Entity tank) => world.createEntityWithComponents([
 
 ### Systems run by priority, highest first
 
-Systems run in priority order, not in the order you add them. Set a system's priority before you add it; overriding the `priority` getter is simplest, for example `int get priority => SystemPriorities.playerControl;`. The constants are in `SystemPriorities`:
+Systems run in priority order, not in the order you add them. Set a system's priority before you add it; overriding the `priority` getter is simplest, for example `int get priority => SystemPriorities.playerControl;`. Systems of equal priority run in the order they were added. The main constants (all of them are in `SystemPriorities`):
 
 | Priority | Constant | What runs |
 |---|---|---|
 | 110 | `levelMap` | Level maps load and update. |
 | 108 | `mapCollision` | Bodies for map tiles. |
+| 105 | `parallax` | `ParallaxRenderSystem` scrolls parallax backgrounds. |
 | 100 | `input` | Actions copied onto `InputComponent`s. |
 | 95 | `playerControl` | Your character controller: reads input, sets velocity. |
 | 90 | `physics` | The physics step. |
 | 80 | `movement` | Velocity onto transform, for entities without a body. |
 | 70 | `animation` | Animators, sprite clips, timelines. |
+| 65 | `effects` | `EffectSystem`: moves, fades, shakes. |
 | 60 | `gameplay` | Health, lifetime, your game rules. |
 | 50 | `hierarchy` | Children follow their parents. |
+| 48 | `particles` | `ParticleSystem` advances the emitters. |
 | 45 | `camera` | The camera brain frames the finished positions. |
 | 40 | `render` | `RenderSystem`, which draws once per display frame. |
 | -10 | `audio` | Sounds follow their entities. |
@@ -131,7 +134,7 @@ Levels are scene files: `assets/scenes/<name>.scene.json`, listed in play order 
 
 ```json assets/scenes/level_01.scene.json
 {
-  "version": 9,
+  "version": 11,
   "name": "level_01",
   "mode": "2d",
   "entities": [
@@ -203,7 +206,7 @@ Future<void> loadFirstLevel(Engine engine) async {
 
 - **A field left out** keeps the component's default. A child names its parent with `"parentName"`, and `"enabled": false` loads an entity switched off.
 - **Each component** is read through its `ComponentDefinition` in `engine.context`. The engine's own components always load. A package's components load once its `ContextExtension` is listed in `EngineConfig(extensions: [...])`; otherwise the load stops with an `UnknownComponentTypeException` naming the type and the entity.
-- **Versions.** The current scene format is 11, where every component's name ends in `Component`; it was 10 in 2.0.0-dev.2 and 9 in 2.0.0-dev.1 (`SceneFormat.current`). Older files are migrated in memory as they load; a file from a newer engine throws `UnsupportedFormatVersionException`.
+- **Versions.** The current scene format is 11, where every component's name ends in `Component`; it was 10 in 2.0.0-dev.2 and dev.3, and 9 in 2.0.0-dev.1 (`SceneFormat.current`). Older files are migrated in memory as they load; a file from a newer engine throws `UnsupportedFormatVersionException`.
 - **Without the asset bundle**, `SceneLoader.loadString` and `SceneLoader.load` take JSON text or a decoded map, which is handy in tests.
 
 [Scenes](/docs/scenes) covers changing levels, your own components and migrations.

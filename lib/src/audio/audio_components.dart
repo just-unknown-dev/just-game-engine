@@ -5,9 +5,10 @@ library;
 
 import 'dart:math' as math;
 
+import 'package:just_audio_engine/just_audio_engine.dart'
+    show AudioChannel, AudioEffect, AudioRolloff, AudioSpatial, AudioStream;
 import 'package:meta/meta.dart' show internal;
 
-import 'audio.dart';
 import '../ecs/ecs.dart';
 
 /// What a game asks of a playing sound; see [AudioRequests].
@@ -88,6 +89,22 @@ mixin AudioRequests on Component {
     _request = null;
     return request;
   }
+
+  void Function()? _onGone;
+
+  /// For the `AudioSystem`: called once when this component leaves its
+  /// entity — removed, replaced, or the entity destroyed — so its sound
+  /// stops at once, also while the game is paused and no update runs.
+  @internal
+  set onGone(void Function()? callback) => _onGone = callback;
+
+  @override
+  void onDetach(EntityId entityId) {
+    final gone = _onGone;
+    _onGone = null;
+    gone?.call();
+    super.onDetach(entityId);
+  }
 }
 
 /// Component describing an audio source attached to an entity.
@@ -104,7 +121,7 @@ class AudioSourceComponent extends Component with AudioRequests {
   /// A source for [clipPath] that plays once, at full volume, centred, at
   /// its original pitch and speed, as soon as `AudioSystem` sees it.
   ///
-  /// With [is3d] it is placed at the entity instead: full volume within
+  /// With [is3D] it is placed at the entity instead: full volume within
   /// [minDistance] of the listener, silent beyond [maxDistance], faded
   /// between by [rolloff].
   AudioSourceComponent({
@@ -114,7 +131,7 @@ class AudioSourceComponent extends Component with AudioRequests {
     this.loop = false,
     this.playOnAdd = true,
     this.channel = AudioChannel.sfx,
-    this.is3d = false,
+    this.is3D = false,
     this.pitch = 1.0,
     this.speed = 1.0,
     this.effects = const [],
@@ -133,7 +150,7 @@ class AudioSourceComponent extends Component with AudioRequests {
   double volume;
 
   /// Stereo pan, -1.0 (left) to +1.0 (right); 0.0 is centred. Ignored
-  /// while the source is placed in 3-D ([is3d] on an entity with a
+  /// while the source is placed in 3-D ([is3D] on an entity with a
   /// transform). Read when the sound starts, like [loop], [pitch], [speed]
   /// and [effects]: a change while it plays is heard the next time it
   /// plays.
@@ -155,7 +172,7 @@ class AudioSourceComponent extends Component with AudioRequests {
   /// If true, the source is heard from where the entity is, relative to
   /// the listener ([AudioListenerComponent]); without a transform it plays
   /// flat.
-  bool is3d;
+  bool is3D;
 
   /// Pitch multiplier: 1.0 = original, 2.0 = one octave up.
   double pitch;
@@ -163,7 +180,8 @@ class AudioSourceComponent extends Component with AudioRequests {
   /// Playback speed multiplier (1.0 = normal).
   double speed;
 
-  /// DSP effects applied to this voice when playback starts.
+  /// DSP effects applied to this voice when playback starts. Set from code
+  /// only: they are not saved with a scene.
   List<AudioEffect> effects;
 
   /// 3-D: within this distance of the listener, in world units, the sound

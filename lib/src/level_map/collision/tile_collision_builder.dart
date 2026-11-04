@@ -110,7 +110,7 @@ abstract final class TileCollisionBuilder {
       final className = def!.className;
       final at = TileCoord(x, y);
 
-      final hexagonal = geometry.orientation == MapOrientation.hexagonal;
+      final hexagonal = geometry.orientation == LevelMapOrientation.hexagonal;
       final tw = tileset.tileWidth.toDouble();
       final th = tileset.tileHeight.toDouble();
       // Mirrored across its diagonal, a square tile's image turns on its

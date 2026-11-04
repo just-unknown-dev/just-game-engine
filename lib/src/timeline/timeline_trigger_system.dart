@@ -34,7 +34,7 @@ class TimelineTriggerSystem extends System {
       trigger.isInside = inside;
       if (trigger.oneShot && trigger.hasFired) return;
 
-      final action = inside ? trigger.onEnter : trigger.onExit;
+      final action = inside ? trigger.enterAction : trigger.exitAction;
       if (action == TimelineTriggerAction.nothing) return;
       final holder = trigger.playerName.isEmpty
           ? entity
@@ -42,7 +42,7 @@ class TimelineTriggerSystem extends System {
       final player = holder?.getComponent<TimelinePlayerComponent>();
       if (player == null) return;
       // One shot means one entry; what leaving does still happens once.
-      if (!inside || trigger.onExit == TimelineTriggerAction.nothing) {
+      if (!inside || trigger.exitAction == TimelineTriggerAction.nothing) {
         trigger.hasFired = true;
       }
       _act(player, action);
@@ -59,8 +59,11 @@ class TimelineTriggerSystem extends System {
       case TimelineTriggerAction.play:
         player.forwards();
       case TimelineTriggerAction.restart:
+        // From the start as authored: a direction an earlier action set
+        // (reverse) is forgotten, and a player authored to run backwards
+        // runs backwards from its end.
         player
-          ..playingSpeed = player.playingSpeed.abs()
+          ..resetSpeed()
           ..restart();
       case TimelineTriggerAction.reverse:
         player.reverse();

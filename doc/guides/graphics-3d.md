@@ -8,7 +8,7 @@ A game without a `Graphics3D` is 2D only: it makes no GPU device and loads no sh
 
 ## Turning 3D on
 
-Import `package:just_game_engine/just_game_engine_3d.dart` and pass a `Graphics3D` to `EngineConfig`. As the engine is made it registers the 3D components. As it initializes, it makes the GPU device and the renderer, loads models through `engine.assets`, adds a `GraphicsSceneRenderer` to the frame and an `Animation3DSystem` to the world. `engine.graphics3D` returns the one you gave, or null in a 2D game.
+Import `package:just_game_engine/just_game_engine_3d.dart` and list a `Graphics3D` in `EngineConfig(services: [...])`. As the engine is made it registers the 3D components. As it initializes, it makes the GPU device and the renderer, loads models through `engine.assets`, adds a `GraphicsSceneRenderer` to the frame and an `Animation3DSystem` to the world. `engine.graphics3D` returns the one you gave, or null in a 2D game.
 
 ```dart lib/main.dart
 import 'package:flutter/material.dart';
@@ -32,7 +32,7 @@ Future<void> main() async {
 
   // A perspective camera, in metres: 3 m up (+Y is down), 8 m back,
   // tilted down a little.
-  engine.cameraSystem.mainCamera
+  engine.camera.mainCamera
     ..lens = const CameraLens.perspective(near: 0.1, far: 500)
     ..position = const Offset(0, -3)
     ..z = -8
@@ -55,7 +55,7 @@ Future<void> main() async {
   // The sun shines along its entity's +Z axis, here turned to point down.
   world.createEntityWithComponents([
     TransformComponent(euler: Vector3(-0.9, 0.4, 0)),
-    Light3DComponent(kind: LightKind.directional, intensity: 3),
+    Light3DComponent(kind: Light3DKind.directional, intensity: 3),
   ], name: 'Sun');
   world.createEntityWithComponents([
     TransformComponent(),
@@ -95,7 +95,7 @@ A 3D scene is seen through the same main camera as a 2D one, given a perspective
 ## Models and animation
 
 - `ModelComponent(model: ...)` draws a glTF 2.0 model (`.glb`, or `.gltf` with its files beside it) at its entity's transform. `castShadows` and `visible` switch it, and `bounds` fills in once it has loaded. List the files under `flutter: assets:`.
-- `AnimationPlayerComponent` plays the model's clips: `clip`, `speed` (negative plays backwards), `loop`, `playing` and `crossfade` (0.2 s by default). `play('Walk')` fades to another clip; set `speed` and `loop` for the new clip after calling it, since the old one fades out as it was. `playBlend(clips, weights)` plays several clips in step, and `setBlendWeights` moves the weights.
+- `AnimationPlayerComponent` plays the model's clips: `clip`, `speed` (negative plays backwards), `loop`, `playing` and `crossfade` (0.2 s by default). `play('Walk')` fades to another clip; set `playingSpeed` and `playingLoop` for the new clip after calling it, since the old one fades out as it was. `speed` and `loop` are what was authored and saved; runtime code leaves them alone. `playBlend(clips, weights)` plays several clips in step, and `setBlendWeights` moves the weights.
 - An `AnimatorComponent` on the same entity drives the player from an animator graph: a transition's `duration` crossfades, and blend trees really blend (see [Sprites & animation](/docs/sprites)). A timeline's `skeletalClip` track plays clips too.
 - `SocketComponent(node: ...)` on a child entity pins it to a joint of its parent's model, keeping its own scale: a sword in a hand, a hat on a head.
 
@@ -124,7 +124,7 @@ Entity addKnight(World world) {
 void walk(Entity knight) {
   final player = knight.getComponent<AnimationPlayerComponent>()!;
   player.play('Walk', fade: 0.3);
-  player.speed = 1.2; // after play(): it applies to the new clip
+  player.playingSpeed = 1.2; // after play(): it applies to the new clip
 }
 ```
 
@@ -132,9 +132,9 @@ void walk(Entity knight) {
 
 `Light3DComponent` lights the scene from its entity:
 
-- `LightKind.directional`: a sun, shining along the entity's +Z axis; turn the entity to aim it. The first one is the sun the renderer uses, and it casts the shadows.
-- `LightKind.point`, the default: shines every way from the entity, out to `range` metres (0 for no limit).
-- `LightKind.spot`: a cone along +Z, at full brightness inside `innerConeAngle` and dark outside `outerConeAngle` (radians).
+- `Light3DKind.directional`: a sun, shining along the entity's +Z axis; turn the entity to aim it. The first one is the sun the renderer uses, and it casts the shadows.
+- `Light3DKind.point`, the default: shines every way from the entity, out to `range` metres (0 for no limit).
+- `Light3DKind.spot`: a cone along +Z, at full brightness inside `innerConeAngle` and dark outside `outerConeAngle` (radians).
 
 `color` is sRGB, as picked, and `intensity` (10 by default) is lux-like for a directional light and candela-like for the others. The renderer takes up to 8 point and spot lights. A scene with no lights at all gets a default sun, so a model you drop in is never black.
 
@@ -160,7 +160,7 @@ Eleven shapes build their own meshes from their sizes, in metres, centred on the
 
 Every shape also carries its material: `color`, `metallic` (0 to 1), `roughness` (0 a mirror, 1 chalk), `emission` and `emissionStrength` for a glow, `opacity` (below 1 draws blended), `unlit`, and a `texture` repeated `tiling` times per face, or per metre with `tileInMetres`. `castShadows` and `visible` switch it, and round shapes take `smooth: false` for a faceted look.
 
-An entity has at most one shape: find it with `entity.getComponent<Primitive3DComponent>()`. Equal shapes share a mesh and a material, so a hundred equal crates are one draw. In [3D physics](/docs/physics-3d), `Collider3DComponent(shape: ColliderShape3D.matchShape)` gives a body the same shape.
+An entity has at most one shape: find it with `entity.getComponent<Primitive3DComponent>()`. Equal shapes share a mesh and a material, so a hundred equal crates are one draw. In [3D physics](/docs/physics-3d), `Collider3DComponent(shape: Collider3DShape.matchShape)` gives a body the same shape.
 
 ## Performance and stats
 

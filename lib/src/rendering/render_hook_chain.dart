@@ -7,9 +7,9 @@ typedef RenderHook = void Function(Canvas canvas, Size size);
 
 /// Several render callbacks called in order.
 ///
-/// Replaces the single nullable `onRenderOverlay` / `onRenderBackground`
-/// fields, where the first writer won and a second plugin's rendering was
-/// silently dropped. Hooks run in ascending [order]; ties keep insertion
+/// Where several things draw at one point of the frame — a single nullable
+/// field there let the first writer win, and a second plugin's rendering
+/// was silently dropped. Hooks run in ascending [order]; ties keep insertion
 /// order.
 class RenderHookChain {
   final List<({RenderHook hook, int order})> _hooks = [];
@@ -47,7 +47,6 @@ class RenderHookChain {
     }
   }
 
-  /// Drops every hook.
   /// Runs the hooks whose order is at least [from] and below [below], in
   /// order — part of the chain: what a screen pass wraps, say.
   void callRange(Canvas canvas, Size size, {int? from, int? below}) {
@@ -58,5 +57,6 @@ class RenderHookChain {
     }
   }
 
+  /// Drops every hook.
   void clear() => _hooks.clear();
 }

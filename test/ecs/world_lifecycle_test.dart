@@ -42,7 +42,7 @@ void main() {
   late World world;
   setUp(() => world = World());
 
-  group('switching an entity on and off (C1)', () {
+  group('switching an entity on and off', () {
     test('refreshes a cached query both ways', () {
       final e = world.createEntityWithComponents([Health(1)]);
       expect(world.query([Health]), [e]);
@@ -97,7 +97,7 @@ void main() {
     });
   });
 
-  group('ids (C2, C40)', () {
+  group('ids', () {
     test('are never reused, not even after destroyAllEntities', () {
       final first = world.createEntity();
       world.destroyAllEntities();
@@ -138,7 +138,7 @@ void main() {
     });
   });
 
-  group('components are detached on every way out (C18)', () {
+  group('components are detached on every way out', () {
     test('destroyEntity', () {
       final log = <String>[];
       final e = world.createEntityWithComponents([Watched(log)]);
@@ -184,7 +184,7 @@ void main() {
     });
   });
 
-  group('destroying a hierarchy (A21)', () {
+  group('destroying a hierarchy', () {
     late Entity root, child, grandchild;
     setUp(() {
       root = world.createEntityWithComponents([Health(0)], name: 'root');
@@ -244,7 +244,7 @@ void main() {
     });
   });
 
-  group('the command buffer runs in the order it was told (C19)', () {
+  group('the command buffer runs in the order it was told', () {
     test('remove then add ends with the new component', () {
       final e = world.createEntityWithComponents([Health(1)]);
       world.commands
@@ -281,7 +281,7 @@ void main() {
     });
   });
 
-  group('names (C20, P14)', () {
+  group('names', () {
     test('a name target skips a switched-off entity for a switched-on one', () {
       world.createEntity(name: 'Door').isActive = false;
       final open = world.createEntity(name: 'Door');
@@ -317,7 +317,7 @@ void main() {
     });
   });
 
-  group('the query cache (P7, W9)', () {
+  group('the query cache', () {
     test('an unrelated change keeps a cached result', () {
       world.createEntityWithComponents([Health(1)]);
       final health = world.query([Health]);
@@ -341,7 +341,7 @@ void main() {
       expect(world.query(const [Health, Health]), isEmpty);
     });
 
-    test('types with the same name keep apart (P24)', () {
+    test('types with the same name keep apart', () {
       final ours = world.createEntityWithComponents([Health(1)]);
       final theirs = world.createEntityWithComponents([twin.Health(2)]);
       final both = world.createEntity()
@@ -366,7 +366,7 @@ void main() {
       expect(world.query([Health]), [c, a, b]);
     });
 
-    test('an archetype\'s type set cannot be changed from outside (A33)', () {
+    test('an archetype\'s type set cannot be changed from outside', () {
       world.createEntityWithComponents([Health(1)]);
       final archetype = world.queryArchetypes([Health]).single;
       expect(() => archetype.types.add(Speed), throwsUnsupportedError);
@@ -374,7 +374,7 @@ void main() {
     });
   });
 
-  group('World.entities (P35)', () {
+  group('World.entities', () {
     test('is reused until something is created or destroyed', () {
       final a = world.createEntity();
       final first = world.entities;

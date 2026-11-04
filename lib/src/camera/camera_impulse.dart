@@ -3,7 +3,7 @@ library;
 
 import 'package:flutter/painting.dart' show Offset;
 
-import 'camera_noise.dart';
+import 'camera_noise_profiles.dart';
 
 /// Something that happened in the world that a camera should feel.
 class CameraImpulse {
@@ -93,11 +93,11 @@ class CameraImpulseBus {
     if (!_active.contains(impulse)) _active.add(impulse);
   }
 
-  /// Ages every impulse by [dt] and drops the spent ones.
-  void update(double dt) {
-    if (_active.isEmpty || dt <= 0) return;
+  /// Ages every impulse by [deltaTime] and drops the spent ones.
+  void update(double deltaTime) {
+    if (_active.isEmpty || deltaTime <= 0) return;
     for (final impulse in _active) {
-      impulse._age += dt;
+      impulse._age += deltaTime;
     }
     _active.removeWhere((i) => i.isSpent);
   }

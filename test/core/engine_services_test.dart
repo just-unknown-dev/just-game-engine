@@ -177,7 +177,7 @@ void main() {
     },
   );
 
-  group('C8 a service added late and still starting', () {
+  group('a service added late and still starting', () {
     test('is stopped by dispose once it has started', () async {
       final log = <String>[];
       final starting = Completer<void>();

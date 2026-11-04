@@ -1,4 +1,4 @@
-part of 'ecs.dart';
+part of 'world.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // Event Bus — typed inter-system messaging
@@ -74,6 +74,10 @@ class EventBus {
       if (!listener.cancelled) listener.invoke(event);
     }
   }
+
+  /// Whether anything listens for events of type [T] — so a producer can
+  /// skip building events no one would hear.
+  bool hasListeners<T extends GameEvent>() => _listeners.containsKey(T);
 
   /// Remove all subscriptions (called by [World.dispose]).
   void clear() {

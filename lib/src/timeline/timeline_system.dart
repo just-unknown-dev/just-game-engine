@@ -24,6 +24,9 @@ class _Source {
   /// The player was playing the timeline this source replaced: it plays
   /// this one from its start as soon as it is there.
   bool carryOn = false;
+
+  /// The update this source's playback was last stepped in.
+  int steppedAt = -1;
 }
 
 /// Runs every [TimelinePlayerComponent]: loads its timeline, plays it, and
@@ -49,6 +52,12 @@ class TimelineSystem extends System {
   // The world's structure when [_sources] was last pruned.
   int _prunedAt = -1;
 
+  // Players whose own timeline switched them (or a parent) off: the world
+  // leaves them out of its queries, but they must go on playing to switch
+  // themselves back on.
+  final Set<Entity> _heldOff = {};
+  int _update = 0;
+
   @override
   void onAddedToWorld() {
     super.onAddedToWorld();
@@ -60,7 +69,8 @@ class TimelineSystem extends System {
   // A signal starts every player listening for it, from the start.
   void _onSignal(String name) {
     if (!isActive) return;
-    for (final entity in entities) {
+    final listening = _heldOff.isEmpty ? entities : {...entities, ..._heldOff};
+    for (final entity in listening) {
       final player = entity.getComponent<TimelinePlayerComponent>();
       if (player == null) continue; // gone, by an earlier listener's hand
       if (player.listenSignal == name && !player.suspended) player.restart();
@@ -83,8 +93,10 @@ class TimelineSystem extends System {
   TimelineAsset? assetOf(Entity entity) =>
       entity.getComponent<TimelinePlayerComponent>()?.playback?.asset;
 
-  /// Reads [path] again — it changed on disk. Players of it start over.
-  /// Without a path, every timeline.
+  /// Reads [path] again — it changed on disk. Players of it start over:
+  /// those that were playing — on start, or set going since by a trigger,
+  /// a signal or an animator — play the new one from its start; the rest
+  /// wait as they did. Without a path, every timeline.
   void reload([String? path]) {
     if (path == null) {
       _assets.clear();
@@ -95,7 +107,11 @@ class TimelineSystem extends System {
     }
     _sources.removeWhere((entity, source) {
       if (path != null && source.path != path) return false;
-      source.player.reset();
+      final player = source.player;
+      final wasPlaying = player.isPlaying;
+      player.reset();
+      // Done the moment the new one has loaded.
+      if (wasPlaying) player.restart();
       return true;
     });
   }
@@ -111,40 +127,66 @@ class TimelineSystem extends System {
       _prune();
     }
 
-    forEach((entity) {
-      // An event handler earlier this frame may have taken it away.
-      final player = entity.getComponent<TimelinePlayerComponent>();
-      if (player == null || player.suspended) return;
-      final path = player.playingTimelinePath.trim();
-      var source = _sources[entity];
-      if (source == null ||
-          source.path != path ||
-          !identical(source.inline, player.inline) ||
-          (player.playback == null && !source.failed && !source.loading)) {
-        // Not reset(): what was asked of the player while it had no
-        // timeline is still owed. A player that was playing — told to
-        // play just now, perhaps, with its new path — plays the new one.
-        final carryOn = source != null && (player.playback?.isPlaying ?? false);
-        player.playback?.dispose();
-        player.playback = null;
-        source = _sources[entity] = _Source(player, path, player.inline)
-          ..carryOn = carryOn;
-        if (path.isNotEmpty) {
-          _load(entity, player, source);
-        } else if (player.inline != null) {
-          _start(entity, player, player.inline!, source);
-        } else {
-          source.failed = true;
+    final update = ++_update;
+    forEach((entity) => _step(entity, deltaTime, update));
+    // A player whose own activation track switched it (or a parent) off
+    // is left out of the world's queries; only its timeline can switch it
+    // back on, so it goes on playing.
+    if (_heldOff.isNotEmpty) {
+      for (final entity in _heldOff.toList()) {
+        if (!entity.isAlive) {
+          _heldOff.remove(entity);
+          continue;
         }
+        _step(entity, deltaTime, update);
       }
-      final playback = player.playback;
-      if (playback == null) return;
-      playback
-        ..speed = player.playingSpeed
-        ..wrap = player.wrap.wrap
-        ..range = player.playRange
-        ..update(deltaTime);
-    });
+    }
+  }
+
+  void _step(Entity entity, double deltaTime, int update) {
+    // An event handler earlier this frame may have taken it away.
+    final player = entity.getComponent<TimelinePlayerComponent>();
+    if (player == null || player.suspended) {
+      _heldOff.remove(entity);
+      return;
+    }
+    final path = player.playingTimelinePath.trim();
+    var source = _sources[entity];
+    if (source == null ||
+        source.path != path ||
+        !identical(source.inline, player.inline) ||
+        (player.playback == null && !source.failed && !source.loading)) {
+      // Not reset(): what was asked of the player while it had no
+      // timeline is still owed. A player that was playing — told to play
+      // just now, perhaps, with its new path — plays the new one.
+      final carryOn = source != null && (player.playback?.isPlaying ?? false);
+      player.playback?.dispose();
+      player.playback = null;
+      source = _sources[entity] = _Source(player, path, player.inline)
+        ..carryOn = carryOn;
+      if (path.isNotEmpty) {
+        _load(entity, player, source);
+      } else if (player.inline != null) {
+        _start(entity, player, player.inline!, source);
+      } else {
+        source.failed = true;
+      }
+    }
+    final playback = player.playback;
+    // Once an update: a player its timeline switched back on this update
+    // is in the world's queries again.
+    if (playback == null || source.steppedAt == update) return;
+    source.steppedAt = update;
+    playback
+      ..speed = player.playingSpeed
+      ..wrap = player.wrap.wrap
+      ..range = player.playRange
+      ..update(deltaTime);
+    if (playback.holdsOwnerOff && identical(player.playback, playback)) {
+      _heldOff.add(entity);
+    } else {
+      _heldOff.remove(entity);
+    }
   }
 
   /// Ends the playback of every player whose entity was destroyed or which
@@ -162,6 +204,7 @@ class TimelineSystem extends System {
       final player = source.player;
       player.playback?.dispose();
       player.playback = null;
+      _heldOff.remove(entity);
       return true;
     });
   }
@@ -215,8 +258,8 @@ class TimelineSystem extends System {
           ..speed = player.playingSpeed
           ..range = player.playRange;
     player.playback = playback;
-    if (!player.initialized) {
-      player.initialized = true;
+    if (!player.isInitialized) {
+      player.isInitialized = true;
       if (player.playOnStart) playback.play();
     } else if (source.carryOn) {
       playback.play();
@@ -230,6 +273,7 @@ class TimelineSystem extends System {
       source.player.playback?.dispose();
     }
     _sources.clear();
+    _heldOff.clear();
     _signals?.cancel();
     _events.close();
     super.dispose();

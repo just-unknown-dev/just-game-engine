@@ -126,9 +126,10 @@ class DialogueRunner {
       );
     }
 
-    // Cancel any previous session
+    // Cancel any previous session — without saying the dialogue ended: it
+    // goes on, from another node, so isDialogueActive stays true.
     final previous = _session;
-    if (previous != null) _finish(previous);
+    if (previous != null) _finish(previous, replaced: true);
 
     final session = _session = _Session()
       ..stack.add(_Frame(node.statements, 0));
@@ -269,10 +270,12 @@ class DialogueRunner {
     ChoiceSetStatement stmt,
   ) async {
     final resolved = <DialogueChoice>[];
+    var anyAvailable = false;
     for (int i = 0; i < stmt.choices.length; i++) {
       final opt = stmt.choices[i];
       final available =
           opt.condition == null || _evaluator.evaluateBool(opt.condition!);
+      anyAvailable |= available;
       resolved.add(
         DialogueChoice(
           index: i,
@@ -283,6 +286,10 @@ class DialogueRunner {
         ),
       );
     }
+
+    // Nothing can be picked: the set is passed over, as in Yarn Spinner,
+    // rather than waiting for a pick that cannot come.
+    if (!anyAvailable) return;
 
     // Waiting before the choices are shown: a listener may pick at once.
     session.offered = resolved;
@@ -397,8 +404,10 @@ class DialogueRunner {
   }
 
   /// Ends [session]: whatever it awaits is let go, and — while it is the
-  /// one playing — the runner goes idle and its signals are cleared.
-  void _finish(_Session session) {
+  /// one playing — the runner goes idle and its signals are cleared. One
+  /// [replaced] by a new [start] clears only its line and choices: the
+  /// dialogue goes on, so [NarrativeSignals.isDialogueActive] stays true.
+  void _finish(_Session session, {bool replaced = false}) {
     if (session.over) return;
     session.over = true;
     final advance = session.advance;
@@ -411,6 +420,7 @@ class DialogueRunner {
     signals.currentLine.value = null;
     signals.choices.value = const [];
     signals.activeSpeaker.value = null;
+    if (replaced) return;
     signals.activeNodeTitle.value = null;
     signals.isDialogueActive.value = false;
   }

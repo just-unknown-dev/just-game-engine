@@ -1,7 +1,8 @@
 library;
 
-import '../ecs.dart';
+import '../world.dart';
 import 'package:just_dart/just_dart.dart';
+import 'package:meta/meta.dart' show internal;
 
 /// Transform component — where an entity is in the world: position,
 /// rotation and scale, in 3-D.
@@ -55,6 +56,11 @@ class TransformComponent extends Component {
 
   bool _prevPlanar = true;
   int _captures = 0;
+
+  // Runtime only, never saved: the world whose entity this is (bound by the
+  // world), and its update in which the previous pose was last captured.
+  World? _world;
+  int _capturedIn = -1;
 
   /// Create a transform.
   ///
@@ -159,11 +165,26 @@ class TransformComponent extends Component {
   /// Remember the current pose as the previous one, for render
   /// interpolation between physics steps.
   void capturePrevious() {
+    settlePrevious();
+    _counted();
+  }
+
+  /// Sets the previous pose to the pose, so the transform is drawn where it
+  /// is rather than between two poses: for something placed, not stepped —
+  /// a static body made or moved, or one whose previous pose something
+  /// outside physics left behind. Not a capture: [captureCount] and
+  /// [capturedInUpdate] stay as they were.
+  void settlePrevious() {
     prevPosition.setFrom(position);
     prevAngle = _ez;
     _prevPlanar = isPlanar;
     if (!_prevPlanar) rotationInto(prevRotation);
+  }
+
+  /// A capture: counted, and the world's update it was in remembered.
+  void _counted() {
     _captures++;
+    _capturedIn = _world?.updateCount ?? -1;
   }
 
   /// Like [capturePrevious], but with [rotation] as the previous rotation
@@ -179,7 +200,7 @@ class TransformComponent extends Component {
     prevRotation.eulerInto(_scratch, hint: _scratch);
     prevAngle = _scratch.z;
     _prevPlanar = false;
-    _captures++;
+    _counted();
   }
 
   /// Sets the previous pose outright — at [position], turned [angle] about
@@ -204,7 +225,7 @@ class TransformComponent extends Component {
       prevAngle = _scratch.z;
       _prevPlanar = false;
     }
-    _captures++;
+    _counted();
   }
 
   /// How many times the previous pose has been captured ([capturePrevious],
@@ -215,6 +236,21 @@ class TransformComponent extends Component {
   /// right. One that stays the same — a transform only gameplay writes —
   /// has a previous pose that may be long out of date.
   int get captureCount => _captures;
+
+  /// The world update ([World.updateCount]) in which the previous pose was
+  /// last captured, or -1 when it has not been since the transform became
+  /// an entity's. A renderer that sees the transform for the first time
+  /// draws it between its two poses only when this is the world's latest
+  /// update: then the previous pose is where that update started.
+  int get capturedInUpdate => _capturedIn;
+
+  /// For the world: the world whose entity this transform now is, or null
+  /// once it is no one's. Forgets the update of the last capture.
+  @internal
+  void bindWorld(World? world) {
+    _world = world;
+    _capturedIn = -1;
+  }
 
   /// Whether the previous pose only turns about Z ([prevAngle] holds it
   /// all), as the transform was [isPlanar] when it was captured.

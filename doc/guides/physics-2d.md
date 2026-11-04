@@ -30,7 +30,7 @@ void buildPlayground(Engine engine) {
       height: 40,
       fillStyle: const ShapePaintStyle(color: Colors.brown),
     ),
-    Collider2DComponent(shape: ColliderShape2D.matchShape),
+    Collider2DComponent(shape: Collider2DShape.matchShape),
   ], name: 'Ground');
 
   // A dynamic ball.
@@ -42,7 +42,7 @@ void buildPlayground(Engine engine) {
       fillStyle: const ShapePaintStyle(color: Colors.red),
     ),
     RigidBody2DComponent(restitution: 0.7),
-    Collider2DComponent(shape: ColliderShape2D.circle, radius: 20),
+    Collider2DComponent(shape: Collider2DShape.circle, radius: 20),
     TagComponent('ball'),
   ], name: 'Ball');
 
@@ -78,7 +78,7 @@ void buildPlayground(Engine engine) {
 
 | Field | Default | What it does |
 |---|---|---|
-| `mass` | 0 | Mass in kg. 0 works it out from the collider's area: a 100 × 100 box weighs 1000 kg (`Physics2DSystem.autoMassPerSquareUnit`). |
+| `mass` | 0 | Mass in kg. 0 works it out from the collider's area: a 100 × 100 box weighs 1000 kg (`Collider2DGeometry.autoMassPerSquareUnit`). |
 | `friction` | 0.5 | Grip, from 0 (ice) up. A contact uses both bodies' friction. |
 | `restitution` | 0 | Bounce, 0 to 1. |
 | `linearDamping` | 0.05 | Speed a dynamic body loses on its own each second. |
@@ -99,13 +99,13 @@ After each step `Physics2DSystem` fills in `linearVelocity`, `angularVelocity`, 
 
 | `shape` | Sized by |
 |---|---|
-| `ColliderShape2D.box` (default) | `size`, the full width and height (64 × 64 by default); `cornerRadius` rounds the corners |
-| `ColliderShape2D.circle` | `radius` |
-| `ColliderShape2D.capsule` | `radius` and `height`, the whole height along Y, ends included |
-| `ColliderShape2D.polygon` | `points`, a convex polygon of at most 8 points; `cornerRadius` |
-| `ColliderShape2D.segment` | the first two `points`, `thickness` thick |
-| `ColliderShape2D.chain` | every one of `points`, closed with `loop`, `thickness` thick: terrain |
-| `ColliderShape2D.matchShape` | whatever the entity draws: a rectangle, circle, capsule, polygon or line component, else its sprite's box |
+| `Collider2DShape.box` (default) | `size`, the full width and height (64 × 64 by default); `cornerRadius` rounds the corners |
+| `Collider2DShape.circle` | `radius` |
+| `Collider2DShape.capsule` | `radius` and `height`, the whole height along Y, ends included |
+| `Collider2DShape.polygon` | `points`, a convex polygon of at most 8 points; `cornerRadius` |
+| `Collider2DShape.segment` | the first two `points`, `thickness` thick |
+| `Collider2DShape.chain` | every one of `points`, closed with `loop`, `thickness` thick: terrain |
+| `Collider2DShape.matchShape` | whatever the entity draws: a rectangle, circle, capsule, polygon or line component, else its sprite's box |
 
 A match shape follows the drawing as it changes. Every shape is centred on the entity unless `offset` moves it, and `rotation` and `scale` turn and stretch the collider itself. The collider also grows and shrinks with the entity's scale, as its sprite does; a negative scale on a box, circle or upright capsule does not rebuild the body, so flipping a character to face the other way stays cheap.
 
@@ -119,14 +119,14 @@ A simple platformer controller is a system at `SystemPriorities.playerControl` t
 
 ## Character bodies
 
-A `CharacterBody2DComponent` is a character that gameplay moves rather than the simulation. It walks slopes up to `maxSlopeAngle` (50° by default), climbs steps up to `stepHeight`, keeps to the floor going down (`stickToFloor`), rides moving platforms, stands on one-way platforms and jumps up through them, and pushes dynamic bodies. It needs no `RigidBody2DComponent` or `Collider2DComponent`: its shape is its own, a capsule or a box (`CharacterShape2D`), centred on the entity plus `offset`.
+A `CharacterBody2DComponent` is a character that gameplay moves rather than the simulation. It walks slopes up to `maxSlopeAngle` (50° by default), climbs steps up to `stepHeight`, keeps to the floor going down (`stickToFloor`), rides moving platforms, stands on one-way platforms and jumps up through them, and pushes dynamic bodies. It needs no `RigidBody2DComponent` or `Collider2DComponent`: its shape is its own, a capsule or a box (`CharacterBody2DShape`), centred on the entity plus `offset`.
 
 ```dart lib/hero.dart
 Entity addHero(World world) => world.createEntityWithComponents([
   TransformComponent(),
   InputComponent(),
   Rectangle2DComponent(width: 32, height: 48),
-  CharacterBody2DComponent(shape: CharacterShape2D.box, width: 32, height: 48),
+  CharacterBody2DComponent(shape: CharacterBody2DShape.box, width: 32, height: 48),
   TagComponent('player'),
 ], name: 'Hero');
 
@@ -153,7 +153,7 @@ While `useGravity` is on (the default) only the sideways part of `moveVelocity` 
 
 ## Joints
 
-Put a joint on an entity that has a body and point `connectedBody` at the other one with an [EntityTarget](/docs/tags-spawners), such as `EntityTarget.name('Anchor')`. `PhysicsJointBindingSystem`, part of the default physics systems, makes the joint once both bodies exist and remakes it when a setting changes.
+Put a joint on an entity that has a body and point `connectedBody` at the other one with an [EntityTarget](/docs/tags-spawners), such as `EntityTarget.name('Anchor')`. `Physics2DSystem` makes the joint once both bodies exist, in the same step as them, and remakes it when a setting changes or either body is made again.
 
 | Joint | What it does | Main fields |
 |---|---|---|
@@ -190,15 +190,12 @@ Stay events are off so that nothing pays for them unasked. Turn them on with `en
 
 ## Queries
 
-`Physics2DQueries` casts rays and circles and finds overlaps, answering with entities. Every query takes a `layerMask` (all layers by default), an entity to `ignore` (usually the one asking) and `includeSensors` (false by default).
+`Physics2DQueries` casts rays and circles and finds overlaps, answering with entities; `Physics2DSystem.queries` is the physics system's own. Every query takes a `layerMask` (all layers by default), an entity to `ignore` (usually the one asking) and `includeSensors` (false by default).
 
 ```dart lib/vision.dart
 /// Whether [guard] can see the player straight ahead.
 bool canSeePlayer(Engine engine, Entity guard) {
-  final queries = Physics2DQueries(
-    engine.physics,
-    engine.world.getSystem<Physics2DSystem>()!,
-  );
+  final queries = engine.world.getSystem<Physics2DSystem>()!.queries;
   final eyes = guard.getComponent<TransformComponent>()!.position;
   final hit = queries.raycast(
     Offset(eyes.x, eyes.y),
@@ -210,7 +207,7 @@ bool canSeePlayer(Engine engine, Entity guard) {
 }
 ```
 
-`raycastAll` returns every hit, nearest first, and `circleCast` sweeps a circle. `overlapCircle` and `overlapBox` (a `Rect`) return the entities they touch. A hit (`Physics2DHit`) carries `entity`, `body`, `point`, `normal`, `distance` and `fraction`.
+`raycastAll` returns every hit, nearest first, and `circleCast` sweeps a circle. `overlapCircle` and `overlapBox` (a `Rect`) return the entities whose shapes they touch. A hit (`Physics2DHit`) carries `entity`, `body`, `point`, `normal`, `distance` and `fraction`.
 
 ## Two backends
 
@@ -220,7 +217,7 @@ bool canSeePlayer(Engine engine, Entity guard) {
 
 These wait on `just_physics_engine`. The fields involved are saved as usual, so scenes need no change when the limits lift.
 
-- `anchor` and `connectedAnchor` of `DistanceJoint2DComponent` and `FixedJoint2DComponent` are not passed to the physics engine: a distance joint holds the bodies by their centres, and a fixed joint holds them as they were when joined. A wheel joint's axle anchor is honoured on native Box2D only.
+- `anchor` and `connectedAnchor` of `DistanceJoint2DComponent` and `FixedJoint2DComponent` are not passed to the physics engine: a distance joint holds the bodies by their centres, and a fixed joint holds them as they were when joined. A wheel joint's axle anchor is honoured on native Box2D only. The editor's inspector hides the anchors the backends ignore, keeping their saved values.
 - Jointed bodies with `collideConnected` off send no contact events between them, but on the pure-Dart backend they still push each other apart.
 - On native Box2D, queries skip bodies whose collision mask is 0 (such as `collidesWith: 0`); the pure-Dart backend finds them.
 - `continuousCollision` works on the native backend only.

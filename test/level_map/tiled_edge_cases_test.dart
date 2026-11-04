@@ -55,7 +55,7 @@ List<List<Offset>> _drawn(_Recorder canvas) => [
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('M36: an orthogonal layer whose tiles reach out of their cells', () {
+  group('an orthogonal layer whose tiles reach out of their cells', () {
     late World world;
     late ui.Image image;
 
@@ -170,7 +170,7 @@ void main() {
       ]);
     });
 
-    test('R1: a rolled camera draws the chunk at its screen corner', () async {
+    test('a rolled camera draws the chunk at its screen corner', () async {
       // The unturned view's left edge, less a tile, is on a chunk edge
       // (x = 0); the turned screen's corner is in the chunk to its left.
       final camera = Camera(
@@ -201,7 +201,7 @@ void main() {
     });
   });
 
-  group('M37: a turned collision object from Tiled', () {
+  group('a turned collision object from Tiled', () {
     TilesetData import(String objects) {
       final ts = tiled.TileMapParser.parseTileset('''
 <tileset version="1.10" name="t" tilewidth="16" tileheight="16" tilecount="1" columns="1">
@@ -289,10 +289,10 @@ $objects
     });
   });
 
-  group('M38: the box around a staggered or hexagonal range', () {
+  group('the box around a staggered or hexagonal range', () {
     for (final orientation in [
-      MapOrientation.staggered,
-      MapOrientation.hexagonal,
+      LevelMapOrientation.staggered,
+      LevelMapOrientation.hexagonal,
     ]) {
       for (final axis in TileStaggerAxis.values) {
         for (final index in TileStaggerIndex.values) {
@@ -326,7 +326,7 @@ $objects
     }
   });
 
-  group('M39: a tileset without columns or a tile count', () {
+  group('a tileset without columns or a tile count', () {
     test('works them out from its image', () {
       final ts = tiled.TileMapParser.parseTileset('''
 <tileset name="old" tilewidth="16" tileheight="16" spacing="2" margin="1">

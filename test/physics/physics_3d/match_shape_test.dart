@@ -49,7 +49,7 @@ void main() {
   Entity matched(Component look, {Vector3? scale, RigidBody3DComponent? body}) => world.createEntityWithComponents([
     TransformComponent(scale: scale),
     look,
-    Collider3DComponent(shape: ColliderShape3D.matchShape),
+    Collider3DComponent(shape: Collider3DShape.matchShape),
     ?body,
   ]);
 
@@ -87,7 +87,7 @@ void main() {
   test('an entity with no shape gets no body', () {
     final e = world.createEntityWithComponents([
       TransformComponent(),
-      Collider3DComponent(shape: ColliderShape3D.matchShape),
+      Collider3DComponent(shape: Collider3DShape.matchShape),
     ]);
     world.update(_dt);
     expect(system.bodyOf(e), 0);
@@ -118,7 +118,7 @@ void main() {
 
     test('the collider\'s own offset still applies', () {
       final shapes = Collider3DShapes();
-      final collider = Collider3DComponent(shape: ColliderShape3D.matchShape, offset: Vector3(0, -1, 0));
+      final collider = Collider3DComponent(shape: Collider3DShape.matchShape, offset: Vector3(0, -1, 0));
       final shape = shapes.build(collider, Vector3(1, 1, 1), source: _Look(size: 2));
       expect(shape, const TransformedShape3D(BoxShape3D(1, 1, 1), y: -1));
     });
@@ -126,9 +126,9 @@ void main() {
 
   test('saved and loaded as match shape', () {
     final context = EngineContext(extensions: [Physics3D()]);
-    final json = context.definitions.encode(Collider3DComponent(shape: ColliderShape3D.matchShape))!;
+    final json = context.definitions.encode(Collider3DComponent(shape: Collider3DShape.matchShape))!;
     final back = context.definitions.decode(json)! as Collider3DComponent;
-    expect(back.shape, ColliderShape3D.matchShape);
+    expect(back.shape, Collider3DShape.matchShape);
     context.dispose();
   });
 }

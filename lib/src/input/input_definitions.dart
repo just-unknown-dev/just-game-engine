@@ -3,7 +3,7 @@ library;
 
 import '../ecs/serialization/component_codec.dart';
 import '../ecs/serialization/component_definition.dart';
-import '../ecs/serialization/schema_fields.dart';
+import '../ecs/serialization/field_definitions.dart';
 import '../foundation/dimensions.dart';
 import 'input_component.dart';
 import 'package:flutter/material.dart' show Icons;
@@ -33,7 +33,7 @@ abstract final class InputDefinitions {
         ),
         create: InputComponent.new,
         fields: [
-          SchemaFields.integer(
+          FieldDefinitions.integer(
             'playerIndex',
             (c) => (c as InputComponent).playerIndex,
             (c, v) => (c as InputComponent).playerIndex = v,
@@ -76,28 +76,28 @@ abstract final class InputDefinitions {
         ),
         create: SimpleMovementComponent.new,
         fields: [
-          SchemaFields.decimal(
+          FieldDefinitions.decimal(
             'speed',
             (c) => (c as SimpleMovementComponent).speed,
             (c, v) => (c as SimpleMovementComponent).speed = v,
             min: 0,
           ),
-          SchemaFields.text(
+          FieldDefinitions.text(
             'action',
             (c) => (c as SimpleMovementComponent).action,
             (c, v) => (c as SimpleMovementComponent).action = v,
           ),
-          SchemaFields.integer(
+          FieldDefinitions.integer(
             'playerIndex',
             (c) => (c as SimpleMovementComponent).playerIndex,
             (c, v) => (c as SimpleMovementComponent).playerIndex = v,
           ),
-          SchemaFields.boolean(
+          FieldDefinitions.boolean(
             'normalizeDiagonal',
             (c) => (c as SimpleMovementComponent).normalizeDiagonal,
             (c, v) => (c as SimpleMovementComponent).normalizeDiagonal = v,
           ),
-          SchemaFields.decimal(
+          FieldDefinitions.decimal(
             'deadZone',
             (c) => (c as SimpleMovementComponent).deadZone,
             (c, v) => (c as SimpleMovementComponent).deadZone = v,

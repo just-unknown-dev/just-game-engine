@@ -7,6 +7,10 @@ part of '../deterministic_effects.dart';
 /// the next one begins. Child baselines are captured correctly because each
 /// child's `prevElapsed` resets to `0` at the start of its slice.
 ///
+/// A child's [DeterministicEffect.onComplete] runs when its slice ends,
+/// before the next child starts; the sequence's own when the last one ends.
+/// A child's `loop` is not used: each plays its slice once.
+///
 /// ```dart
 /// SequenceEffect(children: [
 ///   MoveEffect(to: Vector3(200, 0, 0), durationTicks: 30),
@@ -59,6 +63,9 @@ class SequenceEffect extends DeterministicEffect {
       );
       if (childCurr > childPrev) {
         child.applyTick(ctx, childPrev, childCurr);
+        // The child's part is over: its own callback runs, before the next
+        // child starts — in a wide (fast-forward) range as in narrow ones.
+        if (childCurr == child.durationTicks) child.onComplete?.call();
       }
     }
   }

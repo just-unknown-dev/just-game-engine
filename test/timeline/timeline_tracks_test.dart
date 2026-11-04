@@ -282,7 +282,7 @@ void main() {
         },
         onEvent: (e) => fired.add('${e.owner.name}:${e.name}'),
       );
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       expect(loads, 1);
       double x() => door.getComponent<TransformComponent>()!.position.x;
 
@@ -320,7 +320,7 @@ void main() {
       );
       for (var i = 0; i < 40; i++) {
         playback.update(0.01);
-        await Future<void>.delayed(Duration.zero);
+        await pumpEventQueue();
       }
       expect(loads, NestedTimelineTrack.maxDepth);
     });
@@ -376,8 +376,8 @@ void main() {
           width: 100,
           height: 100,
           playerName: 'Door',
-          onEnter: TimelineTriggerAction.play,
-          onExit: TimelineTriggerAction.reverse,
+          enterAction: TimelineTriggerAction.play,
+          exitAction: TimelineTriggerAction.reverse,
         ),
       ]);
       world.update(_dt);
@@ -503,7 +503,7 @@ void main() {
         timeline,
       ]);
       w.update(_dt);
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       w.update(_dt);
       expect(animator.currentState, 'idle');
 
@@ -513,7 +513,7 @@ void main() {
       expect(timeline.playingTimelinePath, 'door.timeline.json');
       expect(timeline.timelinePath, isEmpty, reason: 'what was authored stays');
       w.update(_dt);
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       expect(timeline.isPlaying, isTrue);
       w.update(0.5);
       expect(animator.currentState, 'opening', reason: 'half way');

@@ -3,12 +3,23 @@
 /// System that drives audio playback from ECS entities.
 library;
 
+import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:just_audio_engine/just_audio_engine.dart'
+    show
+        Audio3DListener,
+        Audio3DPosition,
+        AudioChannel,
+        AudioEffect,
+        AudioEngine,
+        AudioRolloff,
+        AudioSpatial,
+        AudioStream;
 import 'package:just_dart/just_dart.dart';
 
 import '../foundation/world_axes.dart';
 import '../interfaces/game_camera.dart';
-import 'audio.dart';
 import '../ecs/ecs.dart';
+import 'audio_components.dart';
 
 /// System that drives audio playback from ECS entities.
 ///
@@ -24,8 +35,9 @@ import '../ecs/ecs.dart';
 ///
 /// A source's or stream's `pause`, `resume` and `stop` ([AudioRequests])
 /// are carried out here, at the next [update]. Its sound stops when the
-/// component or its entity goes, and pauses while the entity is switched
-/// off, playing on from where it was when the entity is switched back on.
+/// component or its entity goes — at once, also while the game is paused —
+/// and pauses while the entity is switched off, playing on from where it
+/// was when the entity is switched back on.
 /// When a source plays to its end, its `handle` goes back to null.
 ///
 /// A sound played once, with nothing to control afterwards — a hit, a
@@ -46,7 +58,7 @@ import '../ecs/ecs.dart';
 /// ```dart
 /// world.addSystem(AudioSystem(engine: myAudioEngine));
 /// ```
-class AudioSystem extends System implements FrameSystem {
+class AudioSystem extends System implements PerFrame {
   /// A system playing through [engine], which it does not own or dispose.
   /// A listener can hear from [camera] (see [AudioListenerComponent]).
   AudioSystem({required AudioEngine engine, this.camera}) : _engine = engine;
@@ -192,11 +204,13 @@ class AudioSystem extends System implements FrameSystem {
     _sources.forEach((source, playback) {
       if (playback.id case final String id) _engine.stopSfx(id);
       source.handle = null;
+      source.onGone = null;
     });
     _sources.clear();
     _streams.forEach((stream, _) {
       stream.stream?.dispose();
       stream.stream = null;
+      stream.onGone = null;
     });
     _streams.clear();
     _oneShots.clear();
@@ -357,6 +371,9 @@ class AudioSystem extends System implements FrameSystem {
           playback = null;
           restart = true;
         case final AudioRequest request:
+          // A stop after a play asked while the entity was off: the last
+          // of the two wins.
+          if (request == AudioRequest.stop) restart = false;
           playback = _requestSource(audio, playback, request);
         case null:
           break;
@@ -437,7 +454,7 @@ class AudioSystem extends System implements FrameSystem {
 
   void _startSource(Entity entity, AudioSourceComponent audio, int now) {
     final transform = entity.getComponent<TransformComponent>();
-    final pos = (audio.is3d && transform != null)
+    final pos = (audio.is3D && transform != null)
         ? Audio3DPosition(
             transform.position.x,
             transform.position.y,
@@ -447,6 +464,10 @@ class AudioSystem extends System implements FrameSystem {
     final playback = _sources[audio] = _Playback(entity, audio.volume)
       ..seen = now
       ..suspended = _suspended;
+    // Gone from its entity: stopped at once, not at the next update.
+    audio.onGone = () {
+      if (identical(_sources[audio], playback)) _stopSource(audio);
+    };
 
     _engine
         .playSfx(
@@ -511,6 +532,7 @@ class AudioSystem extends System implements FrameSystem {
     final playback = _sources.remove(audio);
     if (playback?.id case final String id) _engine.stopSfx(id);
     audio.handle = null;
+    audio.onGone = null;
   }
 
   /// Follows moving 3-D sources — only those that moved, changed how they
@@ -518,7 +540,7 @@ class AudioSystem extends System implements FrameSystem {
   void _placeSources() {
     for (final entity in world.query(_sourceQuery)) {
       final audio = entity.getComponent<AudioSourceComponent>()!;
-      if (!audio.is3d) continue;
+      if (!audio.is3D) continue;
       final id = audio.handle;
       if (id is! String) continue;
       final transform = entity.getComponent<TransformComponent>();
@@ -591,6 +613,7 @@ class AudioSystem extends System implements FrameSystem {
           playback = null;
           restart = true;
         case final AudioRequest request:
+          if (request == AudioRequest.stop) restart = false;
           playback = _requestStream(comp, playback, request);
         case null:
           break;
@@ -662,18 +685,35 @@ class AudioSystem extends System implements FrameSystem {
       ..seen = now
       ..suspended = _suspended;
     bool stopped() => !identical(_streams[comp], playback);
+    comp.onGone = () {
+      if (!stopped()) _stopStream(comp);
+    };
     final fadeIn = comp.fadeInDuration;
     final fades = fadeIn != null && fadeIn > Duration.zero;
-    stream.open(_engine.backend).then((_) async {
-      // Stopped while it opened: what it loaded is let go.
-      if (stopped()) return stream.dispose();
-      // A fade-in starts from silence.
-      await stream.play(volume: fades ? 0.0 : comp.volume, loop: comp.loop);
-      // Stopped while it started: disposing again stops the voice it made.
-      if (stopped()) return stream.dispose();
-      if (playback.paused) await stream.pause();
-      if (fades) await stream.fade(comp.volume, fadeIn);
-    });
+    stream
+        .open(_engine.backend)
+        .then((_) async {
+          // Stopped while it opened: what it loaded is let go.
+          if (stopped()) return stream.dispose();
+          // A fade-in starts from silence.
+          await stream.play(volume: fades ? 0.0 : comp.volume, loop: comp.loop);
+          // Stopped while it started: disposing again stops the voice it
+          // made.
+          if (stopped()) return stream.dispose();
+          if (playback.paused) await stream.pause();
+          if (fades) await stream.fade(comp.volume, fadeIn);
+        })
+        .catchError((Object error) {
+          // A backend that throws: the stream is not heard, and is let go.
+          debugPrint('AudioSystem: the stream "${comp.path}" failed: $error');
+          if (!stopped()) {
+            _stopStream(comp);
+          } else {
+            try {
+              stream.dispose();
+            } catch (_) {}
+          }
+        });
   }
 
   /// Applies what changed on a playing stream: its volume.
@@ -695,8 +735,10 @@ class AudioSystem extends System implements FrameSystem {
 
   void _stopStream(AudioStreamComponent comp) {
     _streams.remove(comp);
-    comp.stream?.dispose();
+    comp.onGone = null;
+    final stream = comp.stream;
     comp.stream = null;
+    stream?.dispose();
   }
 }
 

@@ -19,13 +19,17 @@ import 'register_default_systems.dart';
 import '../storage/cache_manager.dart';
 import '../assets/asset_manager.dart';
 import '../audio/audio.dart';
-import '../camera/camera_system.dart';
+import '../camera/camera_engine.dart';
 import '../input/cache_input_override_store.dart';
-import '../parallax/parallax_background.dart';
 import 'game_layers.dart';
 import 'game_terminal.dart';
 import '../rendering/rendering_engine.dart';
-import '../graphics/graphics_2d/materials/material_2d_screen.dart';
+import '../graphics/graphics_2d/materials/material_2d_component.dart';
+import '../graphics/graphics_2d/materials/materials_2d_context.dart';
+import '../graphics/graphics_2d/materials/screen_material_component.dart';
+import '../graphics/graphics_2d/materials/screen_material_pass.dart';
+import '../level_map/level_map_runtime.dart';
+import '../sprites/sprites_context.dart';
 import '../rendering/system/lighting_2d_pass.dart';
 import 'engine_config.dart';
 import 'engine_plugin.dart';
@@ -184,8 +188,7 @@ class Engine {
   MusicManager? _music;
   SoundEffectManager? _sfx;
   CacheManager? _cache;
-  CameraSystem? _cameraSystem;
-  ParallaxSystem? _parallax;
+  CameraEngine? _cameraEngine;
   World? _world;
 
   T _ready<T extends Object>(T? value, String member) =>
@@ -234,14 +237,7 @@ class Engine {
   CacheManager get cache => _ready(_cache, 'cache');
 
   /// The output camera and the brain that drives it.
-  CameraSystem get cameraSystem => _ready(_cameraSystem, 'cameraSystem');
-
-  /// The parallax backgrounds drawn behind the world, as a list.
-  @Deprecated(
-    'Add a ParallaxComponent to an entity; ParallaxRenderSystem (a default '
-    'system) scrolls and draws it. Removed in 3.0.',
-  )
-  ParallaxSystem get parallax => _ready(_parallax, 'parallax');
+  CameraEngine get camera => _ready(_cameraEngine, 'camera');
 
   /// The ECS world the game runs in, reading from [context].
   World get world => _ready(_world, 'world');
@@ -385,27 +381,22 @@ class Engine {
       // The project's collision layers, when it has a file of them.
       await context.loadPhysicsLayers();
 
-      // 6. rendering, and the camera and parallax it draws with
+      // 6. rendering, and the camera it draws with
       stage = 'rendering';
-      final cameras = _cameraSystem = CameraSystem();
-      final parallax = _parallax = ParallaxSystem();
+      final cameras = _cameraEngine = CameraEngine();
       final rendering = _rendering =
           _config.createRendering?.call() ?? RenderingEngine();
       _teardown.add(() {
         _rendering?.dispose();
-        _parallax?.dispose();
-        _cameraSystem?.dispose();
+        _cameraEngine?.dispose();
         _rendering = null;
-        _parallax = null;
-        _cameraSystem = null;
+        _cameraEngine = null;
         return null;
       });
       // Before rendering, which draws through it; its brain runs the camera
       // stages the context's extensions registered.
       cameras.initialize(context: context);
-      parallax.initialize();
       rendering.camera = cameras.mainCamera;
-      rendering.backgroundHooks.add(parallax.render);
       // Plugins draw over the world (order 100 — after the world's own hook,
       // which GameWidget adds at the default order).
       rendering.overlayHooks.addIfAbsent(plugins.renderOverlay, order: 100);
@@ -553,8 +544,7 @@ class Engine {
       ..registerSystem<AudioEngine>('audio', audio)
       ..registerSystem<CacheManager>('cache', cache)
       ..registerSystem<AssetManager>('assets', assets)
-      ..registerSystem<CameraSystem>('camera', cameraSystem)
-      ..registerSystem<ParallaxSystem>('parallax', parallax)
+      ..registerSystem<CameraEngine>('camera', camera)
       ..registerSystem<World>('ecs', world);
 
     systems.registerUpdateTask('input', (_) {
@@ -563,15 +553,10 @@ class Engine {
     });
     // The camera's post effects (a fade, letterbox bars) advance once per
     // frame on real time, also while paused — see [_frame].
-    systems.registerUpdateTask(
-      'parallax',
-      (deltaTime) =>
-          parallax.update(deltaTime, cameraSystem.mainCamera.position),
-    );
     // No standalone 'physics' task here — see the doc comment on [physics]
     // above. Physics2DSystem steps it inline within the 'ecs' task below.
     systems.registerUpdateTask('ecs', (deltaTime) => world.update(deltaTime));
-    // Systems that also move once per rendered frame (see FrameSystem).
+    // Systems that also move once per rendered frame (see PerFrame).
     systems.registerFrameTask('ecs', world.frame);
     // Last in the frame, once the camera and the sources have moved: every
     // 3-D sound is placed, in one batch.
@@ -639,6 +624,54 @@ class Engine {
     if (kDebugMode) debugPrint('Stopping engine...');
     gameLoop.stop();
     _state = EngineState.initialized;
+  }
+
+  // ── Between levels ──────────────────────────────────────────────────────
+
+  /// Lets go of what the scene in [world] no longer uses, once the next
+  /// level is built in it — so a game going from level to level does not
+  /// keep every level's files and images:
+  ///
+  /// - the level maps' files and tilesets no map in the world uses, and the
+  ///   tileset images only those drew from (`LevelMaps.evictUnused`);
+  /// - the 2-D material files no entity or map layer names, and the images
+  ///   only those named (`Material2DLibrary.retainOnly`);
+  /// - what each [SceneCacheService] keeps: `Graphics3D`'s models, 3-D
+  ///   material files and maps.
+  ///
+  /// What the world still uses stays, switched off or not, and whatever is
+  /// used again later is read again. What an `assets.acquire` holds stays
+  /// until its release (the sprite systems give theirs back as their
+  /// entities go), and what a plain `assets.load` asked for stays until
+  /// unloaded ([AssetManager.unload], [AssetManager.retainOnly]): the engine
+  /// cannot know whether the game still wants it. Not for an editor, which
+  /// keeps the maps it edits.
+  ///
+  /// The engine never swaps scenes itself; call it where the game does:
+  ///
+  /// ```dart
+  /// engine.world.destroyAllEntities();
+  /// await SceneLoader.loadAsset(engine.world, SceneAssets.pathFor('level_2'));
+  /// await LevelMaps.preload(engine.world);
+  /// engine.releaseUnused();
+  /// ```
+  void releaseUnused() {
+    final world = this.world;
+    LevelMaps.evictUnused(world);
+    final materials = LevelMaps.materialsIn(world);
+    for (final entity in world.entities) {
+      final drawn = entity.getComponent<Material2DComponent>()?.material;
+      if (drawn != null) materials.add(drawn);
+      final screen = entity.getComponent<ScreenMaterialComponent>()?.material;
+      if (screen != null) materials.add(screen);
+    }
+    final sprites = context.sprites;
+    for (final image in context.material2DLibrary.retainOnly(materials)) {
+      sprites.evict(image);
+    }
+    for (final service in services.all) {
+      if (service is SceneCacheService) service.releaseUnused();
+    }
   }
 
   // ── Audio in the background ─────────────────────────────────────────────
@@ -711,7 +744,7 @@ class Engine {
       // the playing sounds when audio updates.
       _audio?.update(dt: 0);
     }
-    _cameraSystem?.update(realTime);
+    _cameraEngine?.update(realTime);
     plugins.update(realTime);
   }
 
@@ -772,7 +805,12 @@ class Engine {
     if (kDebugMode) debugPrint('Shutting down engine...');
     _state = EngineState.disposing;
     _gameLoop?.stop();
-    plugins.detachAll();
+    try {
+      plugins.detachAll();
+    } catch (error, stack) {
+      // A plugin's bug must not keep the world, physics and audio alive.
+      debugPrint('Engine: a plugin failed to detach: $error\n$stack');
+    }
     final pending = _runTeardown();
     layers
       ..clear()
@@ -816,19 +854,13 @@ class Engine {
   // ── Lookup ──────────────────────────────────────────────────────────────
 
   /// The engine subsystem registered under type [T] — `RenderingEngine`,
-  /// `PhysicsEngine`, `ParallaxSystem`, … — or null (also before
+  /// `PhysicsEngine`, `CameraEngine`, … — or null (also before
   /// [initialize] and after [dispose]).
   ///
   /// Subsystems are keyed by the type they were registered under (see
   /// [SystemManager.registerSystem]). ECS systems live in the world: find
   /// those with `world.getSystem<T>()`.
   T? subsystem<T extends Object>() => _systemManager?.getSystem<T>();
-
-  /// Get a reference to a specific subsystem
-  ///
-  /// Returns null if the system is not found.
-  @Deprecated('Use subsystem<T>(); World.getSystem<T>() finds ECS systems.')
-  T? getSystem<T extends Object>() => subsystem<T>();
 }
 
 /// Where an [Engine] is in its life.

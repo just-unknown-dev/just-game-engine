@@ -5,7 +5,9 @@ import 'dart:typed_data';
 import 'package:just_dart/just_dart.dart';
 import 'package:meta/meta.dart' show internal;
 
-import '../ecs.dart';
+import '../world.dart';
+import 'euler_rotation.dart';
+import 'transform_component.dart';
 
 /// Hangs an entity under a parent: it moves, turns and scales with it.
 ///

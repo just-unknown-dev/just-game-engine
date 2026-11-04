@@ -79,7 +79,7 @@ void main() {
         lookaheadSmoothing: 0,
       );
 
-  group('blend list (C6)', () {
+  group('blend list', () {
     test('a looping list of instant steps does not hang', () {
       final rig = at(Offset.zero, [
         VirtualCameraComponent(),
@@ -125,7 +125,7 @@ void main() {
     });
   });
 
-  group('framing lookahead (C15)', () {
+  group('framing lookahead', () {
     late Entity hero;
 
     setUp(() {
@@ -176,12 +176,12 @@ void main() {
     expect(output.position, const Offset(300, 40));
   });
 
-  group('triggers (C29)', () {
-    late CameraSystem cameras;
+  group('triggers', () {
+    late CameraEngine cameras;
     late Entity player;
 
     setUp(() {
-      cameras = CameraSystem()..initialize();
+      cameras = CameraEngine()..initialize();
       cameras.mainCamera.viewportSize = _view;
       cameras.brain.defaultBlend = CameraBlend.cut;
       registerCameraSystems(world, cameras);
@@ -262,7 +262,7 @@ void main() {
     });
   });
 
-  group('brain (C30)', () {
+  group('brain', () {
     test('a rule naming the camera that was switched off still applies', () {
       brain
         ..defaultBlend = const CameraBlend(duration: 1)
@@ -345,7 +345,7 @@ void main() {
     });
   });
 
-  group('angles and loops (C31)', () {
+  group('angles and loops', () {
     test('a mixer averages +170° and −170° to 180°, not 0°', () {
       final rig = at(Offset.zero, [
         VirtualCameraComponent(),
@@ -398,7 +398,7 @@ void main() {
     });
   });
 
-  group('lenses and zoom (C37)', () {
+  group('lenses and zoom', () {
     bool finite(Matrix4 m) => m.storage.every((v) => v.isFinite);
 
     test('a perspective lens made without a near plane sees ahead', () {
@@ -427,7 +427,7 @@ void main() {
     test('a zoom of zero does not divide the world by zero', () {
       final camera = Camera(zoom: 0, viewportSize: _view);
       expect(camera.zoom, greaterThan(0));
-      final bounds = camera.getVisibleBounds();
+      final bounds = camera.visibleBounds;
       expect(bounds.width.isFinite && bounds.height.isFinite, isTrue);
       camera.zoom = double.nan;
       expect(camera.zoom, greaterThan(0));
@@ -438,7 +438,7 @@ void main() {
     });
   });
 
-  group('camera effects (C40)', () {
+  group('camera effects', () {
     test('a fade that finished plays again', () {
       final manager = Camera().effectManager;
       final fade = ScreenFadeEffect();

@@ -192,7 +192,7 @@ void main() {
 
   test('an isometric tile collides where its image is drawn', () {
     final g = MapGeometry(
-      orientation: MapOrientation.isometric,
+      orientation: LevelMapOrientation.isometric,
       tileWidth: 32,
       tileHeight: 16,
     );

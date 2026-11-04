@@ -56,7 +56,7 @@ void main() {
 
   double yOf(Entity e) => e.getComponent<TransformComponent>()!.position.y;
 
-  group('the player system (C10)', () {
+  group('the player system', () {
     setUp(() => registerSpriteSystems(world));
 
     test('a pooled entity switched off and on keeps playing', () {
@@ -151,8 +151,8 @@ void main() {
         width: 100,
         height: 100,
         playerName: 'Door',
-        onEnter: TimelineTriggerAction.restart,
-        onExit: TimelineTriggerAction.reverse,
+        enterAction: TimelineTriggerAction.restart,
+        exitAction: TimelineTriggerAction.reverse,
       ),
     ]);
     world.update(_dt);
@@ -172,7 +172,7 @@ void main() {
     expect(yOf(door), closeTo(-32, 1e-6), reason: 'half open, not snapped');
   });
 
-  group('event handlers (C27)', () {
+  group('event handlers', () {
     test('stop() in a handler stops the step: the clock stays rewound and '
         'later events do not fire', () {
       final fired = <String>[];
@@ -226,13 +226,13 @@ void main() {
           if (e.name == 'a') playback.stop();
         },
       )..play();
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       playback.update(0.5);
       expect(fired, ['a']);
     });
   });
 
-  group('nested timelines (C28)', () {
+  group('nested timelines', () {
     TimelinePlayback nested(
       List<TimelineBlock> blocks,
       Map<String, TimelineAsset> files,
@@ -264,7 +264,7 @@ void main() {
         },
         fired,
       );
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       playback.update(0.5);
       playback.update(0.7);
       expect(fired, ['endA', 'startB', 'b1']);
@@ -279,7 +279,7 @@ void main() {
         },
         fired,
       );
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       for (var i = 0; i < 5; i++) {
         playback.update(0.4);
       }
@@ -299,7 +299,7 @@ void main() {
         fired,
         onLoad: () => ++loads,
       );
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       playback.update(0.1);
       expect(fired, ['early']);
       playback.play(from: 0);
@@ -319,16 +319,16 @@ void main() {
         const {},
         [],
       );
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       playback.play(from: 0);
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       playback.play(from: 0);
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       expect(said.where((m) => m.contains('missing.json')), hasLength(1));
     });
   });
 
-  group('reading (C16)', () {
+  group('reading', () {
     test('a timeline from a newer engine is refused, not read as this '
         'one', () {
       expect(
@@ -387,7 +387,7 @@ void main() {
     });
   });
 
-  group('property tracks (P27)', () {
+  group('property tracks', () {
     test('a component swapped for a new one is written, not the old', () {
       final entity = world.createEntityWithComponents([
         TransformComponent(position: Vector3(0, 0, 0)),

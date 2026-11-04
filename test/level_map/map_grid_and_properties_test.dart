@@ -3,17 +3,42 @@
 // foreground settings leave for Tiled as the engine has them.
 
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_tiled/just_tiled.dart' as tiled;
 
+/// Counts the tiles atlas calls draw, instead of drawing.
+class _AtlasCount implements Canvas {
+  int tiles = 0;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #drawRawAtlas) {
+      tiles += (invocation.positionalArguments[1] as Float32List).length ~/ 4;
+    }
+    return null;
+  }
+}
+
+class _Images extends SpriteAssetLoader {
+  _Images(this.image);
+  final Image image;
+
+  @override
+  Future<Image> loadImage(String path) async => image;
+
+  @override
+  Future<SpriteAtlas> loadAtlas(String path) => throw UnimplementedError();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('a grid with no size', () {
-    for (final orientation in MapOrientation.values) {
+    for (final orientation in LevelMapOrientation.values) {
       for (final (w, h) in [(0, 0), (0, 16), (16, 0), (1, 1), (-4, 3)]) {
         test('${orientation.name} $w×$h: cells are still found', () {
           final g = MapGeometry(
@@ -34,29 +59,55 @@ void main() {
       }
     }
 
-    test('a map of it draws without throwing', () async {
+    test('a map of it draws, its tile at least a pixel big', () async {
       final image = await createTestImage(width: 32, height: 32);
+      addTearDown(image.dispose);
       final m = LevelMapData(
-        orientation: MapOrientation.staggered,
+        orientation: LevelMapOrientation.staggered,
         tileWidth: 0,
         tileHeight: 0,
-      );
-      m.addLayer().cells.setCell(0, 0, TileCell.make(0, 0));
+      )..addTileset('assets/t.tileset.json');
+      final layer = m.addLayer()..cells.setCell(0, 0, TileCell.make(0, 0));
       final world = World()..initialize();
-      registerLevelMapSystems(world, collision: false);
-      world.addSystem(
-        RenderSystem(camera: Camera(viewportSize: const Size(100, 100))),
+      world.context.tiles.putTileset(
+        'assets/t.tileset.json',
+        TilesetData(
+          name: 't',
+          image: 'assets/t.png',
+          imageWidth: 32,
+          imageHeight: 32,
+          tileWidth: 16,
+          tileHeight: 16,
+          columns: 2,
+          tileCount: 4,
+        ),
       );
+      world.context.sprites = _Images(image);
+      registerLevelMapSystems(world, collision: false);
+      final camera = Camera(viewportSize: const Size(100, 100));
+      world.addSystem(RenderSystem(camera: camera));
       addTearDown(world.dispose);
-      world.createEntityWithComponents([
+      final e = world.createEntityWithComponents([
         TransformComponent(),
         LevelMapComponent(inline: m),
       ]);
       world.update(0);
+      final rt = e.getComponent<LevelMapComponent>()!.runtime!;
+      await rt.syncAssets();
+      expect(rt.geometry.tileWidth, greaterThanOrEqualTo(1));
+      expect(rt.geometry.tileHeight, greaterThanOrEqualTo(1));
       final recorder = PictureRecorder();
       world.render(Canvas(recorder), const Size(100, 100));
       recorder.endRecording().dispose();
-      image.dispose();
+
+      final drawn = _AtlasCount();
+      rt.painter.paint(
+        drawn,
+        RenderContext(world: world, size: const Size(100, 100), camera: camera),
+        e,
+        layer.id,
+      );
+      expect(drawn.tiles, 1);
     });
   });
 

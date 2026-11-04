@@ -2,7 +2,7 @@
 library;
 
 import '../ecs/ecs.dart';
-import 'camera_noise.dart';
+import 'camera_noise_profiles.dart';
 
 /// Continuous procedural motion on a virtual camera: the difference between
 /// a locked-off shot and one that feels held.

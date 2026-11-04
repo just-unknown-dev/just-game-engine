@@ -25,14 +25,23 @@ class Material2DComponent extends Component {
   String material;
 
   Map<String, Object> _overrides;
+  Map<String, Object>? _read;
   int _revision = 0;
 
   /// This entity's own values, by key. Read-only: change them with [set]
   /// and [remove].
-  Map<String, Object> get overrides => Map.unmodifiable(_overrides);
+  ///
+  /// The same map is handed out until they change — read every frame, it
+  /// is not copied every frame — and a map handed out never changes.
+  Map<String, Object> get overrides => _read ??= Map.unmodifiable(_overrides);
 
   set overrides(Map<String, Object> next) {
     _overrides = {...next};
+    _changed();
+  }
+
+  void _changed() {
+    _read = null;
     _revision++;
   }
 
@@ -46,11 +55,11 @@ class Material2DComponent extends Component {
   void set(String key, Object value) {
     if (_overrides[key] == value) return;
     _overrides[key] = value;
-    _revision++;
+    _changed();
   }
 
   /// The material's own value for [key] again.
   void remove(String key) {
-    if (_overrides.remove(key) != null) _revision++;
+    if (_overrides.remove(key) != null) _changed();
   }
 }

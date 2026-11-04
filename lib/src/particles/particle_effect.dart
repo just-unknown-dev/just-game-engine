@@ -1,4 +1,4 @@
-part of 'particles.dart';
+part of 'particle_emitter.dart';
 
 /// Base class for custom particle behaviors.
 ///

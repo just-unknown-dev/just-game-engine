@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart';
+import 'package:meta/meta.dart' show internal;
 
 import '../renderable.dart';
 import '../../graphics/graphics_2d/shapes/circle_2d_component.dart';
@@ -27,6 +28,7 @@ import '../renderable_component.dart';
 /// What differs is the edges: triangles are not anti-aliased, so a batched
 /// shape's edge is hard where the canvas would smooth it, and a circle is a
 /// polygon of 16 or 24 sides. Hence opt-in.
+@internal
 class ShapeBatch {
   // Two floats per vertex, one ARGB colour per vertex, three vertices per
   // triangle. Kept between frames and grown as needed.

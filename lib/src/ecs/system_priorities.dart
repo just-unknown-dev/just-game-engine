@@ -4,10 +4,14 @@
 /// Use these constants when constructing or registering systems so the
 /// update order is explicit and discoverable in one place.
 ///
-/// Canonical order per frame:
-///
-///  Input (100) → Physics (90) → Movement (80) → Animation (70)
-///  → Gameplay (60) → Hierarchy (50) → Render (40) → Audio (−10)
+/// The order per frame, from the constants below: level maps (110), map
+/// collision (108), parallax (105), input (100), player control (95),
+/// moving platforms (92), physics (90), movement (80), animation (70),
+/// effects (65), gameplay (60, then genre rules 59, dialogue 59 and
+/// checkpoints 58), the hierarchy (50), particles (48), the camera (45),
+/// rendering (40), post-processing (35), boundaries (30), debug drawing (10)
+/// and audio (−10). Systems with equal priorities run in the order they
+/// were added.
 library;
 
 /// Named priority constants for [System.priority].

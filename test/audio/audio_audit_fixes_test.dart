@@ -86,11 +86,11 @@ void main() {
   });
   tearDown(() => world.dispose());
 
-  group('F25', () {
+  group('a 3-D sound is not panned', () {
     test('a sound placed in 3-D is not panned as well', () {
       world.createEntityWithComponents([
         TransformComponent(position: Vector3(5, 0, 0)),
-        AudioSourceComponent(clipPath: 'a.wav', pan: -1, is3d: true),
+        AudioSourceComponent(clipPath: 'a.wav', pan: -1, is3D: true),
       ]);
       world.getSystem<AudioSystem>()!.playOneShot(
         'b.wav',
@@ -99,7 +99,7 @@ void main() {
       );
       // 3-D without a transform plays flat, so its pan counts.
       world.createEntityWithComponents([
-        AudioSourceComponent(clipPath: 'c.wav', pan: 0.5, is3d: true),
+        AudioSourceComponent(clipPath: 'c.wav', pan: 0.5, is3D: true),
       ]);
       world.update(1 / 60);
       expect(audio.pans, unorderedEquals([0.0, 0.0, 0.5]));
@@ -130,7 +130,7 @@ void main() {
     });
   });
 
-  test('F34 an audio asset tells .flac, in any case', () async {
+  test('an audio asset tells .flac, in any case', () async {
     final manager = AssetManager(bundle: _Bundle());
     for (final (path, format) in [
       ('a.flac', AudioFormat.flac),

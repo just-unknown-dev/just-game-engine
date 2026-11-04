@@ -3,6 +3,8 @@ library;
 
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show debugPrint;
+
 import '../ecs/ecs.dart';
 import 'dialogue_manager.dart';
 import 'runtime/dialogue_runner.dart';
@@ -131,15 +133,19 @@ class DialogueSystem extends System {
 
       if (tc.triggerOnce) tc.hasTriggered = true;
 
-      // Fire-and-forget the dialogue session
-      final started = manager.startDialogue(
-        graphId: tc.graphId,
-        startNode: tc.startNode,
+      // Fire-and-forget the dialogue session. A graph or node that is not
+      // there (a typo in the level) is said in the log, not thrown into the
+      // zone each time the player walks in.
+      final delay = tc.autoAdvance ? tc.autoAdvanceDelay : null;
+      manager.startDialogue(graphId: tc.graphId, startNode: tc.startNode).then(
+        (runner) {
+          if (delay != null) _autoAdvancing.add(_AutoRun(runner, delay));
+        },
+        onError: (Object error) => debugPrint(
+          'DialogueSystem: the trigger on $entity could not start '
+          '"${tc.graphId}" at "${tc.startNode}": $error',
+        ),
       );
-      if (tc.autoAdvance) {
-        final delay = tc.autoAdvanceDelay;
-        started.then((runner) => _autoAdvancing.add(_AutoRun(runner, delay)));
-      }
     }
   }
 

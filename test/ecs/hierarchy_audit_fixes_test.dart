@@ -27,7 +27,7 @@ void main() {
     return e;
   }
 
-  group('a switched-off parent switches off its subtree (C7)', () {
+  group('a switched-off parent switches off its subtree', () {
     test('children leave queries; their own flags stay as they were', () {
       final parent = make();
       final child = make(parent: parent);
@@ -192,7 +192,7 @@ void main() {
     });
   });
 
-  group('links that would loop are refused (C10)', () {
+  group('links that would loop are refused', () {
     test('under its own descendant, or itself', () {
       final a = make();
       final b = make(parent: a);
@@ -244,7 +244,7 @@ void main() {
     });
   });
 
-  test('a transform keeps its own scale vector (C11)', () {
+  test('a transform keeps its own scale vector', () {
     final scale = Vector3(2, 3, 4);
     final t = TransformComponent(scale: scale);
     t.scale.x = 9;
@@ -252,7 +252,7 @@ void main() {
     expect(t.scale.y, 3);
   });
 
-  group('children of a body moving between steps (P7)', () {
+  group('children of a body moving between steps', () {
     test('get their previous pose from their parent\'s, counted a capture', () {
       final parent = make();
       final child = make(x: 10, parent: parent);

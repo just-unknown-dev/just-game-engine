@@ -6,7 +6,10 @@ library;
 
 import 'dart:ui' as ui;
 
+import 'package:meta/meta.dart' show internal;
+
 import '../ecs/ecs.dart';
+import 'post_processing/post_process_pass.dart';
 
 /// Attaches a custom GLSL [ui.FragmentShader] to an ECS entity.
 ///
@@ -57,7 +60,7 @@ import '../ecs/ecs.dart';
 ///
 /// ```dart
 /// final program = await ui.FragmentProgram.fromAsset('shaders/bloom.frag');
-/// world.addComponent(bloomEntity, ShaderComponent(
+/// bloomEntity.addComponent(ShaderComponent(
 ///   program: program,
 ///   isPostProcess: true,
 ///   passOrder: 0,
@@ -135,8 +138,9 @@ class ShaderComponent extends Component {
   /// width and height, and the elapsed engine time in seconds.
   ///
   /// For per-entity effects ([isPostProcess] = `false`) the width/height
-  /// reflect the entity's bounding rect; the `time` parameter is `0.0`
-  /// unless the [RenderSystem] is provided a time source externally.
+  /// reflect the entity's bounding rect, and the time is the [RenderSystem]'s
+  /// clock (`RenderSystem.clock`, the engine's time for the default
+  /// systems); `0.0` when it has none.
   /// Use a closure to capture any additional game-state you require:
   ///
   /// ```dart
@@ -185,8 +189,20 @@ class ShaderComponent extends Component {
     _shader ??= program.fragmentShader();
   }
 
+  /// The post-process pass [PostProcessSystem] made for this component,
+  /// while it has one. Internal to the engine.
+  @internal
+  PostProcessPass? postProcessPass;
+
+  /// Leaving its entity, the component switches its post-process pass off
+  /// before the shader goes: the pass stays in the rendering engine until
+  /// [PostProcessSystem] next runs — not before the next fixed update, and
+  /// never while the engine is paused — and used to draw with the disposed
+  /// shader meanwhile.
   @override
   void onDetach(EntityId entityId) {
+    postProcessPass?.enabled = false;
+    postProcessPass = null;
     _shader?.dispose();
     _shader = null;
   }

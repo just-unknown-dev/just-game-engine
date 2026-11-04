@@ -31,7 +31,7 @@ void main() {
       e.getComponent<ChildrenComponent>()?.childIds ?? const [];
   EntityId? parentOf(Entity e) => e.getComponent<ParentComponent>()?.parentId;
 
-  group('parents (C17)', () {
+  group('parents', () {
     test('two parents with a child of the same name each keep theirs', () {
       final made = SceneLoader.load(
         world,
@@ -103,7 +103,7 @@ void main() {
     });
   });
 
-  group('a newer format is refused (C16)', () {
+  group('a newer format is refused', () {
     test('a scene', () {
       final newer = {
         ...scene([entry('A')]),

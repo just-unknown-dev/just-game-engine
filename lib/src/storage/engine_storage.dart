@@ -8,6 +8,7 @@
 library;
 
 import 'package:just_storage/just_storage.dart';
+import 'package:meta/meta.dart' show internal;
 
 import 'engine_storage_web.dart'
     if (dart.library.io) 'engine_storage_io.dart'
@@ -25,8 +26,10 @@ import 'engine_storage_web.dart'
 /// beside `JustStorage.standard()`'s keys rather than among them, so the
 /// app's `clear()` there leaves the engine's alone: each value is a key of
 /// its own, and nothing is rewritten whole.
+@internal
 Future<JustStandardStorage> openEngineStorage() => platform.openEngineStorage();
 
 /// Opens the store the engine shared with the app before 2.0 —
 /// `JustStorage.standard()` — for moving the engine's entries out of it.
+@internal
 Future<JustStandardStorage> openSharedStorage() => JustStorage.standard();

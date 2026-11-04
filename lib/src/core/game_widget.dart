@@ -224,7 +224,7 @@ class _GameWidgetState extends State<GameWidget>
     widget.engine.rendering.debugMode = widget.showDebug;
     if (widget.showDebug) {
       _colliderDebugger = ColliderDebuggerSystem(
-        camera: widget.engine.cameraSystem.mainCamera,
+        camera: widget.engine.camera.mainCamera,
       );
       widget.engine.world.addSystem(_colliderDebugger!);
     }
@@ -338,7 +338,33 @@ class _GameWidgetState extends State<GameWidget>
     // view started: every view of the engine passes the same stamp in a
     // frame, and the loop counts the frame once however many tick it.
     final now = SchedulerBinding.instance.currentFrameTimeStamp;
-    engine.gameLoop.tick(now);
+    // What a system, plugin or layer throws is reported, never let out of
+    // here: a ticker whose callback throws schedules no next tick, and the
+    // whole view would freeze for good. The view is drawn and the layers
+    // ticked whatever the frame's systems threw.
+    _guarded(() => engine.gameLoop.tick(now));
+    _guarded(() => _afterTick(engine, now, elapsed));
+  }
+
+  /// Runs [frameWork], reporting what it throws to the framework.
+  static void _guarded(void Function() frameWork) {
+    try {
+      frameWork();
+    } catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'just_game_engine',
+          context: ErrorDescription('while running a game frame'),
+        ),
+      );
+    }
+  }
+
+  void _afterTick(Engine engine, Duration now, Duration elapsed) {
+    // Disposed by a callback of the tick: nothing to draw.
+    if (!mounted || !engine.isInitialized) return;
     // Signal the CustomPainter to repaint — no widget rebuild needed — as
     // often as the engine's drawInterval lets it.
     final interval = engine.rendering.drawInterval;
@@ -683,8 +709,8 @@ class _GamePainter extends CustomPainter {
     // widgets (headers, panels, overlays) that share the screen canvas.
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
-    // Single render call — ECS systems are invoked via onRenderOverlay
-    // inside the camera-transformed context.
+    // Single render call — ECS systems are invoked via overlayHooks, in
+    // screen space (the world's RenderSystem applies the camera itself).
     engine.rendering.render(canvas, size);
     canvas.restore();
   }

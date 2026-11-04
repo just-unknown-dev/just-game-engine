@@ -1,8 +1,11 @@
 // Graphics3D as the engine's opt-in 3-D: a 2-D engine has none of it, a
 // scene with 3-D components says how to turn it on, and with no GPU the
-// game still starts and is told why nothing 3-D is drawn.
+// game still starts and is told why nothing 3-D is drawn — keeping only
+// the models' bounds up to date, nothing made to draw.
 @Tags(['graphics3d'])
 library;
+
+import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine_3d.dart';
@@ -51,14 +54,28 @@ void main() {
   });
 
   test('a 3-D component without Graphics3D says how to turn it on', () {
-    final world = World();
+    final world = World(extensions: [BuiltInComponents.extension]);
+    addTearDown(world.dispose);
     final error = _loadError(world, {'type': 'ModelComponent'});
     expect(error, isA<UnknownComponentTypeException>());
     expect('$error', contains('EngineConfig(services: [Graphics3D()])'));
+    final overrides = _loadError(world, {
+      'type': 'MaterialOverrides3DComponent',
+    });
+    expect('$overrides', contains('EngineConfig(services: [Graphics3D()])'));
     final physics = _loadError(world, {'type': 'RigidBody3DComponent'});
     expect('$physics', contains('EngineConfig(services: [Physics3D()])'));
     final other = _loadError(world, {'type': 'NoSuchThing'});
     expect('$other', contains("Install the owning package's extension"));
+  });
+
+  test('the ECS core alone knows nothing of 3-D, not even its names', () {
+    final world = World();
+    addTearDown(world.dispose);
+    final error = _loadError(world, {'type': 'ModelComponent'});
+    expect(error, isA<UnknownComponentTypeException>());
+    expect((error! as UnknownComponentTypeException).hint, isNull);
+    expect('$error', contains("Install the owning package's extension"));
   });
 
   test('without a GPU the game starts, and is told why once', () async {
@@ -95,6 +112,43 @@ void main() {
     final model = await graphics.models.load(cubePath);
     expect(model.data.bounds.max.y, closeTo(1, 1e-6));
   });
+
+  test(
+    'without a GPU a frame keeps only the bounds of models up to date',
+    () async {
+      final engine = Engine(
+        config: EngineConfig(services: [Graphics3D()]),
+        context: EngineContext(bundle: TestBundle({cubePath: cubeGlb()})),
+      );
+      addTearDown(engine.dispose);
+      await engine.initialize();
+      final graphics = engine.graphics3D!;
+      expect(graphics.isSupported, isFalse);
+      await graphics.models.load(cubePath);
+      final crate = ModelComponent(model: cubePath);
+      engine.world.createEntityWithComponents([TransformComponent(), crate]);
+      engine.world.createEntityWithComponents([
+        TransformComponent(),
+        Cube3DComponent(),
+      ]);
+      final renderer = graphics.sceneRenderer;
+      renderer.render(
+        ui.Canvas(ui.PictureRecorder()),
+        frameView(eye: Vector3(0, -2, -6)),
+      );
+      expect(crate.bounds.max.y, closeTo(0, 1e-6));
+      expect(
+        crate.bounds.min.y,
+        closeTo(-1, 1e-6),
+        reason: '1 m up, in engine axes',
+      );
+      expect(
+        renderer.debugShapeInstances.single,
+        isNull,
+        reason: 'no mesh made to draw',
+      );
+    },
+  );
 }
 
 Object? _loadError(World world, Map<String, dynamic> component) {

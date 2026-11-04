@@ -28,7 +28,7 @@ class _GatedAsset extends BinaryAsset {
   }
 
   @override
-  int getMemoryUsage() => 0;
+  int get memoryUsage => 0;
 }
 
 class _GatedLoader implements AssetLoader {
@@ -86,11 +86,11 @@ void main() {
 
   test('a release while loading counts', () async {
     final acquire = assets.acquire('d.bin', AssetType.binary);
-    expect(assets.refCount('d.bin'), 1);
-    assets.release('d.bin');
+    expect(assets.refCount('d.bin', AssetType.binary), 1);
+    assets.release('d.bin', AssetType.binary);
     loader.gates['d.bin']!.complete();
     await expectLater(acquire, throwsA(isA<AssetLoadException>()));
-    expect(assets.refCount('d.bin'), 0);
+    expect(assets.refCount('d.bin', AssetType.binary), 0);
     expect(assets.assetCount, 0);
   });
 
@@ -100,6 +100,6 @@ void main() {
     scope.dispose();
     loader.gates['e.bin']!.complete();
     await acquire;
-    expect(assets.refCount('e.bin'), 0);
+    expect(assets.refCount('e.bin', AssetType.binary), 0);
   });
 }

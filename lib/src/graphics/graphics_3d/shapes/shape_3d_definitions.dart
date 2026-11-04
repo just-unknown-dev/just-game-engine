@@ -7,15 +7,16 @@ import 'package:just_dart/just_dart.dart' show Aabb3, Vector2;
 
 import '../../../ecs/ecs.dart';
 import '../../../foundation/dimensions.dart';
-import 'primitive_3d.dart';
-import 'shape_components.dart';
+import 'primitive_3d_component.dart';
+import 'shape_3d_components.dart';
 
 /// How the 3-D shapes are saved and shown in an editor. Each is a 3-D
 /// component (`Dimensions.threeD`) in the `3D Shapes` group: its sizes, its
 /// detail, then its material.
 abstract final class Shape3DDefinitions {
   /// [Cube3DComponent].
-  static ComponentSchema<Cube3DComponent> get cube => _schema<Cube3DComponent>(
+  static ComponentDefinition<Cube3DComponent>
+  get cube => _definition<Cube3DComponent>(
     type: 'Cube3DComponent',
     id: 'cube_3d_7e8d7b54',
     create: Cube3DComponent.new,
@@ -33,8 +34,8 @@ abstract final class Shape3DDefinitions {
   );
 
   /// [Sphere3DComponent].
-  static ComponentSchema<Sphere3DComponent> get sphere =>
-      _schema<Sphere3DComponent>(
+  static ComponentDefinition<Sphere3DComponent> get sphere =>
+      _definition<Sphere3DComponent>(
         type: 'Sphere3DComponent',
         id: 'sphere_3d_89734a64',
         create: Sphere3DComponent.new,
@@ -72,8 +73,8 @@ abstract final class Shape3DDefinitions {
       );
 
   /// [Plane3DComponent].
-  static ComponentSchema<Plane3DComponent> get plane =>
-      _schema<Plane3DComponent>(
+  static ComponentDefinition<Plane3DComponent> get plane =>
+      _definition<Plane3DComponent>(
         type: 'Plane3DComponent',
         id: 'plane_3d_565609c7',
         create: Plane3DComponent.new,
@@ -98,8 +99,8 @@ abstract final class Shape3DDefinitions {
       );
 
   /// [Cylinder3DComponent].
-  static ComponentSchema<Cylinder3DComponent> get cylinder =>
-      _schema<Cylinder3DComponent>(
+  static ComponentDefinition<Cylinder3DComponent> get cylinder =>
+      _definition<Cylinder3DComponent>(
         type: 'Cylinder3DComponent',
         id: 'cylinder_3d_0b49d83d',
         create: Cylinder3DComponent.new,
@@ -135,8 +136,8 @@ abstract final class Shape3DDefinitions {
       );
 
   /// [Capsule3DComponent].
-  static ComponentSchema<Capsule3DComponent> get capsule =>
-      _schema<Capsule3DComponent>(
+  static ComponentDefinition<Capsule3DComponent> get capsule =>
+      _definition<Capsule3DComponent>(
         type: 'Capsule3DComponent',
         id: 'capsule_3d_e6fcb787',
         create: Capsule3DComponent.new,
@@ -185,7 +186,8 @@ abstract final class Shape3DDefinitions {
       );
 
   /// [Cone3DComponent].
-  static ComponentSchema<Cone3DComponent> get cone => _schema<Cone3DComponent>(
+  static ComponentDefinition<Cone3DComponent>
+  get cone => _definition<Cone3DComponent>(
     type: 'Cone3DComponent',
     id: 'cone_3d_562bc28a',
     create: Cone3DComponent.new,
@@ -209,8 +211,8 @@ abstract final class Shape3DDefinitions {
   );
 
   /// [Torus3DComponent].
-  static ComponentSchema<Torus3DComponent> get torus =>
-      _schema<Torus3DComponent>(
+  static ComponentDefinition<Torus3DComponent> get torus =>
+      _definition<Torus3DComponent>(
         type: 'Torus3DComponent',
         id: 'torus_3d_8fcf8d1e',
         create: Torus3DComponent.new,
@@ -264,7 +266,8 @@ abstract final class Shape3DDefinitions {
       );
 
   /// [Ramp3DComponent].
-  static ComponentSchema<Ramp3DComponent> get ramp => _schema<Ramp3DComponent>(
+  static ComponentDefinition<Ramp3DComponent>
+  get ramp => _definition<Ramp3DComponent>(
     type: 'Ramp3DComponent',
     id: 'ramp_3d_7923bada',
     create: Ramp3DComponent.new,
@@ -282,8 +285,8 @@ abstract final class Shape3DDefinitions {
   );
 
   /// [Stairs3DComponent].
-  static ComponentSchema<Stairs3DComponent> get stairs =>
-      _schema<Stairs3DComponent>(
+  static ComponentDefinition<Stairs3DComponent> get stairs =>
+      _definition<Stairs3DComponent>(
         type: 'Stairs3DComponent',
         id: 'stairs_3d_bc0b192f',
         create: Stairs3DComponent.new,
@@ -322,7 +325,8 @@ abstract final class Shape3DDefinitions {
       );
 
   /// [Arch3DComponent].
-  static ComponentSchema<Arch3DComponent> get arch => _schema<Arch3DComponent>(
+  static ComponentDefinition<Arch3DComponent>
+  get arch => _definition<Arch3DComponent>(
     type: 'Arch3DComponent',
     id: 'arch_3d_a19df39b',
     create: Arch3DComponent.new,
@@ -338,7 +342,7 @@ abstract final class Shape3DDefinitions {
         (c, v) => c.thickness = v,
       ),
       _size<Arch3DComponent>('depth', (c) => c.depth, (c, v) => c.depth = v),
-      SchemaField(
+      FieldDefinition(
         name: 'angle',
         kind: FieldTypes.decimal,
         read: (c) => (c as Arch3DComponent).angle,
@@ -373,8 +377,8 @@ abstract final class Shape3DDefinitions {
   );
 
   /// [Polygon3DComponent].
-  static ComponentSchema<Polygon3DComponent> get polygon =>
-      _schema<Polygon3DComponent>(
+  static ComponentDefinition<Polygon3DComponent> get polygon =>
+      _definition<Polygon3DComponent>(
         type: 'Polygon3DComponent',
         id: 'polygon_3d_54238989',
         create: Polygon3DComponent.new,
@@ -382,7 +386,7 @@ abstract final class Shape3DDefinitions {
         description: 'An outline on the ground, raised to a height.',
         icon: Icons.hexagon_outlined,
         size: [
-          SchemaField(
+          FieldDefinition(
             name: 'points',
             kind: FieldTypes.offsetList,
             read: (c) => (c as Polygon3DComponent).points,
@@ -406,7 +410,7 @@ abstract final class Shape3DDefinitions {
       );
 
   /// Every 3-D shape.
-  static List<ComponentSchema> get all => [
+  static List<ComponentDefinition> get all => [
     cube,
     sphere,
     plane,
@@ -435,18 +439,18 @@ abstract final class Shape3DDefinitions {
     'tileInMetres',
   ];
 
-  static ComponentSchema<T> _schema<T extends Primitive3DComponent>({
+  static ComponentDefinition<T> _definition<T extends Primitive3DComponent>({
     required String type,
     required String id,
     required T Function() create,
     required String name,
     required String description,
     required IconData icon,
-    required List<SchemaField> size,
-    List<SchemaField> detail = const [],
+    required List<FieldDefinition> size,
+    List<FieldDefinition> detail = const [],
     List<FieldRowHint> rows = const [],
     Map<String, FieldHint> hints = const {},
-  }) => ComponentSchema<T>(
+  }) => ComponentDefinition<T>(
     type: type,
     id: id,
     create: create,
@@ -476,7 +480,7 @@ abstract final class Shape3DDefinitions {
     fields: [...size, ...detail, ..._material],
   );
 
-  static Map<String, FieldHint> _sizeHints(List<SchemaField> size) => {
+  static Map<String, FieldHint> _sizeHints(List<FieldDefinition> size) => {
     for (final f in size)
       if (f.kind == FieldTypes.decimal)
         f.name: FieldHint(
@@ -580,15 +584,15 @@ abstract final class Shape3DDefinitions {
     'visible': const FieldHint(label: 'Visible'),
   };
 
-  static List<SchemaField> get _material => [
-    SchemaField(
+  static List<FieldDefinition> get _material => [
+    FieldDefinition(
       name: 'material',
       kind: FieldTypes.assetRef,
       read: (c) => (c as Primitive3DComponent).material,
       write: (c, v) =>
           (c as Primitive3DComponent).material = v as String? ?? '',
     ),
-    SchemaField(
+    FieldDefinition(
       name: 'color',
       kind: FieldTypes.color,
       read: (c) => (c as Primitive3DComponent).color,
@@ -596,13 +600,13 @@ abstract final class Shape3DDefinitions {
     ),
     _unit('metallic', (c) => c.metallic, (c, v) => c.metallic = v),
     _unit('roughness', (c) => c.roughness, (c, v) => c.roughness = v),
-    SchemaField(
+    FieldDefinition(
       name: 'emission',
       kind: FieldTypes.color,
       read: (c) => (c as Primitive3DComponent).emission,
       write: (c, v) => (c as Primitive3DComponent).emission = v as Color,
     ),
-    SchemaField(
+    FieldDefinition(
       name: 'emissionStrength',
       kind: FieldTypes.decimal,
       read: (c) => (c as Primitive3DComponent).emissionStrength,
@@ -612,13 +616,13 @@ abstract final class Shape3DDefinitions {
     ),
     _unit('opacity', (c) => c.opacity, (c, v) => c.opacity = v),
     _flag<Primitive3DComponent>('unlit', (c) => c.unlit, (c, v) => c.unlit = v),
-    SchemaField(
+    FieldDefinition(
       name: 'texture',
       kind: FieldTypes.assetRef,
       read: (c) => (c as Primitive3DComponent).texture,
       write: (c, v) => (c as Primitive3DComponent).texture = v as String? ?? '',
     ),
-    SchemaField(
+    FieldDefinition(
       name: 'tiling',
       kind: FieldTypes.vector2,
       read: (c) => (c as Primitive3DComponent).tiling,
@@ -643,11 +647,11 @@ abstract final class Shape3DDefinitions {
     ),
   ];
 
-  static SchemaField _size<T extends Primitive3DComponent>(
+  static FieldDefinition _size<T extends Primitive3DComponent>(
     String name,
     double Function(T c) read,
     void Function(T c, double v) write,
-  ) => SchemaField(
+  ) => FieldDefinition(
     name: name,
     kind: FieldTypes.decimal,
     read: (c) => read(c as T),
@@ -655,11 +659,11 @@ abstract final class Shape3DDefinitions {
     min: 0.01,
   );
 
-  static SchemaField _unit(
+  static FieldDefinition _unit(
     String name,
     double Function(Primitive3DComponent c) read,
     void Function(Primitive3DComponent c, double v) write,
-  ) => SchemaField(
+  ) => FieldDefinition(
     name: name,
     kind: FieldTypes.decimal,
     read: (c) => read(c as Primitive3DComponent),
@@ -669,13 +673,13 @@ abstract final class Shape3DDefinitions {
     max: 1,
   );
 
-  static SchemaField _count<T extends Primitive3DComponent>(
+  static FieldDefinition _count<T extends Primitive3DComponent>(
     String name,
     int Function(T c) read,
     void Function(T c, int v) write,
     int min,
     int max,
-  ) => SchemaField(
+  ) => FieldDefinition(
     name: name,
     kind: FieldTypes.integer,
     read: (c) => read(c as T),
@@ -684,11 +688,11 @@ abstract final class Shape3DDefinitions {
     max: max.toDouble(),
   );
 
-  static SchemaField _flag<T extends Primitive3DComponent>(
+  static FieldDefinition _flag<T extends Primitive3DComponent>(
     String name,
     bool Function(T c) read,
     void Function(T c, bool v) write,
-  ) => SchemaField(
+  ) => FieldDefinition(
     name: name,
     kind: FieldTypes.boolean,
     read: (c) => read(c as T),

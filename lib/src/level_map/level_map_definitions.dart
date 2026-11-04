@@ -45,14 +45,14 @@ abstract final class LevelMapDefinitions {
         // No extent: the map is painted cell by cell, and a map-sized box would
         // make every entity tool treat the whole level as one obstacle.
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'mapPath',
             kind: FieldTypes.assetRef,
             read: (c) => (c as LevelMapComponent).mapPath,
             write: (c, v) =>
                 (c as LevelMapComponent).mapPath = v as String? ?? '',
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'inline',
             kind: FieldTypes.map,
             // A new map every time: whoever keeps what this returns — a play

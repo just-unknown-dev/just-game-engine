@@ -7,6 +7,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart';
 import 'package:just_dart/just_dart.dart' show Vector3;
+import 'package:meta/meta.dart' show internal;
 
 import '../../../ecs/ecs.dart';
 import '../../../rendering/renderable.dart';
@@ -14,11 +15,20 @@ import '../../../rendering/renderable.dart';
 /// What a shape drawn through a 2-D material is drawn from: the shape drawn
 /// into an image in its own space, its box ([bounds]) and how many image
 /// pixels a unit of that space is ([resolution]).
+@internal
 final class ShapeSheet {
   ShapeSheet._(this.image, this.bounds, this.resolution, this._signature);
 
+  /// The shape drawn in its own space: [bounds] at [resolution].
   final ui.Image image;
+
+  /// The box in the shape's own space (around its origin) [image] covers.
   final Rect bounds;
+
+  /// How many image pixels a unit of the shape's space is: a power of two,
+  /// at most 4, below 1 for a shape too big for [ShapeSheets.maxSide]. A
+  /// material's lengths (an outline's width, a glow's radius) are in image
+  /// pixels, so are multiplied by it to stay the same size in the world.
   final double resolution;
   final Object _signature;
   int _used = 0;
@@ -34,6 +44,7 @@ final class ShapeSheet {
 /// `signature` or its box — changes, and each resolution it is drawn at
 /// keeps its own image; one not asked for in [keepFor] renders is let go.
 /// Images are let go a render after they are last drawn with.
+@internal
 final class ShapeSheets {
   // Each entity's sheets, by the resolution they were drawn at: a frame can
   // draw the world more than once at different scales — an editor's
@@ -50,8 +61,11 @@ final class ShapeSheets {
   static const int maxSide = 2048;
 
   /// How many renders ([beginFrame]s) a sheet nobody drew with is kept:
-  /// long enough for each of the views a frame renders to keep its own.
-  static const int keepFor = 4;
+  /// long enough for each of the views a frame renders to keep its own —
+  /// an editor's split panes, its game preview and a minimap are well
+  /// under it. A view rendered less often than this many others had its
+  /// sheet let go and drawn again every frame.
+  static const int keepFor = 16;
 
   /// How many entities' shapes are held. For tests.
   int get length => _sheets.length;
@@ -82,7 +96,8 @@ final class ShapeSheets {
 
   /// [renderable] — [entity]'s, drawing itself in its own space around its
   /// origin — as an image, drawn at [scale] (how big a unit of its space is
-  /// on screen, so it stays sharp); null when it has no box. Drawn again
+  /// on screen, so it stays sharp); null when it has no box, or one too big
+  /// for any image ([resolutionFor]). Drawn again
   /// only when [signature] (what it looks like) or its box changes.
   ShapeSheet? sheetOf(
     Entity entity,
@@ -90,7 +105,7 @@ final class ShapeSheets {
     Object signature,
     double scale,
   ) {
-    final bounds = renderable.getBounds();
+    final bounds = renderable.bounds;
     if (bounds == null ||
         renderable.boundsAreWorldSpace ||
         bounds.isEmpty ||
@@ -98,6 +113,10 @@ final class ShapeSheets {
       return null;
     }
     final resolution = resolutionFor(scale, bounds);
+    // Too big even at the coarsest resolution: drawn without its material.
+    if (math.max(bounds.width, bounds.height) * resolution > maxSide) {
+      return null;
+    }
     final sheets = _sheets.putIfAbsent(entity, () => {});
     final known = sheets[resolution];
     if (known != null &&
@@ -148,19 +167,25 @@ final class ShapeSheets {
   }
 
   /// How many image pixels a unit of a shape's space gets, drawn at [scale]
-  /// on screen: the next power of two at least as big, from 1 to 4, and no
-  /// more than fits [maxSide].
+  /// on screen: the next power of two at least as big, from 1 to 4 — then
+  /// halved, below 1 if need be, until the longest side fits [maxSide]. A
+  /// bigger image did not fit a material batch, and the shape lost its
+  /// material.
   static double resolutionFor(double scale, Rect bounds) {
     var r = 1.0;
     while (r < scale && r < 4) {
       r *= 2;
     }
     final longest = math.max(bounds.width, bounds.height);
-    while (r > 1 && longest * r > maxSide) {
+    while (longest * r > maxSide && r > _smallest) {
       r /= 2;
     }
     return r;
   }
+
+  // A floor for the halving above: a sheet this coarse is a blur, but the
+  // loop ends for any finite size.
+  static const double _smallest = 1 / 1024;
 
   /// Lets go of every image.
   void clear() {

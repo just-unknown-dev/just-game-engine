@@ -18,10 +18,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart' show SchedulerBinding;
 
 import 'output_camera.dart';
-
-export 'camera_effects.dart';
 
 /// A widget that wraps [child] with scroll-wheel and on-screen +/− zoom
 /// controls that operate a [Camera] without rebuilding the child.
@@ -99,6 +98,25 @@ class _GameCameraControlsState extends State<GameCameraControls> {
   void initState() {
     super.initState();
     _zoomNotifier = ValueNotifier<double>(widget.camera.zoom);
+    SchedulerBinding.instance.addPostFrameCallback(_watchZoom);
+  }
+
+  @override
+  void didUpdateWidget(GameCameraControls oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.camera, widget.camera)) {
+      _zoomNotifier.value = widget.camera.zoom;
+    }
+  }
+
+  /// After every frame drawn, the zoom as the camera has it now: a camera
+  /// brain or the game may have changed it, and the readout and the
+  /// buttons' limits follow. A frame is drawn anyway while the game runs,
+  /// so this asks for none of its own.
+  void _watchZoom(Duration _) {
+    if (!mounted) return;
+    _zoomNotifier.value = widget.camera.zoom;
+    SchedulerBinding.instance.addPostFrameCallback(_watchZoom);
   }
 
   @override

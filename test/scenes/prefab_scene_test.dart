@@ -109,7 +109,7 @@ void main() {
   test('an instance moved in the scene carries what is inside it', () {
     world = worldWith({});
     world.context.overrideLoaders(prefabs: (_) async => _crateFile);
-    return PrefabLibrary.of(world.context).load(_crate).then((_) {
+    return world.context.prefabLibrary.load(_crate).then((_) {
       SceneLoader.load(world, {
         'version': SceneFormat.current,
         'entities': [
@@ -132,7 +132,7 @@ void main() {
 
   test('a spawner places a prefab at the spawn point, the rest along with it', () async {
     world = worldWith({_crate: _crateFile.encode()});
-    await PrefabLibrary.of(world.context).load(_crate);
+    await world.context.prefabLibrary.load(_crate);
     final point = world.createEntityWithComponents([
       TransformComponent(position: Vector3(100, 50, 0)),
       SpawnComponent(spawner: 'crate'),
@@ -157,7 +157,7 @@ void main() {
     final instance = ghost.getComponent<PrefabInstanceComponent>()!;
     expect(instance.missing, isTrue);
     expect(instance.block.removed, ['x'], reason: 'kept, to save as it was');
-    expect(() => PrefabLibrary.of(world.context).instantiate(world, 'assets/prefabs/ghost.prefab.json'), throwsStateError);
+    expect(() => world.context.prefabLibrary.instantiate(world, 'assets/prefabs/ghost.prefab.json'), throwsStateError);
   });
 
   test('an editor points the prefab seam at its own files, and back', () async {
@@ -169,12 +169,12 @@ void main() {
         return _crateFile;
       },
     );
-    final file = await PrefabLibrary.of(world.context).load(_crate);
+    final file = await world.context.prefabLibrary.load(_crate);
     expect(file.name, 'Crate');
     expect(read, [_crate]);
     override.restore();
-    PrefabLibrary.of(world.context).reload(_crate);
-    expect(() => PrefabLibrary.of(world.context).load(_crate), throwsA(anything), reason: 'the bundle has none');
+    world.context.prefabLibrary.reload(_crate);
+    expect(() => world.context.prefabLibrary.load(_crate), throwsA(anything), reason: 'the bundle has none');
   });
 
   test('a prefab written in an older scene format is brought up to date', () async {
@@ -193,7 +193,7 @@ void main() {
       ],
     );
     world = worldWith({'assets/prefabs/old.prefab.json': old.encode()});
-    final file = await PrefabLibrary.of(world.context).load('assets/prefabs/old.prefab.json');
+    final file = await world.context.prefabLibrary.load('assets/prefabs/old.prefab.json');
     final types = file.root.components.map((c) => c['type']);
     expect(types, containsAll(['RigidBody2DComponent', 'Collider2DComponent']));
     expect(types, isNot(contains('PhysicsBodyComponent')));

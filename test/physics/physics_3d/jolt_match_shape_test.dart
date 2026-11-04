@@ -80,7 +80,7 @@ void main() {
     final row = world.createEntityWithComponents([
       TransformComponent(position: Vector3(0, -3, 0)),
       _Row(),
-      Collider3DComponent(shape: ColliderShape3D.matchShape),
+      Collider3DComponent(shape: Collider3DShape.matchShape),
       RigidBody3DComponent(),
     ]);
     run(240);
@@ -93,7 +93,7 @@ void main() {
     final ring = world.createEntityWithComponents([
       TransformComponent(position: Vector3(0, -2, 0)),
       _Ring(),
-      Collider3DComponent(shape: ColliderShape3D.matchShape),
+      Collider3DComponent(shape: Collider3DShape.matchShape),
       RigidBody3DComponent(),
     ]);
     run(300);

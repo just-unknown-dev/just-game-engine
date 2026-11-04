@@ -224,6 +224,32 @@ void main() {
     });
   });
 
+  test('a format 2 track keying a 2-D light\'s colour keys its color', () {
+    final asset = TimelineAsset.fromJson({
+      'formatVersion': 2,
+      'duration': 1.0,
+      'tracks': [
+        {
+          'kind': 'property',
+          'component': 'Light2D',
+          'field': 'colour',
+          'keys': <Object>[],
+        },
+        {
+          'kind': 'property',
+          'component': 'Light2DComponent',
+          'field': 'castsShadows',
+          'keys': <Object>[],
+        },
+      ],
+    });
+    final tracks = asset.tracks.cast<PropertyTrack>();
+    expect(
+      [for (final t in tracks) (t.component, t.field)],
+      [('Light2DComponent', 'color'), ('Light2DComponent', 'castShadows')],
+    );
+  });
+
   group('property access', () {
     late World world;
     setUp(() => world = World(extensions: [BuiltInComponents.extension]));
@@ -573,7 +599,7 @@ void main() {
         ),
       ]);
       world.update(_dt);
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       world.update(0.5);
       expect(xOf(whole), closeTo(25, 1), reason: 'half a second in');
       expect(xOf(half), closeTo(75, 1), reason: 'from 1 s, half a second in');
@@ -598,7 +624,7 @@ void main() {
       ]);
       final player = entity.getComponent<TimelinePlayerComponent>()!;
       world.update(_dt);
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
       world.update(0.25);
       expect(player.time, closeTo(0.25, 0.02));
 
@@ -669,7 +695,7 @@ void main() {
       system = world.systems.whereType<TimelineSystem>().single;
     });
 
-    Future<void> settle() => Future<void>.delayed(Duration.zero);
+    Future<void> settle() => pumpEventQueue();
 
     test('loads a shared asset once and plays it on start', () async {
       final fired = <String>[];
@@ -927,5 +953,5 @@ class _CounterTrack extends TimelineTrack {
 
 class _CounterRunner extends TrackRunner {
   @override
-  void apply(TimelineContext context, double time) => _CounterTrack.applied++;
+  void apply(TrackContext context, double time) => _CounterTrack.applied++;
 }

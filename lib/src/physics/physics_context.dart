@@ -29,7 +29,8 @@ extension ContextPhysics on EngineContext {
   /// The project's collision layers: their names and which collide. Every
   /// `Physics2DSystem` on this context filters its bodies by it, and refilters
   /// them when it is replaced — so an editor changing the grid changes a
-  /// running game.
+  /// running 2-D game. A 3-D world takes the grid as it is made, and keeps
+  /// it: just_physics_engine's 3-D world cannot change its grid later.
   ///
   /// [PhysicsLayers.defaults] until [loadPhysicsLayers] reads the project's
   /// file, which `Engine.initialize` does.

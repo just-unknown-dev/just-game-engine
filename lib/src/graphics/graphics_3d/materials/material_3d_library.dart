@@ -9,11 +9,9 @@ import 'package:just_game_engine_formats/just_game_engine_formats.dart';
 import 'package:just_graphics_engine/assets.dart';
 import 'package:just_graphics_engine/gpu.dart';
 import 'package:just_graphics_engine/renderer.dart';
+import 'package:meta/meta.dart' show internal;
 
 import 'linear_color.dart';
-
-export 'package:just_game_engine_formats/just_game_engine_formats.dart'
-    show MaterialAlpha, MaterialChain, MaterialFile, MaterialKind, MaterialUv;
 
 /// The material files (`*.material.json`) the scene's shapes and models
 /// draw with, read once each and made into GPU materials.
@@ -29,11 +27,16 @@ export 'package:just_game_engine_formats/just_game_engine_formats.dart'
 /// editor shows unsaved edits by [preview]; an entity's own values go on
 /// top through [gpuOf]'s `overrides`. Only what uses a file is made again
 /// when it changes.
+///
+/// What a level no longer uses goes with [retainOnly]; a material made
+/// for an entity's own values goes as soon as the last user that counted
+/// itself ([hold]) lets go of it ([release]).
 final class Material3DLibrary {
   /// A library reading files through [read] and making GPU things with
   /// [uploader].
   Material3DLibrary(this.uploader, this.read);
 
+  /// Makes the GPU materials and uploads the maps.
   final ModelUploader uploader;
 
   /// Reads a project file's bytes (the editor's own reader while editing).
@@ -43,32 +46,52 @@ final class Material3DLibrary {
   final Map<String, _Source> _sources = {};
 
   /// Unsaved edits standing in for files ([preview]).
-  final Map<String, MaterialFile> _previews = {};
+  final Map<String, Material3DFile> _previews = {};
 
   /// What each path draws with, once made.
   final Map<String, _Made> _made = {};
 
-  /// Materials with an entity's values on top, by path and those values.
-  final Map<(String, String), GpuMaterial> _overridden = {};
+  /// The [revision] at which each path last could not be made (its file or
+  /// a parent still being read, or unreadable): asked again before
+  /// anything changes, the answer is the same.
+  final Map<String, int> _unmadeAt = {};
+
+  /// Materials with an entity's values on top, by path and those values;
+  /// the least recently asked for first.
+  final Map<(String, String), _Overridden> _overridden = {};
+
+  /// The key each of [_overridden]'s materials is kept under.
+  final Map<GpuMaterial, (String, String)> _overriddenKeys = Map.identity();
 
   final Map<(String, bool), _Texture> _textures = {};
   final Set<String> _making = {};
   int _revision = 0;
 
-  /// The most overridden materials kept before they are all let go.
+  /// The most materials with an entity's values kept that no user holds;
+  /// past it, the least recently asked for goes.
   static const int maxOverridden = 256;
 
   /// Goes up whenever a material is read, made again or forgotten.
   int get revision => _revision;
 
+  /// Every material path asked for ([fileOf], [gpuOf]) while it is not
+  /// null: the scene renderer sets it while a render provider builds, to
+  /// learn which material files that provider draws with.
+  @internal
+  Set<String>? asked;
+
   /// The material at [path] as it is drawn: its parents laid under it, an
   /// unsaved edit standing in for a file — reading it the first time asked;
   /// null meanwhile, or when it could not be read ([errorOf]).
-  MaterialFile? fileOf(String path) => _madeOf(path)?.file;
+  Material3DFile? fileOf(String path) {
+    asked?.add(path);
+    return _madeOf(path)?.file;
+  }
 
   /// The file at [path] as saved (or as [preview] shows it), not resolved:
   /// a variant's own keys only. Null until read.
-  MaterialFile? sourceOf(String path) => _previews[path] ?? _source(path).file;
+  Material3DFile? sourceOf(String path) =>
+      _previews[path] ?? _source(path).file;
 
   /// Why [path] could not be read; null when it was, or still is being.
   Object? errorOf(String path) => _sources[path]?.error;
@@ -78,23 +101,70 @@ final class Material3DLibrary {
   List<String> problemsOf(String path) => _madeOf(path)?.problems ?? const [];
 
   /// [path]'s GPU material, with what of its maps has arrived and
-  /// [overrides] (an entity's values, by [MaterialFile.animatableKeys])
+  /// [overrides] (an entity's values, by [Material3DFile.animatableKeys])
   /// on top; null until the file is read, or when it is broken.
   GpuMaterial? gpuOf(String path, {Map<String, Object?> overrides = const {}}) {
+    asked?.add(path);
     final made = _madeOf(path);
     if (made == null) return null;
     final shared = made.gpu ??= _make(made, made.file);
     if (overrides.isEmpty) return shared;
     final key = (path, _keyOf(overrides));
-    final known = _overridden[key];
-    if (known != null) return known;
-    if (_overridden.length >= maxOverridden) _overridden.clear();
-    return _overridden[key] = _make(made, made.file.withValues(overrides));
+    final known = _overridden.remove(key);
+    if (known != null) {
+      // Asked for again: the most recent now.
+      _overridden[key] = known;
+      return known.gpu;
+    }
+    if (_overridden.length >= maxOverridden) _evictOverridden();
+    final gpu = _make(made, made.file.withValues(overrides));
+    _overridden[key] = _Overridden(gpu);
+    _overriddenKeys[gpu] = key;
+    return gpu;
+  }
+
+  /// Counts one more user of [material], one [gpuOf] made with an entity's
+  /// values, until it calls [release]. Any other material is not counted.
+  void hold(GpuMaterial material) {
+    final key = _overriddenKeys[material];
+    if (key == null) return;
+    _overridden[key]?.holders++;
+  }
+
+  /// One user of [material] (counted by [hold]) stopped drawing it: once
+  /// none does, it is let go — made again if asked for again.
+  void release(GpuMaterial material) {
+    final key = _overriddenKeys[material];
+    if (key == null) return;
+    final entry = _overridden[key];
+    if (entry == null || entry.holders <= 0 || --entry.holders > 0) return;
+    _overridden.remove(key);
+    _overriddenKeys.remove(material);
+  }
+
+  // Full: the least recently asked for that no user holds goes.
+  void _evictOverridden() {
+    (String, String)? oldest;
+    for (final MapEntry(:key, :value) in _overridden.entries) {
+      if (value.holders > 0) continue;
+      oldest = key;
+      break;
+    }
+    if (oldest == null) return;
+    _overriddenKeys.remove(_overridden.remove(oldest)!.gpu);
+  }
+
+  void _forgetOverridden(bool Function((String, String) key) test) {
+    _overridden.removeWhere((key, value) {
+      if (!test(key)) return false;
+      _overriddenKeys.remove(value.gpu);
+      return true;
+    });
   }
 
   /// Draws [path] as [file] — unsaved edits — until [endPreview]: what uses
   /// it, its variants and the layered materials it is a layer of follow.
-  void preview(String path, MaterialFile file) {
+  void preview(String path, Material3DFile file) {
     if (_previews[path] == file) return;
     _previews[path] = file;
     _changed(path);
@@ -135,7 +205,7 @@ final class Material3DLibrary {
           if (!current()) return;
           try {
             source
-              ..file = MaterialFile.parse(utf8.decode(bytes))
+              ..file = Material3DFile.parse(utf8.decode(bytes))
               ..error = null;
           } on FormatException catch (e) {
             source
@@ -150,7 +220,7 @@ final class Material3DLibrary {
           final file = source.file;
           if (file != null) {
             if (file.isVariant) _source(file.parent);
-            for (final layer in file.layers.take(MaterialFile.maxLayers)) {
+            for (final layer in file.layers.take(Material3DFile.maxLayers)) {
               _source(layer);
             }
           }
@@ -171,10 +241,16 @@ final class Material3DLibrary {
   _Made? _madeOf(String path) {
     final known = _made[path];
     if (known != null) return known;
+    // Could not be made, and nothing has changed since.
+    if (_unmadeAt[path] == _revision) return null;
     if (!_making.add(path)) return null; // a layer that holds itself
     try {
       final pending = <String>[];
-      MaterialFile? lookup(String p) {
+      // Every file looked for, found or not: a parent that is missing now
+      // makes this again once it is there.
+      final asked = <String>{};
+      Material3DFile? lookup(String p) {
+        asked.add(p);
         final preview = _previews[p];
         if (preview != null) return preview;
         final source = _source(p);
@@ -182,17 +258,23 @@ final class Material3DLibrary {
         return source.file;
       }
 
-      final ResolvedMaterial<MaterialFile> resolved;
+      final ResolvedMaterial<Material3DFile> resolved;
       try {
         resolved = MaterialChain.resolve3D(path, lookup);
       } on StateError {
-        return null; // the file itself is being read, or could not be
+        // The file itself is being read, or could not be.
+        _unmadeAt[path] = _revision;
+        return null;
       }
-      if (pending.isNotEmpty) return null; // a parent is still being read
+      if (pending.isNotEmpty) {
+        // A parent is still being read.
+        _unmadeAt[path] = _revision;
+        return null;
+      }
       final file = resolved.value;
-      final deps = {...resolved.chain};
-      final layers = <MaterialFile?>[];
-      for (final layer in file.layers.take(MaterialFile.maxLayers)) {
+      final deps = {...resolved.chain, ...asked};
+      final layers = <Material3DFile?>[];
+      for (final layer in file.layers.take(Material3DFile.maxLayers)) {
         final made = _madeOf(layer);
         layers.add(made?.file);
         deps
@@ -214,14 +296,12 @@ final class Material3DLibrary {
     for (final p in gone) {
       _made.remove(p);
     }
-    if (gone.isNotEmpty) {
-      _overridden.removeWhere((key, _) => gone.contains(key.$1));
-    }
+    if (gone.isNotEmpty) _forgetOverridden((key) => gone.contains(key.$1));
     _revision++;
   }
 
-  GpuMaterial _make(_Made made, MaterialFile file) {
-    final layered = file.kind == MaterialKind.layered;
+  GpuMaterial _make(_Made made, Material3DFile file) {
+    final layered = file.kind == Material3DKind.layered;
     final List<(GpuTexture, GpuSampler)?> maps;
     if (layered) {
       maps = [
@@ -250,12 +330,15 @@ final class Material3DLibrary {
     if (path.isEmpty) return null;
     made.textures.add(path);
     final key = (path, srgb);
-    final known = _textures[key];
-    if (known != null) {
-      final texture = known.texture;
-      return texture == null ? null : (texture, GpuSampler.linearRepeat);
-    }
-    final entry = _textures[key] = _Texture();
+    final texture = (_textures[key] ?? _readMap(key)).texture;
+    return texture == null ? null : (texture, GpuSampler.linearRepeat);
+  }
+
+  /// Starts reading the map [key] names; [showing] is drawn until it
+  /// arrives (what it was, when it is read again).
+  _Texture _readMap((String, bool) key, {GpuTexture? showing}) {
+    final (path, srgb) = key;
+    final entry = _textures[key] = _Texture()..texture = showing;
     unawaited(
       read(path)
           .then((bytes) => uploader.uploadImage(bytes, srgb: srgb))
@@ -276,17 +359,19 @@ final class Material3DLibrary {
             },
           ),
     );
-    return null;
+    return entry;
   }
 
   // A map arrived or went: what draws with it is made again.
   void _textureChanged(String path) {
+    final gone = <String>{};
     for (final e in _made.entries) {
       if (e.value.textures.contains(path)) {
         e.value.gpu = null;
-        _overridden.removeWhere((key, _) => key.$1 == e.key);
+        gone.add(e.key);
       }
     }
+    if (gone.isNotEmpty) _forgetOverridden((key) => gone.contains(key.$1));
     _revision++;
   }
 
@@ -295,7 +380,7 @@ final class Material3DLibrary {
   /// files and the maps are read through [read] too (or taken from a
   /// [preview]). Throws what reading the file's maps or layers throws; a
   /// parent that cannot be read is skipped.
-  Future<GpuMaterial> complete(MaterialFile file) async {
+  Future<GpuMaterial> complete(Material3DFile file) async {
     Future<(GpuTexture, GpuSampler)?> map(
       String path, {
       required bool srgb,
@@ -307,10 +392,10 @@ final class Material3DLibrary {
 
     final resolved = await _resolveNow(file);
     final layers = [
-      for (final l in resolved.layers.take(MaterialFile.maxLayers))
+      for (final l in resolved.layers.take(Material3DFile.maxLayers))
         await _resolveNow(await _readNow(l)),
     ];
-    final maps = resolved.kind == MaterialKind.layered
+    final maps = resolved.kind == Material3DKind.layered
         ? [
             for (var i = 0; i < 4; i++)
               i < layers.length
@@ -327,17 +412,17 @@ final class Material3DLibrary {
     return uploader.material(dataOf(resolved, layers: layers), maps: maps);
   }
 
-  Future<MaterialFile> _readNow(String path) async =>
-      _previews[path] ?? MaterialFile.parse(utf8.decode(await read(path)));
+  Future<Material3DFile> _readNow(String path) async =>
+      _previews[path] ?? Material3DFile.parse(utf8.decode(await read(path)));
 
-  Future<MaterialFile> _resolveNow(MaterialFile file) async {
+  Future<Material3DFile> _resolveNow(Material3DFile file) async {
     if (!file.isVariant) return file;
-    final parents = <String, MaterialFile>{};
+    final parents = <String, Material3DFile>{};
     var at = file.parent;
     while (at.isNotEmpty &&
         !parents.containsKey(at) &&
         parents.length < MaterialChain.maxDepth) {
-      final MaterialFile parent;
+      final Material3DFile parent;
       try {
         parent = await _readNow(at);
       } on Object {
@@ -359,8 +444,44 @@ final class Material3DLibrary {
     final source = _sources[path];
     if (source != null) _load(path, source);
     for (final srgb in const [true, false]) {
-      if (_textures.remove((path, srgb)) != null) _textureChanged(path);
+      final key = (path, srgb);
+      final known = _textures[key];
+      if (known != null) _readMap(key, showing: known.texture);
     }
+  }
+
+  /// Lets go of every material file no path in [keep] is drawn with — not
+  /// one of them, nor a parent or a layer of one — with the maps only they
+  /// use and the materials made from them: what a level no longer uses
+  /// leaves the GPU. Unsaved previews stay. Returns how many files went.
+  int retainOnly(Iterable<String> keep) {
+    final needed = <String>{};
+    final maps = <String>{};
+    void need(String path) {
+      if (path.isEmpty || !needed.add(path)) return;
+      final file = _previews[path] ?? _sources[path]?.file;
+      if (file == null) return;
+      maps.addAll([
+        file.colorMap,
+        file.metalRoughMap,
+        file.normalMap,
+        file.occlusionMap,
+        file.emissionMap,
+      ]);
+      if (file.isVariant) need(file.parent);
+      file.layers.take(Material3DFile.maxLayers).forEach(need);
+    }
+
+    keep.forEach(need);
+    _previews.keys.toList().forEach(need);
+    final before = _sources.length;
+    _sources.removeWhere((path, _) => !needed.contains(path));
+    _made.removeWhere((path, _) => !needed.contains(path));
+    _forgetOverridden((key) => !needed.contains(key.$1));
+    _textures.removeWhere((key, _) => !maps.contains(key.$1));
+    _unmadeAt.clear();
+    _revision++;
+    return before - _sources.length;
   }
 
   /// Lets go of everything, unsaved previews too.
@@ -368,7 +489,9 @@ final class Material3DLibrary {
     _sources.clear();
     _previews.clear();
     _made.clear();
+    _unmadeAt.clear();
     _overridden.clear();
+    _overriddenKeys.clear();
     _textures.clear();
     _revision++;
   }
@@ -377,13 +500,13 @@ final class Material3DLibrary {
   /// maps' tiling, offset and turn on each; a layered one's layers tiled as
   /// each layer file says ([layers], read or null).
   static MaterialData dataOf(
-    MaterialFile file, {
-    List<MaterialFile?> layers = const [],
+    Material3DFile file, {
+    List<Material3DFile?> layers = const [],
   }) {
     final color = Color(file.color);
     final (r, g, b) = LinearColor.of(color);
     final (er, eg, eb) = LinearColor.of(Color(file.emission));
-    final blend = file.alpha == MaterialAlpha.blend;
+    final blend = file.alpha == Material3DAlpha.blend;
     final alpha = color.a * (blend ? file.opacity.clamp(0.0, 1.0) : 1);
     TextureRef ref(int slot) => TextureRef(
       slot,
@@ -406,22 +529,22 @@ final class Material3DLibrary {
       emissiveTexture: file.emissionMap.isEmpty ? null : ref(4),
       emissiveStrength: file.emissionStrength,
       alphaMode: switch (file.alpha) {
-        MaterialAlpha.opaque => AlphaMode.opaque,
-        MaterialAlpha.cutout => AlphaMode.mask,
-        MaterialAlpha.blend => AlphaMode.blend,
+        Material3DAlpha.opaque => AlphaMode.opaque,
+        Material3DAlpha.cutout => AlphaMode.mask,
+        Material3DAlpha.blend => AlphaMode.blend,
       },
       alphaCutoff: file.alphaCutoff,
       doubleSided: file.doubleSided,
       unlit: file.unlit,
-      uvMode: file.uv == MaterialUv.world ? UvMode.world : UvMode.natural,
-      layered: file.kind == MaterialKind.layered,
+      uvMode: file.uv == Material3DUv.world ? UvMode.world : UvMode.natural,
+      layered: file.kind == Material3DKind.layered,
       layerTiling: (tiling(0), tiling(1), tiling(2), tiling(3)),
     );
   }
 }
 
 final class _Source {
-  MaterialFile? file;
+  Material3DFile? file;
   Object? error;
 
   /// Counts reads, so only the newest one lands.
@@ -432,7 +555,7 @@ final class _Made {
   _Made(this.file, this.problems, this.deps, this.layers);
 
   /// What it draws with: resolved, previews shown.
-  final MaterialFile file;
+  final Material3DFile file;
 
   final List<String> problems;
 
@@ -440,7 +563,7 @@ final class _Made {
   final Set<String> deps;
 
   /// Its layers' files, resolved, or null while one is read.
-  final List<MaterialFile?> layers;
+  final List<Material3DFile?> layers;
 
   /// The maps it draws with.
   final Set<String> textures = {};
@@ -450,4 +573,13 @@ final class _Made {
 
 final class _Texture {
   GpuTexture? texture;
+}
+
+final class _Overridden {
+  _Overridden(this.gpu);
+
+  final GpuMaterial gpu;
+
+  /// How many users count it ([Material3DLibrary.hold]).
+  int holders = 0;
 }

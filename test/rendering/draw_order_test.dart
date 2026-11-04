@@ -22,7 +22,7 @@ class _Logged extends Renderable {
   void render(Canvas canvas, Size size) => log.add(name);
 
   @override
-  Rect? getBounds() => null;
+  Rect? get bounds => null;
 }
 
 class _Item extends RenderItem {

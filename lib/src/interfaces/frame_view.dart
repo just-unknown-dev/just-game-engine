@@ -67,7 +67,7 @@ class FrameView {
     camera.projectionMatrixInto(projection);
     camera.viewProjectionInto(viewProjection);
     camera.canvasMatrixInto(canvas);
-    visibleRect = camera.getVisibleBounds();
+    visibleRect = camera.visibleBounds;
     lens = camera.lens;
     isPlanar = camera.isPlanar;
     this.interpolation = interpolation;

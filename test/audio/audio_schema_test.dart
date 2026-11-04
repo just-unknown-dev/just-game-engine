@@ -18,7 +18,7 @@ void main() {
         loop: true,
         volume: 0.7,
         channel: AudioChannel.ambient,
-        is3d: true,
+        is3D: true,
         minDistance: 1.5,
         maxDistance: 18,
         rolloff: AudioRolloff.linear,
@@ -30,7 +30,7 @@ void main() {
     expect(back.loop, isTrue);
     expect(back.volume, 0.7);
     expect(back.channel, AudioChannel.ambient);
-    expect(back.is3d, isTrue);
+    expect(back.is3D, isTrue);
     expect(back.minDistance, 1.5);
     expect(back.maxDistance, 18);
     expect(back.rolloff, AudioRolloff.linear);
@@ -43,7 +43,7 @@ void main() {
       AudioSourceComponent(clipPath: 'assets/audio/ui.wav', pan: -0.5),
     );
     expect(back.pan, -0.5);
-    expect(back.is3d, isFalse);
+    expect(back.is3D, isFalse);
   });
 
   test('a source saved before 3-D settings loads with the defaults', () {
@@ -60,7 +60,7 @@ void main() {
             })!
             as AudioSourceComponent;
     expect(back.clipPath, 'assets/audio/old.wav');
-    expect(back.is3d, isFalse);
+    expect(back.is3D, isFalse);
     expect(back.channel, AudioChannel.sfx);
     expect(back.spatial, const AudioSpatial());
   });

@@ -42,7 +42,7 @@ Future<Engine> boot() async {
 }
 ```
 
-- **Starting.** Services start last in `initialize()`, after the world exists, in the order declared. A `Graphics3D` in the config starts before yours, so your services can load models; a `Physics3D` starts after them. A service added to an engine that is already initialized starts at once.
+- **Starting.** Services start last in `initialize()`, after the world exists, in the order they are listed. List `Graphics3D` before any service that loads models as it starts; `Physics3D` starts wherever you list it. A service added to an engine that is already initialized starts at once.
 - **Failing.** A `start` that throws fails `initialize()` with an `EngineInitException` whose `stage` is `service:<Type>`, and the services already started are stopped.
 - **Stopping.** `dispose()` calls every `stop()`, last started first, before the world goes, and its Future completes once all of them have finished. A service must not touch the world after its `stop()` is called.
 - **Context.** `ServiceContext` gives the service its `engine`, the engine's `context`, and `events`, the world's event bus. `events` is read on each call, so never cache the world itself.
@@ -87,7 +87,7 @@ Achievements, sign-in, leaderboards, a currency wallet, an inventory and ads are
 
 ```yaml pubspec.yaml
 dependencies:
-  just_game_engine: ^2.0.0-dev.2
+  just_game_engine: ^2.0.0-dev.4
   just_game_services: ^0.1.0
 ```
 

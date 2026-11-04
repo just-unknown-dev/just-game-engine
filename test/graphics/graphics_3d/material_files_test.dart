@@ -11,6 +11,8 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine_3d.dart';
 import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_graphics_engine/just_graphics_engine.dart'
+    show NullGpuDevice, rendererNullShaders;
 
 import 'fixtures.dart';
 
@@ -20,7 +22,7 @@ const _broken = 'assets/materials/broken.material.json';
 const _mossy = 'assets/materials/mossy_red.material.json';
 const _orphan = 'assets/materials/orphan.material.json';
 
-Uint8List _file(MaterialFile file) =>
+Uint8List _file(Material3DFile file) =>
     Uint8List.fromList(utf8.encode(file.encode()));
 
 void main() {
@@ -33,9 +35,9 @@ void main() {
   setUp(() async {
     service = Graphics3D(device: NullGpuDevice(shaders: rendererNullShaders));
     bundle = TestBundle({
-      _red: _file(const MaterialFile(color: 0xFFFF0000, roughness: 0.2)),
+      _red: _file(const Material3DFile(color: 0xFFFF0000, roughness: 0.2)),
       _tiles: _file(
-        const MaterialFile(uv: MaterialUv.metres, tilingX: 2, tilingY: 2),
+        const Material3DFile(uv: Material3DUv.metres, tilingX: 2, tilingY: 2),
       ),
       _broken: Uint8List.fromList(
         utf8.encode('{"formatVersion": 1, "kind": "glass"}'),
@@ -95,7 +97,7 @@ void main() {
       final (r, g, b, a) = instance.material.data.baseColor;
       expect([r, g, b, a], [1, 0, 0, 1], reason: 'red, made linear');
 
-      bundle.files[_red] = _file(const MaterialFile(roughness: 0.9));
+      bundle.files[_red] = _file(const Material3DFile(roughness: 0.9));
       renderer.materials.reload(_red);
       await until(() => instance.material.data.roughness == 0.9);
     },
@@ -153,15 +155,18 @@ void main() {
 
   test('a layered material: its layers tiled as each says', () {
     final data = Material3DLibrary.dataOf(
-      const MaterialFile(kind: MaterialKind.layered, layers: [_tiles, _red]),
-      layers: const [MaterialFile(tilingX: 4), MaterialFile(tilingX: 0.5)],
+      const Material3DFile(
+        kind: Material3DKind.layered,
+        layers: [_tiles, _red],
+      ),
+      layers: const [Material3DFile(tilingX: 4), Material3DFile(tilingX: 0.5)],
     );
     expect(data.layered, isTrue);
     expect(data.layerTiling, (4.0, 0.5, 1.0, 1.0));
     final world = Material3DLibrary.dataOf(
-      const MaterialFile(
-        uv: MaterialUv.world,
-        alpha: MaterialAlpha.blend,
+      const Material3DFile(
+        uv: Material3DUv.world,
+        alpha: Material3DAlpha.blend,
         opacity: 0.5,
       ),
     );
@@ -171,7 +176,7 @@ void main() {
   });
 
   test('transparency as the file says; maps moved and turned', () {
-    final solid = Material3DLibrary.dataOf(const MaterialFile(opacity: 0.5));
+    final solid = Material3DLibrary.dataOf(const Material3DFile(opacity: 0.5));
     expect(
       solid.alphaMode,
       AlphaMode.opaque,
@@ -179,8 +184,8 @@ void main() {
     );
     expect(solid.baseColor.$4, 1);
     final cut = Material3DLibrary.dataOf(
-      const MaterialFile(
-        alpha: MaterialAlpha.cutout,
+      const Material3DFile(
+        alpha: Material3DAlpha.cutout,
         alphaCutoff: 0.3,
         occlusionStrength: 0.4,
         tilingX: 2,
@@ -212,7 +217,7 @@ void main() {
     expect(renderer.materials.sourceOf(_mossy)!.isVariant, isTrue);
     expect(renderer.materials.fileOf(_mossy)!.isVariant, isFalse);
 
-    bundle.files[_red] = _file(const MaterialFile(roughness: 0.9));
+    bundle.files[_red] = _file(const Material3DFile(roughness: 0.9));
     renderer.materials.reload(_red);
     await until(() => instance.material.data.roughness == 0.9);
     expect(instance.material.data.metallic, 1, reason: 'its own still');
@@ -245,7 +250,7 @@ void main() {
           mossy.material.data.metallic == 1,
     );
 
-    renderer.materials.preview(_red, const MaterialFile(roughness: 0.5));
+    renderer.materials.preview(_red, const Material3DFile(roughness: 0.5));
     expect(renderer.materials.isPreviewing(_red), isTrue);
     renderer.update(view);
     expect(crate.material.data.roughness, 0.5);
@@ -267,7 +272,7 @@ void main() {
     renderer.update(view);
     final instance = renderer.debugShapeInstances.single!;
     await until(() => instance.material.data.roughness == 0.2);
-    bundle.files[_red] = _file(const MaterialFile(roughness: 0.9));
+    bundle.files[_red] = _file(const Material3DFile(roughness: 0.9));
     renderer.materials.reload(_red);
     renderer.update(view);
     expect(

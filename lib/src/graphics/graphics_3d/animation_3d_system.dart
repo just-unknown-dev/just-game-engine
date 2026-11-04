@@ -7,10 +7,12 @@ import 'package:just_graphics_engine/assets.dart';
 import 'package:just_graphics_engine/renderer.dart';
 
 import '../../ecs/ecs.dart';
-import 'graphics_components.dart';
+import 'model_components.dart';
 import 'graphics_models.dart';
 
-/// Poses to blend through while sampling a player: one set per model.
+/// Poses to blend through while sampling a player: one set per model. It
+/// also remembers what was last sampled, so a pose that would come out the
+/// same is not worked out again ([samplePlayer]'s `skipUnchanged`).
 final class PlayerScratch {
   /// Scratch for a model of [nodeCount] nodes.
   PlayerScratch(int nodeCount) : a = Pose(nodeCount), b = Pose(nodeCount);
@@ -20,40 +22,129 @@ final class PlayerScratch {
 
   /// What fades out is built here.
   final Pose b;
+
+  // What was last sampled, and into which pose.
+  Pose? _pose;
+  bool _blending = false;
+  String _clip = '';
+  double _at = double.nan;
+  final List<String> _clips = [];
+  final List<double> _weights = [];
+  final List<double> _speeds = [];
+  bool _fading = false;
+  double _fade = double.nan;
+  String _from = '';
+  double _fromAt = double.nan;
+  final List<String> _fromClips = [];
+  final List<double> _fromWeights = [];
+  final List<double> _fromSpeeds = [];
+
+  /// Remembers that [pose] shows [p] at [at] (its clip's time, or its
+  /// blend's phase); whether that differs from what it last remembered.
+  bool _remember(AnimationPlayerComponent p, Pose pose, double at) {
+    var changed = false;
+    if (!identical(pose, _pose)) {
+      _pose = pose;
+      changed = true;
+    }
+    final blending = p.isBlending;
+    if (blending != _blending || at != _at) {
+      _blending = blending;
+      _at = at;
+      changed = true;
+    }
+    if (blending) {
+      changed = _copy(p.blendClips, _clips) | changed;
+      changed = _copy(p.blendWeights, _weights) | changed;
+      changed = _copy(p.blendSpeeds, _speeds) | changed;
+    } else if (p.playingClip != _clip) {
+      _clip = p.playingClip;
+      changed = true;
+    }
+    final fading = p.isFading;
+    if (fading != _fading) {
+      _fading = fading;
+      changed = true;
+    }
+    if (!fading) return changed;
+    final fromBlend = p.fadingFromBlend.isNotEmpty;
+    final fromAt = fromBlend ? p.fadingFromPhase : p.fadingFromTime;
+    if (p.fade != _fade || p.fadingFrom != _from || fromAt != _fromAt) {
+      _fade = p.fade;
+      _from = p.fadingFrom;
+      _fromAt = fromAt;
+      changed = true;
+    }
+    changed = _copy(p.fadingFromBlend, _fromClips) | changed;
+    changed = _copy(p.fadingFromWeights, _fromWeights) | changed;
+    return _copy(p.fadingFromSpeeds, _fromSpeeds) | changed;
+  }
+
+  /// Makes [kept] hold what [now] holds; whether it differed.
+  static bool _copy<T>(List<T> now, List<T> kept) {
+    var same = now.length == kept.length;
+    for (var i = 0; same && i < now.length; i++) {
+      same = now[i] == kept[i];
+    }
+    if (same) return false;
+    kept
+      ..clear()
+      ..addAll(now);
+    return true;
+  }
 }
 
 /// Writes into [pose] what [player] shows, [alpha] of the way from its
 /// previous update to its latest: its clip or blend, blended with what is
-/// fading out. Nodes no clip moves keep [model]'s rest pose.
-void samplePlayer(
+/// fading out. Nodes no clip moves keep [model]'s rest pose. A time past a
+/// clip's ends is wrapped into it when it loops, else held at the end.
+///
+/// With [skipUnchanged] it writes nothing, and returns false, when [pose]
+/// already holds this — the same clips at the same times, as [scratch]
+/// remembers them from its last call; otherwise it returns true.
+bool samplePlayer(
   AnimationPlayerComponent player,
   GpuModel model,
   Pose pose,
   PlayerScratch scratch, {
   double alpha = 1,
+  bool skipUnchanged = false,
 }) {
-  if (player.isBlending) {
-    final phase = _blendPhaseAt(player, alpha);
+  final blending = player.isBlending;
+  final clip = blending ? null : model.clips[player.playingClip];
+  final at = blending
+      ? _inCycle(_blendPhaseAt(player, alpha), 1, player.playingLoop)
+      : clip == null
+      ? 0.0
+      : _inCycle(
+          _timeAt(player, clip.duration, alpha),
+          clip.duration,
+          player.playingLoop,
+        );
+  final changed = scratch._remember(player, pose, at);
+  if (skipUnchanged && !changed) return false;
+  if (blending) {
     _sampleMix(
       model,
       player.blendClips,
       player.blendWeights,
-      phase,
+      player.blendSpeeds,
+      at,
       pose,
       scratch.a,
     );
   } else {
     pose.setRest(model.data);
-    final clip = model.clips[player.playingClip];
-    if (clip != null) clip.sample(_timeAt(player, clip.duration, alpha), pose);
+    clip?.sample(at, pose);
   }
-  if (!player.isFading) return;
+  if (!player.isFading) return true;
   final from = scratch.b;
   if (player.fadingFromBlend.isNotEmpty) {
     _sampleMix(
       model,
       player.fadingFromBlend,
       player.fadingFromWeights,
+      player.fadingFromSpeeds,
       player.fadingFromPhase,
       from,
       scratch.a,
@@ -61,18 +152,21 @@ void samplePlayer(
   } else {
     from.setRest(model.data);
     final clip = model.clips[player.fadingFrom];
-    if (clip == null) return;
+    if (clip == null) return true;
     clip.sample(player.fadingFromTime, from);
   }
   pose.blend(from, pose, player.fade);
+  return true;
 }
 
-/// [clips] weighted by [weights], each at [phase] of its own length, into
-/// [out]; [temp] holds each clip while it is folded in.
+/// [clips] weighted by [weights], each at [phase] of its own length — from
+/// its end, for a motion whose speed in [speeds] is negative — into [out];
+/// [temp] holds each clip while it is folded in.
 void _sampleMix(
   GpuModel model,
   List<String> clips,
   List<double> weights,
+  List<double> speeds,
   double phase,
   Pose out,
   Pose temp,
@@ -82,7 +176,8 @@ void _sampleMix(
     final w = i < weights.length ? weights[i] : 0.0;
     final clip = model.clips[clips[i]];
     if (w <= 1e-4 || clip == null) continue;
-    final at = phase * clip.duration;
+    final backwards = i < speeds.length && speeds[i] < 0;
+    final at = (backwards ? 1 - phase : phase) * clip.duration;
     if (total == 0) {
       out.setRest(model.data);
       clip.sample(at, out);
@@ -127,6 +222,13 @@ double _wrap(double t, double duration) {
   return r < 0 ? r + duration : r;
 }
 
+/// [t] within a cycle [length] long: wrapped into it when it [loop]s,
+/// else held at its ends.
+double _inCycle(double t, double length, bool loop) {
+  if (length <= 0) return 0;
+  return loop ? _wrap(t, length) : t.clamp(0.0, length);
+}
+
 /// Seconds one cycle of a blend lasts: its clips' lengths over their
 /// speeds, weighted.
 ///
@@ -152,7 +254,9 @@ double _cycleOf(
       final wj = j < weights.length ? weights[j] : 0.0;
       if (clips[j] != clips[i] || wj <= 0) continue;
       w += wj;
-      rate += wj * (j < speeds.length && speeds[j] > 0 ? speeds[j] : 1.0);
+      // A motion played backwards goes as fast as one played forwards.
+      final speed = j < speeds.length ? speeds[j].abs() : 1.0;
+      rate += wj * (speed > 0 ? speed : 1.0);
     }
     if (w <= 0) continue;
     // Its weight times its length over its mean speed, rate / w.
@@ -220,40 +324,67 @@ final class Animation3DSystem extends System {
   }
 
   void _advance(AnimationPlayerComponent p, GpuModel? model, double dt) {
+    final blending = p.isBlending;
+    final length = blending
+        ? _cycleOf(model, p.blendClips, p.blendWeights, p.blendSpeeds)
+        : model?.clips[p.playingClip]?.duration ?? 0;
     p
+      ..duration = length
+      // Just started: backwards from its end.
+      ..placeStart(length)
       ..previousTime = p.time
       ..previousPhase = p.phase;
+    if (p.isPlaying && length > 0) _move(p, length, dt);
+    _advanceFade(p, model, dt);
+  }
+
+  /// Moves [p]'s time on by [dt] at its speed: a loop wraps, counting the
+  /// laps; anything else stops at its end — its start, played backwards.
+  static void _move(AnimationPlayerComponent p, double length, double dt) {
+    final backwards = p.playingSpeed < 0;
     if (p.isBlending) {
-      final cycle = _cycleOf(
-        model,
-        p.blendClips,
-        p.blendWeights,
-        p.blendSpeeds,
-      );
-      p.duration = cycle;
-      if (p.isPlaying && cycle > 0) {
-        final next = p.phase + dt * p.playingSpeed / cycle;
-        if (p.playingLoop) {
-          p.cycles += next.floor() - p.phase.floor();
-          p.phase = _wrap(next, 1);
-        } else {
-          p.phase = next.clamp(0.0, 1.0);
-        }
-        p.time = p.phase * cycle;
+      final next = p.phase + dt * p.playingSpeed / length;
+      if (p.playingLoop) {
+        p
+          ..cycles += _laps(p.phase, next, 1, backwards: backwards)
+          ..phase = _wrapFor(next, 1, backwards: backwards);
+      } else {
+        p.phase = next.clamp(0.0, 1.0);
       }
-    } else {
-      final duration = model?.clips[p.playingClip]?.duration ?? 0;
-      p.duration = duration;
-      if (p.isPlaying && duration > 0) {
-        final t = p.time + dt * p.playingSpeed;
-        if (p.playingLoop) {
-          p.cycles += (t / duration).floor() - (p.time / duration).floor();
-          p.time = _wrap(t, duration);
-        } else {
-          p.time = t.clamp(0.0, duration);
-        }
-      }
+      p.time = p.phase * length;
+      return;
     }
+    final t = p.time + dt * p.playingSpeed;
+    if (p.playingLoop) {
+      p
+        ..cycles += _laps(p.time, t, length, backwards: backwards)
+        ..time = _wrapFor(t, length, backwards: backwards);
+    } else {
+      p.time = t.clamp(0.0, length);
+    }
+  }
+
+  /// How many times time going from [from] to [to] passed a loop's end,
+  /// [length] long, the way it plays.
+  static int _laps(
+    double from,
+    double to,
+    double length, {
+    required bool backwards,
+  }) => backwards
+      ? (from / length).ceil() - (to / length).ceil()
+      : (to / length).floor() - (from / length).floor();
+
+  /// [t] within a loop [length] long: 0 up to (not including) [length]
+  /// forwards; above 0 up to [length] backwards, so a backwards loop that
+  /// lands on its start counts the lap and goes on from its end.
+  static double _wrapFor(double t, double length, {required bool backwards}) {
+    final r = _wrap(t, length);
+    return backwards && r == 0 ? length : r;
+  }
+
+  /// Moves what fades out on by [dt], and the fade.
+  void _advanceFade(AnimationPlayerComponent p, GpuModel? model, double dt) {
     if (p.fade < 1) {
       final seconds = p.fadeSeconds;
       p.fade = seconds <= 0 ? 1 : math.min(1, p.fade + dt / seconds);

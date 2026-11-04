@@ -18,9 +18,9 @@ class _Counting extends EnginePlugin {
   Future<void> attach(Engine engine) async => attached++;
 
   @override
-  void update(double dt) {
+  void update(double deltaTime) {
     ticks++;
-    time += dt;
+    time += deltaTime;
   }
 
   @override

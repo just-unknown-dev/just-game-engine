@@ -7,8 +7,10 @@ import '../../ecs/ecs.dart';
 /// What a joint holds its entity's body to — in step with the 3-D
 /// `Joint3DComponent`. The joint is on one entity (A, which has a body: a
 /// [RigidBody2DComponent] and a [Collider2DComponent]) and names the other ([connectedBody],
-/// B). `PhysicsJointBindingSystem` makes it once both bodies exist, and
-/// again when a setting changes.
+/// B). `Physics2DSystem` makes it once both bodies exist, and again when
+/// a setting changes ([Physics2DJoints]). Which of [anchor],
+/// [connectedAnchor] and [collideConnected] the physics engine takes, for
+/// which joint, is said there.
 abstract class Joint2DComponent extends Component {
   /// A joint to [connectedBody].
   Joint2DComponent({

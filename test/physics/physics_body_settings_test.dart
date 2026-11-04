@@ -9,6 +9,7 @@ import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_game_engine_formats/just_game_engine_formats.dart' show V7ToV8;
 
 void main() {
   group('PhysicsLayers', () {
@@ -231,7 +232,7 @@ void main() {
       expect(rigid.layer, 1);
       expect(rigid.collidesWith, 1);
       expect(rigid.linearDamping, 0.98, reason: "v7's default drag, kept");
-      expect(collider.shape, ColliderShape2D.circle);
+      expect(collider.shape, Collider2DShape.circle);
       expect(collider.radius, 8);
     });
   });
@@ -293,10 +294,10 @@ void main() {
       })[1]['fields'] as Map;
       expect(capsule['height'], 28.0);
       expect((capsule['rotation'] as double).abs(), closeTo(math.pi / 2, 1e-9));
-      final shape = ColliderGeometry.shapeOf(
+      final shape = Collider2DGeometry.shapeOf(
         BuiltInComponents.registry().decode({'type': 'Collider2DComponent', 'fields': capsule}) as Collider2DComponent,
       )!;
-      final placed = ColliderGeometry.build(shape, rotation: capsule['rotation'] as double) as CapsuleShape;
+      final placed = Collider2DGeometry.build(shape, rotation: capsule['rotation'] as double) as CapsuleShape;
       expect(placed.center1.dx.abs(), closeTo(10, 1e-9), reason: 'lying as it was');
       expect(placed.center1.dy, closeTo(0, 1e-9));
     });
@@ -374,9 +375,9 @@ void main() {
     expect(back.layer, 5);
     expect(back.collidesWith, 0x21);
 
-    final collider = Collider2DComponent(shape: ColliderShape2D.circle, radius: 6, offset: const Offset(3, -4));
+    final collider = Collider2DComponent(shape: Collider2DShape.circle, radius: 6, offset: const Offset(3, -4));
     final c = registry.decode(jsonDecode(jsonEncode(registry.encode(collider)))) as Collider2DComponent;
-    expect((c.shape, c.radius, c.offset), (ColliderShape2D.circle, 6.0, const Offset(3, -4)));
+    expect((c.shape, c.radius, c.offset), (Collider2DShape.circle, 6.0, const Offset(3, -4)));
 
     final grid = registry.decode(jsonDecode(jsonEncode(registry.encode(RigidBody2DComponent())))) as RigidBody2DComponent;
     expect(grid.collidesWith, isNull);
@@ -386,65 +387,71 @@ void main() {
     expect(grid.angularDamping, 0.05);
   });
 
-  group('ColliderGeometry', () {
+  group('Collider2DGeometry', () {
     test('an off-centre box is a polygon, a centred one stays a box', () {
-      final moved = ColliderGeometry.build(
+      final moved = Collider2DGeometry.build(
         RectangleShape(10, 4),
         offset: const Offset(5, 0),
       );
       expect(moved, isNot(isA<RectangleShape>()));
       expect(
-        ColliderGeometry.boundsOf(moved),
+        Collider2DGeometry.boundsOf(moved),
         const Rect.fromLTRB(0, -2, 10, 2),
       );
       expect(
-        ColliderGeometry.build(RectangleShape(10, 4), sx: 2),
+        Collider2DGeometry.build(RectangleShape(10, 4), sx: 2),
         isA<RectangleShape>().having((r) => r.width, 'width', 20),
       );
     });
 
     test('a circle grows by the larger factor; a mirrored polygon keeps '
         'its winding', () {
-      final c = ColliderGeometry.build(CircleShape(5), sx: 2, sy: 3);
+      final c = Collider2DGeometry.build(CircleShape(5), sx: 2, sy: 3);
       expect((c as CircleShape).radius, 15);
       final tri = PolygonShape(const [
         Offset(0, 0),
         Offset(10, 0),
         Offset(0, 10),
       ]);
-      final m = ColliderGeometry.build(tri, sx: -1) as PolygonShape;
+      final m = Collider2DGeometry.build(tri, sx: -1) as PolygonShape;
       expect(m.vertices, const [Offset(0, 10), Offset(-10, 0), Offset(0, 0)]);
     });
 
     test("a collider's shape: its own fields, turned, its own scale", () {
-      final box = ColliderGeometry.of(Collider2DComponent(size: Vector2(10, 4), rotation: math.pi / 2))!;
-      final bounds = ColliderGeometry.boundsOf(box);
+      final box = Collider2DGeometry.of(Collider2DComponent(size: Vector2(10, 4), rotation: math.pi / 2))!;
+      final bounds = Collider2DGeometry.boundsOf(box);
       expect(bounds.width, closeTo(4, 1e-9));
       expect(bounds.height, closeTo(10, 1e-9));
-      final circle = ColliderGeometry.of(Collider2DComponent(shape: ColliderShape2D.circle, radius: 3, scale: Vector2(2, 1)))!;
+      final circle = Collider2DGeometry.of(Collider2DComponent(shape: Collider2DShape.circle, radius: 3, scale: Vector2(2, 1)))!;
       expect((circle as CircleShape).radius, 6);
-      final rounded = ColliderGeometry.of(Collider2DComponent(size: Vector2(20, 10), cornerRadius: 2))!;
-      expect(ColliderGeometry.boundsOf(rounded).width, closeTo(20, 1e-9), reason: 'rounded inside its size');
-      expect(ColliderGeometry.of(Collider2DComponent(shape: ColliderShape2D.polygon, points: const [Offset.zero])), isNull);
+      final rounded = Collider2DGeometry.of(Collider2DComponent(size: Vector2(20, 10), cornerRadius: 2))!;
+      expect(Collider2DGeometry.boundsOf(rounded).width, closeTo(20, 1e-9), reason: 'rounded inside its size');
+      expect(Collider2DGeometry.of(Collider2DComponent(shape: Collider2DShape.polygon, points: const [Offset.zero])), isNull);
     });
 
     test('matching the shape: what the entity draws', () {
       final world = World()..initialize();
       addTearDown(world.dispose);
-      final collider = Collider2DComponent(shape: ColliderShape2D.matchShape);
+      final collider = Collider2DComponent(shape: Collider2DShape.matchShape);
       final e = world.createEntityWithComponents([
         TransformComponent(),
         Circle2DComponent(radius: 12),
         collider,
       ]);
-      expect((ColliderGeometry.shapeOf(collider, entity: e) as CircleShape).radius, 12);
+      expect((Collider2DGeometry.shapeOf(collider, entity: e) as CircleShape).radius, 12);
+      final rectangle = Rectangle2DComponent(width: 30, height: 10);
       final rect = world.createEntityWithComponents([
         TransformComponent(),
-        Rectangle2DComponent(width: 30, height: 10),
+        rectangle,
       ]);
-      expect(ColliderGeometry.visualShapeOf(rect), isA<RectangleShape>());
-      expect(ColliderGeometry.visualKeyOf(rect), ('box', 30.0, 10.0, 0.0));
-      expect(ColliderGeometry.shapeOf(collider), isNull, reason: 'no entity, nothing to match');
+      expect(Collider2DGeometry.visualShapeOf(rect), isA<RectangleShape>());
+      expect(rectangle.solidShape2D, const SolidBox2D(30, 10));
+      expect(
+        rectangle.solidShape2D,
+        same(rectangle.solidShape2D),
+        reason: 'asked again unchanged, nothing is made',
+      );
+      expect(Collider2DGeometry.shapeOf(collider), isNull, reason: 'no entity, nothing to match');
     });
   });
 
@@ -487,7 +494,7 @@ void main() {
             collidesWith: collidesWith,
             lockRotation: true,
           ),
-          Collider2DComponent(shape: ColliderShape2D.circle, radius: 10),
+          Collider2DComponent(shape: Collider2DShape.circle, radius: 10),
         ], name: 'ball');
 
     double run(Entity e, [int frames = 90]) {
@@ -562,7 +569,7 @@ void main() {
         TransformComponent(),
         rect,
         RigidBody2DComponent(bodyType: BodyType.static),
-        Collider2DComponent(shape: ColliderShape2D.matchShape),
+        Collider2DComponent(shape: Collider2DShape.matchShape),
       ]);
       final b = ball();
       expect(run(b), closeTo(-20, 1));
@@ -577,7 +584,7 @@ void main() {
           TransformComponent(position: Vector3(0, 0, 0)),
           VelocityComponent(),
           RigidBody2DComponent(gravityScale: 0, initialVelocity: const Offset(120, 0)),
-          Collider2DComponent(shape: ColliderShape2D.circle, radius: 5),
+          Collider2DComponent(shape: Collider2DShape.circle, radius: 5),
         ]);
         for (var i = 0; i < 30; i++) {
           world.update(1 / 60);
@@ -594,7 +601,7 @@ void main() {
       final e = world.createEntityWithComponents([
         TransformComponent(),
         rigid,
-        Collider2DComponent(shape: ColliderShape2D.circle, radius: 5),
+        Collider2DComponent(shape: Collider2DShape.circle, radius: 5),
       ]);
       world.update(1 / 60);
       rigid.setVelocity(const Offset(60, 0));
@@ -619,12 +626,12 @@ void main() {
         collider,
       ]);
       final square = crate(0, Collider2DComponent(size: Vector2(100, 100)));
-      final ball = crate(0, Collider2DComponent(shape: ColliderShape2D.circle, radius: 10));
+      final ball = crate(0, Collider2DComponent(shape: Collider2DShape.circle, radius: 10));
       final set = crate(3, Collider2DComponent(size: Vector2(100, 100)));
       world.update(1 / 60);
       double massOf(Entity e) => e.getComponent<PhysicsBodyRefComponent>()!.body.mass;
       expect(massOf(square), closeTo(1000, 1e-6), reason: 'a 1 m square weighs what a 1 m cube does');
-      expect(massOf(ball), closeTo(math.pi * 100 * Physics2DSystem.autoMassPerSquareUnit, 1e-6));
+      expect(massOf(ball), closeTo(math.pi * 100 * Collider2DGeometry.autoMassPerSquareUnit, 1e-6));
       expect(massOf(set), 3, reason: 'a mass that is set is kept');
     });
 
@@ -709,16 +716,17 @@ void main() {
 
     test('the outline says what kind of body it is', () {
       RigidBody2DComponent b(BodyType t, {bool sensor = false}) => RigidBody2DComponent(bodyType: t, isSensor: sensor);
+      final debugger = ColliderDebuggerSystem();
       final kinds = {
         for (final t in BodyType.values)
-          t: Physics2DSystem.debugPaintFor(b(t)).color,
+          t: debugger.paintFor(b(t)).color,
       };
       expect(kinds.values.toSet(), hasLength(3));
       expect(
-        Physics2DSystem.debugPaintFor(b(BodyType.static, sensor: true)).color,
+        debugger.paintFor(b(BodyType.static, sensor: true)).color,
         isNot(kinds[BodyType.static]),
       );
-      expect(Physics2DSystem.debugPaintFor(null).color, kinds[BodyType.static], reason: 'a collider alone is static');
+      expect(debugger.paintFor(null).color, kinds[BodyType.static], reason: 'a collider alone is static');
     });
   });
 }

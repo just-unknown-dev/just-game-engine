@@ -44,7 +44,7 @@ void main() {
   test('Collider2DComponent keeps its shape, placement and one-way side', () {
     final back = roundTrip(
       Collider2DComponent(
-        shape: ColliderShape2D.capsule,
+        shape: Collider2DShape.capsule,
         radius: 6,
         height: 30,
         offset: const Offset(2, 3),
@@ -55,7 +55,7 @@ void main() {
         points: const [Offset(1, 2), Offset(3, 4)],
       ),
     );
-    expect(back.shape, ColliderShape2D.capsule);
+    expect(back.shape, Collider2DShape.capsule);
     expect((back.radius, back.height), (6.0, 30.0));
     expect(back.offset, const Offset(2, 3));
     expect(back.rotation, 0.5);
@@ -164,7 +164,7 @@ void main() {
     expect(rigid.lockRotation, isTrue);
     expect(rigid.linearDamping, 0.5);
     expect(rigid.restitution, 0.8, reason: 'the default it was saved with');
-    expect(collider.shape, ColliderShape2D.box);
+    expect(collider.shape, Collider2DShape.box);
     expect((collider.size.x, collider.size.y), (32.0, 48.0));
     expect(collider.oneWay, isTrue);
   });

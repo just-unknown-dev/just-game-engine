@@ -78,7 +78,7 @@ void main() {
         expect(view.canvas.storage[i], closeTo(expected.storage[i], 1e-12));
       }
       expect(view.isPlanar, isTrue);
-      expect(view.visibleRect, r.camera.getVisibleBounds());
+      expect(view.visibleRect, r.camera.visibleBounds);
     });
   });
 

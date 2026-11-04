@@ -47,11 +47,14 @@ abstract class DeterministicEffect {
   /// When `true`, [EffectPlayer] resets and replays this effect indefinitely.
   bool loop;
 
-  /// Called once when a non-looping effect reaches [durationTicks].
+  /// Called once when a non-looping effect reaches [durationTicks]. A child
+  /// of a [SequenceEffect], [ParallelEffect] or [RepeatEffect] has it
+  /// called when its part ends (each iteration, in a repeat).
   VoidCallback? onComplete;
 
   /// Called at the boundary of each completed loop iteration when [loop] is
-  /// `true`. Fire custom logic (sound, spawn) at each repeat.
+  /// `true`, and between the iterations of a finite [RepeatEffect]. Fire
+  /// custom logic (sound, spawn) at each repeat.
   VoidCallback? onLoopComplete;
 
   /// An effect lasting [durationTicks] fixed ticks (at least 1, asserted),

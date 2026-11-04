@@ -11,12 +11,13 @@ import 'dart:ui' as ui;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_game_engine/just_game_engine_3d.dart';
+import 'package:just_graphics_engine/just_graphics_engine.dart' show NullGpuDevice, rendererNullShaders;
 
 import 'fixtures.dart';
 
-Future<Uint8List> _png(ui.Color colour) async {
+Future<Uint8List> _png(ui.Color color) async {
   final recorder = ui.PictureRecorder();
-  ui.Canvas(recorder).drawRect(const ui.Rect.fromLTWH(0, 0, 4, 4), ui.Paint()..color = colour);
+  ui.Canvas(recorder).drawRect(const ui.Rect.fromLTWH(0, 0, 4, 4), ui.Paint()..color = color);
   final image = await recorder.endRecording().toImage(4, 4);
   final data = await image.toByteData(format: ui.ImageByteFormat.png);
   image.dispose();

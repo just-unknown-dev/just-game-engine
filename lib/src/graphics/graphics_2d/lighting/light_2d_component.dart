@@ -16,28 +16,30 @@ enum Light2DKind {
 
 /// Lights a 2-D scene that has [Lighting2DComponent] on: sprites, shapes and tile
 /// layers are shaded by it — by the bumps their materials' normal maps draw
-/// — and, where [castsShadows], darkened behind what casts shadows.
+/// — and, where [castShadows], darkened behind what casts shadows.
 ///
 /// Its place is its entity's; a spot shines along the entity's turn.
 class Light2DComponent extends Component {
   /// A light of [kind].
   Light2DComponent({
     this.kind = Light2DKind.point,
-    this.colour = const Color(0xFFFFFFFF),
+    this.color = const Color(0xFFFFFFFF),
     this.intensity = 1,
     this.radius = 240,
     this.height = 48,
     this.falloff = 1.5,
     this.coneAngle = 60,
     this.coneSoftness = 0.25,
-    this.castsShadows = true,
+    this.castShadows = true,
     this.enabled = true,
   });
 
+  /// What kind of light it is: all round its entity, or a cone along its
+  /// turn.
   Light2DKind kind;
 
   /// Its colour; multiplied by [intensity].
-  Color colour;
+  Color color;
 
   /// How bright: 1 lights a surface facing it fully at its centre.
   double intensity;
@@ -60,7 +62,7 @@ class Light2DComponent extends Component {
   double coneSoftness;
 
   /// Whether what casts shadows blocks it.
-  bool castsShadows;
+  bool castShadows;
 
   /// Whether it shines.
   bool enabled;

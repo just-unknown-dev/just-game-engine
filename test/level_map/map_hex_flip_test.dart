@@ -100,7 +100,7 @@ void main() {
 
   test('a stamp on a hexagonal map flips its turned tiles right', () {
     final hex = MapGeometry(
-      orientation: MapOrientation.hexagonal,
+      orientation: LevelMapOrientation.hexagonal,
       tileWidth: 32,
       tileHeight: 28,
       hexSideLength: 14,

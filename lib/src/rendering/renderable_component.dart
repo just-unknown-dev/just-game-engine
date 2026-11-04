@@ -22,6 +22,13 @@ class RenderableComponent extends Component {
   @override
   Type get componentType => RenderableComponent;
 
+  /// Leaving its entity — removed, replaced, or the entity destroyed — the
+  /// renderable lets go of what it holds for drawing
+  /// ([Renderable.dispose]): a text layout, an image it owns. (They used to
+  /// wait for the garbage collector.)
+  @override
+  void onDetach(EntityId entityId) => renderable.dispose();
+
   @override
   String toString() => 'Renderable(${renderable.runtimeType})';
 }

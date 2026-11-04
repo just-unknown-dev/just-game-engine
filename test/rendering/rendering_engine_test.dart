@@ -1,4 +1,5 @@
-// RenderingEngine's own renderables: removal, culling, text bounds.
+// RenderingEngine's frame and what it lets go of; text bounds; world-space
+// bounds; what a renderable lets go of when it leaves its entity.
 
 import 'dart:ui' as ui;
 
@@ -6,94 +7,109 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
-class _Counted extends Renderable {
-  _Counted(this.log, {this.bounds});
-  final List<Renderable> log;
-  Rect? bounds;
+/// A world-space box of 10 × 10 at its position.
+class _Box extends Renderable {
+  int disposed = 0;
 
   @override
-  void render(Canvas canvas, Size size) => log.add(this);
+  bool get boundsAreWorldSpace => true;
 
   @override
-  Rect? getBounds() => bounds;
+  void render(Canvas canvas, Size size) {}
+
+  @override
+  Rect? get bounds =>
+      Rect.fromCenter(center: position.toOffset(), width: 10, height: 10);
+
+  @override
+  void dispose() => disposed++;
+}
+
+/// Draws the frame image it is handed, and keeps it.
+class _Keeping implements ScreenPass {
+  final List<ui.Image> frames = [];
+
+  @override
+  bool get active => true;
+
+  @override
+  ui.ImageFilter? filter(ui.Size size, double pixelRatio) => null;
+
+  @override
+  void paint(ui.Canvas canvas, ui.Image frame, ui.Size size, double ratio) {
+    frames.add(frame);
+    canvas.drawImage(frame, Offset.zero, Paint());
+  }
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late RenderingEngine rendering;
-  late List<Renderable> drawn;
 
   setUp(() {
-    drawn = [];
     rendering = RenderingEngine()
-      ..camera = Camera(viewportSize: const Size(800, 600));
+      ..camera = Camera(viewportSize: const Size(800, 600))
+      ..pixelRatio = 1;
     rendering.initialize();
   });
 
   void frame() =>
       rendering.render(Canvas(ui.PictureRecorder()), const Size(800, 600));
 
-  test('a renderable moved to another layer, then removed, is gone', () {
-    final r = _Counted(drawn);
-    rendering.addRenderable(r);
-    frame();
-    expect(drawn, [r]);
-    r.layer = 5;
-    rendering.removeRenderable(r);
-    drawn.clear();
-    frame();
-    expect(drawn, isEmpty, reason: 'it used to stay in its old layer');
-    expect(rendering.renderableCount, 0);
-  });
-
-  group('more than 200 renderables', () {
-    late List<_Counted> all;
-
-    setUp(() {
-      all = [
-        for (var i = 0; i < 250; i++)
-          _Counted(drawn, bounds: Rect.fromLTWH(i * 10.0 - 1250, 0, 4, 4)),
-      ];
-      for (final r in all) {
-        rendering.addRenderable(r);
-      }
+  group('the frame', () {
+    test('runs the background, then the overlay hooks, in screen space', () {
+      final log = <String>[];
+      rendering
+        ..backgroundHooks.add((_, _) => log.add('background'))
+        ..overlayHooks.add((_, _) => log.add('world'))
+        ..overlayHooks.add((_, _) => log.add('editor'), order: 100);
+      frame();
+      expect(log, ['background', 'world', 'editor']);
     });
 
-    test('one without bounds is always drawn', () {
-      final unbounded = _Counted(drawn);
-      rendering.addRenderable(unbounded);
+    test('counts what the world reported, and keeps no legacy numbers', () {
+      rendering.overlayHooks.add(
+        (_, _) => rendering.addFrameStats(
+          drawCalls: 3,
+          renderedObjects: 4,
+          culledObjects: 1,
+          batchedSprites: 2,
+        ),
+      );
       frame();
-      expect(rendering.stats['usedSpatialIndex'], isTrue);
-      expect(drawn, contains(unbounded), reason: 'the tree dropped it');
-    });
-
-    test('while things move the tree is not rebuilt, and culling holds', () {
-      frame();
-      final rebuilds = rendering.stats['spatialRebuilds'] as int;
-      for (var f = 0; f < 5; f++) {
-        for (final r in all) {
-          r.bounds = r.bounds!.shift(const Offset(1, 0));
-        }
-        drawn.clear();
-        frame();
-        expect(rendering.stats['usedSpatialIndex'], isFalse);
-        final visible = rendering.camera.getVisibleBounds();
-        expect(drawn.toSet(), {
-          for (final r in all)
-            if (visible.overlaps(r.bounds!)) r,
-        });
-      }
-      expect(rendering.stats['spatialRebuilds'], rebuilds);
-
-      // Still again: the tree comes back.
-      frame();
-      expect(rendering.stats['usedSpatialIndex'], isTrue);
-      expect(rendering.stats['spatialRebuilds'], rebuilds + 1);
+      final stats = rendering.stats;
+      expect(stats['drawCalls'], 4, reason: 'the clear, and the world\'s 3');
+      expect(stats['renderedObjects'], 4);
+      expect(stats['culledObjects'], 1);
+      expect(stats['batchedSprites'], 2);
+      expect(
+        stats.keys,
+        isNot(contains(anyOf('renderables', 'layers', 'usedSpatialIndex'))),
+      );
     });
   });
 
-  test('text laid out for its bounds keeps its faded colour', () async {
+  test('disposing lets go of the frame images the screen passes drew from', () {
+    final pass = _Keeping();
+    rendering.screenPasses.add(pass);
+    frame();
+    frame();
+    expect(pass.frames, hasLength(2));
+    expect(
+      pass.frames.first.debugDisposed,
+      isFalse,
+      reason: 'a frame image is let go one frame later',
+    );
+    rendering.dispose();
+    expect(
+      pass.frames.map((f) => f.debugDisposed),
+      everyElement(isTrue),
+      reason: 'they used to wait for the garbage collector',
+    );
+  });
+
+  group('text', () {
     Future<List<int>> pixels(TextRenderable text) async {
       final recorder = ui.PictureRecorder();
       text.render(Canvas(recorder), Size.zero);
@@ -112,27 +128,45 @@ void main() {
       position: Vector3(100, 30, 0),
     );
 
-    final text = make('Hi');
-    await pixels(text);
-    text.text = 'Hello';
-    text.getBounds();
-    final after = await pixels(text);
+    test('laid out for its bounds keeps its faded colour', () async {
+      final text = make('Hi');
+      await pixels(text);
+      text.text = 'Hello';
+      text.bounds;
+      final after = await pixels(text);
 
-    final fresh = await pixels(make('Hello'));
-    expect(after.any((b) => b != 0), isTrue);
-    expect(
-      after,
-      fresh,
-      reason: 'bounds used to lay it out at full opacity and mark it current',
-    );
+      final fresh = await pixels(make('Hello'));
+      expect(after.any((b) => b != 0), isTrue);
+      expect(
+        after,
+        fresh,
+        reason: 'bounds used to lay it out at full opacity and mark it current',
+      );
+    });
+
+    test('its bounds are never inside out', () {
+      final text = make('Hello')..scale = Vector3(-2, -1, 1);
+      final bounds = text.bounds!;
+      expect(bounds.width, greaterThan(0));
+      expect(bounds.height, greaterThan(0));
+      expect(bounds.center, const Offset(100, 30));
+      final unflipped = (make('Hello')..scale = Vector3(2, 1, 1)).bounds!;
+      expect(bounds, unflipped);
+    });
+
+    test('disposed, it is laid out again when drawn after', () async {
+      final text = make('Hello');
+      final before = await pixels(text);
+      text.dispose();
+      text.dispose();
+      expect(await pixels(text), before);
+    });
   });
 
   group('world-space bounds', () {
     test('every built-in renderable but the custom one says so', () {
       for (final r in <Renderable>[
-        RectangleRenderable(size: const Size(4, 4), fillColor: Colors.red),
-        CircleRenderable(radius: 2, fillColor: Colors.red),
-        LineRenderable(endPoint: const Offset(3, 0), color: Colors.red),
+        Sprite(),
         TextRenderable(text: 'x'),
         RayRenderable(start: Offset.zero, end: const Offset(5, 0)),
         ParticleEmitter(maxParticles: 1),
@@ -145,7 +179,7 @@ void main() {
       );
     });
 
-    test('a synced plain rectangle on screen is not culled', () {
+    test('a synced world-space box on screen is not culled', () {
       final world = World()..initialize();
       addTearDown(world.dispose);
       final camera = Camera(position: Offset.zero, zoom: 1.0)
@@ -156,12 +190,7 @@ void main() {
       final entity = world.createEntityWithComponents([
         TransformComponent(position: Vector3.fromXY(300, 0)),
         CullStateComponent(),
-        RenderableComponent(
-          renderable: RectangleRenderable(
-            size: const Size(10, 10),
-            fillColor: Colors.red,
-          ),
-        ),
+        RenderableComponent(renderable: _Box()),
       ]);
       // A frame draws it — putting it at its entity — then the next update
       // culls.
@@ -172,6 +201,52 @@ void main() {
         isTrue,
         reason: 'its bounds used to be shifted by its position a second time',
       );
+    });
+  });
+
+  group('a renderable leaving its entity', () {
+    test('is disposed when its component is removed', () {
+      final world = World()..initialize();
+      addTearDown(world.dispose);
+      final box = _Box();
+      final entity = world.createEntityWithComponents([
+        TransformComponent(),
+        RenderableComponent(renderable: box),
+      ]);
+      expect(box.disposed, 0);
+      entity.removeComponent<RenderableComponent>();
+      expect(box.disposed, 1);
+    });
+
+    test('is disposed when its entity is destroyed', () {
+      final world = World()..initialize();
+      addTearDown(world.dispose);
+      final box = _Box();
+      final entity = world.createEntityWithComponents([
+        TransformComponent(),
+        RenderableComponent(renderable: box),
+      ]);
+      world.destroyEntity(entity);
+      expect(box.disposed, 1);
+    });
+
+    test('a sprite given its image leaves the image alone', () async {
+      final recorder = ui.PictureRecorder();
+      Canvas(
+        recorder,
+      ).drawRect(const Rect.fromLTWH(0, 0, 2, 2), Paint()..color = Colors.red);
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(2, 2);
+      picture.dispose();
+      addTearDown(image.dispose);
+      final world = World()..initialize();
+      addTearDown(world.dispose);
+      final entity = world.createEntityWithComponents([
+        TransformComponent(),
+        RenderableComponent(renderable: Sprite(image: image)),
+      ]);
+      world.destroyEntity(entity);
+      expect(image.debugDisposed, isFalse);
     });
   });
 }

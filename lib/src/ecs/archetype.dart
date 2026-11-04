@@ -1,4 +1,4 @@
-part of 'ecs.dart';
+part of 'world.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // Archetype – dense storage for entities sharing the same component set

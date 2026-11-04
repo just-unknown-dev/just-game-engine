@@ -16,10 +16,10 @@ GameWidget(
 ```
 
 - **`showFPS`** shows `FPS: n` in the top right corner, from `engine.gameLoop.currentFPS`. It updates about once a second and costs the rest of the widget nothing.
-- **`showDebug`** adds a `ColliderDebuggerSystem` to the world, which outlines every physics body and every `RaycastColliderComponent` through the main camera. It also sets `engine.rendering.debugMode`, which prints the rendering figures (render time, draws, culled objects) in the top left corner. Both go away when `showDebug` turns off.
+- **`showDebug`** adds a `ColliderDebuggerSystem` to the world, which outlines every 2-D collider as simulated (coloured by body kind), every 2-D character and every `RaycastColliderComponent` through the main camera. It also sets `engine.rendering.debugMode`, which prints the rendering figures (render time, draws, culled objects) in the top left corner. Both go away when `showDebug` turns off.
 - **`showTerminal`** enables the developer terminal (below).
 
-In 2.0.0-dev.2, `Physics2DSystem` no longer draws collider outlines unless asked. Turn them on with `engine.world.getSystem<Physics2DSystem>()?.drawsOutlines = true`, and narrow them with `outlineFilter`; a collider's own `showDebugOutline` has the last word. Release builds never draw them.
+`Physics2DSystem` draws nothing: collider outlines come only from a `ColliderDebuggerSystem` in the world. Without `showDebug`, add one yourself, `engine.world.addSystem(ColliderDebuggerSystem(camera: engine.camera.mainCamera))`, and narrow it with `outlineFilter`; a collider's own `showDebugOutline` has the last word. Remove it with `engine.world.removeSystem(...)` to hide them again.
 
 ## The developer terminal
 
@@ -62,7 +62,7 @@ A handler gets the words after the command name and returns a line to print, or 
 | `deltaTime` | The `dt` of the last step: the fixed step times the time scale. |
 | `lastUpdateMs` | Milliseconds the last step's update tasks took together. |
 | `budgetRemainingMs`, `isOverBudget` | The last step measured against a 16.67 ms frame. |
-| `systemTimesMs` | Milliseconds per update task: `input`, `parallax`, `ecs`, and any you registered. Physics is inside `ecs`. |
+| `systemTimesMs` | Milliseconds per update task: `input`, `ecs`, and any you registered. Physics and particles are inside `ecs`. |
 | `scheduler` | `engine.systemManager.schedulerStats`: task count and timings. |
 
 The subsystems' own figures exist only between `initialize()` and `dispose()`; check `engine.isInitialized` first when that can happen.
@@ -70,7 +70,7 @@ The subsystems' own figures exist only between `initialize()` and `dispose()`; c
 - **`engine.world.stats`**: `totalEntities`, `activeEntities`, `systems`, `activeSystems`, `archetypes` (a number that keeps growing points to component churn), `lastUpdateMs`, `lastCommandFlushes`, and `systemTimesMs` with each system's update time by type name, plus `TransformHierarchy`.
 - **`engine.physics.stats`**: `bodyCount`, `awakeBodies`, `lastStepMs` and the pure-Dart engine's broadphase counters. On native platforms, `backend` is `box2d_v3`, or `dart_fallback` when the Box2D library did not load; the web has no `backend` key.
 - **`engine.rendering.stats`**: `lastRenderMs`, `drawCalls`, `renderedObjects`, `culledObjects`, `batchedSprites` and `postProcessPasses` for the whole frame. `world.getSystem<RenderSystem>()?.stats` holds what the world's `RenderSystem` drew.
-- **Live getters**: `engine.gameLoop.currentFPS` and `interpolation`; `engine.time.deltaTime`, `totalTime`, `timeScale` and `frameCount`; `engine.cache.isUsingMemoryFallback`; and `engine.assets.getCacheStats()` for loaded assets and their estimated memory.
+- **Live getters**: `engine.gameLoop.currentFPS` and `interpolation`; `engine.time.deltaTime`, `totalTime`, `timeScale` and `frameCount`; `engine.cache.isUsingMemoryFallback`; and `engine.assets.cacheStats` for loaded assets and their estimated memory.
 
 > **Note:** Timings are measured in debug and profile builds only. In a release build `engine.systemManager.profiling` and `engine.world.profiling` are off and the timings read 0; set them to `true` to measure anyway.
 
@@ -86,7 +86,7 @@ Map<String, dynamic> snapshot(Engine engine) => {
     'rendering': engine.rendering.stats,
     'cacheInMemory': engine.cache.isUsingMemoryFallback,
   },
-  'assets': engine.assets.getCacheStats(),
+  'assets': engine.assets.cacheStats,
 };
 ```
 
@@ -106,6 +106,6 @@ The overlay shows no update or physics timings; draw your own from these maps, f
 | `UnknownComponentTypeException` loading a level | The package that defines the component was not given to `EngineConfig(extensions: ...)`. |
 | The player falls through a map on the first frame | Call `await LevelMaps.preload(world)` after loading the scene. |
 | Your system reads stale input or runs after physics | Its priority: character control belongs at `SystemPriorities.playerControl` (95). |
-| No collider outlines in a debug build | Set `Physics2DSystem.drawsOutlines`, or use `GameWidget(showDebug: true)`. |
+| No collider outlines | Add a `ColliderDebuggerSystem` to the world, or use `GameWidget(showDebug: true)`. |
 | Every timing reads 0 | A release build: see the note above. |
 | No sound on the web until the first click | Expected: browsers keep audio silent until the player interacts. |

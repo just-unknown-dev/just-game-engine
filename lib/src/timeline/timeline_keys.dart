@@ -20,7 +20,8 @@ enum KeyInterpolation {
   eased,
 }
 
-/// How an editor keeps a key's two handles in step. The runtime ignores it.
+/// How an editor keeps a key's two handles in step. The runtime ignores it,
+/// except between colour keys (see [KeyTangent.dv]).
 enum TangentMode {
   /// Recomputed from the neighbouring keys whenever they move.
   auto,
@@ -50,7 +51,9 @@ class KeyTangent {
 
   /// Value from the key's value, in the track's units. On a colour track
   /// it is read as a fraction of the way between the two keys, clamped to
-  /// 0–1 for an out handle and −1–0 for an in handle.
+  /// 0–1 for an out handle and −1–0 for an in handle — and not read at all
+  /// for a [TangentMode.auto] key (an even pace) or a [TangentMode.flat]
+  /// one (easing to rest).
   final double dv;
 
   /// The handle as a two-number list, `[dt, dv]`.
@@ -107,7 +110,8 @@ class TimelineKey {
   final KeyTangent outTangent;
 
   /// How an editor keeps the two handles in step, and whether
-  /// [KeyCurve.withAutoTangents] recomputes them. Playback ignores it.
+  /// [KeyCurve.withAutoTangents] recomputes them. Playback ignores it,
+  /// except between colour keys (see [KeyTangent.dv]).
   final TangentMode tangentMode;
 
   /// The [KeyEasings] name, for [KeyInterpolation.eased].
@@ -342,14 +346,29 @@ class KeyCurve {
 
   /// How far from [a] to [b] the bezier is at [t], as 0–1, reading the
   /// handles' values as fractions of the way — what a colour blends by.
+  ///
+  /// An [TangentMode.auto] handle is an even pace whatever value it holds,
+  /// and a [TangentMode.flat] one eases to rest: a colour key keyed as if
+  /// it were a number has its auto handles in ARGB units, which as
+  /// fractions would mean nothing.
   static double _bezierProgress(TimelineKey a, TimelineKey b, double t) {
+    final span = b.time - a.time;
     if (a.outTangent == KeyTangent.zero && b.inTangent == KeyTangent.zero) {
-      return (t - a.time) / (b.time - a.time);
+      return (t - a.time) / span;
     }
+    // An even pace is a handle as far along in value as it is in time.
+    final double out = switch (a.tangentMode) {
+      TangentMode.auto => a.outTangent.dt.clamp(0.0, span) / span,
+      TangentMode.flat => 0.0,
+      _ => a.outTangent.dv.clamp(0.0, 1.0).toDouble(),
+    };
+    final double into = switch (b.tangentMode) {
+      TangentMode.auto => b.inTangent.dt.clamp(-span, 0.0) / span,
+      TangentMode.flat => 0.0,
+      _ => b.inTangent.dv.clamp(-1.0, 0.0).toDouble(),
+    };
     final s = _solve(a, b, t), i = 1 - s;
-    return 3 * i * i * s * a.outTangent.dv.clamp(0.0, 1.0) +
-        3 * i * s * s * (1 + b.inTangent.dv.clamp(-1.0, 0.0)) +
-        s * s * s;
+    return 3 * i * i * s * out + 3 * i * s * s * (1 + into) + s * s * s;
   }
 
   /// ARGB [a] to [b] by [s], channel by channel.
@@ -367,24 +386,35 @@ class KeyCurve {
 
   // ── Editing helpers (pure; an editor builds a new curve from them) ───────
 
-  /// This curve with [key] added, replacing any key at the same time.
-  KeyCurve withKey(TimelineKey key, {double epsilon = 1e-4}) => KeyCurve([
+  /// This curve with [key] added, replacing any key at the same time, with
+  /// the auto handles recomputed ([withAutoTangents], told [isColor]).
+  KeyCurve withKey(
+    TimelineKey key, {
+    double epsilon = 1e-4,
+    bool isColor = false,
+  }) => KeyCurve([
     for (final k in keys)
       if ((k.time - key.time).abs() > epsilon) k,
     key,
-  ]).withAutoTangents();
+  ]).withAutoTangents(isColor: isColor);
 
   /// This curve without the key at [index] (none removed when it is out of
-  /// range), with the auto handles recomputed.
-  KeyCurve withoutKeyAt(int index) => KeyCurve([
+  /// range), with the auto handles recomputed ([withAutoTangents], told
+  /// [isColor]).
+  KeyCurve withoutKeyAt(int index, {bool isColor = false}) => KeyCurve([
     for (var i = 0; i < keys.length; i++)
       if (i != index) keys[i],
-  ]).withAutoTangents();
+  ]).withAutoTangents(isColor: isColor);
 
   /// Recomputes the handles of every [TangentMode.auto] and
   /// [TangentMode.flat] key from its neighbours: a smooth curve through the
   /// keys that does not overshoot at a peak.
-  KeyCurve withAutoTangents() {
+  ///
+  /// With [isColor] the keys are colours, whose handle values are fractions
+  /// of the way between two keys (see [KeyTangent.dv]): an auto handle is a
+  /// third of the way at a third of the time — an even pace — and a flat
+  /// one eases to rest.
+  KeyCurve withAutoTangents({bool isColor = false}) {
     if (keys.length < 2) return this;
     final out = <TimelineKey>[];
     for (var i = 0; i < keys.length; i++) {
@@ -399,6 +429,16 @@ class KeyCurve {
       final next = i < keys.length - 1 ? keys[i + 1] : null;
       final before = prev == null ? 0.0 : (k.time - prev.time) / 3;
       final after = next == null ? 0.0 : (next.time - k.time) / 3;
+      if (isColor) {
+        final pace = k.tangentMode == TangentMode.auto ? 1 / 3 : 0.0;
+        out.add(
+          k.copyWith(
+            inTangent: KeyTangent(-before, prev == null ? 0 : -pace),
+            outTangent: KeyTangent(after, next == null ? 0 : pace),
+          ),
+        );
+        continue;
+      }
       var slope = 0.0;
       if (k.tangentMode == TangentMode.auto) {
         final from = prev != null && prev.value is num ? prev : null;

@@ -9,6 +9,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
+import 'package:just_game_engine/src/graphics/graphics_2d/materials/material_2d_shapes.dart'
+    show ShapeSheet, ShapeSheets;
 
 /// A square drawn in its own space, counting how often it is drawn.
 final class _Square extends Renderable {
@@ -24,7 +26,23 @@ final class _Square extends Renderable {
   }
 
   @override
-  Rect? getBounds() => const Rect.fromLTWH(-8, -8, 16, 16);
+  Rect? get bounds => const Rect.fromLTWH(-8, -8, 16, 16);
+}
+
+/// A [width] × [height] box drawn in its own space, around its origin.
+final class _Box extends Renderable {
+  _Box(this.width, this.height);
+  final double width, height;
+
+  @override
+  void render(Canvas canvas, Size size) => canvas.drawRect(
+    Rect.fromCenter(center: Offset.zero, width: width, height: height),
+    Paint()..color = const Color(0xFF00FF00),
+  );
+
+  @override
+  Rect? get bounds =>
+      Rect.fromCenter(center: Offset.zero, width: width, height: height);
 }
 
 void main() {
@@ -111,5 +129,49 @@ void main() {
     sheets.clear();
     expect(sheets.sheetCount, 0);
     expect(held.every((image) => image.debugDisposed), isTrue);
+  });
+
+  test('many views a frame each keep their sheet', () {
+    final entity = world.createEntity();
+    final square = _Square();
+    // A zoomed-in view, then an editor's four split panes and its game
+    // preview at another scale: six renders a frame.
+    const scales = [4.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+    for (var frame = 0; frame < 5; frame++) {
+      for (final scale in scales) {
+        sheets.beginFrame();
+        sheets.sheetOf(entity, square, 'look', scale);
+      }
+    }
+    expect(square.draws, 2, reason: 'once a scale, never again');
+  });
+
+  test('a shape too big for an image at 1 is drawn smaller, to fit', () {
+    expect(
+      ShapeSheets.resolutionFor(1, const Rect.fromLTWH(0, 0, 5000, 64)),
+      0.25,
+    );
+    expect(
+      ShapeSheets.resolutionFor(4, const Rect.fromLTWH(0, 0, 1000, 64)),
+      2,
+    );
+    expect(
+      ShapeSheets.resolutionFor(1, const Rect.fromLTWH(0, 0, 2048, 64)),
+      1,
+    );
+
+    final entity = world.createEntity();
+    sheets.beginFrame();
+    final sheet = sheets.sheetOf(entity, _Box(5000, 64), 'look', 1)!;
+    expect(sheet.resolution, 0.25);
+    expect(sheet.image.width, lessThanOrEqualTo(ShapeSheets.maxSide));
+    expect(sheet.image.width, 1250);
+    expect(sheet.image.height, 16);
+  });
+
+  test('a shape too big for any image has no sheet', () {
+    final entity = world.createEntity();
+    sheets.beginFrame();
+    expect(sheets.sheetOf(entity, _Box(1e9, 64), 'look', 1), isNull);
   });
 }

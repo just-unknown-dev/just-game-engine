@@ -3,13 +3,23 @@ import 'package:flutter/painting.dart';
 
 import '../../../ecs/ecs.dart';
 import '../../../foundation/dimensions.dart';
+import 'material_3d_overrides_field_type.dart';
 import 'material_overrides_3d_component.dart';
 
 /// How the 3-D material components are saved and shown in an editor.
 abstract final class Material3DDefinitions {
+  /// The kind of [MaterialOverrides3DComponent.values]: the values an
+  /// entity overrides of its materials.
+  static const Material3DOverridesFieldType overridesType =
+      Material3DOverridesFieldType();
+
+  /// The field types the 3-D material components are saved through,
+  /// registered by `Graphics3D` with its definitions.
+  static const List<FieldType> fieldTypes = [overridesType];
+
   /// [MaterialOverrides3DComponent].
-  static ComponentSchema<MaterialOverrides3DComponent>
-  get materialOverrides3D => ComponentSchema<MaterialOverrides3DComponent>(
+  static ComponentDefinition<MaterialOverrides3DComponent>
+  get materialOverrides3D => ComponentDefinition<MaterialOverrides3DComponent>(
     type: 'MaterialOverrides3DComponent',
     id: 'material_overrides_3d_9a4f2c61',
     create: MaterialOverrides3DComponent.new,
@@ -25,9 +35,9 @@ abstract final class Material3DDefinitions {
       fields: {'values': FieldHint(label: 'Values')},
     ),
     fields: [
-      SchemaField(
+      FieldDefinition(
         name: 'values',
-        kind: MaterialOverridesFieldType.material3D,
+        kind: overridesType,
         read: (c) => Map<Object?, Object?>.of(
           (c as MaterialOverrides3DComponent).values,
         ),
@@ -41,5 +51,5 @@ abstract final class Material3DDefinitions {
   );
 
   /// Every material component.
-  static List<ComponentSchema> get all => [materialOverrides3D];
+  static List<ComponentDefinition> get all => [materialOverrides3D];
 }

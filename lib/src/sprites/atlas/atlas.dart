@@ -28,7 +28,7 @@
 ///
 /// // Create a sprite from a named region
 /// final sprite = atlas.createSprite('hero_idle_0',
-///     position: Offset(100, 200));
+///     position: Vector3(100, 200, 0));
 ///
 /// // Register a runtime clip (code-driven)
 /// atlas.registerClip(AtlasAnimationClip(
@@ -41,6 +41,7 @@
 /// ```
 library;
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -48,15 +49,13 @@ import '../../rendering/sprite.dart';
 import '../../assets/asset_manager.dart';
 import 'package:just_dart/just_dart.dart';
 
-export 'sprite_asset_loader.dart';
-
 part 'sprite_region.dart';
 part 'atlas_animation_clip.dart';
 part 'sprite_atlas_page.dart';
 part 'sprite_atlas.dart';
 part 'atlas_parser.dart';
-part 'texture_packer_parser.dart';
-part 'aseprite_parser.dart';
-part 'grid_sheet_parser.dart';
+part 'texture_packer_atlas_parser.dart';
+part 'aseprite_atlas_parser.dart';
+part 'grid_sheet_atlas_parser.dart';
 part 'atlas_asset.dart';
 part 'atlas_region_sprite.dart';

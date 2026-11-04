@@ -1,6 +1,6 @@
 import '../../ecs/ecs.dart';
 import '../../animation/animation.dart';
-import 'graphics_components.dart';
+import 'model_components.dart';
 
 /// Plays an animator graph's states on a 3-D model's skeleton: an entity
 /// with an [AnimatorComponent], a [ModelComponent] and an
@@ -60,6 +60,8 @@ final class SkeletalAnimationTarget extends AnimationTarget {
     );
   }
 
+  /// Cycles played, the way it plays: a clip played backwards goes from 0
+  /// at its end to 1 at its start.
   @override
   double progress(
     Entity entity,
@@ -67,15 +69,21 @@ final class SkeletalAnimationTarget extends AnimationTarget {
     AnimatorState state,
   ) {
     final p = entity.getComponent<AnimationPlayerComponent>()!;
-    if (p.isBlending) return p.cycles + p.phase;
+    if (p.startPending) return 0;
+    final backwards = p.playingSpeed < 0;
+    if (p.isBlending) return p.cycles + (backwards ? 1 - p.phase : p.phase);
     if (p.duration <= 0) return 0;
-    return p.cycles + p.time / p.duration;
+    final done = backwards ? p.duration - p.time : p.time;
+    return p.cycles + done / p.duration;
   }
 
+  /// Whether a clip that does not loop has reached its end — its start,
+  /// played backwards.
   @override
   bool isComplete(Entity entity, AnimatorState state) {
     final p = entity.getComponent<AnimationPlayerComponent>()!;
-    if (p.playingLoop || p.duration <= 0) return false;
+    if (p.playingLoop || p.duration <= 0 || p.startPending) return false;
+    if (p.playingSpeed < 0) return p.isBlending ? p.phase <= 0 : p.time <= 0;
     return p.isBlending ? p.phase >= 1 : p.time >= p.duration;
   }
 }

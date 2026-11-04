@@ -291,7 +291,7 @@ void main() {
       child
         ..addComponent(RigidBody2DComponent())
         ..addComponent(
-          Collider2DComponent(shape: ColliderShape2D.circle, radius: 2, showDebugOutline: false),
+          Collider2DComponent(shape: Collider2DShape.circle, radius: 2, showDebugOutline: false),
         );
       world.addSystem(Physics2DSystem(physics));
       for (var i = 0; i < 30; i++) {

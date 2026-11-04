@@ -1,4 +1,4 @@
-part of 'ecs.dart';
+part of 'world.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // Entity
@@ -17,15 +17,6 @@ part of 'ecs.dart';
 class Entity {
   /// Unique entity ID
   final EntityId id;
-
-  /// Always 0 for an entity a [World] makes.
-  ///
-  /// It counted reuses of an id slot, but a world no longer reuses ids.
-  @Deprecated(
-    'Entity ids are never reused, so there is no generation to compare; '
-    'use isAlive or World.isEntityAlive. Will be removed in 3.0.',
-  )
-  int generation;
 
   /// Reference to owning world for structural mutations.
   World? _world;
@@ -54,12 +45,7 @@ class Entity {
   String? _name;
 
   /// Create an entity with the given ID.
-  Entity(
-    this.id, {
-    @Deprecated('Entity ids are never reused; there is no generation.')
-    this.generation = 0,
-    String? name,
-  }) : _name = name;
+  Entity(this.id, {String? name}) : _name = name;
 
   /// Whether this entity itself is switched on — the scene's saved
   /// "enabled" flag, which an editor shows and saves.

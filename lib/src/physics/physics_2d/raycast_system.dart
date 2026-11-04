@@ -1,19 +1,21 @@
-/// Ray Casting and Ray Tracing
+/// Ray Casting
 ///
-/// Provides ray-based spatial queries for hit detection, line-of-sight checks,
-/// and multi-bounce ray tracing with surface reflections.
+/// Provides ray-based spatial queries for hit detection and line-of-sight
+/// checks against [RaycastColliderComponent]s.
 ///
 /// Core types:
 /// - [Ray]                      — origin + direction + max-distance descriptor
 /// - [RaycastColliderComponent] — ECS component that marks an entity as hittable
 /// - [RaycastHit]               — single intersection result
-/// - [RaycastSystem]            — ECS system exposing [castRay] / [castRayAll]
-/// - [RayTrace] / [RayTracer]   — multi-bounce reflected trace
+/// - [RaycastSystem]            — ECS system exposing [RaycastSystem.raycast],
+///   [RaycastSystem.raycastAll] and [RaycastSystem.hasLineOfSight]
+///
+/// Multi-bounce traces off reflective colliders are `RayTracer`'s.
 library;
 
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/painting.dart';
 import 'package:just_physics_engine/just_physics_engine.dart' show Ray;
 
 import '../../ecs/ecs.dart';
@@ -59,10 +61,12 @@ class RaycastHit {
 // ===========================================================================
 
 /// ECS system that provides ray-vs-collider intersection tests against every
-/// entity that has a [TransformComponent] and a [RaycastColliderComponent].
+/// entity that has a [TransformComponent] and a [RaycastColliderComponent]
+/// and is active in the hierarchy.
 ///
 /// This system performs **no automatic per-frame work** — it is a pure query
-/// API called on-demand (e.g. when a bullet is fired).
+/// API called on-demand (e.g. when a bullet is fired). Each query walks the
+/// colliders' columns and makes nothing for a collider it misses.
 ///
 /// Usage:
 /// ```dart
@@ -70,7 +74,7 @@ class RaycastHit {
 /// world.addSystem(raycastSys);
 ///
 /// final ray = Ray(origin: playerPos, direction: aimDir);
-/// final hit = raycastSys.castRay(ray, filterTag: 'enemy');
+/// final hit = raycastSys.raycast(ray, filterTag: 'enemy');
 /// if (hit != null) { /* apply damage */ }
 /// ```
 class RaycastSystem extends System {
@@ -84,221 +88,209 @@ class RaycastSystem extends System {
   @override
   void update(double deltaTime) {}
 
-  // ── Geometry helpers ───────────────────────────────────────────────────────
+  /// How far short of its end a line of sight still counts a blocker: a
+  /// collider whose edge is exactly at the end does not block it.
+  static const double _losEpsilon = 1e-6;
 
-  /// Analytic ray–circle intersection.
+  // The last hit's normal, from [_intersect].
+  double _nx = 0, _ny = 0;
+
+  // ── Geometry ───────────────────────────────────────────────────────────
+
+  /// The smallest `t` (0 to [maxDist]) at which the ray from ([ox], [oy])
+  /// along the unit ([dx], [dy]) enters [collider] centred at ([cx], [cy])
+  /// — or, starting inside it, leaves it — with the outward normal there in
+  /// [_nx], [_ny]; -1 on a miss, and always for a collider with no size at
+  /// all, which has nothing to hit.
   ///
-  /// Returns the smallest positive `t` at which [ray] enters the circle
-  /// centred at [centre] with the given [radius], or `null` on a miss or if
-  /// the intersection lies beyond [maxDist].
-  double? _rayCircle({
-    required Offset origin,
-    required Offset dir, // must be normalised
-    required Offset centre,
-    required double radius,
-    required double maxDist,
-  }) {
-    // Vector from circle centre to ray origin
-    final oc = origin - centre;
+  /// A circle when the collider has a radius and no width or height,
+  /// otherwise an axis-aligned box (a missing side its radius either way).
+  double _intersect(
+    double ox,
+    double oy,
+    double dx,
+    double dy,
+    double cx,
+    double cy,
+    RaycastColliderComponent collider,
+    double maxDist,
+  ) {
+    final radius = collider.radius;
+    final width = collider.width, height = collider.height;
+    // No radius, width or height: a point, not a shape.
+    if (radius <= 0 && width <= 0 && height <= 0) return -1;
 
-    // Quadratic coefficients (a = 1 because dir is normalised)
-    final b = 2.0 * (oc.dx * dir.dx + oc.dy * dir.dy);
-    final c = oc.dx * oc.dx + oc.dy * oc.dy - radius * radius;
-    final discriminant = b * b - 4.0 * c;
+    if (radius > 0 && width == 0 && height == 0) {
+      // Circle: (o + d·t − c)² = r², with |d| = 1.
+      final ocx = ox - cx, ocy = oy - cy;
+      final b = 2.0 * (ocx * dx + ocy * dy);
+      final c = ocx * ocx + ocy * ocy - radius * radius;
+      final discriminant = b * b - 4.0 * c;
+      if (discriminant < 0) return -1;
+      final sqrtD = math.sqrt(discriminant);
+      final t0 = (-b - sqrtD) / 2.0;
+      final t1 = (-b + sqrtD) / 2.0;
+      // The nearer entry; the exit when the origin is inside.
+      final t = t0 >= 0 ? t0 : (t1 >= 0 ? t1 : -1.0);
+      if (t < 0 || t > maxDist) return -1;
+      _nx = (ox + dx * t - cx) / radius;
+      _ny = (oy + dy * t - cy) / radius;
+      return t;
+    }
 
-    if (discriminant < 0) return null; // no intersection
-
-    final sqrtD = math.sqrt(discriminant);
-    final t0 = (-b - sqrtD) / 2.0;
-    final t1 = (-b + sqrtD) / 2.0;
-
-    // Prefer the nearer entry point; fall back to exit if origin is inside
-    final tMin = (t0 >= 0) ? t0 : ((t1 >= 0) ? t1 : null);
-    if (tMin == null || tMin > maxDist) return null;
-    return tMin;
-  }
-
-  /// Ray–AABB (axis-aligned bounding box) intersection using the slab method.
-  ///
-  /// Returns the smallest positive `t` at which [origin]+[dir]*t enters [rect],
-  /// or `null` on a miss or if the intersection lies beyond [maxDist].
-  /// Also writes the outward surface normal into [outNormal].
-  double? _rayAABB({
-    required Offset origin,
-    required Offset dir,
-    required Rect rect,
-    required double maxDist,
-    required List<Offset> outNormal,
-  }) {
+    // Box, by the slab method.
+    final halfW = width > 0 ? width / 2 : radius;
+    final halfH = height > 0 ? height / 2 : radius;
+    final left = cx - halfW, right = cx + halfW;
+    final top = cy - halfH, bottom = cy + halfH;
     // A ray parallel to a pair of sides never crosses them: it is between
     // them all along or never. (Dividing by its zero component instead gave
     // 0 × ∞ = NaN for a ray running exactly along a side, and the far side.)
     var txMin = double.negativeInfinity, txMax = double.infinity;
-    if (dir.dx.abs() > 1e-12) {
-      txMin = (rect.left - origin.dx) / dir.dx;
-      txMax = (rect.right - origin.dx) / dir.dx;
+    if (dx.abs() > 1e-12) {
+      txMin = (left - ox) / dx;
+      txMax = (right - ox) / dx;
       if (txMin > txMax) {
         final tmp = txMin;
         txMin = txMax;
         txMax = tmp;
       }
-    } else if (origin.dx < rect.left || origin.dx > rect.right) {
-      return null;
+    } else if (ox < left || ox > right) {
+      return -1;
     }
-
     var tyMin = double.negativeInfinity, tyMax = double.infinity;
-    if (dir.dy.abs() > 1e-12) {
-      tyMin = (rect.top - origin.dy) / dir.dy;
-      tyMax = (rect.bottom - origin.dy) / dir.dy;
+    if (dy.abs() > 1e-12) {
+      tyMin = (top - oy) / dy;
+      tyMax = (bottom - oy) / dy;
       if (tyMin > tyMax) {
         final tmp = tyMin;
         tyMin = tyMax;
         tyMax = tmp;
       }
-    } else if (origin.dy < rect.top || origin.dy > rect.bottom) {
-      return null;
+    } else if (oy < top || oy > bottom) {
+      return -1;
     }
-
-    // No overlap of the slab intervals → miss.
-    if (txMin > tyMax || tyMin > txMax) return null;
-
+    // No overlap of the slab intervals: a miss.
+    if (txMin > tyMax || tyMin > txMax) return -1;
     final tEnter = math.max(txMin, tyMin);
     final tExit = math.min(txMax, tyMax);
-    if (tExit < 0) return null; // AABB is behind the ray
-
-    // Use tEnter if positive (ray starts outside), else tExit (ray starts inside).
+    if (tExit < 0) return -1; // Behind the ray.
+    // Entering when the ray starts outside, leaving when it starts inside.
     final t = tEnter >= 0 ? tEnter : tExit;
-    if (t > maxDist) return null;
-
-    // Determine surface normal from which slab was entered.
+    if (t > maxDist) return -1;
+    // The normal of the side entered.
     if (tEnter == txMin) {
-      outNormal.add(Offset(dir.dx > 0 ? -1.0 : 1.0, 0.0));
+      _nx = dx > 0 ? -1.0 : 1.0;
+      _ny = 0.0;
     } else {
-      outNormal.add(Offset(0.0, dir.dy > 0 ? -1.0 : 1.0));
+      _nx = 0.0;
+      _ny = dy > 0 ? -1.0 : 1.0;
     }
     return t;
   }
 
-  /// Unified ray–collider test.
-  ///
-  /// Tests the ray against the entity's [RaycastColliderComponent] using the
-  /// appropriate geometry (circle for non-zero radius, AABB for [width]/[height]).
-  /// Returns `(t, normal)` or `null` on miss — always for a collider with
-  /// no size at all, which has nothing to hit.
-  ({double t, Offset normal})? _intersect({
-    required Offset origin,
-    required Offset dir,
-    required Offset centre,
-    required RaycastColliderComponent collider,
-    required double maxDist,
-  }) {
-    // No radius, width or height: a point, not a shape.
-    if (collider.radius <= 0 && collider.width <= 0 && collider.height <= 0) {
-      return null;
+  /// Whether ([px], [py]) is inside [collider] centred at ([cx], [cy]) —
+  /// its edge counts as inside.
+  static bool _contains(
+    double px,
+    double py,
+    double cx,
+    double cy,
+    RaycastColliderComponent collider,
+  ) {
+    final radius = collider.radius;
+    final width = collider.width, height = collider.height;
+    if (radius <= 0 && width <= 0 && height <= 0) return false;
+    if (radius > 0 && width == 0 && height == 0) {
+      final x = px - cx, y = py - cy;
+      return x * x + y * y <= radius * radius;
     }
-
-    // Circle collider (default).
-    if (collider.radius > 0 && collider.width == 0 && collider.height == 0) {
-      final t = _rayCircle(
-        origin: origin,
-        dir: dir,
-        centre: centre,
-        radius: collider.radius,
-        maxDist: maxDist,
-      );
-      if (t == null) return null;
-      final hitPoint = origin + dir * t;
-      final normal = (hitPoint - centre) / collider.radius;
-      return (t: t, normal: normal);
-    }
-
-    // AABB collider.
-    final halfW = collider.width > 0 ? collider.width / 2 : collider.radius;
-    final halfH = collider.height > 0 ? collider.height / 2 : collider.radius;
-    final rect = Rect.fromCenter(
-      center: centre,
-      width: halfW * 2,
-      height: halfH * 2,
-    );
-    final normalBuf = <Offset>[];
-    final t = _rayAABB(
-      origin: origin,
-      dir: dir,
-      rect: rect,
-      maxDist: maxDist,
-      outNormal: normalBuf,
-    );
-    if (t == null) return null;
-    return (t: t, normal: normalBuf.first);
+    final halfW = width > 0 ? width / 2 : radius;
+    final halfH = height > 0 ? height / 2 : radius;
+    return (px - cx).abs() <= halfW && (py - cy).abs() <= halfH;
   }
 
-  // ── Public query API ───────────────────────────────────────────────────────
+  // ── Public query API ───────────────────────────────────────────────────
 
   /// Cast [ray] and return the **closest** hit entity, or `null` if no entity
   /// is intersected within `ray.maxDistance`.
   ///
   /// [filterTag] — when non-null only entities whose [RaycastColliderComponent.tag]
   /// matches are considered.
-  RaycastHit? castRay(Ray ray, {String? filterTag}) {
+  RaycastHit? raycast(Ray ray, {String? filterTag}) {
+    final ox = ray.origin.dx, oy = ray.origin.dy;
+    final dx = ray.direction.dx, dy = ray.direction.dy;
+    final maxDist = ray.maxDistance;
     RaycastHit? closest;
-
-    forEach((entity) {
-      final collider = entity.getComponent<RaycastColliderComponent>()!;
-      if (filterTag != null && collider.tag != filterTag) return;
-
-      final centre = entity.getComponent<TransformComponent>()!.position;
-      final result = _intersect(
-        origin: ray.origin,
-        dir: ray.direction,
-        centre: centre.toOffset(),
-        collider: collider,
-        maxDist: ray.maxDistance,
-      );
-      if (result == null) return;
-
-      if (closest == null || result.t < closest!.distance) {
+    for (final archetype in world.queryArchetypes(requiredComponents)) {
+      final transforms = archetype.getColumn(TransformComponent)!;
+      final colliders = archetype.getColumn(RaycastColliderComponent)!;
+      for (var row = 0; row < transforms.length; row++) {
+        final collider = colliders[row] as RaycastColliderComponent;
+        if (filterTag != null && collider.tag != filterTag) continue;
+        final entity = archetype.entityAt(row);
+        if (!entity.isActiveInHierarchy) continue;
+        final centre = (transforms[row] as TransformComponent).position;
+        final t = _intersect(
+          ox,
+          oy,
+          dx,
+          dy,
+          centre.x,
+          centre.y,
+          collider,
+          maxDist,
+        );
+        if (t < 0 || (closest != null && t >= closest.distance)) continue;
         closest = RaycastHit(
           entity: entity,
-          point: ray.at(result.t),
-          distance: result.t,
-          normal: result.normal,
+          point: Offset(ox + dx * t, oy + dy * t),
+          distance: t,
+          normal: Offset(_nx, _ny),
         );
       }
-    });
-
+    }
     return closest;
   }
 
   /// Cast [ray] and return **all** intersected entities, sorted nearest-first.
   ///
-  /// [filterTag] behaves the same as in [castRay].
-  List<RaycastHit> castRayAll(Ray ray, {String? filterTag}) {
+  /// [filterTag] behaves the same as in [raycast].
+  List<RaycastHit> raycastAll(Ray ray, {String? filterTag}) {
+    final ox = ray.origin.dx, oy = ray.origin.dy;
+    final dx = ray.direction.dx, dy = ray.direction.dy;
+    final maxDist = ray.maxDistance;
     final hits = <RaycastHit>[];
-
-    forEach((entity) {
-      final collider = entity.getComponent<RaycastColliderComponent>()!;
-      if (filterTag != null && collider.tag != filterTag) return;
-
-      final centre = entity.getComponent<TransformComponent>()!.position;
-      final result = _intersect(
-        origin: ray.origin,
-        dir: ray.direction,
-        centre: centre.toOffset(),
-        collider: collider,
-        maxDist: ray.maxDistance,
-      );
-      if (result == null) return;
-
-      hits.add(
-        RaycastHit(
-          entity: entity,
-          point: ray.at(result.t),
-          distance: result.t,
-          normal: result.normal,
-        ),
-      );
-    });
-
+    for (final archetype in world.queryArchetypes(requiredComponents)) {
+      final transforms = archetype.getColumn(TransformComponent)!;
+      final colliders = archetype.getColumn(RaycastColliderComponent)!;
+      for (var row = 0; row < transforms.length; row++) {
+        final collider = colliders[row] as RaycastColliderComponent;
+        if (filterTag != null && collider.tag != filterTag) continue;
+        final entity = archetype.entityAt(row);
+        if (!entity.isActiveInHierarchy) continue;
+        final centre = (transforms[row] as TransformComponent).position;
+        final t = _intersect(
+          ox,
+          oy,
+          dx,
+          dy,
+          centre.x,
+          centre.y,
+          collider,
+          maxDist,
+        );
+        if (t < 0) continue;
+        hits.add(
+          RaycastHit(
+            entity: entity,
+            point: Offset(ox + dx * t, oy + dy * t),
+            distance: t,
+            normal: Offset(_nx, _ny),
+          ),
+        );
+      }
+    }
     hits.sort((a, b) => a.distance.compareTo(b.distance));
     return hits;
   }
@@ -306,156 +298,44 @@ class RaycastSystem extends System {
   /// Returns `true` if there is **no** blocking collider between [from] and
   /// [to] (line-of-sight / LOS check).
   ///
-  /// [ignoreTag] — entities with this tag are skipped (e.g. ignore the
-  /// shooter's own collider).
-  bool hasLineOfSight(Offset from, Offset to, {String? ignoreTag}) {
-    final ray = Ray.fromPoints(from, to);
+  /// Only colliders that block ([RaycastColliderComponent.isBlocker]) count,
+  /// and only where they stand between the two points: a collider round
+  /// [from] (the viewer's own) or round [to] (the target's) is looked
+  /// through, as is one whose edge is exactly at [to]. [ignoreTag] —
+  /// colliders with this tag are skipped too; [ignore] — and these
+  /// entities'. The same point twice sees itself.
+  bool hasLineOfSight(
+    Offset from,
+    Offset to, {
+    String? ignoreTag,
+    Set<Entity>? ignore,
+  }) {
     final maxDist = (to - from).distance;
-
-    bool blocked = false;
-    forEach((entity) {
-      if (blocked) return;
-      final collider = entity.getComponent<RaycastColliderComponent>()!;
-      if (ignoreTag != null && collider.tag == ignoreTag) return;
-      if (!collider.isBlocker) return;
-
-      final centre = entity.getComponent<TransformComponent>()!.position;
-      final result = _intersect(
-        origin: ray.origin,
-        dir: ray.direction,
-        centre: centre.toOffset(),
-        collider: collider,
-        maxDist: maxDist,
-      );
-      if (result != null) blocked = true;
-    });
-
-    return !blocked;
-  }
-}
-
-// ===========================================================================
-// RayTrace / RayTracer
-// ===========================================================================
-
-/// A single path segment of a multi-bounce ray trace.
-class RayTraceSegment {
-  /// World-space start of this segment.
-  final Offset from;
-
-  /// World-space end of this segment (the hit point, or the ray terminus if
-  /// [hit] is `null`).
-  final Offset to;
-
-  /// The intersection result at [to], or `null` if the ray missed everything.
-  final RaycastHit? hit;
-
-  /// A segment from [from] to [to]; [hit] is null when it ended without
-  /// hitting anything.
-  const RayTraceSegment({required this.from, required this.to, this.hit});
-}
-
-/// Complete result of a [RayTracer.trace] call.
-///
-/// Contains every path segment produced during the multi-bounce trace.
-class RayTrace {
-  /// Ordered list of path segments (first = initial ray, last = final bounce
-  /// or miss).
-  final List<RayTraceSegment> segments;
-
-  /// A trace made of [segments], first to last.
-  const RayTrace({required this.segments});
-
-  /// Convenience: all non-null [RaycastHit]s across all segments.
-  List<RaycastHit> get hits =>
-      segments.map((s) => s.hit).whereType<RaycastHit>().toList();
-
-  /// Total path length across all segments (world units).
-  double get totalLength =>
-      segments.fold(0.0, (sum, s) => sum + (s.to - s.from).distance);
-}
-
-/// Performs multi-bounce ray tracing against [RaycastColliderComponent] entities
-/// that have [RaycastColliderComponent.isReflective] set to `true`.
-///
-/// Each bounce reflects the ray's direction around the surface normal and
-/// multiplies the remaining distance budget by [RaycastColliderComponent.reflectivity].
-///
-/// Example:
-/// ```dart
-/// final tracer = RayTracer(raycastSystem: raycastSys, maxBounces: 3);
-/// final trace = tracer.trace(Ray(origin: origin, direction: dir));
-/// for (final seg in trace.segments) {
-///   drawBeam(seg.from, seg.to, hitPoint: seg.hit?.point);
-/// }
-/// ```
-class RayTracer {
-  /// The [RaycastSystem] used to query each ray segment.
-  final RaycastSystem raycastSystem;
-
-  /// Maximum number of reflection bounces (0 = no bounces).
-  final int maxBounces;
-
-  /// Minimum surface reflectivity required to produce a bounce (0–1).
-  final double minReflectivity;
-
-  /// A tracer over [raycastSystem]'s colliders that bounces at most 3 times,
-  /// and only off surfaces with a reflectivity of 0.1 or more.
-  RayTracer({
-    required this.raycastSystem,
-    this.maxBounces = 3,
-    this.minReflectivity = 0.1,
-  });
-
-  /// Trace [ray] through the world, bouncing off reflective surfaces.
-  ///
-  /// [filterTag] — when non-null only entities with a matching
-  /// [RaycastColliderComponent.tag] are considered at each segment.
-  RayTrace trace(Ray ray, {String? filterTag}) {
-    final segments = <RayTraceSegment>[];
-    var currentRay = ray;
-
-    for (int bounce = 0; bounce <= maxBounces; bounce++) {
-      final hit = raycastSystem.castRay(currentRay, filterTag: filterTag);
-
-      if (hit == null) {
-        // Ray reached max distance without hitting anything.
-        segments.add(
-          RayTraceSegment(
-            from: currentRay.origin,
-            to: currentRay.at(currentRay.maxDistance),
-          ),
-        );
-        break;
+    if (maxDist == 0) return true; // Nothing lies between a point and itself.
+    final ox = from.dx, oy = from.dy;
+    final dx = (to.dx - ox) / maxDist, dy = (to.dy - oy) / maxDist;
+    final reach = maxDist - _losEpsilon;
+    for (final archetype in world.queryArchetypes(requiredComponents)) {
+      final transforms = archetype.getColumn(TransformComponent)!;
+      final colliders = archetype.getColumn(RaycastColliderComponent)!;
+      for (var row = 0; row < transforms.length; row++) {
+        final collider = colliders[row] as RaycastColliderComponent;
+        if (!collider.isBlocker) continue;
+        if (ignoreTag != null && collider.tag == ignoreTag) continue;
+        final entity = archetype.entityAt(row);
+        if (!entity.isActiveInHierarchy) continue;
+        if (ignore != null && ignore.contains(entity)) continue;
+        final centre = (transforms[row] as TransformComponent).position;
+        final cx = centre.x, cy = centre.y;
+        // The viewer's own collider, or the target's.
+        if (_contains(ox, oy, cx, cy, collider) ||
+            _contains(to.dx, to.dy, cx, cy, collider)) {
+          continue;
+        }
+        final t = _intersect(ox, oy, dx, dy, cx, cy, collider, reach);
+        if (t >= 0) return false;
       }
-
-      segments.add(
-        RayTraceSegment(from: currentRay.origin, to: hit.point, hit: hit),
-      );
-
-      final collider = hit.entity.getComponent<RaycastColliderComponent>()!;
-
-      // Terminate if the surface is non-reflective or we've used all bounces.
-      if (!collider.isReflective ||
-          collider.reflectivity < minReflectivity ||
-          bounce == maxBounces) {
-        break;
-      }
-
-      // Reflect direction: r = d - 2(d·n)n
-      final d = currentRay.direction;
-      final n = hit.normal;
-      final dDotN = d.dx * n.dx + d.dy * n.dy;
-      final reflected = d - Offset(n.dx * 2.0 * dDotN, n.dy * 2.0 * dDotN);
-
-      // Advance the origin slightly past the hit point to avoid self-intersection.
-      currentRay = Ray(
-        origin: hit.point + reflected * 1.0,
-        direction: reflected,
-        maxDistance: currentRay.maxDistance * collider.reflectivity,
-      );
     }
-
-    return RayTrace(segments: segments);
+    return true;
   }
 }

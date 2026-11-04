@@ -9,11 +9,11 @@ const _dt = 1 / 60;
 
 void main() {
   late World world;
-  late CameraSystem cameras;
+  late CameraEngine cameras;
 
   setUp(() {
     world = World();
-    cameras = CameraSystem()..initialize();
+    cameras = CameraEngine()..initialize();
     cameras.mainCamera.viewportSize = const Size(800, 600);
     cameras.brain.defaultBlend = CameraBlend.cut;
     registerCameraSystems(world, cameras);

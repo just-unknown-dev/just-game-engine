@@ -126,9 +126,9 @@ class _PauseMenuView extends GameLayerController {
 |---|---|
 | `OnScreenControls` | Touch sticks and buttons from the input asset, with `OnScreenVisibility`, `OnScreenButtonFace` and `OnScreenStickPainter` to style them. See [Input](/docs/input). |
 | `RebindList`, `RebindButton`, `RebindRow`, `BindingLabel` | A player's controls, each with a button to rebind it. |
-| `DialogueBoxWidget`, `DialogueChoicesWidget` | Lines and choices of a `DialogueRunner`. See [Dialogue](/docs/dialogue). |
+| `DialogueBox`, `DialogueChoices` | Lines and choices of a `DialogueRunner`. See [Dialogue](/docs/dialogue). |
 | `SubtitleOverlay` | The cues of a `SubtitleController`. |
-| `LocalizedText`, `LocalizationBuilder`, `LocaleSelector` | Text and widgets that follow the locale, with `context.t()` from `L10nContext`. |
+| `LocalizedText`, `LocalizationBuilder`, `LocaleSelector` | Text and widgets that follow the locale, with `context.t()` from `BuildContextLocalization`. |
 | `GameCameraControls` | Zoom by mouse wheel, pinch or buttons, and drag to pan. |
 
 For HUDs and menus designed in an editor and saved as `.ui.json` screens, there is the `just_ui_editor` package, which draws its screens through `engine.layers`. It is not published on pub.dev.

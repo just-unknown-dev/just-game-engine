@@ -57,12 +57,13 @@ A system declares `requiredComponents`, implements `update(deltaTime)`, and read
 
 Add one with `world.addSystem(system)`, take it out with `removeSystem`, and find one with `getSystem<T>()` or `hasSystem<T>()`. Adding a system that is already in the world does nothing, and systems may add or remove systems while the world updates.
 
-Systems run by priority, highest first, not in the order you add them; systems of equal priority run in the order they were added. The world places a system by its priority when it is added, so set the priority before adding it (overriding the getter is simplest). The constants are in `SystemPriorities`:
+Systems run by priority, highest first, not in the order you add them; systems of equal priority run in the order they were added. The world places a system by its priority when it is added, so set the priority before adding it (overriding the getter is simplest). The main constants (all of them are in `SystemPriorities`):
 
 | Priority | Constant | What runs |
 |---:|---|---|
 | 110 | `levelMap` | level maps load and update |
 | 108 | `mapCollision` | bodies for map tiles |
+| 105 | `parallax` | `ParallaxRenderSystem` scrolls parallax backgrounds |
 | 100 | `input` | actions copied onto `InputComponent`s |
 | 95 | `playerControl` | your character controller: reads input, sets velocity |
 | 90 | `physics` | the physics step |
@@ -174,7 +175,7 @@ Entity addTurret(World world, Entity tank) => world.createEntityWithComponents([
 
 For Flutter UI that follows game data, the engine wraps the ECS in `just_signals` signals:
 
-- `ComponentSignal<C, T>` is a `Signal` over one component field, with a getter and a setter. `TransformSignals`, `VelocitySignals` and `HealthSignals` are ready-made sets. Writing through the signal updates the component and notifies listeners; when a system changes the component directly, call `sync()`.
+- `ComponentSignal<C, T>` is a `Signal` over one component field, with a getter and a setter. `TransformSignals` is a ready-made set; make a `ComponentSignal` for any other field you show (a velocity, a health). Writing through the signal updates the component and notifies listeners; when a system changes the component directly, call `sync()`.
 - `EntitySignal` (`entity.toSignal()`) follows an entity's components; `WorldSignal` (`world.toSignal()`) exposes `entityCount`, `systemCount`, `entities` and `query(types)`.
 - `ReactiveSystem` processes only entities marked dirty (`markDirty`), in `processEntity`. `AutoSyncSystem` and `SignalSyncMixin` sync signals after a system's update, and the `ReactiveComponent` mixin gives a component its own property signals.
 

@@ -14,8 +14,8 @@ abstract final class RenderingDefinitions {
   static bool _offMapLayer(Component c) => !_onMapLayer(c);
 
   /// [LayerComponent], from `layer_editor_component.dart`.
-  static ComponentSchema<LayerComponent>
-  get layer => ComponentSchema<LayerComponent>(
+  static ComponentDefinition<LayerComponent>
+  get layer => ComponentDefinition<LayerComponent>(
     type: 'LayerComponent',
     hints: const ComponentHints(
       dimensions: Dimensions.twoD,
@@ -49,14 +49,14 @@ abstract final class RenderingDefinitions {
     id: 'layer_3ab67e05',
     create: LayerComponent.new,
     fields: [
-      SchemaField(
+      FieldDefinition(
         name: 'layerId',
         kind: FieldTypes.text,
         read: (c) => (c as LayerComponent).layerId,
         write: (c, v) =>
             (c as LayerComponent).layerId = (v as String?) ?? 'main',
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'layer',
         kind: FieldTypes.integer,
         read: (c) => (c as LayerComponent).layer,
@@ -64,7 +64,7 @@ abstract final class RenderingDefinitions {
         min: -1000,
         max: 1000,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'zOrder',
         kind: FieldTypes.integer,
         read: (c) => (c as LayerComponent).zOrder,
@@ -72,7 +72,7 @@ abstract final class RenderingDefinitions {
         min: -1000,
         max: 1000,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'mapLayer',
         kind: FieldTypes.integer,
         read: (c) => (c as LayerComponent).mapLayer,

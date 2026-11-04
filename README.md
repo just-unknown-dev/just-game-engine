@@ -2,7 +2,7 @@
 
 A game engine for Flutter: 2D, with 3D graphics and physics to opt into. A game is entities, components and systems (ECS) in a `World`; its levels are JSON scenes loaded at runtime. The engine brings level maps, sprites and animator graphs, timelines, virtual cameras, physics, particles, audio and action-based input, and draws inside an ordinary Flutter widget. It runs on Android, iOS, Windows, macOS, Linux and the web (JavaScript or WebAssembly).
 
-2.0.0 is a breaking release, out first as dev releases, now 2.0.0-dev.3. Coming from 1.x? Read [MIGRATION.md](MIGRATION.md).
+2.0.0 is a breaking release, out first as dev releases, now 2.0.0-dev.4. Coming from 1.x? Read [MIGRATION.md](MIGRATION.md).
 
 | 2D | 3D |
 |---|---|
@@ -17,7 +17,7 @@ The levels in these pictures are scenes the editor saves, loaded and run by the 
 
 ```yaml
 dependencies:
-  just_game_engine: ^2.0.0-dev.3
+  just_game_engine: ^2.0.0-dev.4
 ```
 
 Needs Flutter 3.47.1 or newer. To build for Linux, also install what the audio plugin links: OpenAL Soft and libsndfile (`sudo apt install libopenal-dev libsndfile1-dev` on Debian and Ubuntu; players need `libopenal1` and `libsndfile1`).
@@ -44,13 +44,13 @@ Future<void> main() async {
       TransformComponent(position: Vector3(0, 200, 0)),
       Rectangle2DComponent(width: 600, height: 24),
       // A collider alone is a static body; this one is the drawn rectangle.
-      Collider2DComponent(shape: ColliderShape2D.matchShape),
+      Collider2DComponent(shape: Collider2DShape.matchShape),
     ], name: 'Floor')
     ..createEntityWithComponents([
       TransformComponent(position: Vector3(0, -150, 0)),
       Circle2DComponent(radius: 24),
       RigidBody2DComponent(),
-      Collider2DComponent(shape: ColliderShape2D.matchShape),
+      Collider2DComponent(shape: Collider2DShape.matchShape),
     ], name: 'Ball');
 
   engine.start();
@@ -82,6 +82,7 @@ Future<void> loadFirstLevel(Engine engine) async {
 - A component in a scene is read through its `ComponentDefinition` in `engine.context`. The engine's own components are always known. A package's components are known once its `ContextExtension` is listed in `EngineConfig(extensions: [...])`. An unknown component type stops the load with an `UnknownComponentTypeException` naming the type and the entity.
 - The current scene format is 11 (`SceneFormat.current`). Older files are migrated in memory as they load (`onMigrated` reports what changed); a file from a newer engine throws `UnsupportedFormatVersionException`.
 - `SceneLoader.loadString` and `SceneLoader.load` take JSON text or a decoded map.
+- Going to the next level: `engine.world.destroyAllEntities()`, load it, then `engine.releaseUnused()`, which lets go of the maps, tilesets, materials and 3-D models only the old level used.
 
 ## Default systems
 
@@ -90,18 +91,20 @@ Future<void> loadFirstLevel(Engine engine) async {
 | `DefaultSystem` | Systems |
 |---|---|
 | `input` | `InputSystem` (the `player` map's actions onto each `InputComponent`) |
-| `physics` | `Physics2DSystem`, `PhysicsJointBindingSystem` |
+| `physics` | `Physics2DSystem` (bodies, the joints between them, characters) |
 | `movement` | `MovementSystem` |
 | `audio` | `AudioSystem` |
 | `rendering` | `RenderSystem`, `ParallaxRenderSystem` |
-| `sprites` | `SpriteLoadSystem`, `AnimatorSystem`, `SpriteAnimationSystem`, `TimelineTriggerSystem`, `TimelineSystem` |
+| `sprites` | `SpriteLoadSystem`, `SpriteAnimationSystem` |
+| `animation` | `AnimatorSystem` |
+| `timelines` | `TimelineTriggerSystem`, `TimelineSystem` |
 | `levelMaps` | `LevelMapSystem` |
 | `mapCollision` | `MapCollisionSystem` |
 | `cameras` | `CameraTargetGroupSystem`, `CameraTriggerSystem`, `CameraBrainSystem` |
 
 `DefaultSystems.all` is every one; `DefaultSystems.headless` leaves out `rendering` and `audio` (for a server, a simulation or a test). `registerDefaultSystems(world, engine, include: ...)` adds them to any world and skips systems it already has, so a game can add its own configured instance first.
 
-Add these yourself when you use them: `ParticleSystem`, `EffectSystem`, `PostProcessSystem`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `RaycastSystem`, `DialogueSystem`, `ViewCullingSystem`. Systems run in priority order (`SystemPriorities`), not in the order they were added.
+Add these yourself when you use them: `ParticleSystem`, `EffectSystem`, `PostProcessSystem`, `HealthSystem`, `LifetimeSystem`, `CheckpointSystem`, `RaycastSystem`, `DialogueSystem`, `ViewCullingSystem`, `BoundarySystem`, `SimpleMovementSystem`, `FlowFieldSystem`. The 3-D services add their own (`Graphics3D` adds `Animation3DSystem`, `Physics3D` adds `Physics3DSystem`). Systems run in priority order (`SystemPriorities`); systems of equal priority run in the order they were added.
 
 ## Features
 
@@ -111,7 +114,7 @@ Add these yourself when you use them: `ParticleSystem`, `EffectSystem`, `PostPro
 - Parents and children with a live transform hierarchy: a `ParentComponent` hangs an entity under another, and the world keeps the parent's `ChildrenComponent` in step. `TransformComponent.position` and `scale` are `Vector3`; `angle` is the 2-D turn.
 - A `ComponentDefinition` describes a component's fields once, for saving, loading and editor inspectors. Each engine keeps its definitions, loaders and registries in its `EngineContext` (`engine.context`).
 - Signal-based views of the ECS, on `just_signals`: `ComponentSignal`, `EntitySignal`, `WorldSignal`, `ReactiveSystem`.
-- **Prefab files** (`*.prefab.json`): a scene entry can place one, its changes kept as overrides, entities removed or added, prefabs nested in prefabs. `PrefabLibrary.of(engine.context)` loads them and makes one at run time (`instantiate`); `Spawner.prefab` spawns one.
+- **Prefab files** (`*.prefab.json`): a scene entry can place one, its changes kept as overrides, entities removed or added, prefabs nested in prefabs. `engine.context.prefabLibrary` loads them and makes one at run time (`instantiate`); `Spawner.prefab` spawns one.
 
 ### Level maps
 
@@ -137,7 +140,7 @@ Add these yourself when you use them: `ParticleSystem`, `EffectSystem`, `PostPro
 
 - A shot is an entity with a `VirtualCameraComponent`. The camera brain shows the enabled one with the highest priority and blends between shots.
 - Components on the same entity shape the shot: framing with dead and soft zones (`CameraFramingComponent`), confining to bounds, noise, impulses, target groups, trigger areas, a dolly path, and state-driven, blend-list and mixer cameras.
-- With no virtual camera in the world, `engine.cameraSystem.mainCamera` is yours to move.
+- With no virtual camera in the world, `engine.camera.mainCamera` is yours to move.
 
 ```dart
 import 'package:flutter/painting.dart' show Offset;
@@ -153,7 +156,7 @@ void addCameras(Engine engine) {
   ], name: 'MainCamera');
 
   // Blend shots over 0.6 s, and shake the cameras that listen for impulses.
-  engine.cameraSystem.brain
+  engine.camera.brain
     ..defaultBlend = const CameraBlend(duration: 0.6)
     ..emitImpulse(CameraImpulse(position: Offset.zero, amplitude: 24));
 }
@@ -161,7 +164,7 @@ void addCameras(Engine engine) {
 
 ### Physics
 
-- The same model as 3-D (`package:just_game_engine/just_game_engine_3d.dart`), with a `2D` suffix (but `Physics2DSystem` and `BodyType`, which keep their 1.x names): `RigidBody2DComponent` is how a body moves (static, kinematic or dynamic; mass, friction, bounce, damping, gravity scale, sensor, layer and filter) and `Collider2DComponent` its shape (box, circle, capsule, polygon, segment, chain, or *match shape*: whatever the entity draws; offset, rotation, one-way). A collider alone is a static body. `Physics2DSystem` steps `engine.physics` and syncs transforms and velocities back.
+- The same model as 3-D (`package:just_game_engine/just_game_engine_3d.dart`), with a `2D` tag (all but `BodyType`, from just_physics_engine): `RigidBody2DComponent` is how a body moves (static, kinematic or dynamic; mass, friction, bounce, damping, gravity scale, sensor, layer and filter) and `Collider2DComponent` its shape (box, circle, capsule, polygon, segment, chain, or *match shape*: whatever the entity draws; offset, rotation, one-way). A collider alone is a static body. `Physics2DSystem` steps `engine.physics` and syncs transforms and velocities back.
 - Push a body from code with `addForce`, `addImpulse`, `addTorque`, `setVelocity` and the rest on `RigidBody2DComponent`; it reports `isGrounded`, `groundNormal` and its velocities after each step.
 - `CharacterBody2DComponent` is a character gameplay moves instead (3-D's `CharacterBody3DComponent`): set its `moveVelocity`, call `jump`, and it walks slopes, climbs steps, rides platforms and stands on one-way ones, the same on every platform. It needs no rigid body or collider.
 - Physics comes from `just_physics_engine`: Box2D v3 through FFI where its native library loads, and a pure-Dart engine with the same API on the web or wherever it does not.
@@ -192,9 +195,9 @@ Future<Engine> start3D() async {
 ```
 
 - `EngineConfig(services: [Graphics3D()])`, from `package:just_game_engine/just_game_engine_3d.dart`, draws 3-D scenes with [just_graphics_engine](https://pub.dev/packages/just_graphics_engine) on Flutter GPU: `ModelComponent` (a `.glb` or `.gltf` model; its `bounds` fill in once it loads), `Light3DComponent` (directional, point or spot, shining along the entity's +Z; a scene with no lights gets a default sun), `EnvironmentComponent` (a gradient sky or an `.hdr` skybox, ambient light, reflections, fog, exposure), `AnimationPlayerComponent` (glTF clips with crossfades and blends; animator graphs and timelines play on a model's skeleton) and `SocketComponent` (pins a child entity to a joint).
-- Eleven shapes made from their own sizes, no model file: `Cube3DComponent`, `Sphere3DComponent`, `Plane3DComponent`, `Cylinder3DComponent`, `Capsule3DComponent`, `Cone3DComponent`, `Torus3DComponent`, `Ramp3DComponent`, `Stairs3DComponent`, `Arch3DComponent` and `Polygon3DComponent` (base `Primitive3DComponent`), each with a material (colour, metallic, roughness, glow, opacity, unlit, a texture tiled per face or per metre). Equal shapes share a mesh and a material, so a hundred equal crates are one draw, and `Collider3DComponent(shape: ColliderShape3D.matchShape)` gives one the same shape in 3-D physics.
+- Eleven shapes made from their own sizes, no model file: `Cube3DComponent`, `Sphere3DComponent`, `Plane3DComponent`, `Cylinder3DComponent`, `Capsule3DComponent`, `Cone3DComponent`, `Torus3DComponent`, `Ramp3DComponent`, `Stairs3DComponent`, `Arch3DComponent` and `Polygon3DComponent` (base `Primitive3DComponent`), each with a material (colour, metallic, roughness, glow, opacity, unlit, a texture tiled per face or per metre). Equal shapes share a mesh and a material, so a hundred equal crates are one draw, and `Collider3DComponent(shape: Collider3DShape.matchShape)` gives one the same shape in 3-D physics.
 - **Material files** (`*.material.json`): one material shared by every shape drawn with it (`Primitive3DComponent.material`) and laid over a model's own by name (`ModelComponent.materials`); texture coordinates natural, in metres or from the world; a layered material blends four layers by the vertex colour (a terrain's).
-- **Render providers**: a package draws a component of its own — a terrain, a road along a spline, a field of grass — as meshes and instance batches with `RenderProviders.of(engine.context).register(...)`; `just_world_builder_kit` is built on them.
+- **Render providers**: a package draws a component of its own — a terrain, a road along a spline, a field of grass — as meshes and instance batches with `engine.context.renderProviders.register(...)`; `just_world_builder_kit` is built on them.
 - Bodies and characters moved by physics are drawn between their last two poses, so they move smoothly at any frame rate.
 - Flutter GPU must be switched on in each platform's runner: see just_graphics_engine's README (Getting started).
 - `engine.graphics3D` is the one given: its `renderer` (`renderer.stats` tells what the last frame did), `models` and `sceneRenderer` (`dynamicResolution`). `Graphics3D(renderScale: 0.75)` renders fewer pixels.
@@ -212,7 +215,7 @@ Future<Engine> start3D() async {
         build: true
   ```
 
-- A game without a `Physics3D` is 2-D only: its release build holds no 3-D code and no Jolt. The 3-D world is made with the first 3-D body. Where 3-D cannot run (the web, Jolt not built), `initialize()` fails with an `EngineInitException` whose `cause` is a `Physics3DUnsupportedError`; `Physics3D.isSupported` asks first, so a game for the web and native platforms passes `physics3D: Physics3D.isSupported ? Physics3D() : null`.
+- A game without a `Physics3D` is 2-D only: its release build holds no 3-D code and no Jolt. The 3-D world is made with the first 3-D body. Where 3-D cannot run (the web, Jolt not built), `initialize()` fails with an `EngineInitException` whose `cause` is a `Physics3DUnsupportedError`; `Physics3D.isSupported` asks first, so a game for the web and native platforms passes `EngineConfig(services: [if (Physics3D.isSupported) Physics3D()])`.
 
 ### Particles, effects and post-processing
 
@@ -221,9 +224,16 @@ Future<Engine> start3D() async {
 - Fragment-shader passes over the frame (`PostProcessPass`) and per entity (`ShaderComponent`). They need Impeller; on the web and on Skia they are skipped and the content draws unshaded.
 - Parallax backgrounds: `ParallaxComponent`, drawn by `ParallaxRenderSystem`.
 
+### 2-D materials and lights
+
+- `Material2DComponent` draws a sprite or shape through a 2-D material file (`*.material2d.json`): an outline, a flash, a dissolve, a wave — the effects the file switches on. Sprites that share a material are drawn together, and a level-map layer can name a material for its tiles.
+- `ScreenMaterialComponent` draws the whole view through a `screen` material: a vignette, a colour grade, scanlines, a CRT bulge, big pixels.
+- 2-D lighting: `Lighting2DComponent` turns it on for a scene (with its ambient light), `Light2DComponent` adds point and spot lights that shade sprites, shapes and tiles by their materials' normal maps, and `ShadowCaster2DComponent` makes a sprite or shape cast shadows. A scene without lighting pays nothing for it.
+- Their shaders ship with the package and are compiled into every game.
+
 ### Audio
 
-- `engine.audio`, `engine.music` and `engine.sfx`, from `just_audio_engine`: channels, buses, effects, streams and 3-D sound. `AudioSourceComponent` and `AudioSystem` play sound from entities; with `is3d` a source is heard from where it is — fading between `minDistance` and `maxDistance`, panned by side, with doppler and muffling — relative to the `AudioListenerComponent` (or the camera), the same on every platform.
+- `engine.audio`, `engine.music` and `engine.sfx`, from `just_audio_engine`: channels, buses, effects, streams and 3-D sound. `AudioSourceComponent` and `AudioSystem` play sound from entities; with `is3D` a source is heard from where it is — fading between `minDistance` and `maxDistance`, panned by side, with doppler and muffling — relative to the `AudioListenerComponent` (or the camera), the same on every platform.
 - On the web, audio starts at the first key or pointer press, because browsers keep audio made before a user gesture silent (`EngineConfig.deferAudioUntilInput`).
 
 ### Input
@@ -283,7 +293,7 @@ void spawnPlayers(World world, Entity Function(World, Entity) makePlayer) {
 - Localization (`LocalizationManager`, set as `engine.context.localization`), with namespaces, fallbacks, plurals and selects.
 - Dialogue from Yarn Spinner 2.x scripts (`DialogueManager`, `DialogueRunner`, `DialogueSystem`) and timed subtitles (`SubtitleController`).
 - Assets (`engine.assets`, an `AssetManager`) and storage (`engine.cache`, a `CacheManager`); the engine keeps its data in a store of its own, apart from the app's.
-- `EngineService`: things that start and stop with the engine (`EngineConfig.services`, `engine.service<T>()`). Plugins (`engine.plugins`, `EnginePlugin`) receive every update, for editors and profilers.
+- `EngineService`: things that start and stop with the engine (`EngineConfig.services`, `engine.service<T>()`). Plugins (`engine.plugins`, `EnginePlugin`), for editors and profilers, are called once a frame with the real frame time, even while paused.
 - `engine.performanceStats` and per-subsystem stats; see [STATS.md](STATS.md).
 
 ### Ready for 3-D
@@ -308,10 +318,10 @@ The biggest changes; [MIGRATION.md](MIGRATION.md) covers every one.
 
 ## Related packages
 
-- [just_game_services](https://pub.dev/packages/just_game_services) (pub.dev): achievements, sign-in, leaderboards, currency, inventory and ads as opt-in `EngineService`s.
-- `just_ui_editor` (not published): in-game screens saved as `.ui.json`, drawn as Flutter widgets, and their editor.
-- `just_platformer_kit` (not published): platformer components and systems.
-- `just_game_engine_editor` (not published): the level editor.
+- `just_game_services` (not yet published): achievements, sign-in, leaderboards, currency, inventory and ads as opt-in `EngineService`s.
+- `just_ui_editor` (an Asset Store plugin, not on pub.dev): in-game screens saved as `.ui.json`, drawn as Flutter widgets, and their editor.
+- `just_platformer_kit` (an Asset Store kit, not on pub.dev): platformer components and systems.
+- [just_game_engine_editor](https://pub.dev/packages/just_game_engine_editor) (pub.dev, a dev dependency): the level editor.
 
 The engine is built on `just_physics_engine`, `just_graphics_engine`, `just_inputs`, `just_audio_engine`, `just_tiled`, `just_deflate`, `just_game_engine_formats`, `just_signals`, `just_memory`, `just_storage`, `just_database` and `just_dart`.
 
@@ -323,7 +333,7 @@ The engine is built on `just_physics_engine`, `just_graphics_engine`, `just_inpu
 - [App structure](doc/guides/app-structure.md): a suggested app structure (Engine · Signal · Presentation).
 - [CHANGELOG.md](CHANGELOG.md).
 - [API map](https://github.com/just-unknown-dev/just-game-engine/blob/main/API.md): the public API by area (in the repository, not in the package).
-- [API reference](https://pub.dev/documentation/just_game_engine/latest/).
+- [API reference](https://pub.dev/documentation/just_game_engine/2.0.0-dev.4/) (`latest` on pub.dev is the 1.x line).
 
 ## Links
 

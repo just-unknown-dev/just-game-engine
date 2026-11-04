@@ -4,7 +4,7 @@ _Graphics_ · Show images and atlas regions, play clips from TexturePacker and A
 
 Three components put 2D art on screen. `SpriteComponent` shows a still image or one region of an atlas. `SpriteAnimationComponent` plays clips from an atlas. `AnimatorComponent` runs an animator graph: a state machine that picks the clip from the entity's own state, so your game needs no animation code.
 
-The systems behind them come with `DefaultSystem.sprites` (`SpriteLoadSystem`, `AnimatorSystem` and `SpriteAnimationSystem`, plus the timeline systems), or add them to any world with `registerSpriteSystems(world)`. Images, atlases and graphs are read through the asset bundle, so list their folders under `flutter: assets:` in `pubspec.yaml` (see [Assets](/docs/assets)).
+The systems behind them come with `DefaultSystem.sprites` (`SpriteLoadSystem` and `SpriteAnimationSystem`) and `DefaultSystem.animation` (`AnimatorSystem`), or add them to any world with `registerSpriteSystems(world)`, which adds the animator and the timeline systems too. Images, atlases and graphs are read through the asset bundle, so list their folders under `flutter: assets:` in `pubspec.yaml` (see [Assets](/docs/assets)).
 
 ## Showing an image
 
@@ -21,6 +21,7 @@ An atlas is the JSON a sprite tool exports beside its sheet. The engine recognis
 | Aseprite JSON, hash or array | `meta.app` contains `aseprite` | One per `frameTags` entry |
 | TexturePacker JSON array or hash | `frames` is a list or an object | None in the file; register them in code |
 | TexturePacker multi-page | A top-level `textures` list | None in the file |
+| The engine's grid sheet (tried first) | `meta.frameWidth` and `meta.frameHeight`, and no `frames` | One per `clips` entry; each cell is a region named by its index |
 
 The image path inside the JSON is relative to the JSON file. Aseprite tags play `forward`, `reverse` or `pingpong`, each frame for its own `duration` (milliseconds in the file, seconds in the engine), and loop by default. Trimmed and rotated frames are drawn where and how they belong.
 
@@ -145,7 +146,7 @@ How it reads:
 
 ## Blend trees and crossfades
 
-A state with a `blend` object plays several clips weighted by parameters instead of one: a `"1d"` tree places `motions` at a `threshold` along one `parameter`, and a `"2d"` tree places them at `x` and `y` over `parameter` and `parameterY`. A transition's `duration` crossfades between states. Both need `"version": 2` in the file.
+A state with a `blend` object plays several clips weighted by parameters instead of one: a `"1d"` tree places `motions` at a `threshold` along one `parameter`, and a `"2d"` tree places them at `x` and `y` over `parameter` and `parameterY`. A transition's `duration` crossfades between states. A file that uses either is saved as `"version": 2`.
 
 A sprite can't blend two frames, so on a sprite a blend tree plays its heaviest motion (in the graph above, `walk` up to a speed of 150 and `run` beyond it) and transitions always cut. On a 3D model with an `AnimationPlayerComponent`, blend trees and crossfades really blend; see [3D graphics](/docs/graphics-3d).
 

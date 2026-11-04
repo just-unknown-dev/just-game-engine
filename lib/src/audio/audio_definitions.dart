@@ -1,19 +1,22 @@
 /// The audio components: sound sources, the listener and music streams.
 library;
 
+import 'dart:math' as math;
+
 import '../ecs/ecs.dart';
-import 'audio.dart' show AudioChannel, AudioRolloff;
 import 'audio_components.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
+import 'package:just_audio_engine/just_audio_engine.dart'
+    show AudioChannel, AudioRolloff;
 
 /// The audio components: sound sources, the listener and music streams.
 abstract final class AudioDefinitions {
-  static bool _is3d(Component c) => (c as AudioSourceComponent).is3d;
+  static bool _is3D(Component c) => (c as AudioSourceComponent).is3D;
 
   /// [AudioSourceComponent], from `audio_source_editor_component.dart`.
-  static ComponentSchema<AudioSourceComponent>
-  get audioSource => ComponentSchema<AudioSourceComponent>(
+  static ComponentDefinition<AudioSourceComponent>
+  get audioSource => ComponentDefinition<AudioSourceComponent>(
     type: 'AudioSourceComponent',
     hints: ComponentHints(
       name: 'Audio Source',
@@ -23,9 +26,17 @@ abstract final class AudioDefinitions {
       accentColor: const Color(0xFFAB47BC),
       fieldGroups: const {
         'Clip': ['path'],
-        'Playback': ['loop', 'playOnAdd', 'volume', 'pitch', 'pan', 'channel'],
+        'Playback': [
+          'loop',
+          'playOnAdd',
+          'volume',
+          'pitch',
+          'speed',
+          'pan',
+          'channel',
+        ],
         '3D': [
-          'is3d',
+          'is3D',
           'minDistance',
           'maxDistance',
           'rolloff',
@@ -48,58 +59,62 @@ abstract final class AudioDefinitions {
           label: 'Pitch',
           scrub: ScrubHint(step: 0.05, fractionDigits: 2),
         ),
+        'speed': const FieldHint(
+          label: 'Speed',
+          scrub: ScrubHint(step: 0.05, fractionDigits: 2),
+        ),
         'pan': FieldHint(
           label: 'Pan',
           scrub: const ScrubHint(step: 0.05, fractionDigits: 2),
-          visibleWhen: (c) => !(c as AudioSourceComponent).is3d,
+          visibleWhen: (c) => !(c as AudioSourceComponent).is3D,
         ),
         'channel': const FieldHint(label: 'Channel'),
-        'is3d': const FieldHint(label: '3D'),
+        'is3D': const FieldHint(label: '3D'),
         'minDistance': FieldHint(
           label: 'Full within',
           scrub: const ScrubHint(step: 0.25, fractionDigits: 2),
-          visibleWhen: _is3d,
+          visibleWhen: _is3D,
         ),
         'maxDistance': FieldHint(
           label: 'Silent beyond',
           scrub: const ScrubHint(step: 0.5, fractionDigits: 1),
-          visibleWhen: _is3d,
+          visibleWhen: _is3D,
         ),
-        'rolloff': FieldHint(label: 'Fade', visibleWhen: _is3d),
+        'rolloff': FieldHint(label: 'Fade', visibleWhen: _is3D),
         'dopplerLevel': FieldHint(
           label: 'Doppler',
           scrub: const ScrubHint(step: 0.1, fractionDigits: 2),
-          visibleWhen: _is3d,
+          visibleWhen: _is3D,
         ),
         'farCutoff': FieldHint(
           label: 'Muffle to',
           scrub: const ScrubHint(step: 100, fractionDigits: 0, suffix: 'Hz'),
-          visibleWhen: _is3d,
+          visibleWhen: _is3D,
         ),
       },
     ),
     id: 'audio_source_111e2e48',
     create: () => AudioSourceComponent(clipPath: ''),
     fields: [
-      SchemaField(
+      FieldDefinition(
         name: 'path',
         kind: FieldTypes.assetRef,
         read: (c) => (c as AudioSourceComponent).clipPath,
         write: (c, v) => (c as AudioSourceComponent).clipPath = v as String,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'loop',
         kind: FieldTypes.boolean,
         read: (c) => (c as AudioSourceComponent).loop,
         write: (c, v) => (c as AudioSourceComponent).loop = v as bool,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'playOnAdd',
         kind: FieldTypes.boolean,
         read: (c) => (c as AudioSourceComponent).playOnAdd,
         write: (c, v) => (c as AudioSourceComponent).playOnAdd = v as bool,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'volume',
         kind: FieldTypes.decimal,
         read: (c) => (c as AudioSourceComponent).volume,
@@ -109,7 +124,7 @@ abstract final class AudioDefinitions {
         min: 0.0,
         max: 1.0,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'pitch',
         kind: FieldTypes.decimal,
         read: (c) => (c as AudioSourceComponent).pitch,
@@ -117,7 +132,17 @@ abstract final class AudioDefinitions {
             (c as AudioSourceComponent).pitch = (v as num).toDouble(),
         min: 0.0,
       ),
-      SchemaField(
+      FieldDefinition(
+        name: 'speed',
+        kind: FieldTypes.decimal,
+        read: (c) => (c as AudioSourceComponent).speed,
+        write: (c, v) => (c as AudioSourceComponent).speed = math.max(
+          (v as num).toDouble(),
+          0.0,
+        ),
+        min: 0.0,
+      ),
+      FieldDefinition(
         name: 'pan',
         kind: FieldTypes.decimal,
         read: (c) => (c as AudioSourceComponent).pan,
@@ -127,7 +152,7 @@ abstract final class AudioDefinitions {
         min: -1.0,
         max: 1.0,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'channel',
         kind: const EnumFieldType(
           AudioChannel.values,
@@ -138,13 +163,13 @@ abstract final class AudioDefinitions {
         write: (c, v) =>
             (c as AudioSourceComponent).channel = v as AudioChannel,
       ),
-      SchemaField(
-        name: 'is3d',
+      FieldDefinition(
+        name: 'is3D',
         kind: FieldTypes.boolean,
-        read: (c) => (c as AudioSourceComponent).is3d,
-        write: (c, v) => (c as AudioSourceComponent).is3d = v as bool,
+        read: (c) => (c as AudioSourceComponent).is3D,
+        write: (c, v) => (c as AudioSourceComponent).is3D = v as bool,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'minDistance',
         kind: FieldTypes.decimal,
         read: (c) => (c as AudioSourceComponent).minDistance,
@@ -152,7 +177,7 @@ abstract final class AudioDefinitions {
             (c as AudioSourceComponent).minDistance = (v as num).toDouble(),
         min: 0.01,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'maxDistance',
         kind: FieldTypes.decimal,
         read: (c) => (c as AudioSourceComponent).maxDistance,
@@ -160,7 +185,7 @@ abstract final class AudioDefinitions {
             (c as AudioSourceComponent).maxDistance = (v as num).toDouble(),
         min: 0.01,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'rolloff',
         kind: const EnumFieldType(
           AudioRolloff.values,
@@ -171,7 +196,7 @@ abstract final class AudioDefinitions {
         write: (c, v) =>
             (c as AudioSourceComponent).rolloff = v as AudioRolloff,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'dopplerLevel',
         kind: FieldTypes.decimal,
         read: (c) => (c as AudioSourceComponent).dopplerLevel,
@@ -179,7 +204,7 @@ abstract final class AudioDefinitions {
             (c as AudioSourceComponent).dopplerLevel = (v as num).toDouble(),
         min: 0.0,
       ),
-      SchemaField(
+      FieldDefinition(
         name: 'farCutoff',
         kind: FieldTypes.decimal,
         read: (c) => (c as AudioSourceComponent).farCutoff,
@@ -191,8 +216,8 @@ abstract final class AudioDefinitions {
   );
 
   /// [AudioListenerComponent].
-  static ComponentSchema<AudioListenerComponent> get audioListener =>
-      ComponentSchema<AudioListenerComponent>(
+  static ComponentDefinition<AudioListenerComponent> get audioListener =>
+      ComponentDefinition<AudioListenerComponent>(
         type: 'AudioListenerComponent',
         hints: const ComponentHints(
           name: 'Audio Listener',
@@ -209,13 +234,13 @@ abstract final class AudioDefinitions {
         id: 'audio_listener_5d2c81f3',
         create: AudioListenerComponent.new,
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'atCamera',
             kind: FieldTypes.boolean,
             read: (c) => (c as AudioListenerComponent).atCamera,
             write: (c, v) => (c as AudioListenerComponent).atCamera = v as bool,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'faceCamera',
             kind: FieldTypes.boolean,
             read: (c) => (c as AudioListenerComponent).faceCamera,
@@ -226,8 +251,8 @@ abstract final class AudioDefinitions {
       );
 
   /// [AudioStreamComponent], from `audio_stream_editor_component.dart`.
-  static ComponentSchema<AudioStreamComponent> get audioStream =>
-      ComponentSchema<AudioStreamComponent>(
+  static ComponentDefinition<AudioStreamComponent> get audioStream =>
+      ComponentDefinition<AudioStreamComponent>(
         type: 'AudioStreamComponent',
         hints: const ComponentHints(
           name: 'Audio Stream',
@@ -236,7 +261,7 @@ abstract final class AudioDefinitions {
           accentColor: Color(0xFFAB47BC),
           fieldGroups: {
             'Stream': ['streamPath'],
-            'Playback': ['loop', 'playOnAdd', 'volume'],
+            'Playback': ['loop', 'playOnAdd', 'volume', 'channel', 'fadeIn'],
           },
           fields: {
             'streamPath': FieldHint(
@@ -249,30 +274,36 @@ abstract final class AudioDefinitions {
               label: 'Volume',
               scrub: ScrubHint(step: 0.05, fractionDigits: 2),
             ),
+            'channel': FieldHint(label: 'Channel'),
+            'fadeIn': FieldHint(
+              label: 'Fade in',
+              description: 'Seconds from silence to the volume; 0 for none.',
+              scrub: ScrubHint(step: 0.1, fractionDigits: 2, suffix: 's'),
+            ),
           },
         ),
         id: 'audio_stream_91f6500b',
         create: () => AudioStreamComponent(path: ''),
         fields: [
-          SchemaField(
+          FieldDefinition(
             name: 'streamPath',
             kind: FieldTypes.assetRef,
             read: (c) => (c as AudioStreamComponent).path,
             write: (c, v) => (c as AudioStreamComponent).path = v as String,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'loop',
             kind: FieldTypes.boolean,
             read: (c) => (c as AudioStreamComponent).loop,
             write: (c, v) => (c as AudioStreamComponent).loop = v as bool,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'playOnAdd',
             kind: FieldTypes.boolean,
             read: (c) => (c as AudioStreamComponent).playOnAdd,
             write: (c, v) => (c as AudioStreamComponent).playOnAdd = v as bool,
           ),
-          SchemaField(
+          FieldDefinition(
             name: 'volume',
             kind: FieldTypes.decimal,
             read: (c) => (c as AudioStreamComponent).volume,
@@ -281,6 +312,33 @@ abstract final class AudioDefinitions {
                 .clamp(0.0, 1.0),
             min: 0.0,
             max: 1.0,
+          ),
+          FieldDefinition(
+            name: 'channel',
+            kind: const EnumFieldType(
+              AudioChannel.values,
+              fallback: AudioChannel.music,
+              id: 'audio.channel',
+            ),
+            read: (c) => (c as AudioStreamComponent).channel,
+            write: (c, v) =>
+                (c as AudioStreamComponent).channel = v as AudioChannel,
+          ),
+          // Seconds; 0 is no fade.
+          FieldDefinition(
+            name: 'fadeIn',
+            kind: FieldTypes.decimal,
+            read: (c) {
+              final fade = (c as AudioStreamComponent).fadeInDuration;
+              return fade == null ? 0.0 : fade.inMicroseconds / 1e6;
+            },
+            write: (c, v) {
+              final seconds = (v as num).toDouble();
+              (c as AudioStreamComponent).fadeInDuration = seconds > 0
+                  ? Duration(microseconds: (seconds * 1e6).round())
+                  : null;
+            },
+            min: 0.0,
           ),
         ],
       );
