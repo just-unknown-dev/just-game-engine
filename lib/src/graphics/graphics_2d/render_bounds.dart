@@ -7,7 +7,7 @@ import 'dart:ui';
 
 import 'package:meta/meta.dart' show internal;
 
-import '../renderable.dart';
+import '../../rendering/renderable.dart';
 
 /// The world-space extent of what a [Renderable] draws, however it is
 /// turned and scaled.

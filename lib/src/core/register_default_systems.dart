@@ -14,7 +14,7 @@ import '../level_map/level_map_system.dart';
 import '../level_map/map_collision_system.dart';
 import '../physics/physics_2d/physics_2d_system.dart';
 import '../parallax/parallax_render_system.dart';
-import '../rendering/system/render_system.dart';
+import '../graphics/graphics_2d/render_system.dart';
 
 /// One of the engine's standard sets of systems; see [registerDefaultSystems].
 enum DefaultSystem {

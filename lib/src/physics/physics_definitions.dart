@@ -10,7 +10,7 @@ import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
 import 'package:just_dart/just_dart.dart';
 import 'physics_field_types.dart';
-import 'velocity_component.dart';
+import '../ecs/transform/velocity_component.dart';
 
 /// Shared physics components: velocity; and the field types both
 /// dimensions' physics components are saved through.

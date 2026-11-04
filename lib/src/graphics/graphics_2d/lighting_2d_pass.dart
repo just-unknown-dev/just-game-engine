@@ -10,10 +10,9 @@ import 'package:meta/meta.dart' show visibleForTesting;
 
 import '../../ecs/ecs.dart';
 import 'render_system.dart';
-import '../../graphics/graphics_2d/materials/materials_2d_context.dart'
-    show ContextMaterials2D;
-import '../screen_pass.dart';
-import '../../graphics/graphics_2d/lighting/light_2d_component.dart';
+import 'materials/materials_2d_context.dart' show ContextMaterials2D;
+import '../../rendering/screen_pass.dart';
+import 'lighting/light_2d_component.dart';
 
 /// Lights the frame when the world has a [Lighting2DComponent] on: the frame and its
 /// normals (`RenderSystem.renderNormals`) drawn through

@@ -3,7 +3,6 @@ library;
 import 'package:flutter/material.dart';
 
 import '../ecs/ecs.dart';
-import '../physics/velocity_component.dart';
 
 /// Boundary behavior options
 enum BoundaryBehavior {

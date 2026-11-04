@@ -101,7 +101,7 @@ void main() {
       // Whatever sorts has to agree with the web, where `-200 << 20` is
       // 4085252096. The source must not rely on shifting the layer.
       final source = File(
-        'lib/src/rendering/system/render_system.dart',
+        'lib/src/graphics/graphics_2d/render_system.dart',
       ).readAsStringSync();
       expect(source, isNot(contains('layer << 20')));
       expect(source, isNot(contains('.layer <<')));

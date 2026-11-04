@@ -10,18 +10,16 @@ import 'package:just_game_engine_formats/just_game_engine_formats.dart'
 import 'package:meta/meta.dart' show internal;
 
 import '../../ecs/ecs.dart';
-import '../../graphics/graphics_2d/materials/material_2d_batch.dart';
-import '../../graphics/graphics_2d/materials/material_2d_component.dart';
-import '../../graphics/graphics_2d/materials/material_2d_library.dart';
-import '../../graphics/graphics_2d/materials/material_2d_shapes.dart';
-import '../../graphics/graphics_2d/materials/materials_2d_context.dart'
-    show ContextMaterials2D;
-import '../../level_map/map_layer_painter.dart'
-    show MapLayerPainter, MapLayerRenderItem;
-import '../renderable.dart';
-import '../sprite.dart';
+import 'materials/material_2d_batch.dart';
+import 'materials/material_2d_component.dart';
+import 'materials/material_2d_library.dart';
+import 'materials/material_2d_shapes.dart';
+import 'materials/materials_2d_context.dart' show ContextMaterials2D;
+import '../../rendering/renderable.dart';
+import '../../rendering/sprite.dart';
 import 'render_batcher.dart';
 import 'render_queue.dart';
+import 'lighting/lighting_2d_item.dart';
 
 /// Draws, for `Lighting2DPass`, the normals and the shadow casters of what a
 /// `RenderSystem` drew — in the same order and place, from its
@@ -34,7 +32,7 @@ final class Lighting2DDrawer {
   /// Draws a renderable's shape as a flat normal (see [drawNormals]).
   final Paint _flatPaint = Paint()
     ..colorFilter = const ColorFilter.mode(
-      Color(MapLayerPainter.flatNormal),
+      Color(Lighting2DItem.flatNormal),
       BlendMode.srcIn,
     );
 
@@ -95,14 +93,13 @@ final class Lighting2DDrawer {
       if (!_drawn(entry, filter)) continue;
       final item = entry.item;
       if (item != null) {
-        if (!item.visible || item is! MapLayerRenderItem) continue;
+        if (!item.visible || item is! Lighting2DItem) continue;
         closeFlat();
         batch.flush(canvas, time);
-        final drew = item.runtime.painter.paintNormals(
+        final drew = item.paintNormals(
           canvas,
           itemContext ??= context(),
           entry.entity,
-          item.layerId,
           flat: shaded,
         );
         shaded = shaded || drew;
@@ -235,10 +232,10 @@ final class Lighting2DDrawer {
   }
 
   /// Draws, onto [canvas] (in world space), what casts shadows of [entries]
-  /// — sprites and shapes with a `ShadowCaster2DComponent` on, Level Map
-  /// layers that cast them — as their shapes, coloured by
-  /// [MapLayerPainter.casterColor] of how far light reaches into them:
-  /// 2-D lighting's mask. True when it drew anything.
+  /// — sprites and shapes with a `ShadowCaster2DComponent` on, the
+  /// [Lighting2DItem]s that cast them (Level Map layers) — as their shapes,
+  /// coloured by [Lighting2DItem.casterColor] of how far light reaches into
+  /// them: 2-D lighting's mask. True when it drew anything.
   bool drawOccluders(
     Canvas canvas,
     Size size, {
@@ -261,13 +258,12 @@ final class Lighting2DDrawer {
       if (!_drawn(entry, filter)) continue;
       final item = entry.item;
       if (item != null) {
-        if (!item.visible || item is! MapLayerRenderItem) continue;
+        if (!item.visible || item is! Lighting2DItem) continue;
         closeLayer();
-        final cast = item.runtime.painter.paintSilhouette(
+        final cast = item.paintSilhouette(
           canvas,
           itemContext ??= context(),
           entry.entity,
-          item.layerId,
         );
         drew = drew || cast;
         continue;
@@ -280,7 +276,7 @@ final class Lighting2DDrawer {
       if (layerDepth != caster.depth) {
         closeLayer();
         _casterPaint.colorFilter = ColorFilter.mode(
-          Color(MapLayerPainter.casterColor(caster.depth)),
+          Color(Lighting2DItem.casterColor(caster.depth)),
           BlendMode.srcIn,
         );
         canvas.saveLayer(null, _casterPaint);

@@ -7,10 +7,13 @@
 // - only a folder's barrel or a public library exports, and a barrel only
 //   its own folder; a library that holds parts is not a barrel;
 // - no file imports a barrel that leads back to it;
-// - the ECS core imports no feature and names no 3-D component.
+// - the ECS core imports no feature and names no 3-D component;
+// - no import loop crosses from one feature (a top-level folder of lib/src)
+//   to another, and no feature imports one in a layer above its own.
 // Untagged: it only reads files.
 
 import 'dart:io';
+import 'dart:math' show min;
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -33,6 +36,41 @@ const _kernelMayImport = [
   'src/interfaces/',
   'src/assets/',
   'src/storage/',
+];
+
+/// The features — the top-level folders of lib/src — in layers, bottom to
+/// top, as ARCHITECTURE.md §2.3 draws them. A feature imports features in
+/// its own layer or below, never above; within a layer imports go one way
+/// only (no loops). A new top-level folder takes its place here.
+const _layers = [
+  // Leaves.
+  ['foundation', 'interfaces', 'assets', 'storage'],
+  // The ECS core.
+  ['ecs'],
+  // Basics on the core.
+  [
+    'reactive',
+    'localization',
+    'subtitle',
+    'narrative',
+    'audio',
+    'input',
+    'navigation',
+    'scenes',
+    'camera',
+  ],
+  // Contracts: drawing, and the engine as a service sees it.
+  ['rendering', 'services'],
+  // What is drawn and simulated.
+  ['sprites', 'particles', 'parallax', 'effects', 'physics'],
+  ['gameplay'],
+  // Sequencing.
+  ['timeline', 'animation'],
+  // The 2-D renderer and what it draws; 3-D graphics.
+  ['graphics'],
+  ['level_map'],
+  // The composition root.
+  ['core'],
 ];
 
 /// The packages the ECS core may import.
@@ -201,6 +239,70 @@ List<({int line, String name, bool internal})> _publicDeclarations(
   return found;
 }
 
+/// The feature a file under lib/ belongs to — its top-level folder of
+/// lib/src — or null for a public library.
+String? _featureOf(String path) {
+  final parts = path.split('/');
+  return parts.length > 2 && parts[0] == 'src' ? parts[1] : null;
+}
+
+/// Every import and export from one feature to another (parts are inside
+/// their library's), by (from, to): the directives that make it.
+Map<(String, String), List<String>> _featureEdges(Map<String, _File> files) {
+  final edges = <(String, String), List<String>>{};
+  for (final file in files.values) {
+    final from = _featureOf(file.path);
+    if (from == null) continue;
+    for (final d in [...file.of('import'), ...file.of('export')]) {
+      final target = d.target;
+      final to = target == null ? null : _featureOf(target);
+      if (to == null || to == from) continue;
+      (edges[(from, to)] ??= []).add('${file.path} ${d.kind}s ${d.uri}');
+    }
+  }
+  return edges;
+}
+
+/// The loops of [graph]: its strongly connected parts of more than one
+/// node, each sorted (Tarjan's algorithm).
+List<List<String>> _loops(Map<String, Set<String>> graph) {
+  final index = <String, int>{};
+  final low = <String, int>{};
+  final stack = <String>[];
+  final onStack = <String>{};
+  final loops = <List<String>>[];
+  var next = 0;
+  void visit(String v) {
+    index[v] = low[v] = next++;
+    stack.add(v);
+    onStack.add(v);
+    for (final w in graph[v] ?? const <String>{}) {
+      if (!index.containsKey(w)) {
+        visit(w);
+        low[v] = min(low[v]!, low[w]!);
+      } else if (onStack.contains(w)) {
+        low[v] = min(low[v]!, index[w]!);
+      }
+    }
+    if (low[v] != index[v]) return;
+    final loop = <String>[];
+    String w;
+    do {
+      w = stack.removeLast();
+      onStack.remove(w);
+      loop.add(w);
+    } while (w != v);
+    if (loop.length > 1) loops.add(loop..sort());
+  }
+
+  final nodes = {...graph.keys, for (final to in graph.values) ...to}.toList()
+    ..sort();
+  for (final v in nodes) {
+    if (!index.containsKey(v)) visit(v);
+  }
+  return loops;
+}
+
 void main() {
   final files = _readLib();
   final exported = _exportedFrom(files, _public);
@@ -291,6 +393,52 @@ void main() {
       }
     }
     expect(problems, isEmpty);
+  });
+
+  final features = _featureEdges(files);
+  final layerOf = {
+    for (var i = 0; i < _layers.length; i++)
+      for (final feature in _layers[i]) feature: i,
+  };
+
+  test('every feature has one layer, and every layer names a feature', () {
+    final folders = files.keys.map(_featureOf).nonNulls.toSet();
+    final listed = [for (final layer in _layers) ...layer];
+    expect([
+      for (final f in folders)
+        if (!listed.contains(f)) '$f has no layer',
+      for (final f in listed.toSet())
+        if (listed.where((l) => l == f).length > 1) '$f is in two layers',
+      for (final f in listed)
+        if (!folders.contains(f)) '$f is no folder of lib/src',
+    ], isEmpty);
+  });
+
+  test('no import loop crosses from one feature to another', () {
+    final graph = <String, Set<String>>{};
+    for (final (from, to) in features.keys) {
+      (graph[from] ??= {}).add(to);
+    }
+    final problems = <String>[];
+    for (final loop in _loops(graph)) {
+      problems.add('a loop of ${loop.join(', ')}:');
+      for (final MapEntry(key: (from, to), value: why) in features.entries) {
+        if (loop.contains(from) && loop.contains(to)) {
+          problems.addAll(['  $from -> $to', for (final w in why) '    $w']);
+        }
+      }
+    }
+    expect(problems, isEmpty);
+  });
+
+  test('no feature imports one in a layer above its own', () {
+    expect([
+      for (final MapEntry(key: (from, to), value: why) in features.entries)
+        if ((layerOf[to] ?? -1) > (layerOf[from] ?? _layers.length))
+          for (final w in why)
+            '$from (layer ${layerOf[from]}) imports $to '
+                '(layer ${layerOf[to]}): $w',
+    ], isEmpty);
   });
 
   test('the scanner reads declarations and their annotations', () {

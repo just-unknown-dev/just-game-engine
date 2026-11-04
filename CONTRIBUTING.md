@@ -142,7 +142,7 @@ flutter test --tags perf --run-skipped
 - **Documentation.** Give every public API you add a `///` doc comment. If you add, rename or remove a public type, update [API.md](API.md), and describe user-visible changes in [CHANGELOG.md](CHANGELOG.md).
 - **Tests.** Add or update tests for any behaviour you change.
 - **Dependencies.** Do not add a dependency without discussing it in an issue first.
-- **Structure.** Match the existing folders under `lib/src/` (one per feature; see [ARCHITECTURE.md](ARCHITECTURE.md) §2). Export a new file from its folder's barrel (`lib/src/<feature>/<feature>.dart`), which `lib/just_game_engine.dart` exports — never from `lib/just_game_engine.dart` directly. 3-D API goes through `lib/just_game_engine_3d.dart`, so 2-D builds carry no 3-D code; optional screen widgets go through `lib/widgets.dart`. Other code imports those libraries, not files under `lib/src/`.
+- **Structure.** Match the existing folders under `lib/src/` (one per feature; see [ARCHITECTURE.md](ARCHITECTURE.md) §2). The features sit in layers (§2.3): a feature imports only features in its own layer or below, never one above, and no import loop joins two features. `test/library_layout_test.dart` holds the layers and fails on an import that breaks them, naming it; a new top-level folder takes its place in that list. Export a new file from its folder's barrel (`lib/src/<feature>/<feature>.dart`), which `lib/just_game_engine.dart` exports — never from `lib/just_game_engine.dart` directly. 3-D API goes through `lib/just_game_engine_3d.dart`, so 2-D builds carry no 3-D code; optional screen widgets go through `lib/widgets.dart`. Other code imports those libraries, not files under `lib/src/`.
 
 ---
 

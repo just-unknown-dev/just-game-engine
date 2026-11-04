@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:just_game_engine_formats/just_game_engine_formats.dart';
 import '../ecs/ecs.dart';
 import '../sprites/sprite_systems.dart';
-import '../physics/velocity_component.dart';
 import '../sprites/sprite_animation_component.dart';
 import '../timeline/timeline_player_component.dart';
 import 'animation_targets.dart';

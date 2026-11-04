@@ -1,6 +1,7 @@
-// The rendering contracts use the output camera, so the output camera and
-// what it is made of must import nothing from the rest of the camera
-// feature (the brain, the stages): that would loop rendering and camera.
+// The rendering contracts use the output camera. camera/ sits below
+// rendering/ (ARCHITECTURE.md §2.3), and the output camera and what it is
+// made of import nothing from the rest of the camera feature (the brain,
+// the stages), so what rendering reaches of camera/ stays that small.
 
 import 'dart:io';
 

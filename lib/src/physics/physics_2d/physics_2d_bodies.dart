@@ -15,7 +15,6 @@ import '../../rendering/culling/cull_state_component.dart';
 import '../body_rebuild.dart';
 import '../physics_context.dart';
 import '../physics_layers.dart';
-import '../velocity_component.dart';
 import 'collider_2d_geometry.dart';
 import 'physics_2d_components.dart';
 import 'physics_2d_body_ref_component.dart';

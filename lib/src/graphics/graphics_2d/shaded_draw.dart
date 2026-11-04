@@ -6,9 +6,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
 import 'package:meta/meta.dart' show internal;
 
-import '../renderable.dart';
-import '../shader_component.dart';
-import '../shader_filter_support.dart';
+import '../../rendering/renderable.dart';
+import '../../rendering/shader_component.dart';
+import '../../rendering/shader_filter_support.dart';
 import 'render_bounds.dart';
 
 /// Draws a renderable through its entity's [ShaderComponent]: an offscreen

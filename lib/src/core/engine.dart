@@ -30,10 +30,11 @@ import '../graphics/graphics_2d/materials/screen_material_component.dart';
 import '../graphics/graphics_2d/materials/screen_material_pass.dart';
 import '../level_map/level_map_runtime.dart';
 import '../sprites/sprites_context.dart';
-import '../rendering/system/lighting_2d_pass.dart';
+import '../graphics/graphics_2d/lighting_2d_pass.dart';
 import 'engine_config.dart';
 import 'engine_plugin.dart';
-import 'engine_service.dart';
+import '../services/engine_service.dart';
+import '../services/game_engine.dart';
 import 'game_loop.dart';
 import 'system_manager.dart';
 import 'time_manager.dart';
@@ -61,7 +62,7 @@ import 'built_in_components.dart';
 /// ```
 ///
 /// See [EngineState] for what may be called when.
-class Engine {
+class Engine implements GameEngine {
   /// An engine built as [config] says, reading from [context] — or from a
   /// context of its own, made here and disposed with it, when null. The
   /// config's extensions are installed into the context at once.
@@ -97,6 +98,7 @@ class Engine {
   /// the state packages keep per engine. Made with the engine, so it can be
   /// filled before [initialize]; [world] and every world given it read from
   /// it.
+  @override
   final EngineContext context;
 
   /// Whether [context] was made for this engine, and goes with it.
@@ -112,13 +114,16 @@ class Engine {
 
   /// The services this engine runs — started with it, stopped with it; see
   /// [EngineService]. Declared in [EngineConfig.services], or added here.
+  @override
   late final ServiceHost services = newServiceHost(this);
 
   /// The service of type [T]. Throws a [StateError] saying how to add it
   /// when this engine has none.
+  @override
   T service<T extends EngineService>() => services.get<T>();
 
   /// The service of type [T], or null.
+  @override
   T? maybeService<T extends EngineService>() => services.maybe<T>();
 
   /// In-game developer terminal for cheat commands and debug tooling.
@@ -160,6 +165,7 @@ class Engine {
   EngineInitException? get lastError => _lastError;
 
   /// Whether the engine is ready: initialized, running or paused.
+  @override
   bool get isInitialized =>
       _state == EngineState.initialized ||
       _state == EngineState.running ||
@@ -173,6 +179,7 @@ class Engine {
 
   /// Whether [dispose] has been called — true from its first moment, while
   /// it is still finishing.
+  @override
   bool get isDisposed =>
       _state == EngineState.disposing || _state == EngineState.disposed;
 
@@ -204,6 +211,7 @@ class Engine {
   TimeManager get time => _ready(_timeManager, 'time');
 
   /// Draws the game.
+  @override
   RenderingEngine get rendering => _ready(_rendering, 'rendering');
 
   /// The physics simulation — Box2D FFI on native platforms, pure-Dart on
@@ -240,11 +248,13 @@ class Engine {
   CameraEngine get camera => _ready(_cameraEngine, 'camera');
 
   /// The ECS world the game runs in, reading from [context].
+  @override
   World get world => _ready(_world, 'world');
 
   /// Loads, caches and releases the game's images, audio, text and atlases;
   /// its context's ([EngineContext.assets]), so it is there before
   /// [initialize].
+  @override
   AssetManager get assets => context.assets;
 
   // ── Frame bookkeeping ───────────────────────────────────────────────────

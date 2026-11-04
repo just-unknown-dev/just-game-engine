@@ -19,12 +19,14 @@ import 'level_map_runtime.dart';
 import '../graphics/graphics_2d/materials/material_2d_batch.dart';
 import '../graphics/graphics_2d/materials/material_2d_library.dart';
 import '../graphics/graphics_2d/materials/materials_2d_context.dart';
+import '../graphics/graphics_2d/lighting/lighting_2d_item.dart';
 import '../rendering/render_items_component.dart';
 
 /// One map layer's tiles, as one of the level's things to draw: it sorts
 /// among sprites and shapes by the layer's own sort layer and z-order, and
-/// the entities on the layer draw just after it.
-class MapLayerRenderItem extends RenderItem {
+/// the entities on the layer draw just after it. 2-D lighting draws its
+/// normals and, when it casts shadows, its silhouette.
+class MapLayerRenderItem extends RenderItem implements Lighting2DItem {
   /// The item drawing layer [layerId] of [runtime]'s map.
   MapLayerRenderItem(this.runtime, this.layerId);
 
@@ -66,6 +68,19 @@ class MapLayerRenderItem extends RenderItem {
   @override
   void render(Canvas canvas, RenderContext context, Entity owner) =>
       runtime.painter.paint(canvas, context, owner, layerId);
+
+  @override
+  bool paintNormals(
+    Canvas canvas,
+    RenderContext context,
+    Entity owner, {
+    required bool flat,
+  }) =>
+      runtime.painter.paintNormals(canvas, context, owner, layerId, flat: flat);
+
+  @override
+  bool paintSilhouette(Canvas canvas, RenderContext context, Entity owner) =>
+      runtime.painter.paintSilhouette(canvas, context, owner, layerId);
 }
 
 /// A run of tiles drawn with one call: same tileset, same side of the
@@ -226,7 +241,7 @@ class _Draw {
     this.time = 0,
     this.mode = _Mode.color,
     this.normalImage,
-    this.flatColor = MapLayerPainter.flatNormal,
+    this.flatColor = Lighting2DItem.flatNormal,
     this.spanX0,
     this.spanX1,
   });
@@ -357,8 +372,6 @@ class MapLayerPainter {
   /// The map's revision when layers it no longer has were last let go of.
   int _prunedAt = -1;
 
-  /// What a flat normal (facing the viewer, not emissive) is drawn as.
-  static const int flatNormal = 0xFF808000;
   final Paint _paint = Paint()
     ..filterQuality = FilterQuality.none
     ..isAntiAlias = false;
@@ -418,9 +431,9 @@ class MapLayerPainter {
   }
 
   /// Draws layer [layerId]'s tiles as what casts shadows — for 2-D
-  /// lighting's mask, coloured by [casterColor] of its shadow depth — when
-  /// the layer casts shadows ([MapLayerData.castShadows]), and true; else
-  /// nothing, and false.
+  /// lighting's mask, coloured by [Lighting2DItem.casterColor] of its
+  /// shadow depth — when the layer casts shadows
+  /// ([MapLayerData.castShadows]), and true; else nothing, and false.
   bool paintSilhouette(
     Canvas canvas,
     RenderContext context,
@@ -435,15 +448,10 @@ class MapLayerPainter {
       owner,
       layerId,
       _Mode.flat,
-      flatColor: casterColor(layer.shadowDepth),
+      flatColor: Lighting2DItem.casterColor(layer.shadowDepth),
     );
     return true;
   }
-
-  /// What a shadow caster is drawn as in 2-D lighting's mask: opaque, its
-  /// [depth] (how far light reaches into it, 0-64) in red.
-  static int casterColor(double depth) =>
-      0xFF000000 | ((depth * 4).round().clamp(0, 255) << 16);
 
   /// Lets go of everything the drawing holds: the batches, and what the
   /// layers drawn through a 2-D material made — images and shaders. Called
@@ -474,7 +482,7 @@ class MapLayerPainter {
     Entity owner,
     int layerId,
     _Mode mode, {
-    int flatColor = flatNormal,
+    int flatColor = Lighting2DItem.flatNormal,
   }) {
     final layer = runtime.base.layerById(layerId);
     if (layer == null) return;

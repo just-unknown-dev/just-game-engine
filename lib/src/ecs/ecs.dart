@@ -20,6 +20,7 @@ export 'transform/euler_rotation.dart';
 export 'transform/parent_component.dart';
 export 'transform/children_component.dart';
 export 'transform/transform_hierarchy.dart';
+export 'transform/velocity_component.dart';
 export 'serialization/component_codec.dart';
 export 'serialization/component_definition.dart';
 export 'serialization/component_presentation.dart';

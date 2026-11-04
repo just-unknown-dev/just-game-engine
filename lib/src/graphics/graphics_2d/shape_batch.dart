@@ -8,12 +8,12 @@ import 'dart:ui' as ui;
 import 'package:flutter/painting.dart';
 import 'package:meta/meta.dart' show internal;
 
-import '../renderable.dart';
-import '../../graphics/graphics_2d/shapes/circle_2d_component.dart';
-import '../../graphics/graphics_2d/shapes/rectangle_2d_component.dart';
-import '../../graphics/graphics_2d/shapes/shape_paint_cache.dart';
+import '../../rendering/renderable.dart';
+import 'shapes/circle_2d_component.dart';
+import 'shapes/rectangle_2d_component.dart';
+import 'shapes/shape_paint_cache.dart';
 import '../../foundation/shape_paint_style.dart';
-import '../renderable_component.dart';
+import '../../rendering/renderable_component.dart';
 
 /// Collects [Rectangle2DComponent]s and [Circle2DComponent]s into one
 /// [Canvas.drawVertices] call — the shape counterpart of a sprite batch,

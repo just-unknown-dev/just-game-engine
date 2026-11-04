@@ -3,7 +3,6 @@ library;
 import '../ecs/ecs.dart';
 import '../physics/physics_2d/physics_2d_components.dart';
 import '../rendering/culling/cull_state_component.dart';
-import '../physics/velocity_component.dart';
 
 /// Movement system - Applies velocity to transform
 ///

@@ -35,8 +35,8 @@ const Map<String, String> _allowed = {
   'graphics/graphics_2d/materials/material_2d_overrides_field_type.dart:_channels':
       "a constant table computed once from the effects' list; unmodifiable",
   'level_map/wang/wang_template.dart:_blobMasks': 'a constant table',
-  'rendering/system/shape_batch.dart:_circle16': 'a constant table',
-  'rendering/system/shape_batch.dart:_circle24': 'a constant table',
+  'graphics/graphics_2d/shape_batch.dart:_circle16': 'a constant table',
+  'graphics/graphics_2d/shape_batch.dart:_circle24': 'a constant table',
   'camera/camera_stage.dart:_ln100': 'a constant',
 
   // Slot keys: an identity each feature keeps its per-engine state under

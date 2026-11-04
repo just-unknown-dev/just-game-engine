@@ -1,4 +1,7 @@
-/// Rendering — Graphics and visual representation.
+/// Rendering: the contracts everything drawn builds on — `Renderable`,
+/// `Sprite`, the render components, culling, post-processing — and
+/// `RenderingEngine`, which owns the frame. The 2-D renderer that draws the
+/// world, `RenderSystem`, is in graphics/graphics_2d/.
 library;
 
 export 'rendering_engine.dart';
@@ -15,9 +18,6 @@ export 'renderable_component.dart';
 export 'render_items_component.dart';
 export 'layer_component.dart';
 export 'shader_component.dart';
-export 'system/render_pass.dart';
-export 'system/render_system.dart';
-export 'system/lighting_2d_pass.dart';
 export 'culling/cull_state_component.dart';
 export 'culling/view_culling_system.dart';
 export 'post_processing/post_process_pass.dart';

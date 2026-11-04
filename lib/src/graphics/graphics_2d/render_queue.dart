@@ -6,14 +6,14 @@ import 'dart:math' as math;
 import 'package:meta/meta.dart' show internal;
 
 import '../../ecs/ecs.dart';
-import '../../graphics/graphics_2d/lighting/shadow_caster_2d_component.dart';
-import '../../graphics/graphics_2d/materials/material_2d_component.dart';
+import 'lighting/shadow_caster_2d_component.dart';
+import 'materials/material_2d_component.dart';
 import '../../particles/particles.dart';
-import '../layer_component.dart';
-import '../render_items_component.dart';
-import '../renderable.dart';
-import '../renderable_component.dart';
-import '../shader_component.dart';
+import '../../rendering/layer_component.dart';
+import '../../rendering/render_items_component.dart';
+import '../../rendering/renderable.dart';
+import '../../rendering/renderable_component.dart';
+import '../../rendering/shader_component.dart';
 
 /// One thing a `RenderSystem` draws: an entity's renderable, its particle
 /// emitter, or one of its [RenderItem]s — with the entity's components,

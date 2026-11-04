@@ -1,7 +1,6 @@
 import 'package:just_physics_engine/physics_3d.dart';
 
-import '../../core/engine.dart';
-import '../../core/engine_service.dart';
+import '../../services/services.dart';
 import '../../ecs/engine_context.dart';
 import '../../camera/camera_brain.dart';
 import 'camera_collision_3d_component.dart';
@@ -42,9 +41,9 @@ import '../physics_context.dart';
 ///
 /// Where 3-D physics cannot run — the web, a 32-bit Android ABI, an app
 /// whose pubspec did not ask for Jolt — initializing the engine fails with an
-/// [EngineInitException] whose stage is `service:Physics3D` and whose
-/// [EngineInitException.cause] is a [Physics3DUnsupportedError] naming the
-/// reason. [isSupported] asks first.
+/// `EngineInitException` whose stage is `service:Physics3D` and whose
+/// `cause` is a [Physics3DUnsupportedError] naming the reason.
+/// [isSupported] asks first.
 ///
 /// The collision layers are the project's (`assets/project/physics.json`,
 /// read into `EngineContext.physicsLayers`); mesh and hull colliders take
@@ -106,7 +105,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
   /// Whether starting adds [system] to the engine's world.
   final bool addSystem;
 
-  Engine? _game;
+  GameEngine? _game;
   Physics3DEngine? _engine;
   Physics3DSystem? _system;
   Physics3DQueries? _queries;
@@ -221,7 +220,7 @@ final class Physics3D implements RefreshableExtension, EngineService {
 }
 
 /// The engine's 3-D physics.
-extension EnginePhysics3D on Engine {
+extension EnginePhysics3D on GameEngine {
   /// The [Physics3D] given in `EngineConfig.services`, or null for a 2-D
   /// game. Its world, system and queries are there once the engine has
   /// initialized.

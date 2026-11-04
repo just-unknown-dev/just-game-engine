@@ -3,7 +3,6 @@
 library;
 
 import '../ecs/ecs.dart';
-import '../physics/velocity_component.dart';
 import '../gameplay/health_component.dart';
 
 /// Reads an entity's own state into an animator parameter, every frame.

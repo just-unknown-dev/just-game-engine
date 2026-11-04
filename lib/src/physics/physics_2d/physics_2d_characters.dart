@@ -8,7 +8,6 @@ import 'package:just_physics_engine/just_physics_engine.dart';
 
 import '../physics_layers.dart';
 import '../../ecs/ecs.dart';
-import '../velocity_component.dart';
 import '../../rendering/culling/cull_state_component.dart';
 import 'physics_2d_components.dart';
 import '../physics_context.dart';

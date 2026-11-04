@@ -4,7 +4,6 @@ library;
 import 'package:flutter/painting.dart' show Offset;
 
 import '../ecs/ecs.dart';
-import '../physics/velocity_component.dart';
 
 /// Resolves the [EntityTarget]s cameras name to entities, once a frame.
 ///

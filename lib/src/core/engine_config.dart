@@ -8,7 +8,7 @@ import 'register_default_systems.dart';
 import '../audio/audio.dart';
 import '../rendering/rendering_engine.dart';
 import '../ecs/engine_context.dart';
-import 'engine_service.dart';
+import '../services/engine_service.dart';
 
 /// Choices made once, when an [Engine] is made: what it is taught
 /// ([extensions]), what it runs beside the game ([services]), and how some

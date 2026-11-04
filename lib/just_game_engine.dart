@@ -46,6 +46,10 @@ library;
 // Core Engine - Main engine, game loop, and time management
 export 'src/core/core.dart';
 
+// Services - what a game adds to its engine (EngineService) and the engine
+// as a service sees it (GameEngine)
+export 'src/services/services.dart';
+
 // Foundation - world axes, dimensions, easings, shape paint style
 export 'src/foundation/foundation.dart';
 

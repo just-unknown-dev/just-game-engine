@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:just_graphics_engine/gpu.dart';
 import 'package:just_graphics_engine/renderer.dart';
 
-import '../../core/core.dart';
 import '../../ecs/ecs.dart';
 import '../../assets/assets.dart';
+import '../../services/services.dart';
 import '../../timeline/timeline.dart';
 import 'animation_3d_system.dart';
 import 'model_components.dart';
@@ -103,7 +103,7 @@ final class Graphics3D implements RefreshableExtension, SceneCacheService {
   /// editor runs, off in a release, which never draws them.
   final bool keepEdges;
 
-  Engine? _engine;
+  GameEngine? _engine;
   Renderer3D? _renderer;
   Graphics3DModels? _models;
   Graphics3DSceneRenderer? _scene;
@@ -271,7 +271,7 @@ final class Graphics3D implements RefreshableExtension, SceneCacheService {
 }
 
 /// The engine's 3-D graphics.
-extension EngineGraphics3D on Engine {
+extension EngineGraphics3D on GameEngine {
   /// The [Graphics3D] given in `EngineConfig.services`, or null for a 2-D
   /// game. Its renderer, models and scene renderer are there once the
   /// engine has initialized; [Graphics3D.unsupportedReason] says why

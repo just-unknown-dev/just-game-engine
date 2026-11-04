@@ -35,7 +35,6 @@ export 'package:just_physics_engine/just_physics_engine.dart'
         Ground2DState,
         Mover2DShape;
 export 'physics_context.dart' show ContextPhysics;
-export 'velocity_component.dart';
 export 'physics_definitions.dart';
 export 'physics_field_types.dart';
 export 'body_rebuild.dart';

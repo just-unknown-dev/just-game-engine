@@ -1,6 +1,6 @@
-/// Graphics: 2-D shapes, materials and lighting (graphics_2d/) — what an entity is
-/// drawn as, drawn through and lit by; `RenderSystem` (in `rendering/`) draws
-/// them. 3-D graphics (graphics_3d/) is in
+/// Graphics: 2-D (graphics_2d/) — the 2-D renderer, `RenderSystem`, and the
+/// shapes, materials and lighting it draws an entity as, through and lit
+/// by. 3-D graphics (graphics_3d/) is in
 /// `package:just_game_engine/just_game_engine_3d.dart`.
 library;
 
@@ -14,6 +14,11 @@ export 'package:just_game_engine_formats/just_game_engine_formats.dart'
         Material2DValue,
         MaterialChain,
         ResolvedMaterial;
+
+// The 2-D renderer: RenderSystem, its passes and 2-D lighting's pass.
+export 'graphics_2d/render_system.dart';
+export 'graphics_2d/render_pass.dart';
+export 'graphics_2d/lighting_2d_pass.dart';
 
 export 'graphics_2d/shapes/circle_2d_component.dart';
 export 'graphics_2d/shapes/rectangle_2d_component.dart';
@@ -37,3 +42,4 @@ export 'graphics_2d/materials/material_2d_overrides_field_type.dart';
 export 'graphics_2d/lighting/light_2d_component.dart';
 export 'graphics_2d/lighting/shadow_caster_2d_component.dart';
 export 'graphics_2d/lighting/lighting_2d_definitions.dart';
+export 'graphics_2d/lighting/lighting_2d_item.dart';

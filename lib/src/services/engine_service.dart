@@ -4,11 +4,12 @@ library;
 import 'package:meta/meta.dart' show internal;
 
 import '../ecs/ecs.dart';
-import 'engine.dart';
+import 'game_engine.dart';
 
 /// Something a game adds to its engine that lives as long as the engine
 /// does — achievements, a wallet, sign-in, ads (package
-/// `just_game_services`), or a game's own.
+/// `just_game_services`), or a game's own; `Graphics3D` and `Physics3D`
+/// (`just_game_engine_3d.dart`) are two.
 ///
 /// Declared in `EngineConfig.services` (or added later with
 /// `engine.services.add`) and found with `engine.service<T>()`:
@@ -41,7 +42,7 @@ abstract class EngineService {
 
 /// An [EngineService] that keeps what scenes use — models, material files,
 /// maps — and lets go of what the scene in its engine's world no longer
-/// uses when [Engine.releaseUnused] asks: `Graphics3D` is one.
+/// uses when `Engine.releaseUnused` asks: `Graphics3D` is one.
 abstract interface class SceneCacheService implements EngineService {
   /// Lets go of what the engine's world no longer uses; whatever is used
   /// again later is read again.
@@ -52,8 +53,9 @@ abstract interface class SceneCacheService implements EngineService {
 final class ServiceContext {
   ServiceContext._(this.engine);
 
-  /// The engine the service runs in.
-  final Engine engine;
+  /// The engine the service runs in, as a service sees it: its world,
+  /// context, assets, rendering and services ([GameEngine]). An `Engine`.
+  final GameEngine engine;
 
   /// The engine's context: its registries, loaders, and the per-package
   /// state a service may keep there (`EngineContext.slot`).
@@ -68,7 +70,7 @@ final class ServiceContext {
 final class ServiceHost {
   ServiceHost._(this._engine) : _context = ServiceContext._(_engine);
 
-  final Engine _engine;
+  final GameEngine _engine;
   final ServiceContext _context;
   final List<EngineService> _services = [];
   final Set<EngineService> _started = Set.identity();
@@ -235,4 +237,4 @@ extension ServiceHostEngineAccess on ServiceHost {
 
 /// Makes the host for [engine]; the engine calls this once.
 @internal
-ServiceHost newServiceHost(Engine engine) => ServiceHost._(engine);
+ServiceHost newServiceHost(GameEngine engine) => ServiceHost._(engine);

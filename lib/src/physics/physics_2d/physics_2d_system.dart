@@ -3,7 +3,6 @@ library;
 import 'package:just_physics_engine/just_physics_engine.dart';
 
 import '../../ecs/ecs.dart';
-import '../velocity_component.dart';
 import 'physics_2d_bodies.dart';
 import 'physics_2d_characters.dart';
 import 'physics_2d_components.dart';

@@ -12,19 +12,19 @@ import 'package:just_game_engine_formats/just_game_engine_formats.dart'
 import 'package:meta/meta.dart' show internal;
 
 import '../../ecs/ecs.dart';
-import '../../graphics/graphics_2d/materials/material_2d_batch.dart';
-import '../../graphics/graphics_2d/materials/material_2d_component.dart';
-import '../../graphics/graphics_2d/materials/material_2d_library.dart';
-import '../../graphics/graphics_2d/materials/material_2d_shapes.dart';
-import '../../graphics/graphics_2d/shapes/circle_2d_component.dart';
-import '../../graphics/graphics_2d/shapes/rectangle_2d_component.dart';
-import '../../graphics/graphics_2d/shapes/shape_2d_look.dart';
+import 'materials/material_2d_batch.dart';
+import 'materials/material_2d_component.dart';
+import 'materials/material_2d_library.dart';
+import 'materials/material_2d_shapes.dart';
+import 'shapes/circle_2d_component.dart';
+import 'shapes/rectangle_2d_component.dart';
+import 'shapes/shape_2d_look.dart';
 import '../../interfaces/rendering_interfaces.dart';
-import '../renderable.dart';
-import '../renderable_component.dart';
-import '../sprite.dart';
-import '../sprite_batch.dart';
-import '../sprite_batching.dart';
+import '../../rendering/renderable.dart';
+import '../../rendering/renderable_component.dart';
+import '../../rendering/sprite.dart';
+import '../../rendering/sprite_batch.dart';
+import '../../rendering/sprite_batching.dart';
 import 'render_queue.dart';
 import 'shape_batch.dart';
 

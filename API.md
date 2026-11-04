@@ -6,7 +6,7 @@ Generated from `lib/` with an analyzer dump of the public libraries, so every na
 
 | Library | Exports |
 |---|---|
-| `package:just_game_engine/just_game_engine.dart` | 757 names: 610 from the engine, 147 [re-exported](#re-exported-packages) |
+| `package:just_game_engine/just_game_engine.dart` | 759 names: 612 from the engine, 147 [re-exported](#re-exported-packages) |
 | `package:just_game_engine/widgets.dart` | 17 screen widgets ([list](#widgetsdart)) |
 | `package:just_game_engine/just_game_engine_3d.dart` | 159 names: 72 from the engine ([3-D graphics](#3-d-graphics), [3-D physics](#3-d-physics)), 87 re-exported: 43 from `just_graphics_engine`, 30 from `just_physics_engine`'s 3-D side, 9 maths types (the main library's) and 5 from `just_game_engine_formats` |
 
@@ -61,7 +61,11 @@ An engine's registries, loaders and package state live in its `EngineContext` (`
   - `Future<void> start(ServiceContext context)`
   - `Future<void> stop()`
 
-Also: `ServiceHost` (`engine.services`), `ServiceContext`, `SceneCacheService` (a service whose scene caches `Engine.releaseUnused` empties, as `Graphics3D`'s), `ContextResource`, `LoaderOverride`.
+- **`GameEngine`** — what a service sees of its engine (`ServiceContext.engine`); `Engine` implements it.
+  - `World get world`, `EngineContext get context`, `AssetManager get assets`, `RenderingEngine get rendering`
+  - `ServiceHost get services`, `T service<T extends EngineService>()`, `T? maybeService<T extends EngineService>()`, `bool get isInitialized`, `bool get isDisposed`
+
+Also: `ServiceHost` (`engine.services`), `ServiceContext` (`engine`, `context`, `events`), `SceneCacheService` (a service whose scene caches `Engine.releaseUnused` empties, as `Graphics3D`'s), `ContextResource`, `LoaderOverride`.
 
 ## ECS
 
@@ -151,6 +155,9 @@ Also: `SceneAssets` (scenes live in `assets/scenes`, listed in `assets/scenes/sc
   - `Light2DComponent({Light2DKind kind = Light2DKind.point, Color color, double intensity = 1, double radius = 240, …, bool castShadows = true, bool enabled = true})`
 - **`ShadowCaster2DComponent`** — makes the entity's sprite or shape cast shadows.
   - `ShadowCaster2DComponent({bool enabled = true, double depth = 12})`
+- **`Lighting2DItem`** — a `RenderItem` 2-D lighting draws too: its normals and its shadow silhouette (`MapLayerRenderItem` is one).
+  - `bool paintNormals(Canvas canvas, RenderContext context, Entity owner, {required bool flat})`, `bool paintSilhouette(Canvas canvas, RenderContext context, Entity owner)`
+  - `static const int flatNormal`, `static int casterColor(double depth)` — the colours the lighting buffers read
 
 Also: shapes `Circle2DComponent`, `Polygon2DComponent`, `Line2DComponent`, `Capsule2DComponent`, `ShapePaintStyle`; `LevelLayers`, `ParallaxBackground`, `ParallaxLayer`, `ParallaxRenderSystem`; post-processing `ShaderComponent`, `PostProcessPass`, `PostProcessSystem`; `RenderHookChain`, `RenderStatsSink`, `Sprite`, `SpriteBatch`, `TextRenderable`, `CustomRenderable`; culling `ViewCullingSystem`, `CullStateComponent`; 3-D seam `SceneRenderer`, `FrameView`.
 
