@@ -6,12 +6,12 @@
 /// import 'package:just_game_engine/widgets.dart';
 /// ```
 ///
-/// - Dialogue: `DialogueBoxWidget` and `DialogueChoicesWidget`, UI for a
+/// - Dialogue: `DialogueBox` and `DialogueChoices`, UI for a
 ///   `DialogueRunner`.
 /// - Subtitles: `SubtitleOverlay`, which shows a `SubtitleController`'s
 ///   cues.
 /// - Localization: `LocalizationBuilder`, `LocalizedText`, `LocaleSelector`
-///   and `context.t()` / `context.tr()` (`L10nContext`). They read the
+///   and `context.t()` / `context.tr()` (`BuildContextLocalization`). They read the
 ///   `LocalizationScope` that `GameWidget` puts around the game when
 ///   `engine.context.localization` is set.
 /// - Camera: `GameCameraControls` — wheel and pinch zoom, drag to pan, and
@@ -34,9 +34,13 @@ export 'package:just_inputs/just_inputs.dart'
         RebindRow,
         rebindRows;
 
-export 'src/subsystems/camera/camera_controls.dart' show GameCameraControls;
-export 'src/subsystems/localization/localization_widget.dart'
-    show L10nContext, LocaleSelector, LocalizationBuilder, LocalizedText;
-export 'src/subsystems/narrative/ui/dialogue_box_widget.dart';
-export 'src/subsystems/narrative/ui/dialogue_choices_widget.dart';
-export 'src/subsystems/subtitle/subtitle_overlay.dart';
+export 'src/camera/camera_controls.dart' show GameCameraControls;
+export 'src/localization/localization_widget.dart'
+    show
+        BuildContextLocalization,
+        LocaleSelector,
+        LocalizationBuilder,
+        LocalizedText;
+export 'src/narrative/widgets/dialogue_box.dart';
+export 'src/narrative/widgets/dialogue_choices.dart';
+export 'src/subtitle/subtitle_overlay.dart';

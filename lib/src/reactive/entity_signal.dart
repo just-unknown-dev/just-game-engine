@@ -161,7 +161,7 @@ class EntitySignal {
 }
 
 /// Extension on Entity to create reactive wrappers.
-extension ReactiveEntityExtension on Entity {
+extension EntityReactive on Entity {
   /// Creates a reactive signal wrapper for this entity.
   EntitySignal toSignal({String? debugLabel}) {
     return EntitySignal(this, debugLabel: debugLabel);

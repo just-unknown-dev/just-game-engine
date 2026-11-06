@@ -5,6 +5,7 @@
 library;
 
 export 'camera_lens.dart';
+export 'frame_view.dart';
 export 'game_camera.dart';
 export 'rendering_interfaces.dart';
 export 'view_volume.dart';

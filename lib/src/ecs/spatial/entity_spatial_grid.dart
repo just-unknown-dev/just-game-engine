@@ -5,7 +5,7 @@ library;
 
 import 'dart:ui' show Rect;
 
-import '../ecs.dart';
+import '../world.dart';
 
 /// A uniform grid for fast "which entities are roughly near this rect"
 /// broad-phase queries — the same technique `just_physics_engine`'s

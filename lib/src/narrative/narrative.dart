@@ -1,0 +1,54 @@
+/// Narrative / Dialogue System — public barrel.
+///
+/// Exports the full Narrative API:
+/// - [DialogueManager] — top-level facade
+/// - [DialogueGraph], [DialogueNode] — data model
+/// - [DialogueLine], [DialogueChoice] — resolved display types
+/// - [DialogueVariableStore] — Yarn variable storage
+/// - [YarnParser] — `.yarn` source parser
+/// - [YarnTokenizer], [YarnToken], [TokenType] — tokenizer primitives
+/// - [YarnParseException] — parse errors
+/// - [DialogueRunner] — execution engine
+/// - [ExpressionEvaluator] — condition/expression evaluation
+/// - [DialogueConditionRegistry], [DialoguePredicate] — Dart predicates
+/// - [DialogueCommandRegistry], [DialogueCommandContext],
+///   [DialogueCommandHandler] — custom commands
+/// - [DialogueLocalizer] — i18n / string table
+/// - [NarrativeSignals], [DialogueEvent], [DialogueEventType] — reactive state
+/// - [DialogueComponent], [DialogueTriggerComponent] — ECS components
+/// - [DialogueSystem] — ECS system
+///
+/// The dialogue widgets (`DialogueBox`, `DialogueChoices`) are in
+/// `package:just_game_engine/widgets.dart`.
+library;
+
+// Core data model
+export 'graph/dialogue_graph.dart';
+export 'graph/dialogue_statement.dart';
+export 'graph/dialogue_line.dart';
+export 'graph/dialogue_choice.dart';
+export 'graph/dialogue_variable_store.dart';
+
+// Parser
+export 'parser/yarn_parser.dart';
+
+// Runtime
+export 'runtime/dialogue_condition_registry.dart';
+export 'runtime/dialogue_command_registry.dart';
+export 'runtime/dialogue_runner.dart';
+
+// Localization
+export 'dialogue_localizer.dart';
+
+// Reactive signals
+export 'narrative_signals.dart';
+
+// Manager (facade)
+export 'dialogue_manager.dart';
+export 'dialogue_component.dart';
+export 'dialogue_system.dart';
+
+// ECS integration: DialogueComponent and DialogueSystem are exported with
+// the other components and systems (ecs/components, ecs/systems).
+
+// UI widgets: package:just_game_engine/widgets.dart.

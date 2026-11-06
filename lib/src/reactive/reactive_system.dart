@@ -31,7 +31,9 @@ abstract class ReactiveSystem extends System {
   final Set<EntityId> _dirtyEntities = {};
   WorldSignal? _worldSignal;
 
-  /// Whether to process all matching entities on the first update.
+  /// Whether the first update processes every matching entity — also when
+  /// some are marked dirty already. From then on only dirty entities are
+  /// processed, and every newcomer is marked dirty.
   bool processAllOnFirstRun = true;
 
   /// Marks an entity as dirty, needing processing.
@@ -189,12 +191,14 @@ abstract class ReactiveSystem extends System {
   @override
   void update(double deltaTime) {
     _syncWatches();
-    if (processAllOnFirstRun && _dirtyEntities.isEmpty) {
-      // First run - process all entities
+    if (processAllOnFirstRun) {
+      // First run: every matching entity — those already marked dirty
+      // among them, once. Marks made while processing count for the next.
+      processAllOnFirstRun = false;
+      _dirtyEntities.clear();
       for (final entity in entities) {
         processEntity(entity, deltaTime);
       }
-      processAllOnFirstRun = false;
     } else {
       // Only process dirty entities
       final toProcess = _dirtyEntities.toList();

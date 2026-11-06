@@ -7,19 +7,8 @@ library;
 
 import 'package:flutter/foundation.dart';
 
+import 'system_manager.dart' show FrameTask, UpdateTask;
 import 'time_manager.dart';
-
-/// Type definition for update callback
-typedef UpdateCallback = void Function(double deltaTime);
-
-/// Type definition for render callback
-typedef RenderCallback = void Function();
-
-/// Called once per rendered frame, after its fixed updates: [deltaTime] is
-/// the frame's length in seconds — at most [TimeManager.maxDeltaTime], then
-/// scaled by the time scale — [alpha] how far the frame lies between the
-/// last two fixed updates (0..1).
-typedef FrameCallback = void Function(double deltaTime, double alpha);
 
 /// Main game loop implementation
 ///
@@ -34,17 +23,23 @@ typedef FrameCallback = void Function(double deltaTime, double alpha);
 /// — as long as they pass the frame's own timestamp: a second tick with the
 /// stamp of the last is the same frame and is ignored.
 class GameLoop {
-  /// Update callback function
-  final UpdateCallback onUpdate;
+  /// One fixed step of game logic, given the step's length in seconds
+  /// (scaled by the time scale).
+  final UpdateTask onUpdate;
 
-  /// Render callback function (kept for headless compatibility — a no-op when
-  /// rendering is handled by Flutter's `CustomPainter`).
-  final RenderCallback? onRender;
+  /// Called at the end of every [tick], also while paused: what runs on
+  /// real time — the engine's plugins (an editor), camera post effects, and
+  /// input and audio while paused. Drawing itself is Flutter's
+  /// `CustomPainter`'s.
+  final VoidCallback? onRender;
 
   /// Called once per frame after the fixed updates, while not paused: the
   /// per-frame phase (a camera following between physics steps, a look that
-  /// reads this frame's mouse movement).
-  final FrameCallback? onFrame;
+  /// reads this frame's mouse movement). It gets the frame's length in
+  /// seconds — at most [TimeManager.maxDeltaTime], then scaled by the time
+  /// scale — and how far the frame lies between the last two fixed updates
+  /// (0..1).
+  final FrameTask? onFrame;
 
   /// Time manager for tracking time
   final TimeManager timeManager;
@@ -99,7 +94,7 @@ class GameLoop {
   /// Create a game loop
   ///
   /// [onUpdate] - Called at fixed intervals for game logic
-  /// [onRender] - Optional render callback (no-op when a widget drives rendering)
+  /// [onRender] - Optional callback at the end of every tick, paused or not
   /// [onFrame] - Optional per-frame callback, after the fixed updates
   /// [timeManager] - Time manager instance
   /// [targetUPS] - Target updates per second (default: 60)
@@ -192,6 +187,10 @@ class GameLoop {
   /// time a callback happens to run is not — on the web `performance.now()`
   /// is coarsened, and a stopwatch-timed 60 Hz frame there alternates
   /// between none and two fixed updates.
+  ///
+  /// A fixed step that throws ends the frame's steps — the error is
+  /// rethrown — but [onFrame] and [onRender] still run, and the steps the
+  /// frame had left are dropped rather than run in a burst later.
   void tick([Duration? frameTime]) {
     if (!_isRunning) return;
 
@@ -221,35 +220,49 @@ class GameLoop {
     // Calculate FPS
     _calculateFPS(frameMicros);
 
-    // Don't update game logic if paused
-    if (!_isPaused) {
-      // Accumulate frame time
-      _accumulator += frameSeconds;
-
-      // Clamp accumulator to prevent spiral of death
-      if (_accumulator > _fixedDeltaTime * 3) {
-        _accumulator = _fixedDeltaTime * 3;
+    try {
+      // Don't update game logic if paused
+      if (!_isPaused) _step(frameSeconds);
+    } finally {
+      try {
+        // Clamped like the time manager's: after a hitch the per-frame phase
+        // gets a long frame, not seconds of one.
+        if (!_isPaused) onFrame?.call(timeManager.deltaTime, interpolation);
+      } finally {
+        onRender?.call();
       }
+    }
+  }
 
-      // Update at fixed timestep. A step is taken when the accumulator is
-      // within [_stepSlack] of one: frame stamps come rounded (to whole
-      // microseconds natively, far coarser on the web), so a 60 Hz frame
-      // measures a hair under or over 1/60 s, and a strict comparison left
-      // the accumulator straddling the step — none, then two, updates in a
-      // row. The slack borrows from the next frame and is paid back.
-      while (_accumulator >= _fixedDeltaTime * (1 - _stepSlack)) {
-        // Use scaled delta so TimeManager.timeScale affects simulation speed.
-        onUpdate(_fixedDeltaTime * timeManager.timeScale);
-        _accumulator -= _fixedDeltaTime;
-      }
+  /// The frame's fixed steps, for [frameSeconds] more of game time.
+  void _step(double frameSeconds) {
+    // Accumulate frame time
+    _accumulator += frameSeconds;
 
-      // Clamped like the time manager's: after a hitch the per-frame phase
-      // gets a long frame, not seconds of one.
-      onFrame?.call(timeManager.deltaTime, interpolation);
+    // Clamp accumulator to prevent spiral of death
+    if (_accumulator > _fixedDeltaTime * 3) {
+      _accumulator = _fixedDeltaTime * 3;
     }
 
-    // Optional render callback (no-op when CustomPainter renders).
-    onRender?.call();
+    // Update at fixed timestep. A step is taken when the accumulator is
+    // within [_stepSlack] of one: frame stamps come rounded (to whole
+    // microseconds natively, far coarser on the web), so a 60 Hz frame
+    // measures a hair under or over 1/60 s, and a strict comparison left
+    // the accumulator straddling the step — none, then two, updates in a
+    // row. The slack borrows from the next frame and is paid back.
+    while (_accumulator >= _fixedDeltaTime * (1 - _stepSlack)) {
+      // Taken before the step runs: one that throws is not owed again.
+      _accumulator -= _fixedDeltaTime;
+      try {
+        // Use scaled delta so TimeManager.timeScale affects simulation speed.
+        onUpdate(_fixedDeltaTime * timeManager.timeScale);
+      } catch (_) {
+        // The frame's other steps go with it — no burst of catch-up steps
+        // once the step stops throwing.
+        if (_accumulator > 0) _accumulator %= _fixedDeltaTime;
+        rethrow;
+      }
+    }
   }
 
   /// Calculate frames per second

@@ -16,7 +16,7 @@ class _Logged extends Renderable {
   void render(Canvas canvas, Size size) {}
 
   @override
-  Rect? getBounds() => null;
+  Rect? get bounds => null;
 }
 
 /// Records which entities a pass is allowed to draw.
@@ -169,6 +169,48 @@ void main() {
     expect(LevelMaps.ownerOf(world, piece), same(map));
   });
 
+  test('a piece on a layer other than the first draws above that layer and '
+      'what is on it before, below the next', () {
+    final third = data.addLayer(name: 'Top');
+    final pieceData = LevelMapData();
+    pieceData.addLayer(name: 'Cut');
+    final piece = world.createEntityWithComponents([
+      TransformComponent(),
+      LevelMapComponent(inline: pieceData),
+      LayerComponent(mapLayer: front.id),
+      ParentComponent(parentId: map.id),
+    ], name: 'Tiles');
+    map.getComponent<ChildrenComponent>()!.addChild(piece.id);
+    member('a', back);
+    member('b', front);
+    member('c', third);
+
+    // The parent was made first, so it is placed first: the piece's own
+    // pass must not undo where the parent put it.
+    final expected = [
+      'map:Back',
+      'a',
+      'map:Front',
+      'Tiles:Cut',
+      'b',
+      'map:Top',
+      'c',
+    ];
+    expect(order(), expected);
+    expect(order(), expected, reason: 'and the frame after');
+
+    // Off the layer, it draws as a map of its own again.
+    piece.getComponent<LayerComponent>()!.mapLayer = null;
+    final item = piece
+        .getComponent<RenderItemsComponent>()!
+        .items
+        .whereType<MapLayerRenderItem>()
+        .single;
+    order();
+    expect(item.layerOverride, isNull);
+    expect(item.subOrder, 0, reason: 'its own first layer');
+  });
+
   test('the level\'s map is never one of its pieces', () {
     world.destroyEntity(map);
     final other = LevelMapData()..addLayer(name: 'Ground');
@@ -190,7 +232,7 @@ void main() {
   });
 
   test('the layer it is on is saved; an older scene has none', () {
-    final schema = CoreComponentSchemas.layer;
+    final schema = RenderingDefinitions.layer;
     final json = schema.encode(LayerComponent(mapLayer: 7));
     expect(schema.decode(json).mapLayer, 7);
     final old = Map<String, dynamic>.of(json)

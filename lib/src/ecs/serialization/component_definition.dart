@@ -5,17 +5,17 @@ import 'dart:ui';
 import 'package:flutter/widgets.dart' show IconData;
 
 import '../../foundation/dimensions.dart';
-import '../ecs.dart';
+import '../world.dart';
 import 'component_codec.dart';
 import 'component_presentation.dart';
 import 'field_type.dart';
 
 /// One persisted property of a component.
-class SchemaField {
+class FieldDefinition {
   /// A field saved under [name] as [kind], taken from a component by [read]
   /// and put back by [write]. [min], [max] and [enumParser] shape what
   /// decoding accepts; leave them null to apply none.
-  const SchemaField({
+  const FieldDefinition({
     required this.name,
     required this.kind,
     required this.read,
@@ -62,7 +62,7 @@ class SchemaField {
 }
 
 /// Drag-to-scrub feel for a numeric field in an inspector. Limits are not
-/// here: they come from [SchemaField.min]/[SchemaField.max], so what the
+/// here: they come from [FieldDefinition.min]/[FieldDefinition.max], so what the
 /// inspector allows and what a load accepts cannot drift apart.
 class ScrubHint {
   /// A scrub of [step] per [pixelsPerStep] pixels dragged, shown with
@@ -111,13 +111,13 @@ class FieldRowHint {
   /// The row's label, where a single field's would be.
   final String label;
 
-  /// [SchemaField.name] → the short label of its cell: `X`, `W`, `Min`.
+  /// [FieldDefinition.name] → the short label of its cell: `X`, `W`, `Min`.
   /// In order, left to right.
   final Map<String, String> cells;
 }
 
 /// How one field appears in an inspector. Presentation only — the field's
-/// name, kind, limits and read/write come from its [SchemaField].
+/// name, kind, limits and read/write come from its [FieldDefinition].
 class FieldHint {
   /// Presentation for one field; every hint is optional, and by default the
   /// field is shown, editable, in both 2-D and 3-D scenes.
@@ -137,7 +137,7 @@ class FieldHint {
     this.channels2D,
   });
 
-  /// The name shown for the field; its [SchemaField.name] when null.
+  /// The name shown for the field; its [FieldDefinition.name] when null.
   final String? label;
 
   /// Help text about the field an editor may show with it; none when null.
@@ -152,14 +152,14 @@ class FieldHint {
   final bool Function(Component component)? visibleWhen;
 
   /// Whether the inspector lets the value be changed; off, it is shown
-  /// read-only. A field with no [SchemaField.write] is read-only anyway.
+  /// read-only. A field with no [FieldDefinition.write] is read-only anyway.
   final bool editable;
 
   /// Makes a numeric field drag-to-scrub, and how; null leaves it to the
   /// editor.
   final ScrubHint? scrub;
 
-  /// For a number with both a [SchemaField.min] and a [SchemaField.max]:
+  /// For a number with both a [FieldDefinition.min] and a [FieldDefinition.max]:
   /// show a slider between them beside the value, for a setting whose
   /// range matters more than its digits — a bounciness from 0 to 1.
   final bool slider;
@@ -250,7 +250,7 @@ class ComponentHints {
   /// would, and only gathers fields listed beside it (the same group).
   final List<FieldRowHint> fieldRows;
 
-  /// Per-field presentation, by [SchemaField.name].
+  /// Per-field presentation, by [FieldDefinition.name].
   final Map<String, FieldHint> fields;
 
   /// Which scene modes the component belongs in. An editor offers it only
@@ -265,6 +265,22 @@ class ComponentHints {
 /// It *is* the codec — registering a definition makes the component
 /// saveable — and the inspector is built from the same fields, so a field
 /// cannot be shown without being saved.
+///
+/// ```dart
+/// final healthDefinition = ComponentDefinition<HealthComponent>(
+///   type: 'HealthComponent',
+///   create: () => HealthComponent(maxHealth: 100),
+///   fields: [
+///     FieldDefinition(
+///       name: 'maxHealth',
+///       kind: FieldTypes.decimal,
+///       read: (c) => (c as HealthComponent).maxHealth,
+///       write: (c, v) => (c as HealthComponent).maxHealth = v as double,
+///       min: 0,
+///     ),
+///   ],
+/// );
+/// ```
 ///
 /// Writes `{type, fields}`. An [id] — the `customComponentId` the editor
 /// stored for years — is not written: scene format 1 dropped it, keying
@@ -297,7 +313,7 @@ class ComponentDefinition<T extends Component> extends ComponentCodec<T> {
     ComponentDefinition<Component> base, {
     required this.type,
     required this.create,
-    List<SchemaField> extraFields = const [],
+    List<FieldDefinition> extraFields = const [],
     this.id,
     this.aliases = const [],
     ComponentHints? hints,
@@ -324,7 +340,7 @@ class ComponentDefinition<T extends Component> extends ComponentCodec<T> {
   final T Function() create;
 
   /// Every persisted property.
-  final List<SchemaField> fields;
+  final List<FieldDefinition> fields;
 
   /// Other `type` strings (or old `customComponentId`s) this definition also
   /// loads, so a component can be renamed without breaking saved levels.
@@ -349,7 +365,7 @@ class ComponentDefinition<T extends Component> extends ComponentCodec<T> {
   final void Function(Component component)? afterDecode;
 
   /// The field named [name], or null.
-  SchemaField? field(String name) {
+  FieldDefinition? field(String name) {
     for (final f in fields) {
       if (f.name == name) return f;
     }

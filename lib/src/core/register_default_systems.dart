@@ -4,25 +4,25 @@ library;
 import 'engine.dart';
 import '../interfaces/game_camera.dart';
 import '../ecs/ecs.dart';
-import '../ecs/systems/animation/register_animation_systems.dart';
-import '../ecs/systems/audio/audio_system.dart';
-import '../ecs/systems/camera/camera_brain_system.dart';
-import '../ecs/systems/core/movement_system.dart';
-import '../ecs/systems/input/input_system.dart';
-import '../ecs/systems/level_map/level_map_system.dart';
-import '../ecs/systems/level_map/map_collision_system.dart';
-import '../ecs/systems/physics/physics_joint_binding_system.dart';
-import '../ecs/systems/physics/physics_system.dart';
-import '../ecs/systems/rendering/parallax_render_system.dart';
-import '../ecs/systems/rendering/render_system.dart';
+import 'register_sprite_systems.dart';
+import '../audio/audio_system.dart';
+import '../camera/camera_brain_system.dart';
+import '../camera/register_camera_systems.dart';
+import '../gameplay/movement_system.dart';
+import '../input/input_system.dart';
+import '../level_map/level_map_system.dart';
+import '../level_map/map_collision_system.dart';
+import '../physics/physics_2d/physics_2d_system.dart';
+import '../parallax/parallax_render_system.dart';
+import '../graphics/graphics_2d/render_system.dart';
 
 /// One of the engine's standard sets of systems; see [registerDefaultSystems].
 enum DefaultSystem {
   /// `InputSystem`: the engine's input actions onto input components.
   input,
 
-  /// `PhysicsSystem`: steps the engine's physics and syncs bodies; and
-  /// `PhysicsJointBindingSystem`: the joints between them.
+  /// `Physics2DSystem`: steps the engine's physics and syncs bodies, the
+  /// joints between them and the characters.
   physics,
 
   /// `MovementSystem`: velocities onto transforms.
@@ -35,9 +35,17 @@ enum DefaultSystem {
   /// `ParallaxRenderSystem`: `ParallaxComponent` backgrounds behind it.
   rendering,
 
-  /// The sprite systems ([registerSpriteSystems]): sprites, animators, clips,
-  /// timelines.
+  /// `SpriteLoadSystem` and `SpriteAnimationSystem`: still sprites and
+  /// sprite clips ([registerSpriteSystems]).
   sprites,
+
+  /// `AnimatorSystem`: animator state machines ([registerAnimatorSystems]).
+  animation,
+
+  /// `TimelineTriggerSystem` and `TimelineSystem`: timelines — also over
+  /// 3-D models — and the triggers that start them
+  /// ([registerTimelineSystems]).
+  timelines,
 
   /// `LevelMapSystem`: draws level maps.
   levelMaps,
@@ -60,6 +68,8 @@ abstract final class DefaultSystems {
     DefaultSystem.audio,
     DefaultSystem.rendering,
     DefaultSystem.sprites,
+    DefaultSystem.animation,
+    DefaultSystem.timelines,
     DefaultSystem.levelMaps,
     DefaultSystem.mapCollision,
     DefaultSystem.cameras,
@@ -71,6 +81,8 @@ abstract final class DefaultSystems {
     DefaultSystem.physics,
     DefaultSystem.movement,
     DefaultSystem.sprites,
+    DefaultSystem.animation,
+    DefaultSystem.timelines,
     DefaultSystem.levelMaps,
     DefaultSystem.mapCollision,
     DefaultSystem.cameras,
@@ -95,7 +107,7 @@ void registerDefaultSystems(
   GameCamera? camera,
   List<String> inputMaps = const ['player'],
 }) {
-  final view = camera ?? engine.cameraSystem.mainCamera;
+  final view = camera ?? engine.camera.mainCamera;
   void add<T extends System>(DefaultSystem which, T Function() make) {
     if (include.contains(which) && !world.hasSystem<T>()) {
       world.addSystem(make());
@@ -103,20 +115,19 @@ void registerDefaultSystems(
   }
 
   add(DefaultSystem.input, () => InputSystem(engine.input, maps: inputMaps));
-  add(DefaultSystem.physics, () => PhysicsSystem(engine.physics, camera: view));
-  // The 2-D joints, between the bodies PhysicsSystem makes.
-  add(DefaultSystem.physics, () => PhysicsJointBindingSystem(engine.physics));
+  add(DefaultSystem.physics, () => Physics2DSystem(engine.physics));
   add(DefaultSystem.movement, MovementSystem.new);
   add(
     DefaultSystem.audio,
-    () => AudioSystem(
-      engine: engine.audio,
-      camera: engine.cameraSystem.mainCamera,
-    ),
+    () => AudioSystem(engine: engine.audio, camera: engine.camera.mainCamera),
   );
   add(
     DefaultSystem.rendering,
-    () => RenderSystem(camera: view, statsSink: engine.rendering),
+    () => RenderSystem(
+      camera: view,
+      statsSink: engine.rendering,
+      clock: () => engine.time.totalTime,
+    ),
   );
   add(
     DefaultSystem.rendering,
@@ -125,11 +136,15 @@ void registerDefaultSystems(
       camera: view,
     ),
   );
-  if (include.contains(DefaultSystem.sprites)) registerSpriteSystems(world);
+  if (include.contains(DefaultSystem.sprites)) {
+    registerSpriteSystems(world, animators: false, timelines: false);
+  }
+  if (include.contains(DefaultSystem.animation)) registerAnimatorSystems(world);
+  if (include.contains(DefaultSystem.timelines)) registerTimelineSystems(world);
   add(DefaultSystem.levelMaps, LevelMapSystem.new);
   add(DefaultSystem.mapCollision, MapCollisionSystem.new);
   if (include.contains(DefaultSystem.cameras) &&
       !world.hasSystem<CameraBrainSystem>()) {
-    registerCameraSystems(world, engine.cameraSystem);
+    registerCameraSystems(world, engine.camera);
   }
 }

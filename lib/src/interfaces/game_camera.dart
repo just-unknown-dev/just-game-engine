@@ -1,6 +1,6 @@
 /// Abstract camera contract.
 ///
-/// ECS systems depend on this rather than the concrete [Camera] class,
+/// ECS systems depend on this rather than the concrete [OutputCamera] class,
 /// keeping the ECS layer decoupled from the camera subsystem implementation.
 library;
 
@@ -12,7 +12,7 @@ import 'view_volume.dart';
 
 /// Minimal camera interface consumed by ECS render systems.
 ///
-/// The 2-D members ([position], [applyTransform], [getVisibleBounds]) are
+/// The 2-D members ([position], [applyTransform], [visibleBounds]) are
 /// what the Canvas renderer uses. The matrices and [screenToWorldRay]
 /// describe the same camera in 3-D — what a 3-D rendering backend, 3-D
 /// picking or frustum culling reads.
@@ -28,7 +28,7 @@ abstract interface class GameCamera {
   void applyTransform(Canvas canvas, Size size);
 
   /// Return the axis-aligned visible area in world space.
-  Rect getVisibleBounds();
+  Rect get visibleBounds;
 
   /// Orthographic or perspective, and how much it sees.
   CameraLens get lens;
@@ -49,7 +49,7 @@ abstract interface class GameCamera {
   void canvasMatrixInto(Matrix4 out);
 
   /// The ray from the camera through the pixel [screen].
-  Ray3 screenToWorldRay(Offset screen, [Ray3? out]);
+  Ray3D screenToWorldRay(Offset screen, [Ray3D? out]);
 
   /// What the camera sees, for culling — kept up to date on each read.
   ViewVolume get viewVolume;
