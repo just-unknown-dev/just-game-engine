@@ -1,0 +1,183 @@
+part of '../deterministic_effects.dart';
+
+/// Moves an entity along a path defined by [waypoints] over [durationTicks].
+///
+/// ### Path types
+/// * **Linear** (default, or < 4 waypoints): the entity moves through each
+///   waypoint at equal spacing along `t`. Waypoints must have at least 2
+///   entries.
+/// * **Cubic Bézier** (`cubicBezier: true`, exactly 4 waypoints `P0 P1 P2 P3`):
+///   a classic cubic Bézier spline. Use control points `P1` and `P2` to shape
+///   the curve.
+///
+/// Applies an **additive delta** each tick. The effect is stateless beyond
+/// the captured baseline, so fast-forward works correctly.
+///
+/// ```dart
+/// // Parabolic arc via Bézier:
+/// PathEffect(
+///   waypoints: [
+///     Offset(0, 0),    // P0 – start (relative; captured from entity at t=0)
+///     Offset(50, -80), // P1 – control
+///     Offset(150, -80),// P2 – control
+///     Offset(200, 0),  // P3 – end
+///   ],
+///   cubicBezier: true,
+///   durationTicks: 60,
+/// )
+/// ```
+class PathEffect extends DeterministicEffect {
+  /// Path control points.
+  ///
+  /// * Linear: 2+ absolute world-space positions. The entity moves through
+  ///   them at equal time intervals.
+  /// * Cubic Bézier: exactly 4 positions `[P0, P1, P2, P3]`.
+  ///   When [cubicBezier] is `true` and [relativeToStart] is `true`
+  ///   (default), `P0` is treated as `Offset.zero` and the others are
+  ///   the offset relative to the entity's start position.
+  final List<Offset> waypoints;
+
+  /// When `true`, interpret [waypoints] as a cubic Bézier spline
+  /// (requires exactly 4 points).
+  final bool cubicBezier;
+
+  /// When `true`, waypoints are offsets relative to the entity's position
+  /// at the start of the effect.  When `false`, waypoints are absolute
+  /// world-space positions.
+  final bool relativeToStart;
+
+  /// Easing applied to the normalised path progress.
+  final EasingType easing;
+
+  // Runtime.
+  Vector3? _capturedStart;
+
+  /// Follows [waypoints] (at least 2, and exactly 4 when [cubicBezier];
+  /// asserted) over [durationTicks] ticks (60 by default), along [easing]
+  /// (linear by default), offset from the entity's start position unless
+  /// [relativeToStart] is false.
+  PathEffect({
+    required this.waypoints,
+    this.cubicBezier = false,
+    this.relativeToStart = true,
+    this.easing = EasingType.linear,
+    super.durationTicks = 60,
+    super.loop,
+    super.onComplete,
+  }) : assert(waypoints.length >= 2, 'PathEffect needs at least 2 waypoints'),
+       assert(
+         !cubicBezier || waypoints.length == 4,
+         'Cubic Bézier PathEffect requires exactly 4 waypoints',
+       );
+
+  /// Evaluate path position at normalised [t] ∈ `[0, 1]`.
+  /// Waypoints stay as [Offset] (2-D control points); origin is projected to
+  /// XY for the Bézier math, and the result is lifted back to [Vector3].
+  Vector3 _evaluate(double t, Vector3 origin) {
+    final o = origin.toOffset();
+    final Offset result;
+    if (cubicBezier) {
+      // Standard cubic Bézier: B(t) = (1-t)³P0 + 3(1-t)²tP1 + 3(1-t)t²P2 + t³P3
+      final mt = 1.0 - t;
+      final p0 = relativeToStart ? o + waypoints[0] : waypoints[0];
+      final p1 = relativeToStart ? o + waypoints[1] : waypoints[1];
+      final p2 = relativeToStart ? o + waypoints[2] : waypoints[2];
+      final p3 = relativeToStart ? o + waypoints[3] : waypoints[3];
+      result =
+          p0 * (mt * mt * mt) +
+          p1 * (3 * mt * mt * t) +
+          p2 * (3 * mt * t * t) +
+          p3 * (t * t * t);
+    } else {
+      // Linear interpolation through waypoints.
+      final n = waypoints.length - 1;
+      // t = 1 lands exactly on the last waypoint.
+      final segment = (t * n).clamp(0.0, n.toDouble());
+      final segIdx = segment.floor().clamp(0, n - 1);
+      final segT = segment - segIdx;
+      final a = relativeToStart ? o + waypoints[segIdx] : waypoints[segIdx];
+      final b = relativeToStart
+          ? o + waypoints[segIdx + 1]
+          : waypoints[segIdx + 1];
+      result = Offset.lerp(a, b, segT)!;
+    }
+    return Vector3(result.dx, result.dy, origin.z);
+  }
+
+  @override
+  void applyTick(EffectContext ctx, int prevElapsed, int currElapsed) {
+    final transform = ctx.getComponent<TransformComponent>();
+    if (transform == null) return;
+
+    if (prevElapsed == 0) {
+      _capturedStart = Vector3.copy(transform.position);
+    }
+    // No start captured: the entity had no transform on the first tick.
+    // Like the other effects, the run then leaves it alone.
+    final origin = _capturedStart;
+    if (origin == null) return;
+
+    final prevT = easing.transform(tAt(prevElapsed));
+    final currT = easing.transform(tAt(currElapsed));
+    // Absolute waypoints start where the entity is: the first step takes
+    // it from there onto the path.
+    final prevPos = !relativeToStart && prevElapsed == 0
+        ? origin
+        : _evaluate(prevT, origin);
+    final currPos = _evaluate(currT, origin);
+    transform.position += currPos - prevPos;
+  }
+
+  @override
+  void reset() {
+    super.reset();
+    _capturedStart = null;
+  }
+
+  @override
+  String get effectType => 'path';
+
+  @override
+  Map<String, dynamic> toJson() {
+    final waypointsList = waypoints.map((p) => [p.dx, p.dy]).toList();
+    return {
+      'waypoints': waypointsList,
+      'cubicBezier': cubicBezier,
+      'relativeToStart': relativeToStart,
+      'easing': easing.name,
+      'durationTicks': durationTicks,
+      'loop': loop,
+      if (_capturedStart != null)
+        'capturedStart': [
+          _capturedStart!.x,
+          _capturedStart!.y,
+          _capturedStart!.z,
+        ],
+    };
+  }
+
+  factory PathEffect._fromJson(Map<String, dynamic> json) {
+    final rawWaypoints = json['waypoints'] as List;
+    final waypoints = rawWaypoints.map((p) {
+      final list = p as List;
+      return Offset((list[0] as num).toDouble(), (list[1] as num).toDouble());
+    }).toList();
+    final effect = PathEffect(
+      waypoints: waypoints,
+      cubicBezier: (json['cubicBezier'] as bool?) ?? false,
+      relativeToStart: (json['relativeToStart'] as bool?) ?? true,
+      easing: EasingType.values.byName(json['easing'] as String),
+      durationTicks: json['durationTicks'] as int,
+      loop: (json['loop'] as bool?) ?? false,
+    );
+    final capturedList = json['capturedStart'] as List?;
+    if (capturedList != null) {
+      effect._capturedStart = Vector3(
+        (capturedList[0] as num).toDouble(),
+        (capturedList[1] as num).toDouble(),
+        capturedList.length > 2 ? (capturedList[2] as num).toDouble() : 0.0,
+      );
+    }
+    return effect;
+  }
+}

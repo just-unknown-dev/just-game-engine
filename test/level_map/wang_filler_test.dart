@@ -42,6 +42,56 @@ void main() {
     expect(blobs, hasLength(47), reason: 'all different');
   });
 
+  group("a template's representative tile", () {
+    test('is its all-terrain tile, wherever the block is in the tileset', () {
+      // Tile 15 of the block is three rows and three columns in.
+      for (final (columns, first, icon) in [
+        (4, 0, 15),
+        (8, 0, 27),
+        (8, 2, 29),
+        (10, 13, 46),
+      ]) {
+        final set = WangSetData(name: 'Grass');
+        WangTemplate.corner16.applyTo(
+          set,
+          firstTile: first,
+          tilesetColumns: columns,
+        );
+        expect(set.tile, icon, reason: '$columns columns from $first');
+        expect(set.wangIds[icon], WangTemplate.corner16.idOf(15));
+      }
+      final blob = WangSetData(name: 'Blob');
+      WangTemplate.blob47.applyTo(blob, firstTile: 9, tilesetColumns: 9);
+      expect(blob.tile, 9);
+    });
+
+    test('is the first tile assigned when its own falls outside the '
+        'tileset, and none when nothing was', () {
+      final cut = WangSetData(name: 'Cut');
+      final n = WangTemplate.corner16.applyTo(
+        cut,
+        firstTile: 0,
+        tilesetColumns: 4,
+        tileCountLimit: 12,
+      );
+      expect(n, 12);
+      expect(cut.tile, 0);
+
+      final none = WangSetData(name: 'None');
+      WangTemplate.corner16.applyTo(
+        none,
+        firstTile: 20,
+        tilesetColumns: 4,
+        tileCountLimit: 16,
+      );
+      expect(none.tile, -1);
+
+      final kept = WangSetData(name: 'Kept')..tile = 3;
+      WangTemplate.corner16.applyTo(kept, firstTile: 0, tilesetColumns: 8);
+      expect(kept.tile, 3);
+    });
+  });
+
   group('a corner set on an orthogonal map', () {
     final g = MapGeometry(tileWidth: 16, tileHeight: 16);
     final ts = _cornerTileset();
@@ -193,8 +243,8 @@ void main() {
   });
 
   for (final orientation in [
-    MapOrientation.isometric,
-    MapOrientation.staggered,
+    LevelMapOrientation.isometric,
+    LevelMapOrientation.staggered,
   ]) {
     test('terrain paints on the lattice of a ${orientation.name} map', () {
       final g = MapGeometry(
@@ -227,7 +277,7 @@ void main() {
 
   test('hexagonal maps have no terrain brush', () {
     final g = MapGeometry(
-      orientation: MapOrientation.hexagonal,
+      orientation: LevelMapOrientation.hexagonal,
       tileWidth: 28,
       tileHeight: 24,
       hexSideLength: 12,

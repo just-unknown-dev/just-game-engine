@@ -1,6 +1,6 @@
 library;
 
-import '../ecs.dart';
+import '../world.dart';
 
 /// Converts one component type to and from JSON.
 ///
@@ -49,8 +49,10 @@ abstract class ComponentCodec<T extends Component> {
 /// error: the entity loaded, looked right, and did nothing.
 class UnknownComponentTypeException implements Exception {
   /// The failure to read a component saved as [type], on the entity called
-  /// [entityName] when that is known.
-  UnknownComponentTypeException(this.type, {this.entityName});
+  /// [entityName] when that is known; [hint] says how to make the type
+  /// known, when the registry was given one for it
+  /// (`ComponentDefinitionRegistry.unknownTypeHint`).
+  UnknownComponentTypeException(this.type, {this.entityName, this.hint});
 
   /// The unrecognised `type` string.
   final String type;
@@ -58,49 +60,16 @@ class UnknownComponentTypeException implements Exception {
   /// The entity it was attached to, when known.
   final String? entityName;
 
-  /// How to make [type] known when the engine has it built in, opt-in: the
-  /// 3-D graphics and 3-D physics components. Null for any other type.
-  static String? builtInHint(String type) => switch (type) {
-    'ModelComponent' ||
-    'LightComponent' ||
-    'EnvironmentComponent' ||
-    'AnimationPlayerComponent' ||
-    'SocketComponent' ||
-    'Cube3D' ||
-    'Sphere3D' ||
-    'Plane3D' ||
-    'Cylinder3D' ||
-    'Capsule3D' ||
-    'Cone3D' ||
-    'Torus3D' ||
-    'Ramp3D' ||
-    'Stairs3D' ||
-    'Arch3D' ||
-    'Polygon3D' =>
-      'It is a 3-D graphics component: give the engine '
-          'EngineConfig(graphics3D: Graphics3D()) '
-          '(package:just_game_engine/graphics_3d.dart).',
-    'RigidBody3D' ||
-    'Collider3D' ||
-    'CharacterBody3D' ||
-    'FixedJoint3D' ||
-    'PointJoint3D' ||
-    'HingeJoint3D' ||
-    'SliderJoint3D' ||
-    'DistanceJoint3D' ||
-    'SixDofJoint3D' ||
-    'CameraCollision3D' =>
-      'It is a 3-D physics component: give the engine '
-          'EngineConfig(physics3D: Physics3D()) '
-          '(package:just_game_engine/physics_3d.dart).',
-    _ => null,
-  };
+  /// How to make [type] known — for a 3-D component, which service to give
+  /// the engine — or null, when nothing more is known than that no package
+  /// registered it.
+  final String? hint;
 
   @override
   String toString() =>
       'UnknownComponentTypeException: no codec registered for "$type"'
       '${entityName == null ? '' : ' (on entity "$entityName")'}. '
-      '${builtInHint(type) ?? 'Install the owning package\'s extension into '
+      '${hint ?? 'Install the owning package\'s extension into '
               'world.context (EngineConfig(extensions: [...]) or '
               'context.install(...)), or register a definition with '
               'world.context.definitions.register.'}';

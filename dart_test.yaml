@@ -1,11 +1,18 @@
 tags:
-  # 3-D physics (test/physics_3d/, test/perf/physics_3d_perf_test.dart).
-  # `flutter test -x physics3d` runs the rest — the 2-D engine — alone.
+  # 3-D physics (test/physics/physics_3d/, test/perf/physics_3d_perf_test.dart).
+  # `flutter test -x physics3d -x graphics3d` runs the rest — the 2-D
+  # engine — alone.
   physics3d:
-  # 3-D graphics (test/graphics_3d/): the components, model loading and the
+  # 3-D graphics (test/graphics/graphics_3d/): the components, model loading and the
   # scene renderer, on the null device unless tagged gpu as well.
   graphics3d:
   # Draws with Flutter GPU. These tests skip themselves when it is not
   # enabled; run them with:
   #   flutter test --enable-impeller --enable-flutter-gpu --tags gpu
   gpu:
+  # Timings (test/perf/): wall-clock ceilings, far above what they measure but
+  # still at the mercy of a busy machine, so a plain `flutter test` skips
+  # them. Run only them, for before/after numbers, with:
+  #   flutter test --tags perf --run-skipped
+  perf:
+    skip: "a timing: run with flutter test --tags perf --run-skipped"

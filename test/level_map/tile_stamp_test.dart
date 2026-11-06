@@ -9,17 +9,17 @@ import 'package:just_game_engine/just_game_engine.dart';
 final _geometries = <String, MapGeometry>{
   'orthogonal': MapGeometry(tileWidth: 32, tileHeight: 32),
   'isometric': MapGeometry(
-    orientation: MapOrientation.isometric,
+    orientation: LevelMapOrientation.isometric,
     tileWidth: 64,
     tileHeight: 32,
   ),
   'staggered': MapGeometry(
-    orientation: MapOrientation.staggered,
+    orientation: LevelMapOrientation.staggered,
     tileWidth: 64,
     tileHeight: 32,
   ),
   'hexagonal': MapGeometry(
-    orientation: MapOrientation.hexagonal,
+    orientation: LevelMapOrientation.hexagonal,
     tileWidth: 28,
     tileHeight: 24,
     hexSideLength: 12,
@@ -77,7 +77,7 @@ void main() {
       });
 
       test('flipped twice, or turned all the way round, it is itself', () {
-        final steps = g.orientation == MapOrientation.hexagonal ? 6 : 4;
+        final steps = g.orientation == LevelMapOrientation.hexagonal ? 6 : 4;
         var turned = stamp;
         for (var i = 0; i < steps; i++) {
           turned = turned.turned(g);

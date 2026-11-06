@@ -10,11 +10,12 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart'
     show KeyDownEvent, KeyRepeatEvent, KeyUpEvent, LogicalKeyboardKey;
 import 'package:just_signals/just_signals.dart';
-import '../ecs/systems/debug/collider_debugger_system.dart';
+import '../physics/physics_2d/collider_2d_debugger_system.dart';
 import 'engine.dart';
-import '../subsystems/localization/localization_widget.dart';
+import '../localization/localization_widget.dart';
 import 'game_layers.dart';
-import '../subsystems/rendering/impl/game_terminal.dart';
+import 'game_terminal.dart';
+import '../localization/localization_context.dart';
 
 /// Main game widget that renders the game
 ///
@@ -48,7 +49,7 @@ class GameWidget extends StatefulWidget {
   ///
   /// [GameWidget] still unconditionally forwards every key event to
   /// [Engine.input] (so polling-based ECS systems, e.g.
-  /// `keyboard.isKeyDown`, keep seeing the key) — forwarding for gameplay
+  /// `input.keyboard.isDown`, keep seeing the key) — forwarding for gameplay
   /// and the value returned to Flutter's key system are independent
   /// concerns. For any key in this set, the internal `Focus.onKeyEvent`
   /// returns [KeyEventResult.ignored] instead of [KeyEventResult.handled],
@@ -133,6 +134,9 @@ class _GameWidgetState extends State<GameWidget>
   /// Notifier used to trigger CustomPainter repaints without calling setState.
   final _repaintNotifier = _FrameNotifier();
 
+  /// The frame stamp the view was last asked to draw at.
+  Duration _drawnAt = Duration.zero;
+
   /// Signal for the HUD overlay (FPS / debug), updated at ~1 Hz cadence.
   /// Reads from [GameLoop.currentFPS] so there is a single source of truth.
   final Signal<int> _fpsSignal = Signal<int>(0);
@@ -141,7 +145,7 @@ class _GameWidgetState extends State<GameWidget>
   Duration _lastFpsUpdate = Duration.zero;
 
   final FocusNode _focusNode = FocusNode();
-  ColliderDebuggerSystem? _colliderDebugger;
+  Collider2DDebuggerSystem? _collider2DDebugger;
 
   /// This view's half of each registered layer — with the layer it was made
   /// for — by layer id.
@@ -175,17 +179,18 @@ class _GameWidgetState extends State<GameWidget>
     widget.engine.layers.addListener(_onLayersChanged);
     _syncControllers();
 
-    // Keys held when the game loses the keyboard would never see their
-    // key-ups: let them go.
+    // Keys and mouse buttons held when the game loses the keyboard would
+    // never see their ups: let them go.
     _focusNode.addListener(() {
-      if (!_focusNode.hasFocus && !_layerHasFocus) _releaseKeyboard();
+      if (!_focusNode.hasFocus && !_layerHasFocus) _releaseHeld();
     });
   }
 
-  /// The engine's input lets go of every key — while it has one.
-  void _releaseKeyboard() {
+  /// The engine's input lets go of every key and mouse button — while it
+  /// has one.
+  void _releaseHeld() {
     final engine = widget.engine;
-    if (engine.isInitialized) engine.input.releaseKeyboard();
+    if (engine.isInitialized) engine.input.releaseHeld();
   }
 
   /// Hands a pointer event to the engine's input, while it has one.
@@ -219,19 +224,19 @@ class _GameWidgetState extends State<GameWidget>
     if (!widget.engine.isInitialized) return;
     widget.engine.rendering.debugMode = widget.showDebug;
     if (widget.showDebug) {
-      _colliderDebugger = ColliderDebuggerSystem(
-        camera: widget.engine.cameraSystem.mainCamera,
+      _collider2DDebugger = Collider2DDebuggerSystem(
+        camera: widget.engine.camera.mainCamera,
       );
-      widget.engine.world.addSystem(_colliderDebugger!);
+      widget.engine.world.addSystem(_collider2DDebugger!);
     }
   }
 
   /// Takes the debug overlay off [engine] — unless its world is gone with
   /// it.
   void _removeDebug(Engine engine) {
-    final debugger = _colliderDebugger;
+    final debugger = _collider2DDebugger;
     if (debugger == null) return;
-    _colliderDebugger = null;
+    _collider2DDebugger = null;
     if (engine.isInitialized) engine.world.removeSystem(debugger);
   }
 
@@ -333,9 +338,41 @@ class _GameWidgetState extends State<GameWidget>
     // timestamp — not this ticker's `elapsed`, which counts from when this
     // view started: every view of the engine passes the same stamp in a
     // frame, and the loop counts the frame once however many tick it.
-    engine.gameLoop.tick(SchedulerBinding.instance.currentFrameTimeStamp);
-    // Signal the CustomPainter to repaint — no widget rebuild needed.
-    _repaintNotifier.notify();
+    final now = SchedulerBinding.instance.currentFrameTimeStamp;
+    // What a system, plugin or layer throws is reported, never let out of
+    // here: a ticker whose callback throws schedules no next tick, and the
+    // whole view would freeze for good. The view is drawn and the layers
+    // ticked whatever the frame's systems threw.
+    _guarded(() => engine.gameLoop.tick(now));
+    _guarded(() => _afterTick(engine, now, elapsed));
+  }
+
+  /// Runs [frameWork], reporting what it throws to the framework.
+  static void _guarded(void Function() frameWork) {
+    try {
+      frameWork();
+    } catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'just_game_engine',
+          context: ErrorDescription('while running a game frame'),
+        ),
+      );
+    }
+  }
+
+  void _afterTick(Engine engine, Duration now, Duration elapsed) {
+    // Disposed by a callback of the tick: nothing to draw.
+    if (!mounted || !engine.isInitialized) return;
+    // Signal the CustomPainter to repaint — no widget rebuild needed — as
+    // often as the engine's drawInterval lets it.
+    final interval = engine.rendering.drawInterval;
+    if (interval == null || now - _drawnAt >= interval || now < _drawnAt) {
+      _drawnAt = now;
+      _repaintNotifier.notify();
+    }
     if (widget.showLayers) {
       final layers = engine.layers;
       for (final entry in _controllers.entries) {
@@ -406,9 +443,9 @@ class _GameWidgetState extends State<GameWidget>
       if (event.logicalKey == LogicalKeyboardKey.backquote) {
         if (event is KeyDownEvent) {
           terminal.toggle();
-          // Keys held as it opens are the game's no longer: let them go,
-          // as when the game loses focus.
-          if (terminal.isVisible) _releaseKeyboard();
+          // Keys and buttons held as it opens are the game's no longer: let
+          // them go, as when the game loses focus.
+          if (terminal.isVisible) _releaseHeld();
         }
         return KeyEventResult.handled;
       }
@@ -439,7 +476,7 @@ class _GameWidgetState extends State<GameWidget>
     }
 
     // Normal gameplay path: forward to the engine unconditionally so
-    // polling-based systems (KeyboardInput.isKeyDown) keep seeing every
+    // polling-based systems (`input.keyboard.isDown`) keep seeing every
     // key regardless of what we return to Flutter below.
     if (widget.engine.isInitialized) widget.engine.input.handleKeyEvent(event);
 
@@ -499,7 +536,7 @@ class _GameWidgetState extends State<GameWidget>
       focusNode: _outerFocus,
       onKeyEvent: _handleBubbledKey,
       onFocusChange: (focused) {
-        if (!focused) _releaseKeyboard();
+        if (!focused) _releaseHeld();
       },
       child: l10n == null
           ? stack
@@ -673,8 +710,8 @@ class _GamePainter extends CustomPainter {
     // widgets (headers, panels, overlays) that share the screen canvas.
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
-    // Single render call — ECS systems are invoked via onRenderOverlay
-    // inside the camera-transformed context.
+    // Single render call — ECS systems are invoked via overlayHooks, in
+    // screen space (the world's RenderSystem applies the camera itself).
     engine.rendering.render(canvas, size);
     canvas.restore();
   }

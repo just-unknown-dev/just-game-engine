@@ -39,14 +39,16 @@ Future<Engine> createGame() async {
   world.createEntityWithComponents([
     TransformComponent(position: Vector3.fromXY(-200, 100)),
     VelocityComponent(),
-    RectangleComponent(
+    Rectangle2DComponent(
       width: 32,
       height: 48,
       cornerRadius: 6,
       fillStyle: const ShapePaintStyle(color: Color(0xFF4FC3F7)),
     ),
-    RigidBody2D(restitution: 0, lockRotation: true), // stays upright
-    Collider2D(shape: ColliderShape2D.matchShape), // the rectangle drawn
+    RigidBody2DComponent(restitution: 0, lockRotation: true), // stays upright
+    Collider2DComponent(
+      shape: Collider2DShape.matchShape,
+    ), // the rectangle drawn
     InputComponent(), // player 1's actions, copied in by InputSystem
     TagComponent('player'),
   ], name: 'Player');
@@ -55,23 +57,23 @@ Future<Engine> createGame() async {
   for (var i = 0; i < 3; i++) {
     world.createEntityWithComponents([
       TransformComponent(position: Vector3.fromXY(60, 150 - i * 42.0)),
-      RectangleComponent(
+      Rectangle2DComponent(
         width: 40,
         height: 40,
         fillStyle: const ShapePaintStyle(color: Color(0xFFFFB74D)),
       ),
-      RigidBody2D(restitution: 0.1),
-      Collider2D(shape: ColliderShape2D.matchShape),
+      RigidBody2DComponent(restitution: 0.1),
+      Collider2DComponent(shape: Collider2DShape.matchShape),
     ], name: 'Crate $i');
   }
   world.createEntityWithComponents([
     TransformComponent(position: Vector3.fromXY(160, 0)),
-    CircleComponent(
+    Circle2DComponent(
       radius: 18,
       fillStyle: const ShapePaintStyle(color: Color(0xFFE57373)),
     ),
-    RigidBody2D(restitution: 0.6),
-    Collider2D(shape: ColliderShape2D.matchShape),
+    RigidBody2DComponent(restitution: 0.6),
+    Collider2DComponent(shape: Collider2DShape.matchShape),
   ], name: 'Ball');
 
   // The game's own rule, as a system of its own.
@@ -103,7 +105,8 @@ class PlayerControlSystem extends System {
       velocity.x = input.vector('move').dx * speed;
       // y points down. Only jump from the ground: the physics system keeps
       // the body's isGrounded.
-      final grounded = entity.getComponent<RigidBody2D>()?.isGrounded ?? false;
+      final grounded =
+          entity.getComponent<RigidBody2DComponent>()?.isGrounded ?? false;
       if (input.wasPressed('jump') && grounded) {
         velocity.y = -jumpSpeed;
       }
@@ -142,7 +145,7 @@ class ExampleApp extends StatelessWidget {
 /// their defaults.
 const levelScene = '''
 {
-  "version": 9,
+  "version": 11,
   "name": "example",
   "entities": [
     {
@@ -150,10 +153,10 @@ const levelScene = '''
       "components": [
         {"type": "TransformComponent",
          "fields": {"position": {"x": 0, "y": 200, "z": 0}}},
-        {"type": "RectangleComponent",
+        {"type": "Rectangle2DComponent",
          "fields": {"width": 1200, "height": 40}},
-        {"type": "RigidBody2D", "fields": {"bodyType": "static"}},
-        {"type": "Collider2D", "fields": {"shape": "matchShape"}}
+        {"type": "RigidBody2DComponent", "fields": {"bodyType": "static"}},
+        {"type": "Collider2DComponent", "fields": {"shape": "matchShape"}}
       ]
     },
     {
@@ -161,10 +164,10 @@ const levelScene = '''
       "components": [
         {"type": "TransformComponent",
          "fields": {"position": {"x": 320, "y": 60, "z": 0}}},
-        {"type": "RectangleComponent",
+        {"type": "Rectangle2DComponent",
          "fields": {"width": 200, "height": 20}},
-        {"type": "RigidBody2D", "fields": {"bodyType": "static"}},
-        {"type": "Collider2D", "fields": {"shape": "matchShape"}}
+        {"type": "RigidBody2DComponent", "fields": {"bodyType": "static"}},
+        {"type": "Collider2DComponent", "fields": {"shape": "matchShape"}}
       ]
     },
     {

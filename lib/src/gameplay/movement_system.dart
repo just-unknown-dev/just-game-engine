@@ -1,0 +1,58 @@
+library;
+
+import '../ecs/ecs.dart';
+import '../physics/physics_2d/physics_2d_components.dart';
+import '../rendering/culling/cull_state_component.dart';
+
+/// Movement system - Applies velocity to transform
+///
+/// Entities switched off — themselves or with a parent
+/// ([Entity.isActiveInHierarchy] false) — do not move.
+class MovementSystem extends System {
+  @override
+  int get priority => SystemPriorities.movement;
+  @override
+  List<Type> get requiredComponents => const [
+    TransformComponent,
+    VelocityComponent,
+  ];
+
+  @override
+  void update(double deltaTime) {
+    // Direct column iteration — avoids per-entity getComponent lookups.
+    for (final archetype in world.queryArchetypes(requiredComponents)) {
+      // Physics2DSystem owns transform/velocity integration for any entity
+      // that also carries a Collider2DComponent (it delegates to Engine.physics,
+      // which does its own position integration internally) — integrating
+      // here too would double-move them every frame. Only archetypes that
+      // actually add Collider2DComponent pay for this check, same opt-in-cost
+      // pattern as the CullStateComponent check below. A CharacterBody2DComponent is
+      // moved by Physics2DSystem too.
+      if (archetype.types.contains(Collider2DComponent) ||
+          archetype.types.contains(CharacterBody2DComponent)) {
+        continue;
+      }
+
+      final transforms = archetype.getColumn(TransformComponent)!;
+      final velocities = archetype.getColumn(VelocityComponent)!;
+      // Opt-in view culling: only archetypes that actually added
+      // CullStateComponent pay for this extra column fetch/check — entities
+      // that never opt in are completely unaffected.
+      final cullStates = archetype.types.contains(CullStateComponent)
+          ? archetype.getColumn(CullStateComponent)
+          : null;
+      for (int i = 0; i < transforms.length; i++) {
+        // An archetype holds switched-off entities too; they stay put.
+        if (!archetype.entityAt(i).isActiveInHierarchy) continue;
+        if (cullStates != null &&
+            !(cullStates[i] as CullStateComponent).isActive) {
+          continue;
+        }
+        final transform = transforms[i] as TransformComponent;
+        final velocity = velocities[i] as VelocityComponent;
+        velocity.clampToMaxSpeed();
+        transform.translateScaled(velocity.velocity, deltaTime);
+      }
+    }
+  }
+}

@@ -5,6 +5,8 @@
 // benchmarks print ms/frame for the paths that touch every transform every
 // frame, so a run before and after a change can be compared. They assert
 // only generous ceilings: timing on a shared machine is too noisy for more.
+@Tags(['perf'])
+library;
 
 import 'dart:ui' as ui;
 
@@ -30,7 +32,7 @@ void main() {
           position: Vector3((i % 100) * 12.0, (i ~/ 100) * 12.0, 0),
         ),
         VelocityComponent(velocity: Vector3(1, 0.5, 0)),
-        RectangleComponent(width: 8, height: 8),
+        Rectangle2DComponent(width: 8, height: 8),
       ]);
     }
 
@@ -59,19 +61,19 @@ void main() {
   });
 
   test('2k physics bodies: step + transform sync', () {
-    final physics = PhysicsEngine.pureDart()..initialize();
+    final physics = Physics2DEngine.pureDart()..initialize();
     addTearDown(physics.dispose);
     physics.setGravity(0, 0);
     final world = World()..initialize();
     addTearDown(world.dispose);
-    world.addSystem(PhysicsSystem(physics));
+    world.addSystem(Physics2DSystem(physics));
     for (var i = 0; i < 2000; i++) {
       world.createEntityWithComponents([
         TransformComponent(
           position: Vector3((i % 50) * 40.0, (i ~/ 50) * 40.0, 0),
         ),
-        RigidBody2D(),
-        Collider2D(shape: ColliderShape2D.circle, radius: 4, showDebugOutline: false),
+        RigidBody2DComponent(),
+        Collider2DComponent(shape: Collider2DShape.circle, radius: 4, showDebugOutline: false),
       ]);
     }
 

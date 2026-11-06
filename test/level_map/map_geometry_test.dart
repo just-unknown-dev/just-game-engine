@@ -12,21 +12,21 @@ final _geometries = <String, MapGeometry>{
   'orthogonal': MapGeometry(tileWidth: 32, tileHeight: 32),
   'orthogonal (wide cells)': MapGeometry(tileWidth: 48, tileHeight: 24),
   'isometric': MapGeometry(
-    orientation: MapOrientation.isometric,
+    orientation: LevelMapOrientation.isometric,
     tileWidth: 64,
     tileHeight: 32,
   ),
   for (final axis in TileStaggerAxis.values)
     for (final index in TileStaggerIndex.values) ...{
       'staggered ${axis.name}/${index.name}': MapGeometry(
-        orientation: MapOrientation.staggered,
+        orientation: LevelMapOrientation.staggered,
         tileWidth: 64,
         tileHeight: 32,
         staggerAxis: axis,
         staggerIndex: index,
       ),
       'hexagonal ${axis.name}/${index.name}': MapGeometry(
-        orientation: MapOrientation.hexagonal,
+        orientation: LevelMapOrientation.hexagonal,
         tileWidth: 28,
         tileHeight: 24,
         hexSideLength: 12,
@@ -84,7 +84,7 @@ void main() {
       });
 
       test('neighbours are mutual, distinct, and next to each other', () {
-        final expected = g.orientation == MapOrientation.hexagonal ? 6 : 4;
+        final expected = g.orientation == LevelMapOrientation.hexagonal ? 6 : 4;
         final reach = g.tileWidth * 1.01 > g.tileHeight * 1.01
             ? g.tileWidth * 1.01
             : g.tileHeight * 1.01;
@@ -123,7 +123,7 @@ void main() {
       test('in stable coordinates, a step is a step whatever the parity', () {
         // Moving one stable step from any cell reaches a neighbour: that is
         // what lets a stamp keep its shape on staggered rows.
-        if (g.orientation == MapOrientation.orthogonal) return;
+        if (g.orientation == LevelMapOrientation.orthogonal) return;
         for (final c in _cells) {
           final s = g.toStable(c);
           for (final step in const [TileCoord(1, 0), TileCoord(0, 1)]) {
@@ -134,7 +134,7 @@ void main() {
       });
 
       test('mirroring twice and turning all the way round change nothing', () {
-        final steps = g.orientation == MapOrientation.hexagonal ? 6 : 4;
+        final steps = g.orientation == LevelMapOrientation.hexagonal ? 6 : 4;
         for (final d in const [
           TileCoord(2, -1),
           TileCoord(-3, 4),

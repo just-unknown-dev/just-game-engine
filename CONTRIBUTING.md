@@ -35,7 +35,7 @@ A bug report should have:
 - the output of `flutter --version`, and the platform (Android, iOS, Linux, macOS, Windows, web; for the web, whether it was a JavaScript or a WebAssembly build);
 - a minimal code sample, or a link to a repository that shows the problem.
 
-For a feature, open an issue labelled **`enhancement`** that describes the problem it solves and how it should behave. The engine's scope is 2-D games in Flutter. For a large change, open the issue first so the approach can be agreed before you write it.
+For a feature, open an issue labelled **`enhancement`** that describes the problem it solves and how it should behave. The engine's scope is games in Flutter: 2-D, with 3-D graphics and physics to opt into. For a large change, open the issue first so the approach can be agreed before you write it.
 
 ---
 
@@ -59,7 +59,7 @@ flutter test
 
 ## Working Against Unpublished Dependencies
 
-The engine depends on several `just_*` packages from pub.dev: `just_physics_engine`, `just_inputs`, `just_audio_engine`, `just_storage`, `just_database`, `just_signals`, `just_memory`, `just_tiled` and `just_dart`. When a change needs an unreleased version of one of them, check that package out next to this repository and point the engine at it with a `pubspec_overrides.yaml` in the repository root:
+The engine depends on several `just_*` packages from pub.dev: `just_physics_engine`, `just_graphics_engine`, `just_game_engine_formats`, `just_inputs`, `just_audio_engine`, `just_storage`, `just_database`, `just_signals`, `just_memory`, `just_tiled`, `just_deflate` and `just_dart`. `just_game_engine_formats` (the saved file formats and their migrations) is the one most likely to need a local override, since a new scene format lands there first. When a change needs an unreleased version of one of them, check that package out next to this repository and point the engine at it with a `pubspec_overrides.yaml` in the repository root:
 
 ```yaml
 # pubspec_overrides.yaml — local only; .gitignore keeps it out of commits.
@@ -81,27 +81,40 @@ Do not change `pubspec.yaml` to a path dependency. If your pull request needs a 
 
 Run every command from the repository root. Some tests read `lib/` from disk and expect that working directory.
 
+Tests sit in the folder named after the feature they test, as in `lib/src/` (`test/timeline/` tests `lib/src/timeline/`); `test/perf/` holds the timing checks, and only the tests about the whole package (the public library, the guides, the process-state guard) sit in `test/` itself. Put a new test in its feature's folder, and name it after what it tests (`timeline_playback_test.dart`), not after the review that found the bug; a test of several fixes from one review is `<feature>_audit_fixes_test.dart`.
+
 ```bash
-# The whole suite.
+# The whole suite (the timings and the GPU tests are skipped: see below).
 flutter test
 
 # One file.
-flutter test test/engine_lifecycle_test.dart
+flutter test test/core/engine_lifecycle_test.dart
+
+# The 2-D engine alone, without the 3-D tests.
+flutter test -x physics3d -x graphics3d
 ```
 
-**The process-state guard.** `test/no_process_state_test.dart` fails when a `static` field that is not `const` appears under `lib/src` and is not on the test's allow-list. A static field is shared by every engine and every test in the process, so per-engine state belongs in `EngineContext` (a registry, or `context.slot(...)` for a package's own state) and per-world state in `World`. Add a field to the allow-list only when it really is immutable, and write down why next to it.
+The tags are declared in `dart_test.yaml`: `physics3d` and `graphics3d` (the 3-D tests), `gpu` (tests that draw with Flutter GPU) and `perf` (timings).
+
+**The GPU tests.** `test/graphics/graphics_3d/engine_gpu_test.dart` and `shapes_gpu_test.dart` draw real pixels through Flutter GPU, and skip themselves when it is not switched on, so a plain `flutter test` reports them as skipped. Run them, on a machine with a GPU, whenever you change the 3-D renderer, the scene renderer, 3-D shapes or materials, and before a release:
+
+```bash
+flutter test --enable-impeller --enable-flutter-gpu --tags gpu
+```
+
+That runs four tests; all four must pass and none may be skipped. A skip means Flutter GPU did not start, and the tests proved nothing.
+
+**The process-state guard.** `test/no_process_state_test.dart` fails when a `static` field that is not `const`, or a top-level variable, appears under `lib/src` and is not on the test's allow-list. A static field is shared by every engine and every test in the process, so per-engine state belongs in `EngineContext` (a registry, or `context.slot(...)` for a package's own state) and per-world state in `World`. Add a field to the allow-list only when it really is immutable, and write down why next to it.
 
 ```bash
 flutter test test/no_process_state_test.dart
 ```
 
-**The performance benchmark.** `test/perf/transform_hot_path_test.dart` times the paths that touch every transform every frame and prints lines such as `PERF shapes10k: … ms/frame` and `PERF physics2k: … ms/frame`. It only asserts generous ceilings, because timings on a shared machine are noisy. For a change to rendering, the ECS core, physics sync or the transform hierarchy, run it before and after the change on the same machine and put both numbers in the pull request.
+**The timings.** Tests tagged `perf` time something against a wall clock, so `dart_test.yaml` skips them in a plain `flutter test`: on a busy machine they fail for no reason. `test/perf/transform_hot_path_test.dart` times the paths that touch every transform every frame and prints lines such as `PERF shapes10k: … ms/frame` and `PERF physics2k: … ms/frame`; `test/perf/performance_test.dart` holds further timing checks (engine start-up, rendering, physics, particles, ECS queries, the frame scheduler), and `test/perf/physics_3d_perf_test.dart` the 3-D physics ones. They assert only generous ceilings. For a change to rendering, the ECS core, physics sync or the transform hierarchy, run them before and after the change on the same machine and put both numbers in the pull request:
 
 ```bash
-flutter test test/perf/transform_hot_path_test.dart
+flutter test --tags perf --run-skipped
 ```
-
-`test/performance_test.dart` holds further timing checks (engine start-up, rendering, physics, particles, ECS queries, the frame scheduler); it runs with the rest of the suite.
 
 ---
 
@@ -110,11 +123,13 @@ flutter test test/perf/transform_hot_path_test.dart
 - **Formatting.** Code is formatted with `dart format`. This must report no changes:
 
   ```bash
-  dart format --output=none --set-exit-if-changed lib test example
+  dart format --output=none --set-exit-if-changed lib example
   ```
 
+  Format the test files you add or change too. Some older test files are not formatted yet; format them in a pull request of their own, not mixed into a change.
+
 - **Analysis.** `flutter analyze` must report no issues at all — errors, warnings or infos. The rules are in `analysis_options.yaml`: `flutter_lints` plus a few additions.
-- **Web and WebAssembly.** The engine runs on every Flutter platform, including web builds compiled to JavaScript and to WebAssembly. Nothing in `lib/` may import `dart:io` or `dart:html` directly. Platform-specific code goes in a pair of files chosen by a conditional import, the way `lib/src/memory/engine_storage.dart` picks its storage:
+- **Web and WebAssembly.** The engine runs on every Flutter platform, including web builds compiled to JavaScript and to WebAssembly. Nothing in `lib/` may import `dart:io` or `dart:html` directly. Platform-specific code goes in a pair of files chosen by a conditional import, the way `lib/src/storage/engine_storage.dart` picks its storage:
 
   ```dart
   import 'engine_storage_web.dart'
@@ -122,12 +137,12 @@ flutter test test/perf/transform_hot_path_test.dart
       as platform;
   ```
 
-  Today `lib/src/memory/engine_storage_io.dart` is the only file that imports `dart:io`. Check with `grep -rnE "import 'dart:(io|html)'" lib` before you open a pull request.
+  Today `lib/src/storage/engine_storage_io.dart` is the only file that imports `dart:io`. Check with `grep -rnE "import 'dart:(io|html)'" lib` before you open a pull request.
 - **No process-wide state.** See the guard above: keep state in `EngineContext` or `World`, never in a mutable `static` field.
 - **Documentation.** Give every public API you add a `///` doc comment. If you add, rename or remove a public type, update [API.md](API.md), and describe user-visible changes in [CHANGELOG.md](CHANGELOG.md).
 - **Tests.** Add or update tests for any behaviour you change.
 - **Dependencies.** Do not add a dependency without discussing it in an issue first.
-- **Structure.** Match the existing folders under `lib/src/`. Export new public API through `lib/just_game_engine.dart` (or `lib/widgets.dart` for optional screen widgets); other code imports that library, not files under `lib/src/`.
+- **Structure.** Match the existing folders under `lib/src/` (one per feature; see [ARCHITECTURE.md](ARCHITECTURE.md) §2). The features sit in layers (§2.3): a feature imports only features in its own layer or below, never one above, and no import loop joins two features. `test/library_layout_test.dart` holds the layers and fails on an import that breaks them, naming it; a new top-level folder takes its place in that list. Export a new file from its folder's barrel (`lib/src/<feature>/<feature>.dart`), which `lib/just_game_engine.dart` exports — never from `lib/just_game_engine.dart` directly. 3-D API goes through `lib/just_game_engine_3d.dart`, so 2-D builds carry no 3-D code; optional screen widgets go through `lib/widgets.dart`. Other code imports those libraries, not files under `lib/src/`.
 
 ---
 
@@ -140,7 +155,7 @@ flutter test test/perf/transform_hot_path_test.dart
 2. Make your change, following the [Coding Guidelines](#coding-guidelines).
 3. Check that everything passes:
    ```bash
-   dart format --output=none --set-exit-if-changed lib test example
+   dart format --output=none --set-exit-if-changed lib example
    flutter analyze
    flutter test
    ```

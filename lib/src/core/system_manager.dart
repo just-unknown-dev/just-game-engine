@@ -8,8 +8,6 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 
-import 'lifecycle.dart';
-
 /// Callback used by the frame scheduler for update tasks.
 typedef UpdateTask = void Function(double deltaTime);
 
@@ -27,14 +25,14 @@ typedef FrameTask = void Function(double deltaTime, double alpha);
 /// ```dart
 /// final systemManager = SystemManager();
 /// systemManager.registerSystem('physics', physicsEngine);
-/// final physics = systemManager.getSystem<PhysicsEngine>();
+/// final physics = systemManager.getSystem<Physics2DEngine>();
 /// ```
-class SystemManager implements ILifecycle {
+class SystemManager {
   /// Map of system names to system instances
-  final Map<String, dynamic> _systems = {};
+  final Map<String, Object> _systems = {};
 
   /// Map of system types to system instances
-  final Map<Type, dynamic> _systemsByType = {};
+  final Map<Type, Object> _systemsByType = {};
 
   /// Whether the system manager is initialized
   bool _isInitialized = false;
@@ -91,7 +89,6 @@ class SystemManager implements ILifecycle {
   double get lastFrameMs => _lastFrameMs;
 
   /// Initialize the system manager
-  @override
   Future<bool> initialize() async {
     if (_isInitialized) {
       return true;
@@ -114,7 +111,7 @@ class SystemManager implements ILifecycle {
   /// runtime type: `registerSystem<RenderingEngine>('rendering', custom)`
   /// is found by `getSystem<RenderingEngine>()` even when `custom` is a
   /// subclass.
-  void registerSystem<T>(String name, T system) {
+  void registerSystem<T extends Object>(String name, T system) {
     if (_systems.containsKey(name)) {
       throw StateError('System with name "$name" is already registered');
     }
@@ -149,7 +146,7 @@ class SystemManager implements ILifecycle {
   /// Get a system by name
   ///
   /// Returns null if the system is not found.
-  dynamic getSystemByName(String name) {
+  Object? getSystemByName(String name) {
     return _systems[name];
   }
 
@@ -245,15 +242,11 @@ class SystemManager implements ILifecycle {
     _lastFrameMs = _frameStopwatch.elapsedMicroseconds / 1000.0;
   }
 
-  /// Get all registered system names
-  List<String> getSystemNames() {
-    return _systems.keys.toList();
-  }
+  /// The registered systems' names, in the order they were registered.
+  List<String> get systemNames => _systems.keys.toList();
 
-  /// Get all registered systems
-  List<dynamic> getSystems() {
-    return _systems.values.toList();
-  }
+  /// The registered systems, in the order they were registered.
+  List<Object> get systems => _systems.values.toList();
 
   /// Clear all registered systems
   void clear() {
@@ -272,7 +265,6 @@ class SystemManager implements ILifecycle {
   ///
   /// Concrete subsystem lifecycle is owned by the `Engine`, which prevents
   /// accidental double-disposal when the engine shuts down.
-  @override
   void dispose() {
     clear();
     _isInitialized = false;
