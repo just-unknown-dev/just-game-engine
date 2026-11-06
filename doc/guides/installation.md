@@ -12,7 +12,7 @@ There are two ways in. A new project made with the `just` command-line tool come
 
 ## Flutter versions
 
-The 3D renderer draws with Flutter GPU, a Flutter preview whose API changes between Flutter minor releases. So each release is made for one Flutter minor series: `just_game_engine` 2.0.x and `just_graphics_engine` 0.2.x are made for Flutter 3.47 (3.47.1 or newer; tested on 3.47.9). `just_graphics_engine` keeps Flutter GPU behind its own API, so a change in Flutter GPU stays inside it, and a Flutter that changes Flutter GPU gets a release made for it.
+The 3D renderer draws with Flutter GPU, a Flutter preview whose API changes between Flutter minor releases. So each release is made for one Flutter minor series: `just_game_engine` 2.0.x and `just_graphics_engine` 0.1.x are made for Flutter 3.47 (3.47.1 or newer; tested on 3.47.9). `just_graphics_engine` keeps Flutter GPU behind its own API, so a change in Flutter GPU stays inside it, and a Flutter that changes Flutter GPU gets a release made for it.
 
 - **A game made with `just`** gets the right Flutter without asking. Its `just.json` pins the exact version (`"flutter": "3.47.9"`) and its pubspec gets the range below. `just` finds that Flutter on your machine or installs it (`just sdk install`, into `~/.just/flutter/<version>`); run it with `just flutter ...` and `just dart ...`.
 - **Any other app** pins Flutter in its own pubspec, as Path 2 shows: `flutter: ">=3.47.1 <3.48.0"`. Pub enforces this range for the app's own pubspec (when its `sdk` lower bound is 3.9 or newer), but ignores a Flutter upper bound in a package's pubspec, so the engine cannot keep a newer Flutter out by itself.

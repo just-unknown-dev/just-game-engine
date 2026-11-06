@@ -6,12 +6,12 @@ A game engine for Flutter: 2D, with 3D graphics and physics to opt into. A game 
 
 | 2D | 3D |
 |---|---|
-| ![A 2D platformer level: tile map, gradient shapes, physics bodies and a sprite player](assets/screenshots/jge_2d_platformer_day.png) | ![A 3D third-person level: PBR materials, shadows, point lights, sky and fog](assets/screenshots/jge_3d_third_person.png) |
-| ![The 2D level at night, with particle effects](assets/screenshots/jge_2d_platformer_night.png) | ![The 3D temple level from above](assets/screenshots/jge_3d_temple.png) |
+| ![A 2D bamboo forest level: tile map, parallax backdrops, a ninja sprite and a patrolling oni](assets/screenshots/jge_2d_platformer_day.png) | ![A 3D third-person hero in a training arena: PBR materials, shadows, point lights, sky and fog](assets/screenshots/jge_3d_third_person.png) |
+| ![A 2D moonlit castle with 2D lights, materials and particles](assets/screenshots/jge_2d_platformer_night.png) | ![The 3D training arena from above](assets/screenshots/jge_3d_arena.png) |
 
 ![3D shapes with PBR materials: gold, chrome, glass, emissive, copper, jade, ruby and a faceted gem](assets/screenshots/jge_3d_materials.png)
 
-The levels in these pictures are scenes the editor saves, loaded and run by the engine. They are in the templates: `showcase_2d`, `showcase_2d_night` (platformer) and `showcase_3d` (third person). The night level's particles are added in code, since particle emitters are not saved in scenes.
+The levels in these pictures are scenes the editor saves, loaded and run by the engine. They are in the templates: `showcase_2d`, `showcase_2d_night` (platformer), `showcase_3d` and, for the material garden, `showcase_3d_old` (third person). The night level's particles are added in code, since particle emitters are not saved in scenes.
 
 ## Install
 
@@ -24,7 +24,7 @@ Needs Flutter 3.47 (3.47.1 or newer): see [Flutter versions](#flutter-versions).
 
 ### Flutter versions
 
-The 3-D renderer draws with Flutter GPU, a Flutter preview whose API changes between Flutter minor releases. So each release is made for one Flutter minor series: just_game_engine 2.0.x and just_graphics_engine 0.2.x are made for Flutter 3.47 (3.47.1 or newer; tested on 3.47.9). just_graphics_engine keeps Flutter GPU behind its own API (`GpuDevice`), so a change in Flutter GPU stays inside it, and a Flutter that changes Flutter GPU gets a release made for it.
+The 3-D renderer draws with Flutter GPU, a Flutter preview whose API changes between Flutter minor releases. So each release is made for one Flutter minor series: just_game_engine 2.0.x and just_graphics_engine 0.1.x are made for Flutter 3.47 (3.47.1 or newer; tested on 3.47.9). just_graphics_engine keeps Flutter GPU behind its own API (`GpuDevice`), so a change in Flutter GPU stays inside it, and a Flutter that changes Flutter GPU gets a release made for it.
 
 Pin Flutter in your app's pubspec:
 

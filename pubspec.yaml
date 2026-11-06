@@ -12,14 +12,14 @@ topics:
   - physics
 
 screenshots:
-  - description: "2D: a platformer level with a tile map, gradient shapes, physics bodies and an animated sprite player."
+  - description: "2D: a bamboo forest platformer level with a tile map, parallax backdrops, an animated ninja sprite and a patrolling oni."
     path: assets/screenshots/jge_2d_platformer_day.png
-  - description: "3D: a third-person hero in a level built from shapes, with PBR materials, sun shadows, point lights, sky and fog."
+  - description: "3D: a third-person hero in a training arena built from shapes, with PBR materials, sun shadows, point lights, sky and fog."
     path: assets/screenshots/jge_3d_third_person.png
-  - description: "2D at night: the same level tinted, with particles for the campfire, embers, smoke, fireflies and a glowing crystal."
+  - description: "2D at night: a moonlit castle with 2D lights and materials, and particles for sakura petals and fireflies."
     path: assets/screenshots/jge_2d_platformer_night.png
-  - description: "3D: the temple level from above, with low-poly trees, physics props, coins and lit braziers."
-    path: assets/screenshots/jge_3d_temple.png
+  - description: "3D: the training arena from above, with its ring, glass tower, floating jump pads, physics props and coins."
+    path: assets/screenshots/jge_3d_arena.png
   - description: "3D shapes with PBR materials: gold, chrome, glass, emissive, copper, jade, ruby and a faceted gem."
     path: assets/screenshots/jge_3d_materials.png
 
@@ -64,7 +64,7 @@ dependencies:
   # 3-D drawing on Flutter GPU, for lib/just_game_engine_3d.dart (Graphics3D). Its
   # web branch carries no flutter_gpu, so the engine stays web-safe; a 2-D
   # game never makes a GPU device or loads the shaders.
-  just_graphics_engine: ^0.2.0
+  just_graphics_engine: ^0.1.0
   meta: ^1.9.0
 
 dev_dependencies:

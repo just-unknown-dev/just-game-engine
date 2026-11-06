@@ -57,7 +57,7 @@ The engine is one package. These are the others you will meet:
 | Package | What it is | Version |
 |---|---|---|
 | `just_game_engine` | The engine: the ECS world, scenes, rendering, physics, audio, input and the rest. | `2.0.0` |
-| `just_game_engine_editor` | A level editor that runs inside your game in a desktop debug build. See [Level editor](/docs/editor). | `0.1.0` dev releases, one made for each engine release |
+| `just_game_engine_editor` | A level editor that runs inside your game in a desktop debug build. See [Level editor](/docs/editor). | `0.1.0`, made for engine 2.0.x |
 | `just_core_cli` | `just`, the command-line tool: it creates projects, checks their setup and upgrades them. | `0.2.x` |
 | `just_game_engine_cli` | The `just game` commands: run, build, scenes, release checks and migrations. See [The just CLI](/docs/cli). | `0.2.x` |
 | `just_game_engine_formats` | The saved file formats (scenes, timelines, animator graphs) and their migrations, in pure Dart. The engine re-exports it, and the editor and the CLI migrate files with the same code. | comes with the engine |
