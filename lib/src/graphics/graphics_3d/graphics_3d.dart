@@ -184,10 +184,13 @@ final class Graphics3D implements RefreshableExtension, SceneCacheService {
     if (renderer == null) {
       final why = _unsupportedReason = reason ?? 'There is no GPU device.';
       debugPrint('just_game_engine: 3D is off. $why');
-      // Draws nothing, but scenes and models still load.
+      // Draws nothing, but scenes and models still load. It keeps no log
+      // (a whole session would grow it), and decodes no texture nothing
+      // will draw.
       renderer = await Renderer3D.create(
-        NullGpuDevice(shaders: rendererNullShaders),
+        NullGpuDevice(shaders: rendererNullShaders, record: false),
       );
+      renderer.uploader.decodeTextures = false;
       onUnsupported?.call(why);
     }
     _renderer = renderer..uploader.keepEdges = keepEdges;

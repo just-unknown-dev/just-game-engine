@@ -8,8 +8,6 @@ import 'dart:ui' as ui;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine_3d.dart';
 import 'package:just_graphics_engine/testing.dart';
-import 'package:just_graphics_engine/just_graphics_engine.dart'
-    show JustMatrix4, Matrix4, RenderView, Vector2, Vector3;
 
 const _size = 64;
 
@@ -27,8 +25,8 @@ void main() {
     shapes = Graphics3DShapes(renderer.uploader, (path) async => files[path]!);
   });
 
-  RenderView camera({Vector3? eye}) {
-    final view = RenderView()
+  Render3DView camera({Vector3? eye}) {
+    final view = Render3DView()
       ..width = _size
       ..height = _size;
     view.lookAt(eye ?? Vector3(0, 0, -4), Vector3.zero());
@@ -37,8 +35,8 @@ void main() {
   }
 
   /// A dark scene with no sky, lit by a sun travelling along [sun].
-  RenderScene dark({Vector3? sun}) {
-    final scene = RenderScene();
+  Render3DScene dark({Vector3? sun}) {
+    final scene = Render3DScene();
     scene.environment
       ..sky = false
       ..clearColor = (0, 0, 0)
@@ -51,7 +49,7 @@ void main() {
     return scene;
   }
 
-  MeshInstance place(RenderScene scene, Primitive3DComponent shape, {Vector3? at}) {
+  MeshInstance place(Render3DScene scene, Primitive3DComponent shape, {Vector3? at}) {
     final instance = MeshInstance(
       shapes.meshFor(shape, Vector3(1, 1, 1))!,
       shapes.materialFor(shape),
@@ -61,7 +59,7 @@ void main() {
     return instance;
   }
 
-  Future<RgbaPixels> draw(RenderScene scene, RenderView view) async {
+  Future<RgbaPixels> draw(Render3DScene scene, Render3DView view) async {
     final surface = device.createSurface(_size, _size);
     expect(await renderer.render(scene, view, surface), isTrue);
     return readPixels(surface.image!);

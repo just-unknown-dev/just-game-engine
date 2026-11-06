@@ -8,11 +8,11 @@ import 'package:just_audio_engine/just_audio_engine.dart'
     show
         Audio3DListener,
         Audio3DPosition,
+        Audio3DRolloff,
+        Audio3DSettings,
         AudioChannel,
         AudioEffect,
         AudioEngine,
-        AudioRolloff,
-        AudioSpatial,
         AudioStream;
 import 'package:just_dart/just_dart.dart';
 
@@ -174,7 +174,7 @@ class AudioSystem extends System implements PerFrame {
     double speed = 1.0,
     AudioChannel channel = AudioChannel.sfx,
     Vector3? position,
-    AudioSpatial spatial = const AudioSpatial(),
+    Audio3DSettings spatial = const Audio3DSettings(),
     List<AudioEffect> effects = const [],
   }) {
     _oneShots.add(
@@ -479,8 +479,8 @@ class AudioSystem extends System implements PerFrame {
           pitch: audio.pitch,
           speed: audio.speed,
           effects: audio.effects,
-          position3d: pos,
-          spatial: audio.spatial,
+          position3D: pos,
+          settings3D: audio.spatial,
           channel: audio.channel,
         )
         .then((sfxId) {
@@ -549,7 +549,7 @@ class AudioSystem extends System implements PerFrame {
       final sent = _sent[audio] ??= _Sent();
       final newPlayback = sent.id != id;
       if (newPlayback || !sent.hears(audio)) {
-        if (!newPlayback) _engine.setSfxSpatial(id, audio.spatial);
+        if (!newPlayback) _engine.setSfx3DSettings(id, audio.spatial);
         sent.remember(audio);
       }
       if (!newPlayback && sent.x == p.x && sent.y == p.y && sent.z == p.z) {
@@ -576,8 +576,8 @@ class AudioSystem extends System implements PerFrame {
           pitch: shot.pitch,
           speed: shot.speed,
           effects: shot.effects,
-          position3d: shot.position,
-          spatial: shot.spatial,
+          position3D: shot.position,
+          settings3D: shot.spatial,
           channel: shot.channel,
         );
       }
@@ -679,8 +679,6 @@ class AudioSystem extends System implements PerFrame {
   }
 
   void _startStream(Entity entity, AudioStreamComponent comp, int now) {
-    final stream = AudioStream(path: comp.path, channel: comp.channel);
-    comp.stream = stream;
     final playback = _streams[comp] = _Playback(entity, comp.volume)
       ..seen = now
       ..suspended = _suspended;
@@ -690,11 +688,21 @@ class AudioSystem extends System implements PerFrame {
     };
     final fadeIn = comp.fadeInDuration;
     final fades = fadeIn != null && fadeIn > Duration.zero;
-    stream
-        .open(_engine.backend)
-        .then((_) async {
+    // The component holds its stream once it has opened: stopped before
+    // then, the stream finds itself stopped as it opens, and is let go.
+    AudioStream? opened;
+    _engine
+        .openStream(comp.path, channel: comp.channel)
+        .then((stream) async {
+          // It could not be loaded: it is not heard.
+          if (stream == null) {
+            if (!stopped()) _stopStream(comp);
+            return;
+          }
+          opened = stream;
           // Stopped while it opened: what it loaded is let go.
           if (stopped()) return stream.dispose();
+          comp.stream = stream;
           // A fade-in starts from silence.
           await stream.play(volume: fades ? 0.0 : comp.volume, loop: comp.loop);
           // Stopped while it started: disposing again stops the voice it
@@ -709,9 +717,7 @@ class AudioSystem extends System implements PerFrame {
           if (!stopped()) {
             _stopStream(comp);
           } else {
-            try {
-              stream.dispose();
-            } catch (_) {}
+            opened?.dispose();
           }
         });
   }
@@ -793,7 +799,7 @@ class _OneShot {
   final double speed;
   final AudioChannel channel;
   final Audio3DPosition? position;
-  final AudioSpatial spatial;
+  final Audio3DSettings spatial;
   final List<AudioEffect> effects;
 }
 
@@ -806,7 +812,7 @@ class _Sent {
   double z = 0;
   double minDistance = 0;
   double maxDistance = 0;
-  AudioRolloff rolloff = AudioRolloff.inverse;
+  Audio3DRolloff rolloff = Audio3DRolloff.inverse;
   double dopplerLevel = 0;
   double farCutoff = 0;
 

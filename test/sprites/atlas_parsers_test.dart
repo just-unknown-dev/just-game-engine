@@ -62,6 +62,57 @@ class _Draws implements Canvas {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('each parser reads its JSON at once, loading no image', () {
+    final aseprite = {
+      'frames': [
+        {
+          'filename': 'f0',
+          'frame': {'x': 0, 'y': 0, 'w': 8, 'h': 8},
+          'duration': 100,
+        },
+      ],
+      'meta': {
+        'app': 'https://www.aseprite.org/',
+        'image': 'hero.png',
+        'size': {'w': 8, 'h': 8},
+        'frameTags': [
+          {'name': 'idle', 'from': 0, 'to': 0, 'direction': 'forward'},
+        ],
+      },
+    };
+    final grid = {
+      'meta': {
+        'image': 'grid.png',
+        'frameWidth': 16,
+        'frameHeight': 16,
+        'columns': 2,
+        'rows': 1,
+      },
+      'clips': {
+        'run': {
+          'frames': [0, 1],
+        },
+      },
+    };
+    final packed = {
+      'frames': {'coin.png': _frame(0)},
+      'meta': {'image': 'coins.png'},
+    };
+    for (final (json, clips) in [
+      (aseprite, ['idle']),
+      (grid, ['run']),
+      (packed, <String>[]),
+    ]) {
+      // Typed, not awaited: a parse is synchronous.
+      final SpriteAtlas atlas = AtlasParser.detect(
+        json,
+        jsonPath: 'assets/sprites/sheet.json',
+      ).parse(json, 'assets/sprites/');
+      expect(atlas.clipNames, clips);
+      expect(atlas.pages.every((p) => p.image == null), isTrue);
+    }
+  });
+
   group('TexturePacker frame names', () {
     test('keep their dots, losing only an image extension', () async {
       final atlas = await _load({

@@ -544,8 +544,8 @@ class _HeardAudio extends AudioEngine {
     double pitch = 1.0,
     double speed = 1.0,
     List<AudioEffect> effects = const [],
-    Audio3DPosition? position3d,
-    AudioSpatial spatial = const AudioSpatial(),
+    Audio3DPosition? position3D,
+    Audio3DSettings settings3D = const Audio3DSettings(),
     AudioChannel channel = AudioChannel.sfx,
   }) async {
     heard.add('$path@${volume}x$speed');

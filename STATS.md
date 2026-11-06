@@ -1,6 +1,6 @@
 # Engine Diagnostics & Stats Reference
 
-This document describes every stats/diagnostics API `just_game_engine` 2.0.0-dev.4 exposes, key by key, as the code produces it. All of them work at runtime with no external tooling, and all are cheap enough to read every frame.
+This document describes every stats/diagnostics API `just_game_engine` 2.0.0 exposes, key by key, as the code produces it. All of them work at runtime with no external tooling, and all are cheap enough to read every frame.
 
 **Timings need profiling on.** The update timings — `performanceStats`' `lastUpdateMs` and `systemTimesMs` (and so `isOverBudget`), `schedulerStats`' `lastFrameMs` and `taskTimesMs`, and `world.stats`' `lastUpdateMs` and `systemTimesMs` — are measured only while `engine.systemManager.profiling` / `engine.world.profiling` are on. That is the default in debug and profile builds; in a release build they read 0 (or stay empty, and `isOverBudget` stays false) unless the game sets them to `true`.
 
@@ -101,7 +101,7 @@ The state of the ECS world after its last update.
 | `lastCommandFlushes` | `int` | How many times the command buffer was flushed during the last update — once after each system that left commands queued. Not the number of commands. |
 | `systemTimesMs` | `Map<String, double>` | Milliseconds of each active system's `update`, keyed by the system's runtime type name (two systems of one type share a key), plus `TransformHierarchy` for the world's hierarchy pass. Empty while `world.profiling` is off. |
 
-Other live getters: `world.entityCount`, `world.queryVersion(types)` (moves whenever what that query matches may have changed), `world.tagsInUse`.
+Other live getters: `world.entityCount`, `world.queryVersion(types)` (moves whenever what that query matches may have changed), `world.structureVersion` (one number for the whole world, which moves whenever an entity is made, destroyed, switched on or off or re-parented, or gains, loses or replaces a component), `world.tagsInUse`.
 
 **Example:**
 ```dart
@@ -116,7 +116,7 @@ debugPrint('Archetypes: ${w['archetypes']}');
 
 **Getter:** `engine.physics.stats` → `Map<String, dynamic>`
 
-The keys depend on the backend `just_physics_engine` picked: Box2D through FFI on native platforms, the pure-Dart engine on the web (and on native if the Box2D library would not load). `stats['backend']` tells them apart on native; the web has no `backend` key.
+The keys depend on the backend `just_physics_engine` picked: Box2D through FFI on native platforms, the pure-Dart engine on the web (and on native if the Box2D library would not load). To tell them apart in code, read `engine.physics.isNative`: true only while Box2D's native world runs. The `backend` key stays, for diagnostics: `'box2d_v3'` natively, `'dart_fallback'` on native's pure-Dart fallback; the web has no `backend` key.
 
 **Always present** (the pure-Dart engine's keys):
 

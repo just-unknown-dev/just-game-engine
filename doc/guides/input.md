@@ -133,7 +133,7 @@ class WalkSystem extends System {
 | `wasReleased('jump')` | whether it was let go this step |
 | `wasPerformed('jump')` | whether the action completed this step, for example a hold |
 
-Outside the ECS, read an action by its `map/name` path: `engine.input.actions.action('player/jump')` has `isPressed()`, `wasPressedThisFrame()`, `readVector2()`, `readAxis()` and the callbacks `onStarted`, `onPerformed` and `onCanceled`. Switch a whole map off for a menu with `engine.input.actions.map('player')!.disable()` and back on with `enable()`.
+Outside the ECS, read an action by its `map/name` path: `engine.input.actions.action('player/jump')` has `isPressed`, `wasPressedThisFrame()`, `readVector2()`, `readAxis()` and the callbacks `onStarted`, `onPerformed` and `onCanceled`. Switch a whole map off for a menu with `engine.input.actions.map('player')!.disable()` and back on with `enable()`.
 
 ## Gamepads
 
@@ -166,7 +166,7 @@ void startCoop(Engine engine) {
 
 ## Rebinding
 
-`rebindPlayer(player, bindingId)` listens for the next control the player touches, keeps it and saves it, swapping with any binding it clashes with. It works while the game is paused, takes keys before any focused widget, and Escape alone cancels. `player.resetOverrides()` goes back to the asset's bindings.
+`rebindPlayer(player, bindingId)` listens for the next control the player touches, keeps it and saves it, swapping with any binding it clashes with. It works while the game is paused, takes keys before any focused widget, and Escape alone cancels. `player.resetOverrides()` goes back to the asset's bindings. The control just bound waits to be let go before it acts, so the key that finished a rebind does not also jump.
 
 The engine saves each player's bindings in its own settings store (`CacheInputOverrideStore`), apart from the cache's entries, so `engine.cache.clearAll()` leaves them alone. Call `engine.input.players.preloadOverrides()` after `loadAsset`, as above, to apply them at the next start. A `PlayerInput` exists once its player has joined, so start the player manager when your game offers rebinding.
 

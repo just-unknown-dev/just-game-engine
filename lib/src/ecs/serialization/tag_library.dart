@@ -48,30 +48,14 @@ class TagDefinition {
     declaredBy: declaredBy,
   );
 
-  /// What the project file keeps. [declaredBy] is not saved: it comes from
-  /// the code that declares the tag, every time.
-  Map<String, dynamic> toJson() => {
-    'name': name,
-    if (color != null) 'color': color!.toARGB32(),
-    if (description.isNotEmpty) 'description': description,
-  };
+  /// What the project file keeps, as [TagEntry.toJson] writes it.
+  /// [declaredBy] is not saved: it comes from the code that declares the
+  /// tag, every time.
+  Map<String, dynamic> toJson() => _entry.toJson();
 
-  /// Reads what [toJson] wrote, or a bare name string; the name is
-  /// trimmed. Null for anything with no name. Never marked declared.
-  static TagDefinition? fromJson(Object? json) {
-    if (json is String && json.trim().isNotEmpty) {
-      return TagDefinition(json.trim());
-    }
-    if (json is! Map) return null;
-    final name = (json['name'] as String? ?? '').trim();
-    if (name.isEmpty) return null;
-    final color = json['color'];
-    return TagDefinition(
-      name,
-      color: color is int ? Color(color) : null,
-      description: json['description'] as String? ?? '',
-    );
-  }
+  /// The tag as the tags file ([TagsFile]) holds it.
+  TagEntry get _entry =>
+      TagEntry(name, color: color?.toARGB32(), description: description);
 
   @override
   bool operator ==(Object other) =>
@@ -102,10 +86,10 @@ class TagLibrary {
     : _tags = List.unmodifiable(_dedupe(tags));
 
   /// The file format [toJson] writes; [fromJson] refuses newer ones.
-  static const int formatVersion = 1;
+  static const int formatVersion = TagsFile.formatVersion;
 
   /// Where a project keeps its tags.
-  static const String defaultPath = 'assets/project/tags.json';
+  static const String defaultPath = TagsFile.path;
 
   /// A library with no tags.
   static final TagLibrary empty = TagLibrary();
@@ -228,31 +212,25 @@ class TagLibrary {
   }
 
   /// The tag file: `{version, tags}`, each tag as [TagDefinition.toJson]
-  /// writes it.
-  Map<String, dynamic> toJson() => {
-    'version': formatVersion,
-    'tags': [for (final t in _tags) t.toJson()],
-  };
+  /// writes it ([TagsFile.toJson]).
+  Map<String, dynamic> toJson() =>
+      TagsFile.toJson([for (final t in _tags) t._entry]);
 
-  /// Reads what [toJson] wrote (or a bare list of tags, the oldest form).
+  /// Reads what [toJson] wrote (or a bare list of tags, the oldest form),
+  /// through [TagsFile.read]: names trimmed, a tag with no name skipped.
+  /// Never marked declared.
   ///
   /// Throws [UnsupportedFormatVersionException] for a file saved in a
-  /// format newer than [formatVersion].
-  static TagLibrary fromJson(Object? json) {
-    if (json is Map) {
-      final version = (json['version'] as num?)?.toInt() ?? formatVersion;
-      if (version > formatVersion) {
-        throw UnsupportedFormatVersionException(
-          'tag library',
-          version,
-          formatVersion,
-        );
-      }
-    }
-    final list = json is Map ? json['tags'] : json;
-    if (list is! List) return empty;
-    return TagLibrary([for (final item in list) ?TagDefinition.fromJson(item)]);
-  }
+  /// format newer than [formatVersion], and a [FormatException] when its
+  /// `version` is not a whole number.
+  static TagLibrary fromJson(Object? json) => TagLibrary([
+    for (final e in TagsFile.read(json))
+      TagDefinition(
+        e.name,
+        color: e.color == null ? null : Color(e.color!),
+        description: e.description,
+      ),
+  ]);
 
   /// A colour for a tag with none of its own: picked from its name, so a
   /// tag keeps its colour from one run to the next.

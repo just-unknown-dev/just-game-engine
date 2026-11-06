@@ -2,18 +2,18 @@
 
 _Flutter & shipping_ · Where the engine runs, what changes on the web and WebAssembly, what Linux builds need, and where 3D graphics and 3D physics are available.
 
-The engine runs on Android, iOS, Windows, macOS, Linux and the web, compiled to JavaScript or WebAssembly. It needs Flutter 3.47.1 or newer. A 2-D game runs everywhere; 3-D drawing and 3-D physics depend on what each platform can do.
+The engine is built for Android, iOS, Windows, macOS, Linux and the web, compiled to JavaScript or WebAssembly. It is made for Flutter 3.47 (3.47.1 or newer; see "Flutter versions" in [Installation](/docs/installation)). It is verified on Windows, Android (Vulkan) and the web. Linux, iOS and macOS are untested: they are expected to build, but have never been run. A 2-D game is meant to run on all of them; 3-D drawing and 3-D physics depend on what each platform can do.
 
 ## Platform support
 
-| Platform | 2-D physics | 3-D graphics (Flutter GPU) | 3-D physics (Jolt) |
-|---|---|---|---|
-| Windows | Box2D, native | Supported | Supported (x64) |
-| Android | Box2D, native | Vulkan devices only | arm64-v8a and x86_64 |
-| Linux | Box2D, native | Expected to work, untested | Should build, untested |
-| macOS | Box2D, native | Expected to work, untested | Should build, untested |
-| iOS | Box2D, native | Expected to work, untested | Should build, untested |
-| Web (JS and Wasm) | Pure Dart | Not drawn | Not available |
+| Platform | Tested | 2-D physics | 3-D graphics (Flutter GPU) | 3-D physics (Jolt) |
+|---|---|---|---|---|
+| Windows | Verified | Box2D, native | Supported | Supported (x64) |
+| Android | Verified (Vulkan) | Box2D, native | Vulkan devices only | arm64-v8a and x86_64 |
+| Linux | Untested | Box2D, native | Expected to work, untested | Should build, untested |
+| macOS | Untested | Box2D, native | Expected to work, untested | Should build, untested |
+| iOS | Untested | Box2D, native | Expected to work, untested | Should build, untested |
+| Web (JS and Wasm) | Verified | Pure Dart | Not drawn | Not available |
 
 The 3-D statuses come from the `just_graphics_engine` and `just_jolt` packages the engine builds on. A game without a `Graphics3D` or `Physics3D` in its config is 2-D only and carries none of that code.
 
@@ -65,7 +65,7 @@ See [3D physics](/docs/physics-3d) for the components.
 
 ## Native physics
 
-On native platforms, `engine.physics` is Box2D v3 through FFI, compiled by the `just_box_2d` build hook. If the native library does not load, the engine logs it and falls back to the pure-Dart simulation; `engine.physics.stats['backend']` then reads `dart_fallback`. A web-only game, or one that uses the pure-Dart engine everywhere, can skip compiling Box2D with `hooks: user_defines: just_box_2d: build: false` in its pubspec.
+On native platforms, `engine.physics` is Box2D v3 through FFI, compiled by the `just_box_2d` build hook. If the native library does not load, the engine logs it and falls back to the pure-Dart simulation; `engine.physics.isNative` then reads `false` (and the diagnostics key `engine.physics.stats['backend']` reads `dart_fallback`). A web-only game, or one that uses the pure-Dart engine everywhere, can skip compiling Box2D with `hooks: user_defines: just_box_2d: build: false` in its pubspec.
 
 ## Linux
 

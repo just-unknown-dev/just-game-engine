@@ -1,6 +1,6 @@
-# Just Game Engine — status summary, 2.0.0-dev.4
+# Just Game Engine — status summary, 2.0.0
 
-What the engine contains at 2.0.0-dev.4, with numbers counted on 2026-11-04. This file lives only in the repository (it is excluded from the pub.dev package). What changed since 1.x is in [CHANGELOG.md](CHANGELOG.md) and [MIGRATION.md](MIGRATION.md); how it is built is in [ARCHITECTURE.md](ARCHITECTURE.md); the public API is mapped in [API.md](API.md) and documented in full on [pub.dev](https://pub.dev/documentation/just_game_engine/2.0.0-dev.4/).
+What the engine contains at 2.0.0, with numbers counted on 2026-11-06. This file lives only in the repository (it is excluded from the pub.dev package). What changed since 1.x is in [CHANGELOG.md](CHANGELOG.md) and [MIGRATION.md](MIGRATION.md); how it is built is in [ARCHITECTURE.md](ARCHITECTURE.md); the public API is mapped in [API.md](API.md) and documented in full on [pub.dev](https://pub.dev/documentation/just_game_engine/2.0.0/).
 
 ## What it is
 
@@ -34,16 +34,16 @@ Achievements, sign-in, leaderboards, currency, inventory and ads are not part of
 
 | What | Count |
 |---|---|
-| Dart files in `lib/` | 403 |
-| Lines in `lib/` (with comments and blank lines) | 83,860 |
-| Names exported by `just_game_engine.dart` | 759: 612 declared by the engine, 147 re-exported from `just_inputs` (43), `just_game_engine_formats` (40), `just_physics_engine` (25), `just_audio_engine` (17), `just_memory` (11), `just_dart` (9) and `just_signals` (2) |
-| Names exported by `just_game_engine_3d.dart` | 159: 72 declared by the engine, 87 re-exported from `just_graphics_engine` (43), `just_physics_engine`'s 3-D side (30), the maths types of `just_dart` (9, the main library's) and `just_game_engine_formats` (5) |
+| Dart files in `lib/` | 404 |
+| Lines in `lib/` (with comments and blank lines) | 84,228 |
+| Names exported by `just_game_engine.dart` | 759: 614 declared by the engine, 145 re-exported from `just_inputs` (44), `just_game_engine_formats` (39), `just_physics_engine` (26), `just_audio_engine` (14), `just_memory` (11), `just_dart` (9) and `just_signals` (2) |
+| Names exported by `just_game_engine_3d.dart` | 162: 71 declared by the engine, 91 re-exported from `just_graphics_engine` (45), `just_physics_engine`'s 3-D side (32), the maths types of `just_dart` (9, the main library's) and `just_game_engine_formats` (5) |
 | Names exported by `widgets.dart` | 17 |
 | Component classes | 101: 72 in the main library (plus the `Component` base), 29 in the 3-D library |
 | System classes | 32: 30 concrete (28 in the main library; `Physics3DSystem` and `Animation3DSystem` in the 3-D library) and 2 abstract bases (`ReactiveSystem`, `AutoSyncSystem`) |
 | Default systems | 11 `DefaultSystem` sets, adding 16 systems |
-| Test files (`*_test.dart`) | 265 |
-| Tests (`flutter test`) | 2,520 passed, 7 skipped, 0 failed |
+| Test files (`*_test.dart`) | 269 |
+| Tests (`flutter test`) | 2,551 passed, 7 skipped, 0 failed |
 | `flutter analyze` / `dart format` | no issues / no changes in `lib/` or `example/` |
 
 How they were counted, from the package root:
@@ -56,7 +56,7 @@ How they were counted, from the package root:
 
 ## Platforms
 
-`pubspec.yaml` declares Android, iOS, Linux, macOS, Windows and web. The minimum SDKs are Dart 3.11 (`^3.11.0`) and Flutter 3.47.1.
+`pubspec.yaml` declares Android, iOS, Linux, macOS, Windows and web. The minimum SDKs are Dart 3.11 (`^3.11.0`) and Flutter 3.47.1; the release is made for Flutter 3.47 and tested on 3.47.9 (the README's "Flutter versions"). It is verified on Windows, Android (Vulkan) and the web; Linux, iOS and macOS are untested (expected to build, never run).
 
 - `lib/` imports `dart:io` in one file, `lib/src/storage/engine_storage_io.dart`, and only through a conditional import; nothing imports `dart:html` or `package:web`, and the web storage branch uses `dart:js_interop`. The engine therefore compiles for the web with both dart2js and dart2wasm. The 2-D library reaches no 3-D code; `flutter_gpu` is reached only from `just_game_engine_3d.dart`. The example builds with `flutter build web` and `flutter build web --wasm`.
 - 3-D: `Graphics3D` draws where Flutter GPU runs (Impeller with Vulkan or Metal); on the web and on Android without Vulkan scenes and models load, but the 3-D view shows a short note instead. `Physics3D` needs Jolt built (`hooks: user_defines: just_jolt: build: true`) and does not run on the web (`Physics3D.isSupported`).

@@ -96,15 +96,7 @@ class Physics2DSystem extends System {
   );
 
   /// The joints between the bodies.
-  late final Physics2DJoints _joints = Physics2DJoints(
-    physics,
-    onQuiet: (a, b, {required joined}) => _contacts.jointedPair(
-      a,
-      b,
-      joined: joined,
-      events: joined ? world.events : null,
-    ),
-  );
+  late final Physics2DJoints _joints = Physics2DJoints(physics);
 
   /// The characters this system moves.
   late final Physics2DCharacters _characters = Physics2DCharacters(

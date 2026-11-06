@@ -12,7 +12,7 @@ void main() {
   late Physics2DQueries queries;
 
   setUp(() {
-    physics = Physics2DEngine()..initialize();
+    physics = PhysicsEngineFactory.create2D()..initialize();
     physics.setGravity(0, 0);
     world = World()..initialize();
     world.addSystem(system = Physics2DSystem(physics));

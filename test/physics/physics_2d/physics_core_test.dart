@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
-import 'package:just_physics_engine/just_physics_engine.dart'
-    show BodyPair, SpatialGrid;
 
 // Helper to build a simple circle body at the given position.
 Physics2DBody _circle({
@@ -11,14 +9,12 @@ Physics2DBody _circle({
   double radius = 20.0,
   double mass = 1.0,
   bool useGravity = false,
-  bool checkCollision = true,
 }) {
   return Physics2DBody(
     position: Vector2(x, y),
     shape: Circle2DShape(radius),
     mass: mass,
     useGravity: useGravity,
-    checkCollision: checkCollision,
     drag: 0.0,
   );
 }
@@ -79,39 +75,39 @@ void main() {
   // ── Shape2D ─────────────────────────────────────────────────────────
 
   group('Circle2DShape', () {
-    test('getBounds at origin', () {
+    test('boundsAt at origin', () {
       final s = Circle2DShape(10.0);
-      final bounds = s.getBounds(Offset.zero);
+      final bounds = s.boundsAt(Offset.zero);
       expect(bounds, Rect.fromCircle(center: Offset.zero, radius: 10.0));
     });
 
-    test('getBounds at offset position', () {
+    test('boundsAt at offset position', () {
       final s = Circle2DShape(5.0);
-      final bounds = s.getBounds(const Offset(20, 30));
+      final bounds = s.boundsAt(const Offset(20, 30));
       expect(bounds.center, const Offset(20, 30));
       expect(bounds.width, closeTo(10.0, 1e-9));
     });
 
-    test('getManifold detects circle-circle overlap', () {
+    test('manifoldWith detects circle-circle overlap', () {
       final a = Circle2DShape(10.0);
       final b = Circle2DShape(10.0);
       // centres 15 units apart — overlap by 5
-      final manifold = a.getManifold(Offset.zero, b, const Offset(15, 0));
+      final manifold = a.manifoldWith(Offset.zero, b, const Offset(15, 0));
       expect(manifold.isColliding, isTrue);
       expect(manifold.penetration, closeTo(5.0, 1e-6));
     });
 
-    test('getManifold reports no collision when separated', () {
+    test('manifoldWith reports no collision when separated', () {
       final a = Circle2DShape(5.0);
       final b = Circle2DShape(5.0);
-      final manifold = a.getManifold(Offset.zero, b, const Offset(100, 0));
+      final manifold = a.manifoldWith(Offset.zero, b, const Offset(100, 0));
       expect(manifold.isColliding, isFalse);
     });
 
-    test('getManifold normal points from A to B', () {
+    test('manifoldWith normal points from A to B', () {
       final a = Circle2DShape(10.0);
       final b = Circle2DShape(10.0);
-      final manifold = a.getManifold(Offset.zero, b, const Offset(15, 0));
+      final manifold = a.manifoldWith(Offset.zero, b, const Offset(15, 0));
       expect(manifold.normal.dx, greaterThan(0));
       expect(manifold.normal.dy, closeTo(0, 1e-6));
     });
@@ -120,14 +116,14 @@ void main() {
   group('Polygon2DShape', () {
     Offset v(double x, double y) => Offset(x, y);
 
-    test('getBounds is correct for a box', () {
+    test('boundsAt is correct for a box', () {
       final box = Polygon2DShape([
         v(-10, -10),
         v(10, -10),
         v(10, 10),
         v(-10, 10),
       ]);
-      final bounds = box.getBounds(Offset.zero);
+      final bounds = box.boundsAt(Offset.zero);
       expect(bounds.left, closeTo(-10, 1e-6));
       expect(bounds.right, closeTo(10, 1e-6));
       expect(bounds.top, closeTo(-10, 1e-6));
@@ -142,13 +138,13 @@ void main() {
         v(-10, 10),
       ]);
       // place B shifted 15 units right — boxes overlap by 5 on x axis
-      final manifold = box.getManifold(Offset.zero, box, const Offset(15, 0));
+      final manifold = box.manifoldWith(Offset.zero, box, const Offset(15, 0));
       expect(manifold.isColliding, isTrue);
     });
 
     test('poly-poly SAT reports no collision when separated', () {
       final box = Polygon2DShape([v(-5, -5), v(5, -5), v(5, 5), v(-5, 5)]);
-      final manifold = box.getManifold(Offset.zero, box, const Offset(100, 0));
+      final manifold = box.manifoldWith(Offset.zero, box, const Offset(100, 0));
       expect(manifold.isColliding, isFalse);
     });
   });
@@ -172,12 +168,6 @@ void main() {
       expect(body.acceleration.x, 10.0);
     });
 
-    test('applyImpulse changes velocity directly', () {
-      final body = _circle(x: 0, y: 0);
-      body.applyImpulse(Vector2(100, 0));
-      expect(body.velocity.x, closeTo(100, 1e-6));
-    });
-
     test('body starts awake', () {
       final body = _circle(x: 0, y: 0);
       expect(body.isAwake, isTrue);
@@ -189,7 +179,7 @@ void main() {
   group('Physics2DEngine', () {
     late Physics2DEngine engine;
     setUp(() {
-      engine = Physics2DEngine();
+      engine = PhysicsEngineFactory.create2D();
       engine.initialize();
     });
 
@@ -279,112 +269,6 @@ void main() {
       final s = engine.stats;
       expect(s.containsKey('awakeBodies'), isTrue);
       expect(s.containsKey('potentialPairs'), isTrue);
-    });
-  });
-
-  // ── SpatialGrid ────────────────────────────────────────────────────────────
-
-  group('SpatialGrid', () {
-    late SpatialGrid grid;
-    setUp(() => grid = SpatialGrid(64.0));
-
-    Physics2DBody gridBody(double x, double y, {double radius = 10}) {
-      return Physics2DBody(
-        position: Vector2(x, y),
-        shape: Circle2DShape(radius),
-        useGravity: false,
-        drag: 0.0,
-      );
-    }
-
-    test('insert increments trackedBodyCount', () {
-      grid.insert(gridBody(0, 0));
-      expect(grid.trackedBodyCount, 1);
-    });
-
-    test('clear resets state', () {
-      grid.insert(gridBody(0, 0));
-      grid.clear();
-      expect(grid.trackedBodyCount, 0);
-      expect(grid.trackedCellCount, 0);
-    });
-
-    test('getPotentialCollisions returns pairs in same cell', () {
-      final a = gridBody(0, 0);
-      final b = gridBody(5, 5); // same 64-unit cell
-      grid.insert(a);
-      grid.insert(b);
-      final pairs = grid.getPotentialCollisions();
-      expect(pairs.length, 1);
-      final p = pairs.first;
-      expect({p.a, p.b}, equals({a, b}));
-    });
-
-    test('getPotentialCollisions no pairs when bodies in different cells', () {
-      final a = gridBody(0, 0);
-      final b = gridBody(200, 200); // far away
-      grid.insert(a);
-      grid.insert(b);
-      expect(grid.getPotentialCollisions(), isEmpty);
-    });
-
-    test('getPotentialCollisions returns deduplicated pairs', () {
-      // 3 bodies in same cell → 3 unique pairs
-      grid.insert(gridBody(0, 0));
-      grid.insert(gridBody(5, 0));
-      grid.insert(gridBody(10, 0));
-      final pairs = grid.getPotentialCollisions();
-      expect(pairs.length, 3);
-    });
-
-    test('syncBodies removes stale bodies', () {
-      final a = gridBody(0, 0);
-      final b = gridBody(5, 5);
-      grid.syncBodies([a, b]);
-      grid.syncBodies([a]); // b no longer present
-      expect(grid.trackedBodyCount, 1);
-    });
-
-    test('syncBodies moves body to new cell after position change', () {
-      final body = gridBody(0, 0);
-      grid.syncBodies([body]);
-      expect(grid.trackedBodyCount, 1);
-
-      body.position.x = 500;
-      body.position.y = 500;
-      grid.syncBodies([body]);
-      expect(grid.trackedBodyCount, 1);
-    });
-
-    test('inactive body is not inserted', () {
-      final body = gridBody(0, 0);
-      body.isActive = false;
-      grid.insert(body);
-      expect(grid.trackedBodyCount, 0);
-    });
-
-    test('BodyPair equality is order-independent', () {
-      final a = gridBody(0, 0);
-      final b = gridBody(5, 5);
-      final p1 = BodyPair(a, b);
-      final p2 = BodyPair(b, a);
-      expect(p1, equals(p2));
-    });
-
-    test('persistent _pairBuffer is cleared between calls', () {
-      final a = gridBody(0, 0);
-      final b = gridBody(5, 5);
-      grid.insert(a);
-      grid.insert(b);
-
-      final first = grid.getPotentialCollisions();
-      final firstLength = first.length;
-
-      // Remove b — second call should return empty buffer.
-      grid.removeBody(b);
-      final second = grid.getPotentialCollisions();
-      expect(second.length, 0);
-      expect(firstLength, 1); // first call was correct
     });
   });
 }

@@ -72,7 +72,7 @@ const _tmx = '''<?xml version="1.0" encoding="UTF-8"?>
 ''';
 
 Future<TiledImport> _import([String text = _tmx]) async {
-  final map = await tiled.TileMapParser.parse(text);
+  final map = await tiled.TmxParser.parse(text);
   return TiledInterop.importMap(
     map,
     tilesetPath: (i, ts) => 'assets/tilesets/${ts.name}.tileset.json',
@@ -214,7 +214,7 @@ void main() {
       ], imageSource: (_) => 'a.png');
       expect(exported.infinite, isTrue);
 
-      final parsed = await tiled.TileMapParser.parse(
+      final parsed = await tiled.TmxParser.parse(
         tiled.TmxWriter.write(exported),
       );
       final back = TiledInterop.importMap(
@@ -239,7 +239,7 @@ void main() {
     ], imageSource: (_) => 't.png');
     expect(exported.infinite, isFalse);
     expect((exported.width, exported.height), (7, 4));
-    expect(exported.tileLayers.single.rawData![3 * 7 + 6], 1);
+    expect(exported.tileLayers.single.gids[3 * 7 + 6], 1);
   });
 
   test('an image collection is left out, with a warning', () async {

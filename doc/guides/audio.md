@@ -27,7 +27,7 @@ Future<void> stopMusic(Engine engine) => engine.music.stop(fadeOut: true);
 
 ## Channels and effects
 
-Every sound plays on an `AudioChannel`: `master`, `music`, `sfx`, `voice` or `ambient`. A channel's volume scales every sound on it, and each channel is backed by an `AudioBus` in `engine.audio.busGraph`.
+Every sound plays on an `AudioChannel`: `master`, `music`, `sfx`, `voice` or `ambient`. A channel's volume scales every sound on it, streams included.
 
 ```dart
 engine.music.setChannelVolume(0.5);
@@ -35,7 +35,7 @@ engine.sfx.setChannelVolume(0.8);
 engine.audio.setChannelVolume(AudioChannel.ambient, 0.4);
 ```
 
-Effects are applied per voice when playback starts. Pass them as `effects:` to `engine.sfx.play`, `AudioSystem.playOneShot` or an `AudioSourceComponent`: `AudioEffect.reverb(roomSize: 0.8)`, `AudioEffect.lowpass(frequency: 800)`, `AudioEffect.highpass`, `AudioEffect.eq` and `AudioEffect.delay`. `AudioEffectType` also lists `bandpass`, `distortion` and `chorus`, which you build with `AudioEffect(type, params: {...})`.
+Effects are applied per voice when playback starts. Pass them as `effects:` to `engine.sfx.play`, `AudioSystem.playOneShot` or an `AudioSourceComponent`: `AudioEffect.reverb(roomSize: 0.8)`, `AudioEffect.lowpass(frequency: 800)`, `AudioEffect.highpass` and `AudioEffect.eq`, applied in order. Not every platform has every effect (`AudioEffectType` says which does what): one a platform cannot do is left out, and the sound plays on.
 
 ## Sounds on entities
 
@@ -80,8 +80,8 @@ With `is3D: true` a source is heard from where its entity is, relative to the li
 | Field | Default | What it does |
 |---|---|---|
 | `minDistance` | 1 | Full volume within this distance. |
-| `maxDistance` | 50 | Silent at and beyond it (unless `rolloff` is `AudioRolloff.none`). |
-| `rolloff` | `AudioRolloff.inverse` | How the sound fades between the two: `inverse`, `linear` or `none`. |
+| `maxDistance` | 50 | Silent at and beyond it (unless `rolloff` is `Audio3DRolloff.none`). |
+| `rolloff` | `Audio3DRolloff.inverse` | How the sound fades between the two: `inverse`, `linear` or `none`. |
 | `farCutoff` | 0 | Low-pass cutoff in Hz the sound is muffled to at `maxDistance`; 0 keeps it clear. |
 | `dopplerLevel` | 0 | How much movement bends the pitch; 1 is the real-world effect for a world in metres. |
 
@@ -101,8 +101,4 @@ When the app goes to the background, `GameWidget` pauses the music and the world
 
 ## Known limitations
 
-These wait on `just_audio_engine`:
-
-- `AudioStreamComponent.channel` is handed to the stream, but the channel's volume does not apply to it.
 - A playing sound's pitch, pan, speed and loop cannot change until it plays again.
-- A stream that plays to its end still reports `isPlaying`.

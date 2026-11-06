@@ -68,7 +68,7 @@ A handler gets the words after the command name and returns a line to print, or 
 The subsystems' own figures exist only between `initialize()` and `dispose()`; check `engine.isInitialized` first when that can happen.
 
 - **`engine.world.stats`**: `totalEntities`, `activeEntities`, `systems`, `activeSystems`, `archetypes` (a number that keeps growing points to component churn), `lastUpdateMs`, `lastCommandFlushes`, and `systemTimesMs` with each system's update time by type name, plus `TransformHierarchy`.
-- **`engine.physics.stats`**: `bodyCount`, `awakeBodies`, `lastStepMs` and the pure-Dart engine's broadphase counters. On native platforms, `backend` is `box2d_v3`, or `dart_fallback` when the Box2D library did not load; the web has no `backend` key.
+- **`engine.physics.stats`**: `bodyCount`, `awakeBodies`, `lastStepMs` and the pure-Dart engine's broadphase counters. On native platforms, `backend` is `box2d_v3`, or `dart_fallback` when the Box2D library did not load; the web has no `backend` key. The key is for diagnostics: to branch on the backend, ask `engine.physics.isNative`.
 - **`engine.rendering.stats`**: `lastRenderMs`, `drawCalls`, `renderedObjects`, `culledObjects`, `batchedSprites` and `postProcessPasses` for the whole frame. `world.getSystem<RenderSystem>()?.stats` holds what the world's `RenderSystem` drew.
 - **Live getters**: `engine.gameLoop.currentFPS` and `interpolation`; `engine.time.deltaTime`, `totalTime`, `timeScale` and `frameCount`; `engine.cache.isUsingMemoryFallback`; and `engine.assets.cacheStats` for loaded assets and their estimated memory.
 

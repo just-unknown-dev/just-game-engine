@@ -375,7 +375,7 @@ class Engine implements GameEngine {
         _input = null;
         return null;
       });
-      input.overrideStore = CacheInputOverrideStore(cache);
+      input.players.overrideStore = CacheInputOverrideStore(cache);
 
       // 4. audio — optional: a failure is logged and the rest goes on.
       stage = 'audio';
@@ -384,7 +384,7 @@ class Engine implements GameEngine {
       // 5. physics
       stage = 'physics';
       final physics = _physics =
-          _config.createPhysics?.call() ?? Physics2DEngine();
+          _config.createPhysics?.call() ?? PhysicsEngineFactory.create2D();
       _teardown.add(() {
         _physics?.dispose();
         _physics = null;
@@ -495,11 +495,9 @@ class Engine implements GameEngine {
       _audio = null;
       _music = null;
       _sfx = null;
-      // As in initialize: with no audio plugin — headless, tests, a platform
-      // without one — shutting down fails asynchronously.
-      return audio.dispose().catchError((Object e) {
-        debugPrint('AudioEngine: dispose skipped (${e.runtimeType})');
-      });
+      // Safe whatever state it is in: before it started, after a failed
+      // start, with no audio plugin (headless, tests).
+      return audio.dispose();
     });
     if (_config.deferAudioUntilInput ?? kIsWeb) {
       stopWaiting = _onFirstInput(() => unawaited(_initializeAudio(audio)));

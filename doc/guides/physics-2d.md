@@ -83,7 +83,7 @@ void buildPlayground(Engine engine) {
 | `restitution` | 0 | Bounce, 0 to 1. |
 | `linearDamping` | 0.05 | Speed a dynamic body loses on its own each second. |
 | `angularDamping` | 0.05 | The same, for spin. |
-| `gravityScale` | 1 | 0 floats, 2 falls hard. Handy for variable jump height. |
+| `gravityScale` | 1 | 0 floats, 2 falls hard. To change it for a while (variable jump height), set `gravityScaleOverride`; see below. |
 | `isSensor` | false | Report overlaps and stop nothing: triggers, pickups, zones. |
 | `lockRotation` | false | Never turn. |
 | `continuousCollision` | false | Sweep a small, fast body so it cannot pass through thin walls. Native backend only. |
@@ -94,6 +94,8 @@ void buildPlayground(Engine engine) {
 A platformer character usually wants `friction: 0`, so it slides down walls instead of sticking to them, and `lockRotation: true`. Friction, bounce and damping you change while the game runs take effect on every platform.
 
 After each step `Physics2DSystem` fills in `linearVelocity`, `angularVelocity`, `isAwake`, `isGrounded`, `groundEntity` and `groundNormal`. `isGrounded` stays true for as long as a contact from below lasts.
+
+Gameplay that changes a body for a while sets a run-time field, never a saved one: the components are what a scene saves, so a save in the meantime would keep the change. `gravityScaleOverride` stands in for `gravityScale` until it is set back to `null`, and the body falls by `effectiveGravityScale`; `collidesWithNothing` empties the body's collision mask until it is set back to `false` (`effectiveCollidesWith`). Neither is saved, and a scene loads without them. A `CharacterBody2DComponent` has `gravityScaleOverride` too.
 
 ## Collider shapes
 
@@ -162,7 +164,7 @@ Put a joint on an entity that has a body and point `connectedBody` at the other 
 | `SliderJoint2DComponent` | lets the bodies slide along one axis | `axis`, `useLimits`, `minPosition`, `maxPosition`, `enableMotor`, `motorSpeed`, `motorMaxForce` |
 | `WheelJoint2DComponent` | a wheel on a suspension | `axis`, `stiffness`, `damping`, `enableMotor`, `motorSpeed`, `motorMaxTorque` |
 
-Every joint also has `anchor`, `connectedAnchor`, `collideConnected` (false: the two bodies do not collide with each other) and `enabled`. Axes are in the joint entity's own space.
+Every joint also has `anchor`, `connectedAnchor`, `collideConnected` (false: the two bodies pass through each other) and `enabled`. Anchors and axes are in their entity's own space, and an anchor of zero is the entity's position. A distance joint keeps `anchor` on its body and `connectedAnchor` on the other its `length` apart; a fixed joint welds the bodies at its `anchor`; a slider's axis and a wheel's axle run through the other body's `connectedAnchor`. The inspector shows the anchors each joint takes.
 
 ## Layers and filtering
 
@@ -171,7 +173,7 @@ Each body sits on one of 16 collision layers, `layer: 0` to `15`. The project na
 The file lists each layer by number, for example `{"version": 1, "layers": [{"index": 1, "name": "Player"}, {"index": 2, "name": "Enemy", "ignores": [2]}]}`, where enemies pass through each other. Read the grid in code with `engine.context.physicsLayers`, for example `engine.context.physicsLayers.collides(1, 2)`.
 
 - `collidesWith` is a mask (bit `n` for layer `n`) that overrides the grid for one body: `RigidBody2DComponent(layer: 2, collidesWith: (1 << 0) | (1 << 2))`. Two bodies collide only when each collides with the other's layer.
-- Set `collidesWith = 0` to make a body collide with nothing for a while, such as a crumbling platform, and set it back to `null` to follow the grid again.
+- To make a body collide with nothing for a while, such as a crumbling platform, set `collidesWithNothing = true`, and `false` to bring it back. Its saved `layer` and `collidesWith` stay as they were.
 - `groupIndex` overrides layers for a group: a positive group always collides with itself, a negative one never does, and 0 leaves it to the layers.
 
 ## Collision and sensor events
@@ -232,15 +234,13 @@ Each `RayTrace2DSegment` has `from`, `to` and the `hit` that ended it (null wher
 
 ## Two backends
 
-`engine.physics` is a `Physics2DEngine` from `just_physics_engine`. On native platforms it is Box2D v3 through FFI; on the web (JavaScript and WebAssembly), or wherever the native library does not load, it is a pure-Dart engine with the same API. Your components, events and queries are the same on both. To choose the engine yourself, pass `EngineConfig(createPhysics: ...)`: for example `createPhysics: Physics2DEngine.pureDart` runs the pure-Dart engine on every platform.
+`engine.physics` is a `Physics2DEngine` from `just_physics_engine`. On native platforms it is Box2D v3 through FFI; on the web (JavaScript and WebAssembly), or wherever the native library does not load, it is a pure-Dart engine with the same API and the same behaviour: joints take their anchors, springs and `collideConnected` alike, and view culling takes a body out of the simulation on both. Your components, events and queries are the same on both. To choose the engine yourself, pass `EngineConfig(createPhysics: ...)`: for example `createPhysics: Physics2DEngine.pureDart` runs the pure-Dart engine on every platform.
 
 ## Known limitations
 
 These wait on `just_physics_engine`. The fields involved are saved as usual, so scenes need no change when the limits lift.
 
-- `anchor` and `connectedAnchor` of `DistanceJoint2DComponent` and `FixedJoint2DComponent` are not passed to the physics engine: a distance joint holds the bodies by their centres, and a fixed joint holds them as they were when joined. A wheel joint's axle anchor is honoured on native Box2D only. The editor's inspector hides the anchors the backends ignore, keeping their saved values.
-- Jointed bodies with `collideConnected` off send no contact events between them, but on the pure-Dart backend they still push each other apart.
-- On native Box2D, queries skip bodies whose collision mask is 0 (such as `collidesWith: 0`); the pure-Dart backend finds them.
+- On native Box2D, queries skip bodies whose collision mask is 0 (such as `collidesWith: 0`, or `collidesWithNothing`); the pure-Dart backend finds them.
 - `continuousCollision` works on the native backend only.
 - `CollisionEnter2DEvent.depth` is always 0, and its `point` is worked out from where the two bodies' bounds meet, because neither backend reports them in 2D.
 - On native Box2D a static sensor does not report static colliders.

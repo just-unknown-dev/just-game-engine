@@ -9,7 +9,6 @@ import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
-import 'package:just_game_engine_formats/just_game_engine_formats.dart' show V7ToV8;
 
 void main() {
   group('PhysicsLayers', () {
@@ -91,6 +90,23 @@ void main() {
       );
     });
 
+    test('a version that is not a whole number is a broken file', () {
+      // Read through PhysicsLayersFile, as the editor and the CLI read it.
+      for (final version in <Object>['2', 1.5]) {
+        expect(
+          () => PhysicsLayers.fromJson({'version': version, 'layers': []}),
+          throwsA(
+            predicate(
+              (e) =>
+                  e is FormatException &&
+                  e is! UnsupportedFormatVersionException,
+            ),
+          ),
+          reason: '$version',
+        );
+      }
+    });
+
     test('a context reads them from its bundle, and keeps the defaults '
         'without the file', () async {
       final layers = PhysicsLayers.defaults.withName(4, 'Enemies');
@@ -121,94 +137,6 @@ void main() {
         {'name': 'Box', 'components': components},
       ],
     };
-    // Only the v7 → v8 step: what came after it is checked below.
-    (Map<String, dynamic>, MigrationRun) v8(Map<String, dynamic> json) {
-      final run = MigrationRun(MigrationHooks.none);
-      return (const V7ToV8().apply(jsonDecode(jsonEncode(json)) as Map<String, dynamic>, run), run);
-    }
-
-    Map<String, dynamic> bodyOf(Map<String, dynamic> out) =>
-        ((out['entities'] as List).single['components'] as List).firstWhere(
-              (c) => c['type'] == 'PhysicsBodyComponent',
-            )['fields']
-            as Map<String, dynamic>;
-
-    test('Static on becomes the static body type', () {
-      final (out, _) = v8(
-        scene([
-          {
-            'type': 'PhysicsBodyComponent',
-            'fields': {'isStatic': true, 'bodyType': 'dynamic', 'drag': 0.5},
-          },
-        ]),
-      );
-      final f = bodyOf(out);
-      expect(f['bodyType'], 'static');
-      expect(f.containsKey('isStatic'), isFalse);
-      expect(f['drag'], 0.5);
-    });
-
-    test('category and mask bits become a layer and its list', () {
-      final (out, _) = v8(
-        scene([
-          {
-            'type': 'PhysicsBodyComponent',
-            'fields': {'categoryBits': 4, 'maskBits': 0xFFFF & ~2},
-          },
-        ]),
-      );
-      final f = bodyOf(out);
-      expect(f['layer'], 2);
-      expect(f['collidesWith'], 0xFFFF & ~2);
-      expect(f.containsKey('categoryBits'), isFalse);
-      // Every layer was the grid's answer anyway: left out.
-      final all = bodyOf(
-        v8(
-          scene([
-            {
-              'type': 'PhysicsBodyComponent',
-              'fields': {'categoryBits': 1, 'maskBits': 0xFFFF},
-            },
-          ]),
-        ).$1,
-      );
-      expect(all.containsKey('collidesWith'), isFalse);
-      expect(all.containsKey('layer'), isFalse);
-    });
-
-    test('a body saved without drag keeps the old default', () {
-      final f = bodyOf(
-        v8(
-          scene([
-            {'type': 'PhysicsBodyComponent', 'fields': <String, dynamic>{}},
-          ]),
-        ).$1,
-      );
-      expect(f['drag'], 0.98);
-    });
-
-    test("a scaled entity's collider is divided by its scale, and noted", () {
-      final (out, run) = v8(
-        scene([
-          {
-            'type': 'TransformComponent',
-            'fields': {
-              'scale': {'x': 2.0, 'y': 0.5, 'z': 1.0},
-            },
-          },
-          {
-            'type': 'PhysicsBodyComponent',
-            'fields': {
-              'shape': {'kind': 'rectangle', 'width': 64.0, 'height': 10.0},
-            },
-          },
-        ]),
-      );
-      final shape = bodyOf(out)['shape'] as Map;
-      expect(shape['width'], 32);
-      expect(shape['height'], 20);
-      expect(run.notes.single.message, contains('scale'));
-    });
 
     test('carried on to v9, what it writes decodes as a rigid body and a collider', () {
       final out = SceneFormat.migrate(
@@ -460,7 +388,7 @@ void main() {
     late World world;
 
     setUp(() {
-      physics = Physics2DEngine()..initialize();
+      physics = PhysicsEngineFactory.create2D()..initialize();
       physics.setGravity(0, 2200);
       world = World()..initialize();
       world.addSystem(Physics2DSystem(physics));

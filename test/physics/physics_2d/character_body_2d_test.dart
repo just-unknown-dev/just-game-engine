@@ -8,7 +8,7 @@ import 'package:just_game_engine/just_game_engine.dart';
 void main() {
   // The same character, on each backend: they must agree.
   for (final (name, make) in [
-    ('native Box2D', () => Physics2DEngine()..initialize()),
+    ('native Box2D', () => PhysicsEngineFactory.create2D()..initialize()),
     ('pure Dart', () => Physics2DEngine.pureDart()..initialize()),
   ]) {
     group(name, () => _suite(make));

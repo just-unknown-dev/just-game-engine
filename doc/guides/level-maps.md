@@ -38,7 +38,7 @@ Future<void> startLevel(World world) async {
 
 ## Tiled maps
 
-`.tmx` and `.tmj` maps load directly, with their tilesets embedded or as `.tsx` files; image paths are read relative to the file that names them. A few Tiled settings carry meaning:
+`.tmx` and `.tmj` maps load directly, with their tilesets embedded or as `.tsx` files, in any layer encoding Tiled saves (CSV, Base64, and Base64 compressed with zlib, gzip or Zstandard), and with object templates (`.tx` or `.tj`). Image paths are read relative to the file that names them. A layer whose data does not hold its width × height tiles is refused with a `FormatException` naming it. A few Tiled settings carry meaning:
 
 - A tile layer with the bool custom property `collides` set to true gets physics bodies, and one with `foreground` draws in front of the level.
 - Tile collision comes from Tiled's tile collision editor: rectangles, ellipses and polygons. Lines and points are left out.
@@ -56,6 +56,8 @@ An entity can sit on a layer: make it a child of the map's entity with `LayerCom
 ## Tile collision
 
 `MapCollisionSystem` gives every layer marked `collides` static bodies built from its tiles' collision shapes. The bodies are ordinary entities with a transform, a static `RigidBody2DComponent`, a `Collider2DComponent` and a `MapBodyComponent` that says which map, layer, kind, class and cells they came from. They are generated, never saved. Contacts with them are reported like any other, and standing on them grounds a character (see [2D physics](/docs/physics-2d)). A layer's bodies are rebuilt at most once a frame when its cells, settings or tilesets change, or the map moves.
+
+A ramp drawn with slope tiles (each filled below one line from its left side to its right, as the 45° and 22.5° slopes of the basic shapes are) becomes one convex body with the ground beneath it and the level ground at its top, so a running character meets no seam or buried corner on it; the bodies cover exactly what the tiles do.
 
 The engine knows two collision kinds: `MapCollisionKinds.solid`, merged into as few boxes as possible, and `MapCollisionKinds.oneWay`, merged along rows and passed through from below. A kind nobody registered resolves to `solid`. Register your own in `engine.context.collisionKinds` before the maps load:
 

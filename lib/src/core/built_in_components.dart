@@ -43,11 +43,12 @@ abstract final class BuiltInComponents {
   static const ContextExtension extension = _BuiltInComponentsExtension();
 
   /// The field types the features' components are saved through, beyond
-  /// the ECS core's own: the physics layers and shapes, and the 2-D
-  /// material overrides.
+  /// the ECS core's own: the physics layers and shapes, the 2-D material
+  /// overrides, and the input actions.
   static List<FieldType> get fieldTypes => [
     ...PhysicsDefinitions.fieldTypes,
     ...Material2DDefinitions.fieldTypes,
+    ...InputDefinitions.fieldTypes,
   ];
 
   /// A registry holding the ECS core's components and [all], for code that

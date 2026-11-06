@@ -19,21 +19,6 @@ import 'collider_2d_geometry.dart';
 import 'physics_2d_components.dart';
 import 'physics_2d_body_ref_component.dart';
 
-/// Wakes [body] in [physics] — natively too: the Box2D backend wakes a
-/// sleeping body only for a velocity that is not zero, so a body asleep
-/// stayed asleep through a change of its gravity scale, of the world's
-/// gravity, or a [RigidBody2DComponent.wakeUp].
-@internal
-void wakeBody2D(Physics2DEngine physics, Physics2DBody body) {
-  if (!body.isAwake && body.isDynamic && physics is Box2DPhysicsEngine) {
-    // An impulse wakes the body it is given to, a zero one included.
-    physics.applyLinearImpulse(body, 0, 0);
-  }
-  body
-    ..isAwake = true
-    ..sleepTimer = 0.0;
-}
-
 /// The bodies `Physics2DSystem` keeps: one for every entity with a
 /// [TransformComponent] and a [Collider2DComponent], whose
 /// [RigidBody2DComponent] says how it moves (none: a static body).
@@ -139,8 +124,10 @@ final class Physics2DBodies {
       final rigid = link.settings;
       final culled = link.cull?.isActive == false;
       final category = 1 << PhysicsLayers.clampLayer(rigid.layer);
+      // What it collides with now: its saved list, or the grid, unless
+      // gameplay switched its collisions off for a while.
       final mask =
-          (rigid.collidesWith ?? layers.maskOf(rigid.layer)) &
+          (rigid.effectiveCollidesWith ?? layers.maskOf(rigid.layer)) &
           PhysicsLayers.all;
 
       final before = link.body;
@@ -154,22 +141,13 @@ final class Physics2DBodies {
         wake = true;
       }
 
-      // Opt-in view culling: freeze the body in place while inactive rather
-      // than stepping it, matching the pre-unification behaviour of
-      // excluding culled entities from force application/broad-phase. Its
-      // settings above wait until it is back.
-      body.isActive = !culled;
+      // Opt-in view culling: the body is out of the simulation while its
+      // entity is culled, on both backends — held where it is, keeping its
+      // velocity, touching and sensed by nothing — and put back, awake,
+      // when it is not. Its settings above wait until it is back.
+      physics.setBodyActive(body, !culled);
       link.culled = culled;
-      if (culled) {
-        if (!link.wasCulled) _freeze(link, body);
-        link.wasCulled = true;
-        continue;
-      }
-      if (link.wasCulled) {
-        link.wasCulled = false;
-        _thaw(link, body);
-        wake = true;
-      }
+      if (culled) continue;
 
       if (_follow(link, body)) wake = true;
 
@@ -186,7 +164,7 @@ final class Physics2DBodies {
             body.acceleration.y != 0.0 ||
             body.torque != 0.0;
       }
-      if (wake) wakeBody2D(physics, body);
+      if (wake) physics.wakeBody(body);
     }
 
     for (final link in _leaving) {
@@ -241,10 +219,9 @@ final class Physics2DBodies {
 
   /// [link]'s body, made — or made again, moving as it was, when what it
   /// was made from changed: the shape and everything placing it, the
-  /// entity's scale, the shape a matching collider follows, the sensor flag
-  /// and locked rotation are fixed when a body is made (the native Box2D
-  /// backend cannot change them on a live body). Null while it has no
-  /// shape.
+  /// entity's scale, the shape a matching collider follows and the sensor
+  /// flag are fixed when a body is made (the native Box2D backend cannot
+  /// change them on a live body). Null while it has no shape.
   Physics2DBody? _bodyFor(
     _BodyLink link,
     ComponentDefinitionRegistry definitions,
@@ -265,8 +242,7 @@ final class Physics2DBodies {
     if (body != null &&
         (!link.builtMatches(collider, sx, sy) ||
             (matching && !link.sameLook(look)) ||
-            body.isSensor != rigid.isSensor ||
-            body.fixedRotation != rigid.lockRotation)) {
+            body.isSensor != rigid.isSensor)) {
       keepVx = body.velocity.x;
       keepVy = body.velocity.y;
       keepSpin = body.angularVelocity;
@@ -311,7 +287,7 @@ final class Physics2DBodies {
       angularDamping: _angularDampingOf(rigid),
       angle: transform.angle,
       useGravity: !rigid.isStatic,
-      gravityScale: rigid.gravityScale,
+      gravityScale: rigid.effectiveGravityScale,
       bodyType: rigid.bodyType,
       isSensor: rigid.isSensor,
       isOneWay: collider.oneWay,
@@ -346,7 +322,6 @@ final class Physics2DBodies {
       ..body = made
       ..automaticMass = rigid.mass <= 0 && !rigid.isStatic
       ..syncOutPending = true
-      ..wasCulled = false
       ..remember(collider, sx, sy, look: look, matching: matching);
     entities[made] = entity;
     // The same component for a body made again: the entity's structure —
@@ -363,7 +338,7 @@ final class Physics2DBodies {
   /// Routes each setting of [link]'s live [body] that changed to the engine
   /// — on the Box2D backend each needs a native call, and a plain field
   /// write would only update the Dart mirror. (The shape, its placement,
-  /// scale, sensor and locked rotation make the body again instead.)
+  /// scale and sensor flag make the body again instead.)
   /// Whether one changed: each can matter to a body at rest, so a change
   /// wakes it.
   bool _pushSettings(
@@ -432,8 +407,14 @@ final class Physics2DBodies {
       physics.setBodyType(body, rigid.bodyType);
       changed = true;
     }
-    if (body.gravityScale != rigid.gravityScale) {
-      physics.setBodyGravityScale(body, rigid.gravityScale);
+    // The scale gameplay gave it for now, or else its saved one.
+    final gravityScale = rigid.effectiveGravityScale;
+    if (body.gravityScale != gravityScale) {
+      physics.setBodyGravityScale(body, gravityScale);
+      changed = true;
+    }
+    if (body.fixedRotation != rigid.lockRotation) {
+      physics.setBodyFixedRotation(body, rigid.lockRotation);
       changed = true;
     }
     // Layers, the project's grid, or the body's own list changed.
@@ -530,29 +511,6 @@ final class Physics2DBodies {
       fixed * Physics2DEngine.maxSubSteps,
     );
     return math.max((pending / fixed + 1e-9).floor(), 1) * fixed;
-  }
-
-  /// Holds [body] still while its entity is culled, as it was. The
-  /// pure-Dart engine leaves an inactive body out of everything; the native
-  /// one does not read the flag, so there the body is also made static and
-  /// touches nothing until it is back — the next sync-in after that puts
-  /// its type and filter back with the rest of its settings.
-  void _freeze(_BodyLink link, Physics2DBody body) {
-    link
-      ..frozenVx = body.velocity.x
-      ..frozenVy = body.velocity.y
-      ..frozenSpin = body.angularVelocity;
-    final p = physics;
-    if (p is! Box2DPhysicsEngine) return;
-    p
-      ..setBodyType(body, Body2DType.static)
-      ..setBodyFilter(body, categoryBits: 0, maskBits: 0);
-  }
-
-  /// [body] is back from culling: moving as it was when it froze.
-  void _thaw(_BodyLink link, Physics2DBody body) {
-    body.velocity.setValues(link.frozenVx, link.frozenVy);
-    body.angularVelocity = link.frozenSpin;
   }
 
   /// [a] − [b], a whole number of turns taken off it: between −π and π.
@@ -659,7 +617,7 @@ final class Physics2DBodies {
   void syncOut({required bool stepped}) {
     for (final link in _links) {
       final body = link.body;
-      if (body == null || link.culled) continue; // culled — body is frozen
+      if (body == null || link.culled) continue; // culled: out of the step
       if (!stepped && link.carried) continue;
 
       // A static body never moves by itself, so its transform only needs
@@ -735,8 +693,7 @@ final class Physics2DBodies {
     if (body == null) return;
     link
       ..body = null
-      ..culled = false
-      ..wasCulled = false;
+      ..culled = false;
     physics.removeBody(body);
     entities.remove(body);
     onBodyGone(body, link.entity, rebuilt: rebuilt);
@@ -797,11 +754,9 @@ final class _BodyLink {
   /// mass or type, weighs it again.
   bool automaticMass = false;
 
-  /// Culled this frame: the body is frozen and nothing is synced out.
+  /// Culled this frame: the body is out of the simulation and nothing is
+  /// synced out.
   bool culled = false;
-
-  /// Culled last time it was looked at — coming back wakes the body.
-  bool wasCulled = false;
 
   /// The transform still has to take the body's position — once, for a
   /// static body that is otherwise never synced out.
@@ -950,9 +905,6 @@ final class _BodyLink {
 
   /// Moved by its transform last frame, as a kinematic body is carried.
   bool carried = false;
-
-  /// How it was moving when culling froze it.
-  double frozenVx = 0, frozenVy = 0, frozenSpin = 0;
 
   /// The body's velocity as the last step left it. Anything different at
   /// the next sync-in was written since, and wakes the body.

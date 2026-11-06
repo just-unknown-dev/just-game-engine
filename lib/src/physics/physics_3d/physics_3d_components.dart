@@ -54,7 +54,9 @@ class RigidBody3DComponent extends Component {
   /// How quickly its spin slows by itself. A change rebuilds the body.
   double angularDamping;
 
-  /// Gravity on it, times this: 0 floats, 2 falls hard.
+  /// Gravity on it, times this, as authored: 0 floats, 2 falls hard.
+  /// Gameplay that changes it for a while sets [gravityScaleOverride]
+  /// instead; the body has [effectiveGravityScale].
   double gravityScale;
 
   /// Whether it only reports what enters and leaves it
@@ -77,6 +79,16 @@ class RigidBody3DComponent extends Component {
   Vector3 initialAngularVelocity;
 
   // ── Runtime: never saved ──────────────────────────────────────────────
+
+  /// A gravity scale gameplay gives the body for now, in place of
+  /// [gravityScale]; null for the authored one. Never saved, so a scene
+  /// loads without it, and [gravityScale] stays as authored while it is
+  /// set.
+  double? gravityScaleOverride;
+
+  /// The gravity scale the body has: [gravityScaleOverride], or else
+  /// [gravityScale].
+  double get effectiveGravityScale => gravityScaleOverride ?? gravityScale;
 
   /// The physics engine's body, or 0 while it has none.
   int body = 0;
@@ -268,7 +280,9 @@ class CharacterBody3DComponent extends Component {
   /// Radius of its capsule.
   double radius;
 
-  /// Its whole height, feet to the top of its head.
+  /// Its whole height, feet to the top of its head, as authored. Gameplay
+  /// that resizes the body for a while (a crouch) sets [heightOverride]
+  /// instead; the body is [effectiveHeight] tall.
   double height;
 
   /// Steepest slope it can walk up, radians (50° by default).
@@ -287,7 +301,9 @@ class CharacterBody3DComponent extends Component {
   /// The most force it pushes with (N).
   double pushStrength;
 
-  /// Gravity on it, times this, with [useGravity].
+  /// Gravity on it, times this, with [useGravity], as authored. Gameplay
+  /// that changes it for a while sets [gravityScaleOverride] instead; the
+  /// character has [effectiveGravityScale].
   double gravityScale;
 
   /// Whether the system adds gravity and the ground's velocity.
@@ -300,6 +316,24 @@ class CharacterBody3DComponent extends Component {
   bool detectable;
 
   // ── Runtime: never saved ──────────────────────────────────────────────
+
+  /// A gravity scale gameplay gives the character for now, in place of
+  /// [gravityScale]; null for the authored one. Never saved, so a scene
+  /// loads without it, and [gravityScale] stays as authored while it is
+  /// set.
+  double? gravityScaleOverride;
+
+  /// The gravity scale the character has: [gravityScaleOverride], or else
+  /// [gravityScale].
+  double get effectiveGravityScale => gravityScaleOverride ?? gravityScale;
+
+  /// A height gameplay gives the body for now (a crouch), in place of
+  /// [height]; null for the authored height. Never saved, so a scene loads
+  /// without it, and [height] stays as authored while it is set.
+  double? heightOverride;
+
+  /// The height the body has: [heightOverride], or else [height].
+  double get effectiveHeight => heightOverride ?? height;
 
   /// The physics engine's character, or 0 while it has none.
   int character = 0;

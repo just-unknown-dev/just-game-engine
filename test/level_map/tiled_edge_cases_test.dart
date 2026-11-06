@@ -203,7 +203,7 @@ void main() {
 
   group('a turned collision object from Tiled', () {
     TilesetData import(String objects) {
-      final ts = tiled.TileMapParser.parseTileset('''
+      final ts = tiled.TmxParser.parseTileset('''
 <tileset version="1.10" name="t" tilewidth="16" tileheight="16" tilecount="1" columns="1">
  <image source="t.png" width="16" height="16"/>
  <tile id="0">
@@ -328,7 +328,7 @@ $objects
 
   group('a tileset without columns or a tile count', () {
     test('works them out from its image', () {
-      final ts = tiled.TileMapParser.parseTileset('''
+      final ts = tiled.TmxParser.parseTileset('''
 <tileset name="old" tilewidth="16" tileheight="16" spacing="2" margin="1">
  <image source="old.png" width="70" height="35"/>
 </tileset>''');
@@ -347,7 +347,7 @@ $objects
     });
 
     test('says so when there is nothing to work them out from', () {
-      final ts = tiled.TileMapParser.parseTileset('''
+      final ts = tiled.TmxParser.parseTileset('''
 <tileset name="old" tilewidth="16" tileheight="16">
  <image source="old.png"/>
 </tileset>''');

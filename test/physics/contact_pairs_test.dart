@@ -11,7 +11,7 @@ import 'package:just_game_engine/src/physics/contact_pairs.dart';
 const _frame = 1 / 60;
 
 final _backends = <String, Physics2DEngine Function()>{
-  'native': Physics2DEngine.new,
+  'native': PhysicsEngineFactory.create2D,
   'pure Dart': Physics2DEngine.pureDart,
 };
 

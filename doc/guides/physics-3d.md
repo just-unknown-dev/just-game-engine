@@ -42,7 +42,7 @@ As the engine is made, `Physics3D` registers the 3D components, so scenes holdin
 
 Where 3D physics cannot run, `initialize()` fails with an `EngineInitException` whose `cause` is a `Physics3DUnsupportedError`. That happens on the web, on 32-bit Android ABIs, and in an app whose pubspec did not ask for Jolt. Ask first with `Physics3D.isSupported`, and read why with `Physics3D.unsupportedReason`, as the sample above does.
 
-| Platform | Jolt (`just_jolt` 0.1.0) |
+| Platform | Jolt (`just_jolt` 0.2.0) |
 |---|---|
 | Windows x64 | built and tested |
 | Android arm64-v8a, x86_64 | built by the hook (NDK r26 or newer) |
@@ -61,7 +61,7 @@ Units are metres, seconds and radians, and +Y is down, so gravity is (0, 9.81, 0
 
 As in 2D, a `Collider3DComponent` alone is a static body, and a `RigidBody3DComponent` beside it says how it moves. `RigidBody3DComponent` has the 2D fields: `bodyType` (`Body3DType.static`, `kinematic` or `dynamic`, the default), `mass` (0 works it out from the collider's volume), `friction` (0.5), `restitution` (0), `linearDamping` and `angularDamping` (0.05), `gravityScale`, `isSensor`, `lockRotation`, `continuousCollision`, `canSleep`, `layer`, `initialVelocity` and `initialAngularVelocity`. Changing `bodyType`, `mass`, damping, `isSensor`, `canSleep` or `lockRotation`, or adding or removing the `RigidBody3DComponent`, rebuilds the body.
 
-Push a body with `addForce` (N), `addTorque`, `addImpulse` (N·s), `addAngularImpulse`, `setVelocity`, `setAngularVelocity` and `wakeUp`, all applied before the next step. After each step it holds `linearVelocity`, `angularVelocity` and `isAwake`. Move a kinematic or static body by writing its transform. A 3D body has only a `layer`: there is no `collidesWith` or `groupIndex`, so the project's layer grid decides what collides.
+Push a body with `addForce` (N), `addTorque`, `addImpulse` (N·s), `addAngularImpulse`, `setVelocity`, `setAngularVelocity` and `wakeUp`, all applied before the next step. After each step it holds `linearVelocity`, `angularVelocity` and `isAwake`. Move a kinematic or static body by writing its transform. A 3D body has only a `layer`: there is no `collidesWith` or `groupIndex`, so the project's layer grid decides what collides. A grid edited while a scene plays (a new `engine.context.physicsLayers`, as the editor's Physics Layers dock sets) reaches the running world at the next update.
 
 | `Collider3DShape` | Sized by |
 |---|---|
@@ -145,6 +145,10 @@ class Hero3DControlSystem extends System {
 ```
 
 With `useGravity` on, only the horizontal part of `moveVelocity` counts; the system adds gravity and the ground's own velocity, and `jump` makes the jump. Turn it off and `moveVelocity` is the whole velocity, for flying, swimming or ladders. After each step read `velocity`, `groundState` (a `Ground3DState`), `isGrounded`, `groundNormal`, `groundVelocity` and `groundEntity`. A `detectable` character is seen by sensors and hit by rays.
+
+To resize a character for a while, a crouch say, set `heightOverride` rather than `height`: the capsule is `effectiveHeight` tall (the override, or else `height`), and the override is never saved, so a level saved meanwhile keeps the height it was authored with. Set it back to `null` to stand up.
+
+Gravity is the same, as in 2D: to change it for a while, set `gravityScaleOverride` on the `CharacterBody3DComponent` or `RigidBody3DComponent` rather than `gravityScale`. It falls by `effectiveGravityScale` (the override, or else `gravityScale`), and the override is never saved; set it back to `null` for the authored scale.
 
 ## Joints
 

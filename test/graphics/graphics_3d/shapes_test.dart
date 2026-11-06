@@ -10,7 +10,7 @@ import 'package:just_game_engine/just_game_engine_3d.dart';
 import 'package:just_game_engine/src/graphics/graphics_3d/shapes/outline.dart';
 
 /// The volume a mesh encloses: positive when its triangles face out.
-double volumeOf(ShapeMesh m) {
+double volumeOf(Shape3DMesh m) {
   var v = 0.0;
   final p = m.positions;
   for (var t = 0; t < m.indices.length; t += 3) {
@@ -25,7 +25,7 @@ double volumeOf(ShapeMesh m) {
 
 /// Directed edges (by position) left without a twin running the other way:
 /// none for a closed, consistently wound mesh.
-int openEdges(ShapeMesh m) {
+int openEdges(Shape3DMesh m) {
   String key(int i) {
     final p = m.positions;
     String r(double v) => (v * 1e4).round().toString();
@@ -48,7 +48,7 @@ int openEdges(ShapeMesh m) {
 }
 
 /// Whether each triangle faces the way its vertices' normals point.
-bool facesAgree(ShapeMesh m) {
+bool facesAgree(Shape3DMesh m) {
   final p = m.positions, n = m.normals;
   for (var t = 0; t < m.indices.length; t += 3) {
     final a = m.indices[t] * 3, b = m.indices[t + 1] * 3, c = m.indices[t + 2] * 3;
@@ -96,7 +96,7 @@ void main() {
   group('every shape is closed, faces out and holds what it should', () {
     for (final MapEntry(key: name, value: (shape, volume, tolerance)) in closed.entries) {
       test(name, () {
-        for (final mesh in [shape.buildMesh(), shape.buildMesh(const ShapeUv.metresAt(2, 1, 0.5))]) {
+        for (final mesh in [shape.buildMesh(), shape.buildMesh(const Shape3DUv.metresAt(2, 1, 0.5))]) {
           expect(mesh.triangleCount, greaterThan(0));
           expect(facesAgree(mesh), isTrue, reason: 'a triangle faces against its normals');
           // Stairs meet their sides in T-junctions: closed, but not edge for edge.
@@ -243,7 +243,7 @@ void main() {
   });
 
   test('texture coordinates: once per face, or per metre of the world', () {
-    double uSpan(ShapeMesh m, bool Function(int i) on) {
+    double uSpan(Shape3DMesh m, bool Function(int i) on) {
       var lo = double.infinity, hi = -double.infinity;
       for (var i = 0; i < m.vertexCount; i++) {
         if (!on(i)) continue;
@@ -254,14 +254,14 @@ void main() {
     }
 
     final cube = Cube3DComponent(width: 2);
-    bool front(ShapeMesh m, int i) => m.normals[i * 3 + 2] == 1;
+    bool front(Shape3DMesh m, int i) => m.normals[i * 3 + 2] == 1;
     final natural = cube.buildMesh();
     expect(uSpan(natural, (i) => front(natural, i)), closeTo(1, 1e-9));
-    final metres = cube.buildMesh(const ShapeUv.metresAt(1, 1, 1));
+    final metres = cube.buildMesh(const Shape3DUv.metresAt(1, 1, 1));
     expect(uSpan(metres, (i) => front(metres, i)), closeTo(2, 1e-6));
-    final scaled = cube.buildMesh(const ShapeUv.metresAt(3, 1, 1));
+    final scaled = cube.buildMesh(const Shape3DUv.metresAt(3, 1, 1));
     expect(uSpan(scaled, (i) => front(scaled, i)), closeTo(6, 1e-5));
-    final sphere = Sphere3DComponent(radius: 1).buildMesh(const ShapeUv.metresAt(1, 1, 1));
+    final sphere = Sphere3DComponent(radius: 1).buildMesh(const Shape3DUv.metresAt(1, 1, 1));
     expect(uSpan(sphere, (_) => true), closeTo(2 * math.pi, 1e-5));
   });
 

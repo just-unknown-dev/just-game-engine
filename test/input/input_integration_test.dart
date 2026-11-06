@@ -124,7 +124,7 @@ void main() {
       engine.pause();
       engine.input.handleKeyEvent(_down(PhysicalKeyboardKey.space));
       engine.gameLoop.tick();
-      expect(engine.input.actions.action('jump').isPressed(), isTrue);
+      expect(engine.input.actions.action('jump').isPressed, isTrue);
     });
 
     test('a hold takes real time, even while paused', () async {
@@ -312,25 +312,26 @@ void main() {
         physicalKey: PhysicalKeyboardKey.space,
       );
       engine.input.update(1);
-      expect(engine.input.actions.action('jump').isPressed(), isTrue);
+      expect(engine.input.actions.action('jump').isPressed, isTrue);
       await tester.sendKeyUpEvent(
         LogicalKeyboardKey.space,
         physicalKey: PhysicalKeyboardKey.space,
       );
       engine.input.update(2);
-      expect(engine.input.actions.action('jump').isPressed(), isFalse);
+      expect(engine.input.actions.action('jump').isPressed, isFalse);
     });
   });
 
   test('players\' bindings are kept in the engine cache', () async {
     final engine = await boot();
-    expect(engine.input.overrideStore, isA<CacheInputOverrideStore>());
-    await engine.input.overrideStore.save(
+    final store = engine.input.players.overrideStore;
+    expect(store, isA<CacheInputOverrideStore>());
+    await store.save(
       'input.overrides.test.p1',
-      const BindingOverrides({'b8': '<Keyboard>/k'}).toJson(),
+      BindingOverrides({'b8': '<Keyboard>/k'}).toJson(),
     );
     final back = BindingOverrides.fromJson(
-      await engine.input.overrideStore.load('input.overrides.test.p1'),
+      await store.load('input.overrides.test.p1'),
     );
     expect(back['b8'], '<Keyboard>/k');
   });

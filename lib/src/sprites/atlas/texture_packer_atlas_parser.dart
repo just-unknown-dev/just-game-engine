@@ -53,7 +53,7 @@ part of 'atlas.dart';
 /// does not need to specify which variant is in use.
 class TexturePackerAtlasParser extends AtlasParser {
   @override
-  Future<SpriteAtlas> parse(Map<String, dynamic> json, String basePath) async {
+  SpriteAtlas parse(Map<String, dynamic> json, String basePath) {
     final meta = (json['meta'] as Map<String, dynamic>?) ?? {};
     final regions = <String, SpriteRegion>{};
     final pages = <SpriteAtlasPage>[];

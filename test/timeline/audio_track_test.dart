@@ -9,7 +9,7 @@ import 'package:just_game_engine/just_game_engine.dart';
 class _RecordingAudio extends AudioEngine {
   _RecordingAudio() : super.withBackend(_Backend());
 
-  final List<(String, Audio3DPosition?, AudioSpatial)> played = [];
+  final List<(String, Audio3DPosition?, Audio3DSettings)> played = [];
 
   @override
   bool get isInitialized => true;
@@ -23,11 +23,11 @@ class _RecordingAudio extends AudioEngine {
     double pitch = 1.0,
     double speed = 1.0,
     List<AudioEffect> effects = const [],
-    Audio3DPosition? position3d,
-    AudioSpatial spatial = const AudioSpatial(),
+    Audio3DPosition? position3D,
+    Audio3DSettings settings3D = const Audio3DSettings(),
     AudioChannel channel = AudioChannel.sfx,
   }) async {
-    played.add((path, position3d, spatial));
+    played.add((path, position3D, settings3D));
     return 'sfx-${played.length}';
   }
 }

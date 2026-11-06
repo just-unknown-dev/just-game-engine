@@ -329,6 +329,26 @@ void main() {
       expect(lib.withNames(['a', 'z']).names, ['a', 'b', 'c', 'z']);
       expect(TagLibrary.colorFor('coin'), TagLibrary.colorFor('coin'));
     });
+
+    test('a version that is not a whole number is a broken file', () {
+      // Read through TagsFile, as the editor and the CLI read it.
+      for (final version in <Object>['2', 1.5]) {
+        expect(
+          () => TagLibrary.fromJson({
+            'version': version,
+            'tags': ['a'],
+          }),
+          throwsA(
+            predicate(
+              (e) =>
+                  e is FormatException &&
+                  e is! UnsupportedFormatVersionException,
+            ),
+          ),
+          reason: '$version',
+        );
+      }
+    });
   });
 
   group('spawn points', () {

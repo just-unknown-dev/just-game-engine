@@ -191,7 +191,7 @@ void main() {
         const [],
         imageSource: (_) => '',
       );
-      final parsed = await tiled.TileMapParser.parse(
+      final parsed = await tiled.TmxParser.parse(
         tiled.TmxWriter.write(exported),
       );
       return TiledInterop.importMap(
@@ -202,7 +202,7 @@ void main() {
     }
 
     Future<LevelMapData> imported() async => TiledInterop.importMap(
-      await tiled.TileMapParser.parse(tmx),
+      await tiled.TmxParser.parse(tmx),
       tilesetPath: (i, _) => 't#$i',
       imagePath: (_) => '',
     ).map;

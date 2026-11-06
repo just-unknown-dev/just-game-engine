@@ -67,8 +67,10 @@ class RigidBody2DComponent extends Component {
   /// As [linearDamping], for spin.
   double angularDamping;
 
-  /// Gravity on it, times this: 0 floats, 2 falls hard. What variable jump
-  /// height is driven through.
+  /// Gravity on it, times this, as authored: 0 floats, 2 falls hard.
+  /// Gameplay that changes it for a while (a platformer's variable jump
+  /// height) sets [gravityScaleOverride] instead; the body has
+  /// [effectiveGravityScale].
   double gravityScale;
 
   /// Whether it only reports what overlaps it ([SensorEnter2DEvent]) and
@@ -101,7 +103,9 @@ class RigidBody2DComponent extends Component {
 
   /// The layers it collides with, as a mask — bit `n` for layer `n`. Null
   /// follows the project's grid for [layer]. Two bodies collide only if
-  /// each collides with the other's layer.
+  /// each collides with the other's layer. Gameplay that switches its
+  /// collisions off for a while (a crumbling platform) sets
+  /// [collidesWithNothing] instead.
   int? collidesWith;
 
   /// Collision group (positive: same group always collides; negative:
@@ -118,6 +122,26 @@ class RigidBody2DComponent extends Component {
   bool get isDynamic => bodyType == Body2DType.dynamic;
 
   // ── Runtime: never saved ──────────────────────────────────────────────
+
+  /// A gravity scale gameplay gives the body for now — a platformer's
+  /// rise, jump-cut and fall gravities — in place of [gravityScale]; null
+  /// for the authored one. Never saved, so a scene loads without it, and
+  /// [gravityScale] stays as authored while it is set.
+  double? gravityScaleOverride;
+
+  /// The gravity scale the body has: [gravityScaleOverride], or else
+  /// [gravityScale].
+  double get effectiveGravityScale => gravityScaleOverride ?? gravityScale;
+
+  /// Whether gameplay has switched its collisions off for now — a crumbled
+  /// platform: it collides with nothing, whatever [layer] and
+  /// [collidesWith] say, and keeps its place, velocity and settings. Never
+  /// saved; false gives it back the collisions it was authored with.
+  bool collidesWithNothing = false;
+
+  /// The mask the body collides with: 0 while [collidesWithNothing], else
+  /// [collidesWith] (null: the project's grid for [layer]).
+  int? get effectiveCollidesWith => collidesWithNothing ? 0 : collidesWith;
 
   /// Its velocity after the last step.
   Offset linearVelocity = Offset.zero;
@@ -377,7 +401,10 @@ class CharacterBody2DComponent extends Component {
   /// The most force it pushes with.
   double pushStrength;
 
-  /// Gravity on it, times this, with [useGravity].
+  /// Gravity on it, times this, with [useGravity], as authored. Gameplay
+  /// that changes it for a while (a platformer's variable jump height) sets
+  /// [gravityScaleOverride] instead; the character has
+  /// [effectiveGravityScale].
   double gravityScale;
 
   /// Whether the system adds gravity and the ground's velocity.
@@ -395,6 +422,17 @@ class CharacterBody2DComponent extends Component {
   bool detectable;
 
   // ── Runtime: never saved ──────────────────────────────────────────────
+
+  /// A gravity scale gameplay gives the character for now — a
+  /// platformer's rise, jump-cut and fall gravities — in place of
+  /// [gravityScale]; null for the authored one. Never saved, so a scene
+  /// loads without it, and [gravityScale] stays as authored while it is
+  /// set.
+  double? gravityScaleOverride;
+
+  /// The gravity scale the character has: [gravityScaleOverride], or else
+  /// [gravityScale].
+  double get effectiveGravityScale => gravityScaleOverride ?? gravityScale;
 
   /// The velocity gameplay wants it to move at; kept until changed.
   Offset moveVelocity = Offset.zero;

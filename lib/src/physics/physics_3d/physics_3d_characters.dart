@@ -99,7 +99,7 @@ final class Physics3DCharacters {
         final character = physics.createCharacter(
           Character3DSettings(
             radius: comp.radius,
-            halfHeight: math.max(comp.height / 2 - comp.radius, 0.0),
+            halfHeight: math.max(comp.effectiveHeight / 2 - comp.radius, 0.0),
             up: Vector3.copy(_up),
             maxSlopeAngle: comp.maxSlopeAngle,
             mass: comp.mass,
@@ -152,7 +152,7 @@ final class Physics3DCharacters {
             ..setFrom(_up)
             ..scale(vertical);
         }
-        v.addScaled(gravity, comp.gravityScale * dt);
+        v.addScaled(gravity, comp.effectiveGravityScale * dt);
         v.add(comp.moveVelocity);
         v.addScaled(_up, -comp.moveVelocity.dot(_up));
       } else {
@@ -247,7 +247,7 @@ final class _CharacterLink {
 
   void remember(CharacterBody3DComponent c) {
     _radius = c.radius;
-    _height = c.height;
+    _height = c.effectiveHeight;
     _slope = c.maxSlopeAngle;
     _mass = c.mass;
     _push = c.pushStrength;
@@ -257,7 +257,7 @@ final class _CharacterLink {
 
   bool matches(CharacterBody3DComponent c) =>
       _radius == c.radius &&
-      _height == c.height &&
+      _height == c.effectiveHeight &&
       _slope == c.maxSlopeAngle &&
       _mass == c.mass &&
       _push == c.pushStrength &&

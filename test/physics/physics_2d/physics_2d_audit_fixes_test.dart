@@ -1,5 +1,5 @@
-// Physics fixes from the 2.0.0 final pass: a weld is never made again for
-// an anchor no backend takes, a wheel is for its axle (F21, PHY-2); the
+// Physics fixes from the 2.0.0 final pass: a joint is made again only for
+// an anchor it takes — a weld's own, a wheel's axle (F21, PHY-2); the
 // prismatic joint's editor groups name only its
 // fields (F21); without native wheel joints a wheel is the physics engine's
 // own wheel joint, its motor spinning the wheel (F24); a collision event
@@ -38,7 +38,7 @@ Entity _box(
 ], name: name);
 
 void main() {
-  test('a joint is made again only for an anchor its backend takes', () {
+  test('a joint is made again only for an anchor it takes', () {
     final (:world, :physics) = _setUp();
     final weld = FixedJoint2DComponent(
       connectedBody: const EntityTarget.name('B'),
@@ -52,12 +52,18 @@ void main() {
     world.update(_frame);
     expect(physics.joints.single, same(first), reason: 'nothing changed');
 
-    // A weld takes no anchor on either backend: nothing to make again for.
-    weld
-      ..anchor = const Offset(4, 0)
-      ..connectedAnchor = const Offset(4, 0);
+    // A weld takes no connected anchor: nothing to make again for.
+    weld.connectedAnchor = const Offset(4, 0);
     world.update(_frame);
     expect(physics.joints.single, same(first));
+
+    // It is welded at its own anchor, on both backends: made again.
+    weld.anchor = const Offset(4, 0);
+    world.update(_frame);
+    final moved = physics.joints.single;
+    expect(moved, isNot(same(first)));
+    world.update(_frame);
+    expect(physics.joints.single, same(moved), reason: 'nothing changed');
 
     // A wheel's axle is taken (natively): changing it makes it again.
     weld.enabled = false;
@@ -99,20 +105,23 @@ void main() {
           stiffness: 30,
           damping: 0.5,
           motorSpeed: 7,
-          motorMaxTorque: 90,
+          motorMaxTorque: 1e6,
         ),
       ],
     );
     _box(world, x: 0, name: 'Wheel');
     world.update(_frame);
     final wheel = physics.joints.single as WheelJoint2D;
-    // Hertz and a damping ratio, in the pure-Dart joint's own terms.
-    expect((
-      wheel.springStiffness,
-      wheel.springDamping,
-    ), Physics2DJoints.dartSpring(30, 0.5));
-    expect(wheel.motorEnabled, isTrue);
-    expect((wheel.motorSpeed, wheel.maxMotorTorque), (7.0, 90.0));
+    // Hertz and a damping ratio, as Box2D takes them.
+    expect((wheel.springHertz, wheel.dampingRatio), (30.0, 0.5));
+    // Its motor spins the wheel against the chassis.
+    for (var i = 0; i < 10; i++) {
+      world.update(_frame);
+    }
+    expect(
+      wheel.bodyB.angularVelocity - wheel.bodyA.angularVelocity,
+      closeTo(7, 0.5),
+    );
   });
 
   test('a collision event is made without a depth', () {

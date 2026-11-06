@@ -221,7 +221,8 @@ final class Material3DLibrary {
           if (file != null) {
             if (file.isVariant) _source(file.parent);
             for (final layer in file.layers.take(Material3DFile.maxLayers)) {
-              _source(layer);
+              // An empty slot is no layer: there is nothing to read.
+              if (layer.isNotEmpty) _source(layer);
             }
           }
           _changed(path);
@@ -275,6 +276,11 @@ final class Material3DLibrary {
       final deps = {...resolved.chain, ...asked};
       final layers = <Material3DFile?>[];
       for (final layer in file.layers.take(Material3DFile.maxLayers)) {
+        // An empty slot is no layer: nothing drawn on that channel.
+        if (layer.isEmpty) {
+          layers.add(null);
+          continue;
+        }
         final made = _madeOf(layer);
         layers.add(made?.file);
         deps
@@ -391,15 +397,16 @@ final class Material3DLibrary {
     }
 
     final resolved = await _resolveNow(file);
-    final layers = [
+    final layers = <Material3DFile?>[
       for (final l in resolved.layers.take(Material3DFile.maxLayers))
-        await _resolveNow(await _readNow(l)),
+        // An empty slot is no layer, not a file to read.
+        l.isEmpty ? null : await _resolveNow(await _readNow(l)),
     ];
     final maps = resolved.kind == Material3DKind.layered
         ? [
             for (var i = 0; i < 4; i++)
               i < layers.length
-                  ? await map(layers[i].colorMap, srgb: true)
+                  ? await map(layers[i]?.colorMap ?? '', srgb: true)
                   : null,
           ]
         : [
@@ -499,7 +506,7 @@ final class Material3DLibrary {
   /// [file]'s values as the renderer takes them: colours made linear, the
   /// maps' tiling, offset and turn on each; a layered one's layers tiled as
   /// each layer file says ([layers], read or null).
-  static MaterialData dataOf(
+  static Material3DData dataOf(
     Material3DFile file, {
     List<Material3DFile?> layers = const [],
   }) {
@@ -515,7 +522,7 @@ final class Material3DLibrary {
       rotation: file.rotation * math.pi / 180,
     );
     double tiling(int i) => i < layers.length ? (layers[i]?.tilingX ?? 1) : 1;
-    return MaterialData(
+    return Material3DData(
       baseColor: (r, g, b, alpha),
       baseColorTexture: ref(0),
       metallic: file.metallic,

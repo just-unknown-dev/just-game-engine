@@ -17,9 +17,10 @@
 ///   camera; [Graphics3DModels], the loaded models; [Material3DLibrary], the
 ///   material files; [Animation3DSystem], which plays clips.
 /// - What a game names of just_graphics_engine: the renderer
-///   ([Renderer3D], [RenderScene], [Scene3DView]), its settings, model and
-///   material data, mesh building, and the GPU device and resources the
-///   engine hands out. The renderer's plumbing stays in that package.
+///   ([Renderer3D], [Render3DScene], [Render3DView], [Scene3DView]), its
+///   settings, model and material data, mesh building, and the GPU device
+///   and resources the engine hands out. The renderer's plumbing stays in
+///   that package.
 ///
 /// Physics:
 /// - [Physics3D], the service that saves, loads and simulates the
@@ -49,7 +50,7 @@ export 'package:just_graphics_engine/just_graphics_engine.dart'
         Aabb3,
         AlphaMode,
         BloomSettings,
-        DirectionalLight,
+        Directional3DLight,
         DynamicResolution,
         Environment,
         EnvironmentMapData,
@@ -60,12 +61,12 @@ export 'package:just_graphics_engine/just_graphics_engine.dart'
         GpuModel,
         GpuPrimitive,
         GpuTexture,
-        JustMatrix4,
-        LightData,
-        LightType,
-        MaterialData,
+        Light3DData,
+        Light3DKind,
+        Material3DData,
+        Material3DOverride,
         Matrix4,
-        MaterialOverride,
+        Matrix4Transforms,
         MeshBuilder,
         MeshData,
         MeshInstance,
@@ -75,19 +76,20 @@ export 'package:just_graphics_engine/just_graphics_engine.dart'
         ModelUploader,
         Plane,
         PrimitiveData,
-        PunctualLight,
+        Punctual3DLight,
         Quaternion,
-        Ray3,
-        RenderScene,
-        RenderStats,
-        RenderViewMode,
+        Ray3D,
+        Render3DScene,
+        Render3DStats,
+        Render3DView,
+        Render3DViewMode,
         Renderer3D,
         SamplerData,
         Scene3DFrameCallback,
         Scene3DView,
         ShadowSettings,
-        ShapeMesh,
-        ShapeUv,
+        Shape3DMesh,
+        Shape3DUv,
         TextureCompression,
         TextureData,
         TextureRef,
@@ -97,7 +99,8 @@ export 'package:just_graphics_engine/just_graphics_engine.dart'
         createGpuDevice,
         kSkinFloats,
         kVertexFloats,
-        loadModelData;
+        loadModelData,
+        modelClipNamesOf;
 export 'package:just_physics_engine/physics_3d.dart'
     show
         Body3DSettings,
@@ -105,6 +108,7 @@ export 'package:just_physics_engine/physics_3d.dart'
         Box3DShape,
         Capsule3DShape,
         Character3DContact,
+        Character3DContacts,
         Character3DSettings,
         Character3DState,
         Compound3DShape,
@@ -121,6 +125,7 @@ export 'package:just_physics_engine/physics_3d.dart'
         Physics3DEngine,
         Physics3DEvent,
         Physics3DEventType,
+        Physics3DEvents,
         Physics3DUnsupportedError,
         Physics3DWorld,
         Physics3DWorldSettings,

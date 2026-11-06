@@ -194,7 +194,7 @@ void main() {
     expect([right.x, right.y, right.z], [1, 0, 0]);
     expect([up.x, up.y, up.z], [0, -1, 0]);
     // A sound to the right of the screen plays on the right.
-    final mix = const AudioSpatial().mix(
+    final mix = const Audio3DSettings().mix(
       listener: heard,
       position: Audio3DPosition(3, 0, 0),
     );

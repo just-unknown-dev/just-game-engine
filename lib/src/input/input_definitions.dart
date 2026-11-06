@@ -4,14 +4,38 @@ library;
 import '../ecs/serialization/component_codec.dart';
 import '../ecs/serialization/component_definition.dart';
 import '../ecs/serialization/field_definitions.dart';
+import '../ecs/serialization/field_type.dart';
 import '../foundation/dimensions.dart';
 import 'input_component.dart';
+import 'input_field_types.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
 import 'simple_movement_component.dart';
 
-/// The input components: input, and simple movement.
+/// The input components: input, and simple movement; and the input field
+/// types, an input action's name ([actionType]) and several
+/// ([actionListType]).
 abstract final class InputDefinitions {
+  /// The name of an input action, saved as text; the editor offers the
+  /// project's actions. [SimpleMovementComponent.action] is one; a kit's or
+  /// a game's own action fields use it too.
+  static const InputActionFieldType actionType = InputActionFieldType();
+
+  /// Several input actions' names, saved as a list of text.
+  static const InputActionListFieldType actionListType =
+      InputActionListFieldType();
+
+  /// The input field types, registered into a context with the engine's
+  /// definitions (`BuiltInComponents.extension`).
+  static const List<FieldType> fieldTypes = [actionType, actionListType];
+
+  /// Whether a field of [kind] holds input actions' names: one
+  /// ([actionType]) or several ([actionListType]). Read by id, as the
+  /// editor finds a field's control, so a type a project registers in
+  /// place of one of them counts too.
+  static bool isActionKind(FieldType kind) =>
+      kind.id == actionType.id || kind.id == actionListType.id;
+
   /// Definition of [InputComponent], saved as `InputComponent`: its
   /// `playerIndex` (-1 reads every device).
   static ComponentDefinition<InputComponent> get input =>
@@ -82,10 +106,12 @@ abstract final class InputDefinitions {
             (c, v) => (c as SimpleMovementComponent).speed = v,
             min: 0,
           ),
-          FieldDefinitions.text(
-            'action',
-            (c) => (c as SimpleMovementComponent).action,
-            (c, v) => (c as SimpleMovementComponent).action = v,
+          FieldDefinition(
+            name: 'action',
+            kind: actionType,
+            read: (c) => (c as SimpleMovementComponent).action,
+            write: (c, v) =>
+                (c as SimpleMovementComponent).action = v as String,
           ),
           FieldDefinitions.integer(
             'playerIndex',

@@ -56,10 +56,10 @@ The engine is one package. These are the others you will meet:
 
 | Package | What it is | Version |
 |---|---|---|
-| `just_game_engine` | The engine: the ECS world, scenes, rendering, physics, audio, input and the rest. | `2.0.0-dev.4` |
+| `just_game_engine` | The engine: the ECS world, scenes, rendering, physics, audio, input and the rest. | `2.0.0` |
 | `just_game_engine_editor` | A level editor that runs inside your game in a desktop debug build. See [Level editor](/docs/editor). | `0.1.0` dev releases, one made for each engine release |
-| `just_core_cli` | `just`, the command-line tool: it creates projects, checks their setup and upgrades them. | `0.1.x` |
-| `just_game_engine_cli` | The `just game` commands: run, build, scenes, release checks and migrations. See [The just CLI](/docs/cli). | `0.1.x` |
+| `just_core_cli` | `just`, the command-line tool: it creates projects, checks their setup and upgrades them. | `0.2.x` |
+| `just_game_engine_cli` | The `just game` commands: run, build, scenes, release checks and migrations. See [The just CLI](/docs/cli). | `0.2.x` |
 | `just_game_engine_formats` | The saved file formats (scenes, timelines, animator graphs) and their migrations, in pure Dart. The engine re-exports it, and the editor and the CLI migrate files with the same code. | comes with the engine |
 | `just_game_services` | Achievements, sign-in, leaderboards, currency, inventory and ads, as opt-in engine services. See [Game services](/docs/services). | `0.1.0`, not yet on pub.dev |
 
@@ -67,7 +67,7 @@ Under the engine sit packages of the same family: `just_physics_engine` (Box2D v
 
 ## Platforms
 
-- **The engine** runs on Android, iOS, Windows, macOS, Linux and the web, compiled to JavaScript or WebAssembly.
+- **The engine** is built for Android, iOS, Windows, macOS, Linux and the web, compiled to JavaScript or WebAssembly. It is verified on Windows, Android (Vulkan) and the web. Linux, iOS and macOS are untested: they are expected to build, but have never been run.
 - **3D graphics** draw where Flutter GPU does: not on the web, and not on Android devices without Vulkan. There the game still runs, and the 3D view shows a short note.
 - **3D physics** runs where Jolt is built, which is everywhere but the web.
 - **On the web**, 2D physics runs on the pure-Dart engine, audio starts at the first key or pointer press, and fragment-shader effects are skipped.
@@ -99,14 +99,14 @@ Under the engine sit packages of the same family: `just_physics_engine` (Box2D v
 
 ## Version status
 
-2.0 is a breaking release, out first as dev releases. The latest is 2.0.0-dev.4, and these docs are written for it. The latest stable release is 1.6.1.
+2.0.0 is the latest stable release, and these docs are written for it. 2.0 is a breaking release: it came out first as dev releases (2.0.0-dev.1 to dev.3), and the last 1.x release is 1.6.1.
 
-> **Note:** A `^2.0.0` constraint does not pick up dev releases. Depend on `just_game_engine: ^2.0.0-dev.4`, as [Installation](/docs/installation) shows.
+> **Note:** Each release is made for one Flutter minor series: 2.0.x is made for Flutter 3.47 (3.47.1 or newer). Depend on `just_game_engine: ^2.0.0` and pin Flutter in your app's pubspec, as "Flutter versions" in [Installation](/docs/installation) shows. Games made with `just` get both without asking.
 
 - **Coming from 1.x?** Read [Migrating from 1.x](/docs/migration). Scene files saved by earlier versions still load: they are migrated in memory as they are read.
-- **Between dev releases**, read the [CHANGELOG](https://github.com/just-unknown-dev/just-game-engine/blob/main/CHANGELOG.md) before you move up.
+- **Coming from a 2.0 dev release?** Change the constraint to `^2.0.0`, and read the [CHANGELOG](https://github.com/just-unknown-dev/just-game-engine/blob/main/CHANGELOG.md) entries after yours.
 - **The examples site** at [examples.engine.justunknown.com](https://examples.engine.justunknown.com) was written for 1.x.
-- **The editor and the CLI** are first releases (0.1). Use the editor release made for this engine; `just game` keeps the engine's packages on versions that work together.
+- **The editor and the CLI** are young: the editor is at 0.1, the CLI at 0.2. Use the editor release made for this engine; `just game` keeps the engine's packages on versions that work together.
 
 ## License
 
@@ -116,5 +116,5 @@ The engine, the editor and the CLI packages are open source under the BSD 3-Clau
 
 - **Discord:** ask questions and share what you build at [discord.gg/VXFxVj4Y](https://discord.gg/VXFxVj4Y).
 - **Issues:** report bugs against the [engine](https://github.com/just-unknown-dev/just-game-engine/issues), the [editor](https://github.com/just-unknown-dev/just-game-engine-editor/issues) or the [CLI](https://github.com/just-unknown-dev/just-game-engine-cli/issues).
-- **API reference:** every public class and member is on [pub.dev](https://pub.dev/documentation/just_game_engine/2.0.0-dev.4/).
+- **API reference:** every public class and member is on [pub.dev](https://pub.dev/documentation/just_game_engine/2.0.0/).
 - **The repository's own docs:** the [engine on GitHub](https://github.com/just-unknown-dev/just-game-engine) has its README, QUICKSTART, MIGRATION, ARCHITECTURE and an API map by area.

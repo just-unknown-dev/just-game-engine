@@ -6,7 +6,12 @@ library;
 import 'dart:math' as math;
 
 import 'package:just_audio_engine/just_audio_engine.dart'
-    show AudioChannel, AudioEffect, AudioRolloff, AudioSpatial, AudioStream;
+    show
+        Audio3DRolloff,
+        Audio3DSettings,
+        AudioChannel,
+        AudioEffect,
+        AudioStream;
 import 'package:meta/meta.dart' show internal;
 
 import '../ecs/ecs.dart';
@@ -137,7 +142,7 @@ class AudioSourceComponent extends Component with AudioRequests {
     this.effects = const [],
     this.minDistance = 1.0,
     this.maxDistance = 50.0,
-    this.rolloff = AudioRolloff.inverse,
+    this.rolloff = Audio3DRolloff.inverse,
     this.dopplerLevel = 0.0,
     this.farCutoff = 0.0,
   });
@@ -165,8 +170,7 @@ class AudioSourceComponent extends Component with AudioRequests {
   @override
   bool playOnAdd;
 
-  /// The channel the sound plays on: its volume scales the sound, and on
-  /// the web it is the bus the sound goes through.
+  /// The channel the sound plays on: its volume scales the sound.
   AudioChannel channel;
 
   /// If true, the source is heard from where the entity is, relative to
@@ -189,11 +193,11 @@ class AudioSourceComponent extends Component with AudioRequests {
   double minDistance;
 
   /// 3-D: at and beyond this distance the sound is silent (unless the
-  /// [rolloff] is [AudioRolloff.none]), and muffled down to [farCutoff].
+  /// [rolloff] is [Audio3DRolloff.none]), and muffled down to [farCutoff].
   double maxDistance;
 
   /// 3-D: how the sound fades between [minDistance] and [maxDistance].
-  AudioRolloff rolloff;
+  Audio3DRolloff rolloff;
 
   /// 3-D: how much moving changes the pitch — 0 none, 1 the real-world
   /// doppler effect (for a world in metres).
@@ -206,9 +210,9 @@ class AudioSourceComponent extends Component with AudioRequests {
   /// How the sound is heard in 3-D, from the fields above, made safe: a
   /// zero or negative [minDistance], or a [maxDistance] below it, cannot
   /// throw.
-  AudioSpatial get spatial {
+  Audio3DSettings get spatial {
     final min = math.max(minDistance, 1e-3);
-    return AudioSpatial(
+    return Audio3DSettings(
       minDistance: min,
       maxDistance: math.max(maxDistance, min),
       rolloff: rolloff,
@@ -262,16 +266,15 @@ class AudioStreamComponent extends Component with AudioRequests {
   @override
   bool playOnAdd;
 
-  /// The audio channel the stream is meant for, handed to its
-  /// [AudioStream] (on the web, the bus it goes through). A stream bypasses
-  /// the engine's channel volumes, so the channel's volume does not apply.
+  /// The audio channel the stream plays on: its volume scales the stream.
   AudioChannel channel;
 
   /// How long the stream takes to fade in from silence to [volume] when
   /// it starts; null or zero starts it at [volume] at once.
   Duration? fadeInDuration;
 
-  /// Internal [AudioStream] instance managed by [AudioSystem].
+  /// Internal [AudioStream] instance managed by [AudioSystem]: set once the
+  /// stream has opened, and null again once it stops.
   AudioStream? stream;
 
   /// Whether the stream is currently open and playing.

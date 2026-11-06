@@ -94,7 +94,7 @@ test('a pressed key reaches the actions', () async {
   );
   engine.gameLoop.tick(frame); // one fixed step
 
-  expect(engine.input.actions.action('player/jump').isPressed(), isTrue);
+  expect(engine.input.actions.action('player/jump').isPressed, isTrue);
 });
 ```
 

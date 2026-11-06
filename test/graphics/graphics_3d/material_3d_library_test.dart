@@ -172,6 +172,25 @@ void main() {
     expect(material.textures[2].$1, isNot(same(defaults.flatNormal)));
   });
 
+  test('an empty layer slot is no layer: nothing is read for it', () async {
+    // A slot is a vertex colour's channel: red left empty, green blended.
+    const layered = Material3DFile(
+      kind: Material3DKind.layered,
+      layers: ['', _red],
+    );
+    await library.complete(layered);
+    expect(reads, contains(_red));
+    expect(reads, isNot(contains('')), reason: 'no file called ""');
+
+    // Drawn frame by frame, the same.
+    const path = 'assets/materials/layered.material.json';
+    files[path] = _file(layered);
+    reads.clear();
+    await until(() => library.gpuOf(path) != null);
+    await until(() => library.fileOf(_red) != null);
+    expect(reads, isNot(contains('')));
+  });
+
   group('materials made for an entity\'s own values', () {
     setUp(() async => until(() => library.gpuOf(_red) != null));
 

@@ -77,7 +77,7 @@ The 3D view is drawn as an image beneath the 2D world, so sprites, shapes, parti
 
 ## Switching on Flutter GPU
 
-Flutter GPU needs Impeller and a switch in each platform's runner. The engine needs Flutter 3.47.1 or newer, the first stable release where Flutter GPU can be switched on in Windows and Linux release builds. From the Getting started of `just_graphics_engine`:
+Flutter GPU needs Impeller and a switch in each platform's runner. The engine is made for Flutter 3.47 (3.47.1 or newer; see "Flutter versions" in [Installation](/docs/installation)): 3.47.1 is the first stable release where Flutter GPU can be switched on in Windows and Linux release builds. From the Getting started of `just_graphics_engine`:
 
 | Platform | Where | What to set |
 |---|---|---|
@@ -95,7 +95,7 @@ A 3D scene is seen through the same main camera as a 2D one, given a perspective
 ## Models and animation
 
 - `ModelComponent(model: ...)` draws a glTF 2.0 model (`.glb`, or `.gltf` with its files beside it) at its entity's transform. `castShadows` and `visible` switch it, and `bounds` fills in once it has loaded. List the files under `flutter: assets:`.
-- `AnimationPlayerComponent` plays the model's clips: `clip`, `speed` (negative plays backwards), `loop`, `playing` and `crossfade` (0.2 s by default). `play('Walk')` fades to another clip; set `playingSpeed` and `playingLoop` for the new clip after calling it, since the old one fades out as it was. `speed` and `loop` are what was authored and saved; runtime code leaves them alone. `playBlend(clips, weights)` plays several clips in step, and `setBlendWeights` moves the weights.
+- `AnimationPlayerComponent` plays the model's clips: `clip`, `speed` (negative plays backwards), `loop`, `playing` and `crossfade` (0.2 s by default). `play('Walk')` fades to another clip; set `playingSpeed` and `playingLoop` for the new clip after calling it, since the old one fades out as it was. `speed` and `loop` are what was authored and saved; runtime code leaves them alone. `playBlend(clips, weights)` plays several clips in step, and `setBlendWeights` moves the weights. To list a model file's clips without loading it (in a tool, say), `modelClipNamesOf(bytes)` reads only its JSON and names them as the player does.
 - An `AnimatorComponent` on the same entity drives the player from an animator graph: a transition's `duration` crossfades, and blend trees really blend (see [Sprites & animation](/docs/sprites)). A timeline's `skeletalClip` track plays clips too.
 - `SocketComponent(node: ...)` on a child entity pins it to a joint of its parent's model, keeping its own scale: a sword in a hand, a hat on a head.
 

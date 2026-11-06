@@ -24,8 +24,8 @@ class _RecordingAudio extends AudioEngine {
     double pitch = 1.0,
     double speed = 1.0,
     List<AudioEffect> effects = const [],
-    Audio3DPosition? position3d,
-    AudioSpatial spatial = const AudioSpatial(),
+    Audio3DPosition? position3D,
+    Audio3DSettings settings3D = const Audio3DSettings(),
     AudioChannel channel = AudioChannel.sfx,
   }) async {
     pans.add(pan);
@@ -35,6 +35,12 @@ class _RecordingAudio extends AudioEngine {
 
 /// Records voices played and fades, and does nothing else.
 class _Backend implements AudioBackend {
+  @override
+  Future<bool> initialize() async => true;
+
+  @override
+  Stream<String> get voiceEndedStream => const Stream.empty();
+
   final List<double> playVolumes = [];
   final List<(double, Duration)> fades = [];
 
@@ -49,7 +55,6 @@ class _Backend implements AudioBackend {
     double pan = 0.0,
     double pitch = 1.0,
     double speed = 1.0,
-    String busName = 'sfx',
     bool spatial = false,
     double lowPass = 0,
   }) async {

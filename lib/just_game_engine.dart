@@ -95,9 +95,10 @@ export 'package:just_inputs/just_inputs.dart'
         InputActions,
         InputControl,
         InputDevice,
-        InputEvent,
+        InputNotifier,
         InputOverrideStore,
         InputService,
+        InputServicePlayers,
         InputSubscription,
         JoinBehavior,
         JustGamepadsSource,
@@ -145,11 +146,11 @@ export 'package:just_dart/just_dart.dart'
     show
         Aabb3,
         Frustum,
-        JustMatrix4,
         Matrix4,
+        Matrix4Transforms,
         Plane,
         Quaternion,
-        Ray3,
+        Ray3D,
         Vector2,
         Vector3;
 

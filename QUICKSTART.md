@@ -2,7 +2,7 @@
 
 This guide takes a Flutter developer from an empty app to a small game: shapes on screen, a player you steer, physics, sprites, levels loaded from JSON, cameras, timelines, particles, sound and UI. Most steps have one complete Dart file: paste it into your project and call its functions from the `main` of step 2, after `await engine.initialize()`.
 
-It is written for **just_game_engine 2.0.0-dev.4** (Flutter 3.47.1 or newer). Coming from 1.x? Read [MIGRATION.md](MIGRATION.md) first. For the short version, read [Your first game](doc/guides/quick-start.md).
+It is written for **just_game_engine 2.0.0** and Flutter 3.47 (3.47.1 or newer; [Flutter versions](README.md#flutter-versions) says why). Coming from 1.x? Read [MIGRATION.md](MIGRATION.md) first. For the short version, read [Your first game](doc/guides/quick-start.md).
 
 1. [Install](#1-install)
 2. [Your first game](#2-your-first-game)
@@ -29,10 +29,14 @@ It is written for **just_game_engine 2.0.0-dev.4** (Flutter 3.47.1 or newer). Co
 Add the engine to `pubspec.yaml`, and list the folders your game loads assets from. The engine reads input actions, scenes, atlases, maps, timelines and sounds through the Flutter asset bundle, so each file must be listed, by itself or through its folder. A folder entry does not include its subfolders.
 
 ```yaml
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.47.1 <3.48.0"
+
 dependencies:
   flutter:
     sdk: flutter
-  just_game_engine: ^2.0.0-dev.4
+  just_game_engine: ^2.0.0
 
 flutter:
   assets:
@@ -48,6 +52,8 @@ flutter:
 ```bash
 flutter pub get
 ```
+
+The `flutter` range keeps the game on Flutter 3.47, the series this release is made for; a game made with `just create` has it already.
 
 One import gives you the engine: `package:just_game_engine/just_game_engine.dart`. Optional ready-made widgets (on-screen controls, rebinding lists, dialogue boxes) are in `package:just_game_engine/widgets.dart` — see [step 13](#13-ui-over-the-game).
 
@@ -430,6 +436,7 @@ A character's own body is kinematic, so sensors see it and dynamic bodies bump i
 - Collision layers: put a body on a layer from 0 (the default) to 15, name the layers and say which collide in `assets/project/physics.json` (a `PhysicsLayers`; the editor's Physics Layers dock writes it), and list that file under `flutter: assets:`. A body's own `collidesWith` overrides the grid.
 - `isGrounded`, `groundEntity`, `groundNormal`, `linearVelocity` and `angularVelocity` on `RigidBody2DComponent` are kept up to date for you.
 - Push from code with `addForce`, `addImpulse`, `addTorque`, `addAngularImpulse`, `setVelocity` and `setAngularVelocity`; they apply at the next step.
+- To change a body for a while from gameplay, set its run-time overrides rather than its saved fields: `gravityScaleOverride` (a floatier rise, a faster fall; `null` gives back the authored `gravityScale`) on a rigid body or a character, and `collidesWithNothing` (a platform that crumbles) on a rigid body. They are never saved, so a level saved mid-game keeps what was authored.
 - Events: `CollisionEnter2DEvent` (the two entities, the contact `point` and `normal`) when a contact begins, `CollisionExit2DEvent` when it ends, `CollisionStay2DEvent` every step in between once you set `Physics2DSystem.reportContactStay`, and `SensorEnter2DEvent` / `SensorExit2DEvent` (`sensor` and `other`) for sensors.
 - Queries: `engine.world.getSystem<Physics2DSystem>()!.queries` (a `Physics2DQueries`) casts rays and circles and finds overlaps, filtered by layer.
 - To teleport a body, write its `TransformComponent`. The physics system moves the body to match.
@@ -1178,7 +1185,7 @@ void main() {
 - [README.md](README.md) — an overview of every feature.
 - [MIGRATION.md](MIGRATION.md) — moving a 1.x game to 2.0.
 - [example/example.dart](example/example.dart) — a complete example you can run.
-- [API reference](https://pub.dev/documentation/just_game_engine/2.0.0-dev.4/) on pub.dev (`latest` there is the 1.x line).
+- [API reference](https://pub.dev/documentation/just_game_engine/2.0.0/) on pub.dev.
 - [ARCHITECTURE.md](ARCHITECTURE.md) — how the engine is built inside.
 - [CHANGELOG.md](CHANGELOG.md) — what changed in each release.
 - [Contributing](https://github.com/just-unknown-dev/just-game-engine/blob/main/CONTRIBUTING.md) and [issues](https://github.com/just-unknown-dev/just-game-engine/issues).

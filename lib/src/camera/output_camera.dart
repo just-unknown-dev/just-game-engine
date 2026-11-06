@@ -297,15 +297,15 @@ class OutputCamera implements GameCamera {
   /// straight ahead (+Z) from behind the world plane; for a perspective one,
   /// from the camera out through the pixel. Written into [out] when given.
   @override
-  Ray3 screenToWorldRay(Offset screen, [Ray3? out]) {
+  Ray3D screenToWorldRay(Offset screen, [Ray3D? out]) {
     viewProjectionInto(_inverse);
     _inverse.invert();
-    return _rayThrough(screen.dx, screen.dy, out ?? Ray3());
+    return _rayThrough(screen.dx, screen.dy, out ?? Ray3D());
   }
 
   /// The ray through the pixel ([sx], [sy]) into [ray], with [_inverse]
   /// already holding the inverse view-projection.
-  Ray3 _rayThrough(double sx, double sy, Ray3 ray) {
+  Ray3D _rayThrough(double sx, double sy, Ray3D ray) {
     final w = viewportSize.width > 0 ? viewportSize.width : 1.0;
     final h = viewportSize.height > 0 ? viewportSize.height : 1.0;
     final nx = sx / w * 2 - 1, ny = sy / h * 2 - 1;
@@ -326,7 +326,7 @@ class OutputCamera implements GameCamera {
     _canvas.transformPointInto(world, out);
   }
 
-  final Ray3 _ray = Ray3();
+  final Ray3D _ray = Ray3D();
 
   final PlanarViewVolume _planarVolume = PlanarViewVolume();
   final FrustumViewVolume _frustumVolume = FrustumViewVolume();

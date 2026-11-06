@@ -74,7 +74,9 @@ void main() {
 
   /// One engine frame that also draws [panes], as an editor's split view
   /// does from its overlay hook.
-  void drawFrame(List<FrameView> panes) {
+  /// Draws one engine frame of [panes], and no more: the GPU's answers come
+  /// in only once the test yields.
+  void drawFrameNow(List<FrameView> panes) {
     final renderer = service.sceneRenderer..renderWithoutGpu = true;
     void drawPanes(ui.Canvas canvas, ui.Size size) {
       for (final pane in panes) {
@@ -85,6 +87,14 @@ void main() {
     engine.rendering.overlayHooks.add(drawPanes);
     engine.rendering.render(ui.Canvas(ui.PictureRecorder()), const ui.Size(64, 48));
     engine.rendering.overlayHooks.remove(drawPanes);
+  }
+
+  /// Draws one engine frame of [panes], then lets the GPU's answers in, as
+  /// a frame loop does before its next frame: the renderer skips frames
+  /// while frames it was given are unfinished.
+  Future<void> drawFrame(List<FrameView> panes) async {
+    drawFrameNow(panes);
+    await Future<void>.delayed(Duration.zero);
   }
 
   group('render providers', () {
@@ -176,22 +186,41 @@ void main() {
       expect(EngineContext().renderProviders, isNot(same(context.renderProviders)));
     });
 
-    test('views drawn in one frame look the world over once', () {
+    test('views drawn in one frame look the world over once', () async {
       patch();
       final panes = [for (var i = 0; i < 3; i++) frameView(eye: Vector3(i.toDouble(), -3, -8))];
-      drawFrame(panes);
+      await drawFrame(panes);
       expect(engine.rendering.drawingFrame, isNull, reason: 'between frames');
       provider.looks = 0;
-      drawFrame(panes);
+      await drawFrame(panes);
       expect(provider.looks, 1, reason: 'the game view and three panes: one look');
       final e = engine.world.findEntityByName('patch')!;
       e.getComponent<TransformComponent>()!.position.x = 4;
-      drawFrame(panes);
+      await drawFrame(panes);
       expect(provider.looks, 2);
       expect(service.sceneRenderer.scene.batches.single.bounds.min.x, 3.5, reason: 'the next frame sees the move');
       service.sceneRenderer.update(panes.first);
       service.sceneRenderer.update(panes.last);
       expect(provider.looks, 4, reason: 'outside a frame, every view looks');
+    });
+
+    test('while the GPU is behind, a frame is skipped, all its views together', () async {
+      patch();
+      final gpu = service.renderer;
+      final panes = [for (var i = 0; i < 3; i++) frameView(eye: Vector3(i.toDouble(), -3, -8))];
+      drawFrameNow(panes);
+      expect(gpu.framesInFlight, 4, reason: "one frame draws all its views (the game's, three panes), past maxFramesInFlight");
+      expect(gpu.isBusy, isTrue);
+      provider.looks = 0;
+      final last = service.sceneRenderer.lastFrame;
+      drawFrameNow(panes);
+      expect(gpu.framesInFlight, 4, reason: 'nothing more was given to the GPU');
+      expect(provider.looks, 0, reason: 'nor the world looked over');
+      expect(service.sceneRenderer.lastFrame, same(last));
+      await Future<void>.delayed(Duration.zero);
+      expect(gpu.isBusy, isFalse, reason: 'the GPU has caught up');
+      await drawFrame(panes);
+      expect(provider.looks, 1, reason: 'drawn again');
     });
 
     test('taken away with its component', () {
@@ -251,22 +280,22 @@ void main() {
       expect(renderer.scene.overlays, isEmpty);
     });
 
-    test('in one frame, a plain view after an aided one shows what it hid', () {
+    test('in one frame, a plain view after an aided one shows what it hid', () async {
       aids.drawFilter = (e) => e != high;
       aids.skippedViews.add(engine.rendering.view);
-      drawFrame([view, preview]);
+      await drawFrame([view, preview]);
       expect(of(high).visible, isTrue, reason: 'the preview, drawn last, sees it');
-      drawFrame([preview, view]);
+      await drawFrame([preview, view]);
       expect(of(high).visible, isFalse, reason: 'the aided view, drawn last, hides it');
       expect(of(low).visible, isTrue);
     });
 
     test('its view mode applies to its views only', () {
-      aids.viewMode = RenderViewMode.wireframe;
+      aids.viewMode = Render3DViewMode.wireframe;
       renderer.update(view);
-      expect(service.renderer.viewMode, RenderViewMode.wireframe);
+      expect(service.renderer.viewMode, Render3DViewMode.wireframe);
       renderer.update(preview);
-      expect(service.renderer.viewMode, RenderViewMode.lit);
+      expect(service.renderer.viewMode, Render3DViewMode.lit);
     });
   });
 

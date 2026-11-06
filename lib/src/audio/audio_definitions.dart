@@ -8,7 +8,7 @@ import 'audio_components.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
 import 'package:just_audio_engine/just_audio_engine.dart'
-    show AudioChannel, AudioRolloff;
+    show Audio3DRolloff, AudioChannel;
 
 /// The audio components: sound sources, the listener and music streams.
 abstract final class AudioDefinitions {
@@ -188,13 +188,13 @@ abstract final class AudioDefinitions {
       FieldDefinition(
         name: 'rolloff',
         kind: const EnumFieldType(
-          AudioRolloff.values,
-          fallback: AudioRolloff.inverse,
+          Audio3DRolloff.values,
+          fallback: Audio3DRolloff.inverse,
           id: 'audio.rolloff',
         ),
         read: (c) => (c as AudioSourceComponent).rolloff,
         write: (c, v) =>
-            (c as AudioSourceComponent).rolloff = v as AudioRolloff,
+            (c as AudioSourceComponent).rolloff = v as Audio3DRolloff,
       ),
       FieldDefinition(
         name: 'dopplerLevel',

@@ -1,24 +1,18 @@
 import 'dart:ui' show Color;
 
+// just_graphics_engine's light kinds; its assets library is plain data and
+// reaches no GPU code.
+import 'package:just_graphics_engine/assets.dart' show Light3DKind;
+
 import '../../../ecs/ecs.dart';
 
 // Plain data with no GPU imports, so scenes that hold it load everywhere,
 // the web included (where it simply draws nothing).
 
-/// The kind of a [Light3DComponent].
-enum Light3DKind {
-  /// Light from far away along the entity's forward (+Z) axis: the sun.
-  directional,
-
-  /// Light from the entity's position in every direction.
-  point,
-
-  /// A cone of light from the entity's position along its forward axis.
-  spot,
-}
-
-/// A light at its entity's transform. Directional and spot lights shine
-/// along the entity's forward (+Z) axis.
+/// A light at its entity's transform. A [Light3DKind.directional] light
+/// shines from far away along the entity's forward (+Z) axis (the sun), a
+/// [Light3DKind.point] light from its position in every direction, and a
+/// [Light3DKind.spot] light in a cone from its position along that axis.
 class Light3DComponent extends Component {
   /// A light of [kind].
   Light3DComponent({

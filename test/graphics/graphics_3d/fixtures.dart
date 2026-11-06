@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart' show FlutterError;
 import 'package:flutter/services.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_graphics_engine/testing.dart';
-import 'package:just_graphics_engine/just_graphics_engine.dart' show RenderView;
+import 'package:just_graphics_engine/just_graphics_engine.dart' show Render3DView;
 
 /// Where [cubeGlb] is served by [TestBundle].
 const cubePath = 'assets/models/cube.glb';
@@ -98,7 +98,7 @@ FrameView frameView({
   Vector3? target,
   Size size = const Size(64, 64),
 }) {
-  final camera = RenderView()..lookAt(eye, target ?? Vector3.zero());
+  final camera = Render3DView()..lookAt(eye, target ?? Vector3.zero());
   final view = FrameView()
     ..viewportSize = size
     ..isPlanar = false;

@@ -1,25 +1,29 @@
-// The 2-D joints' definitions offer only what the physics backends take:
-// the anchors a distance, fixed or slider joint cannot use are hidden — but
-// still saved — and a wheel shows its axle.
+// The 2-D joints' definitions offer the anchors each joint takes — a
+// distance joint both, a fixed joint its own, a slider and a wheel the
+// other body's (a wheel's is its axle) — and hide the rest, still saved.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
 void main() {
-  test('distance, fixed and slider joints hide the anchors', () {
-    for (final definition in [
-      Physics2DDefinitions.distanceJoint,
-      Physics2DDefinitions.fixedJoint,
-      Physics2DDefinitions.sliderJoint,
+  test('each joint shows the anchors it takes', () {
+    for (final (definition, anchor, connected) in [
+      (Physics2DDefinitions.distanceJoint, true, true),
+      (Physics2DDefinitions.fixedJoint, true, false),
+      (Physics2DDefinitions.sliderJoint, false, true),
+      (Physics2DDefinitions.wheelJoint, false, true),
     ]) {
       final hints = definition.hints.fields;
-      for (final name in ['anchor', 'connectedAnchor']) {
-        expect(
-          hints[name]?.visible,
-          isFalse,
-          reason: '${definition.type}.$name',
-        );
-      }
+      expect(
+        hints['anchor']?.visible,
+        anchor,
+        reason: '${definition.type}.anchor',
+      );
+      expect(
+        hints['connectedAnchor']?.visible,
+        connected,
+        reason: '${definition.type}.connectedAnchor',
+      );
       expect(hints['collideConnected']?.visible, isTrue);
     }
   });

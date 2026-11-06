@@ -16,7 +16,9 @@ just doctor
 
 Or download `just` and `ju` for Windows, macOS or Linux from the [releases](https://github.com/just-unknown-dev/just-core-cli/releases). The install scripts in the repository's `tool/` folder (`install.sh` and `install.ps1`) do it for you, and never put this `just` in front of another one. Then `just doctor` checks Flutter, the tools' versions and the rest.
 
-- **Flutter** is found through `FLUTTER_ROOT` first, then the SDK that last fetched the project's packages, then `flutter` on the `PATH`.
+- **Projects pin their Flutter.** A game's `just.json` names the exact Flutter it is built with (`"flutter": "3.47.9"`), the one its engine release is made for, and its pubspec gets the matching range (`flutter: ">=3.47.1 <3.48.0"`). Every `just` command that runs Flutter uses that version: `just` finds it among the SDKs it installed (`~/.just/flutter/<version>`), `FLUTTER_ROOT`, the SDK that last fetched the project's packages, `flutter` on the `PATH` and fvm's SDKs, or installs it from Flutter's own downloads once you say so (`just sdk install`). `just upgrade` moves the pin with the game plugin. Why the pin: see "Flutter versions" in [Installation](/docs/installation).
+- **Run Flutter and Dart through `just`.** `just flutter ...` and `just dart ...` use the project's Flutter. Plain `flutter` may be another version, and `just doctor` says when it is.
+- **Flutter**, for a project that pins none, is found through `FLUTTER_ROOT` first, then the SDK that last fetched the project's packages, then `flutter` on the `PATH`.
 - **Projects pin their own `just`.** A project lists `just_core_cli` in its dev dependencies, and a global `just` run inside it hands over to that version (all but `upgrade`, which moves the pin itself), so a team runs the same tool whatever each person installed.
 
 ## just and ju
@@ -30,7 +32,7 @@ just create my_game
 just create space_rocks --title "Space Rocks" --org com.mystudio --platforms windows,macos,web
 ```
 
-The folder name becomes the Dart package name, so it must be a valid one. `create` runs `flutter create`, writes `just.json`, adds `just_core_cli` and the kind's plugin to the dev dependencies as pub.dev versions, fetches the packages, and hands the project to the plugin's `create` hook. For a game, that is `just game init`: the game template on the engine's version set, the first level, the editor (`just_game_engine_editor`, with `just_asset_store`) from pub.dev as dev dependencies, and Flutter GPU switched on for a 3D game. Plugins and kits come later, from the editor's Asset Store; the store also links `--local` checkouts and lays a store `--template` over the game. On a failure the folder is deleted when `create` made it, or emptied when it was there already, empty.
+The folder name becomes the Dart package name, so it must be a valid one. `create` runs `flutter create` with the Flutter the kind's plugin names (installing it when you say so), writes `just.json`, adds `just_core_cli` and the kind's plugin to the dev dependencies as pub.dev versions, fetches the packages, and hands the project to the plugin's `create` hook. For a game, that is `just game init`: the game template on the engine's version set, the first level, the editor (`just_game_engine_editor`, with `just_asset_store`) from pub.dev as dev dependencies, and Flutter GPU switched on for a 3D game. Plugins and kits come later, from the editor's Asset Store; the store also links `--local` checkouts and lays a store `--template` over the game. On a failure the folder is deleted when `create` made it, or emptied when it was there already, empty.
 
 | Option | What it does |
 |---|---|
@@ -42,7 +44,7 @@ The folder name becomes the Dart package name, so it must be a valid one. `creat
 | `--local <folder>` | Points every `just_*` package in that folder at its checkout (`pubspec_overrides.yaml`), for working on the ecosystem itself. |
 | `--source <catalog>` | Where the plugin finds a `--template`; repeat it for several catalogs. |
 
-`just.json` holds the project's title and the tool set it is on. Its `entry.game` and `entry.editor` keys change where the game and the editor start; they default to `lib/main.dart` and `lib/main_editor.dart`.
+`just.json` holds the project's title, the tool set it is on and the Flutter it is built with (`flutter`). Its `entry.game` and `entry.editor` keys change where the game and the editor start; they default to `lib/main.dart` and `lib/main_editor.dart`.
 
 ## The game commands
 
@@ -126,6 +128,7 @@ These come from `just_core_cli` and run each plugin's hooks:
 - **`just doctor`** checks Flutter, the tools, `just.json` and links, then each plugin's checks.
 - **`just upgrade`** moves the tools, then each plugin's packages, with `pub get`, in one transaction, then runs the plugins' migrations. Anything after `--` goes to them: `just upgrade -- --engine-only`.
 - **`just dev link <folder>`** points the project at local checkouts; **`just dev unlink`** undoes it.
+- **`just flutter ...`** and **`just dart ...`** run the project's Flutter and Dart. **`just sdk list`** lists the Flutter SDKs `just` installed and the others it can use, **`just sdk install`** installs the one the project pins, and **`just sdk path`** prints its folder.
 - **`just version`** and **`just help`**.
 
 The Asset Store is a plugin too: it adds `just store`, `just add` and `just remove` ([Level editor](/docs/editor)).
@@ -179,11 +182,12 @@ import 'package:just_game_engine_cli/just_game_engine_cli.dart';
 void main() {
   final project = JustProject('.');
   final rules = project.releaseRules(); // the editor's packages + each store item's
+  // Throws ReleaseImportsUnchecked when the walk could not look everywhere.
   final reachable = project.editorReachableFrom('lib/main.dart', rules: rules);
   if (reachable.isNotEmpty) throw StateError('The editor would ship: $reachable');
 }
 ```
 
 - **On every platform, the web included**, the text-based checks work: `GameSet` (the engine's packages at versions that work together), `GameTemplate`, `GameEntries`, `ReleaseRules`, `ReleaseImports`, `ReleaseBuild` and `FormatsCheck`.
-- **Where `dart:io` is**, the `GameProject` extension on `JustProject` reads a game on disk: `releaseRules()`, `editorReachableFrom()`, `checkReleaseBuild()`, `checkFormats()` and `editorIsOpen()`.
+- **Where `dart:io` is**, the `ProjectGame` extension on `JustProject` reads a game on disk: `releaseRules()`, `editorReachableFrom()`, `checkReleaseBuild()`, `checkFormats()` and `editorIsOpen()`. `editorReachableFrom()` throws `ReleaseImportsUnchecked` when it could not look everywhere (no entry point, packages never fetched, an import of a file that isn't there), rather than report nothing reachable.
 - **To write a plugin of your own**, build on `just_core_cli`: a package with a `just_plugin.json` and a `bin/just_plugin.dart` adds commands. Its repository has an example plugin that adds `just hello`.

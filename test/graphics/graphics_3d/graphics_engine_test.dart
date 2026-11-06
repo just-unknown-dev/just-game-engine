@@ -171,7 +171,7 @@ void main() {
       expect(component.bounds.max.y, closeTo(0, 1e-6));
 
       final light = renderer.scene.lights.single;
-      expect(light.type, LightType.point);
+      expect(light.kind, Light3DKind.point);
       expect((light.position.x, light.position.y, light.position.z), (0.0, -2.0, 0.0));
       expect(light.color, (1.0, 0.0, 0.0), reason: 'sRGB red is linear red');
       expect(light.range, 5);
@@ -290,6 +290,9 @@ void main() {
     if (!noGpu) return; // the GPU suite has one
     expect(service.unsupportedReason, isNotEmpty);
     expect(service.renderer.device, isA<NullGpuDevice>());
+    // Standing in for a whole session: no log kept, no texture decoded.
+    expect((service.renderer.device as NullGpuDevice).record, isFalse);
+    expect(service.renderer.uploader.decodeTextures, isFalse);
     final recorder = ui.PictureRecorder();
     service.sceneRenderer.render(ui.Canvas(recorder), frameView(eye: Vector3(0, -2, -6)));
     recorder.endRecording();

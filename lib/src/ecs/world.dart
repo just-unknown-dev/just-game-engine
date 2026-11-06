@@ -215,6 +215,28 @@ class World {
   /// no two versions are ever the same.
   int _versionClock = 0;
 
+  int _structureVersion = 0;
+
+  /// A number that moves on whenever the world's shape may have changed,
+  /// and never otherwise: an entity made or destroyed (one at a time, or all
+  /// at once), a component added, removed or replaced, an entity switched on
+  /// or off ([Entity.isActive], its own flag or through a parent), or
+  /// re-parented — through its `ParentComponent`, or settled by
+  /// [transformHierarchy]'s `adopt`, which is how an editor moves an entity
+  /// to another parent or another place among its siblings. A change to a
+  /// component's fields leaves it alone.
+  ///
+  /// For code that walks part of the tree every frame, a screen's UI say:
+  /// while it holds, the same entities with the same components hang in the
+  /// same places. Unlike [queryVersion], it is one number for the whole
+  /// world. Code that edits a `ChildrenComponent`'s list in place, outside
+  /// the world, calls [markStructureChanged].
+  int get structureVersion => _structureVersion;
+
+  /// Moves [structureVersion] on, for a change the world cannot see: a
+  /// `ChildrenComponent`'s `childIds` reordered in place.
+  void markStructureChanged() => _structureVersion++;
+
   int _updateCount = 0;
 
   /// How many times [update] has run. A renderer drawing between fixed
@@ -261,8 +283,9 @@ class World {
   }
 
   /// [archetype]'s rows changed: the queries it matches must look again,
-  /// and their versions move on.
+  /// and their versions move on, with [structureVersion].
   void _touch(Archetype archetype) {
+    _structureVersion++;
     for (final entry in archetype._queries) {
       entry.entities = null;
       entry.version = ++_versionClock;
@@ -444,6 +467,7 @@ class World {
   /// ([Entity.isActiveInHierarchy]).
   void _relinkChild(Entity child, EntityId? from, EntityId? to) {
     if (from == to) return;
+    _structureVersion++;
     if (from != null) {
       _entityMap[from]?.getComponent<ChildrenComponent>()?.removeChild(
         child.id,
@@ -482,7 +506,10 @@ class World {
   }
 
   /// [entity] was switched on or off (called by [Entity.isActive]).
-  void _activeChanged(Entity entity) => _refreshActive(entity);
+  void _activeChanged(Entity entity) {
+    _structureVersion++;
+    _refreshActive(entity);
+  }
 
   /// Works out [entity]'s [Entity.isActiveInHierarchy] again — it is
   /// switched on, and so is its parent in the hierarchy, when it has one in
@@ -596,6 +623,7 @@ class World {
 
   /// Takes a new [entity] in.
   void _adopt(Entity entity) {
+    _structureVersion++;
     entity._world = this;
     _entities.add(entity);
     _entityMap[entity.id] = entity;
@@ -715,6 +743,7 @@ class World {
   void _destroyOne(Entity entity) {
     // Gone already: a component's onDetach may destroy a sibling first.
     if (!identical(entity._world, this)) return;
+    _structureVersion++;
     final archetype = entity._archetype;
     List<Component>? removed;
     if (archetype != null) {
@@ -777,6 +806,7 @@ class World {
   _Failures _clearEntities() {
     final failures = _Failures();
     _clearCount++;
+    _structureVersion++;
     commands._dropPending();
     final gone = _entities.toList(growable: false);
     final parts = [for (final e in gone) e.components.toList()];

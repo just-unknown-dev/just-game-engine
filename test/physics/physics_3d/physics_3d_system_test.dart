@@ -442,6 +442,36 @@ void main() {
       expect(physics.characters, hasLength(1));
     });
 
+    test(
+      'a height override resizes the capsule; the authored height stays',
+      () {
+        final (:world, :physics, :system) = _setUp();
+        final hero = character(world, Vector3(1, 0, 0));
+        final comp = hero.getComponent<CharacterBody3DComponent>()!;
+        double halfHeight() =>
+            physics.characters[system.characterOf(hero)]!.settings.halfHeight;
+        world.update(_dt);
+        final standing = system.characterOf(hero);
+        expect(halfHeight(), closeTo(1.8 / 2 - 0.3, 1e-12));
+
+        comp.heightOverride = 1.2;
+        expect(comp.effectiveHeight, 1.2);
+        world.update(_dt);
+        final crouched = system.characterOf(hero);
+        expect(crouched, isNot(standing), reason: 'made again, shorter');
+        expect(halfHeight(), closeTo(1.2 / 2 - 0.3, 1e-12));
+        expect(comp.height, 1.8, reason: 'the authored height is not written');
+        world.update(_dt);
+        expect(system.characterOf(hero), crouched, reason: 'unchanged since');
+
+        comp.heightOverride = null;
+        world.update(_dt);
+        expect(system.characterOf(hero), isNot(crouched));
+        expect(halfHeight(), closeTo(1.8 / 2 - 0.3, 1e-12));
+        expect(physics.characters, hasLength(1));
+      },
+    );
+
     test('is drawn turning from where the last step left it', () {
       final (:world, :physics, :system) = _setUp();
       _floor(world);

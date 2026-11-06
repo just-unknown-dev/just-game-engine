@@ -6,7 +6,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_physics_engine/just_physics_engine.dart'
-    show PrismaticJoint2D;
+    show DistanceJoint2D, PrismaticJoint2D;
 
 const _frame = 1 / 60;
 
@@ -14,7 +14,7 @@ const _frame = 1 / 60;
   Physics2DEngine? engine,
   double gravityY = 981,
 }) {
-  final physics = (engine ?? Physics2DEngine())..initialize();
+  final physics = (engine ?? PhysicsEngineFactory.create2D())..initialize();
   physics.setGravity(0, gravityY);
   final world = World()..initialize();
   world.addSystem(Physics2DSystem(physics));
@@ -357,19 +357,72 @@ void main() {
             connectedBody: const EntityTarget.name('B'),
             useLimits: true,
             minPosition: -5,
-            maxPosition: 7,
+            maxPosition: 70,
             enableMotor: true,
-            motorSpeed: 3,
+            // Fast enough that neither body falls asleep on the way.
+            motorSpeed: 60,
+            motorMaxForce: 1e5,
           ),
         ],
       );
       _box(world, x: 40, name: 'B');
       _step(world);
       final joint = physics.joints.single as PrismaticJoint2D;
-      expect(joint.limitEnabled, isTrue);
-      expect((joint.lowerLimit, joint.upperLimit), (-5, 7));
-      expect(joint.motorEnabled, isTrue);
-      expect(joint.motorSpeed, 3);
+      expect(joint.translation, closeTo(0, 1e-6));
+      // The motor drives B along the axis, and the upper limit stops it.
+      _step(world, 30);
+      expect(joint.translation, closeTo(30, 3), reason: '60 per second');
+      _step(world, 120);
+      expect(joint.translation, closeTo(70, 1));
+    });
+
+    test('a distance joint holds its anchors apart, not the centres', () {
+      final (:world, :physics) = _setUp(
+        engine: Physics2DEngine.pureDart(),
+        gravityY: 0,
+      );
+      _box(
+        world,
+        extra: [
+          DistanceJoint2DComponent(
+            connectedBody: const EntityTarget.name('B'),
+            anchor: const Offset(10, 0),
+            connectedAnchor: const Offset(-10, 0),
+            length: 40,
+            stiffness: 0,
+          ),
+        ],
+      );
+      _box(world, x: 60, name: 'B');
+      _step(world);
+      final joint = physics.joints.single as DistanceJoint2D;
+      // A's (10, 0) to B's (50, 0): 40 apart, where the centres are 60.
+      expect(joint.currentLength, closeTo(40, 1e-6));
+      _step(world, 60);
+      expect(joint.currentLength, closeTo(40, 0.5));
+    });
+
+    test('collideConnected reaches the joint, on both backends', () {
+      for (final engine in [
+        Physics2DEngine.pureDart(),
+        PhysicsEngineFactory.create2D(),
+      ]) {
+        final (:world, :physics) = _setUp(engine: engine, gravityY: 0);
+        final weld = FixedJoint2DComponent(
+          connectedBody: const EntityTarget.name('B'),
+        );
+        _box(world, extra: [weld]);
+        _box(world, x: 40, name: 'B');
+        _step(world);
+        expect(physics.joints.single.collideConnected, isFalse);
+        weld.collideConnected = true;
+        _step(world);
+        expect(
+          physics.joints.single.collideConnected,
+          isTrue,
+          reason: 'made again',
+        );
+      }
     });
 
     test('a target renamed away loses its joint; named back, regains it', () {

@@ -104,23 +104,13 @@ final class Physics2DCharacters {
       }
       link.remember(comp, category, mask);
 
-      // Culled (opt-in view culling): frozen where it is, as a body is, and
-      // its body out of the simulation — on the native backend, which does
-      // not read the flag, by touching nothing — until it is back.
+      // Culled (opt-in view culling): held where it is, as a body is, its
+      // body out of the simulation on both backends until it is back.
       final culled = link.cull?.isActive == false;
       final body = link.body;
       if (culled != link.culled) {
         link.culled = culled;
-        if (body != null) {
-          body.isActive = !culled;
-          if (physics is Box2DPhysicsEngine) {
-            physics.setBodyFilter(
-              body,
-              categoryBits: culled ? 0 : category,
-              maskBits: culled ? 0 : mask,
-            );
-          }
-        }
+        if (body != null) physics.setBodyActive(body, !culled);
       }
       if (culled) continue;
 
@@ -150,7 +140,7 @@ final class Physics2DCharacters {
         } else {
           v = up * vertical;
         }
-        v += Offset(gx, gy) * (comp.gravityScale * dt);
+        v += Offset(gx, gy) * (comp.effectiveGravityScale * dt);
         v += comp.moveVelocity - up * _dot(comp.moveVelocity, up);
       } else {
         v = comp.moveVelocity;

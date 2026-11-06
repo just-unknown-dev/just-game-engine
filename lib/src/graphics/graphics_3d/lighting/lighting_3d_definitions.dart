@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/painting.dart';
+import 'package:just_graphics_engine/assets.dart' show Light3DKind;
 
 import '../../../ecs/ecs.dart';
 import '../../../foundation/dimensions.dart';

@@ -12,6 +12,12 @@ import 'package:just_game_engine/just_game_engine.dart';
 
 /// Records the voices streams make, and plays nothing.
 class _Backend implements AudioBackend {
+  @override
+  Future<bool> initialize() async => true;
+
+  @override
+  Stream<String> get voiceEndedStream => const Stream.empty();
+
   final List<String> log = [];
   int _voices = 0;
 
@@ -27,7 +33,6 @@ class _Backend implements AudioBackend {
     double pan = 0.0,
     double pitch = 1.0,
     double speed = 1.0,
-    String busName = 'sfx',
     bool spatial = false,
     double lowPass = 0,
   }) async {
@@ -85,11 +90,11 @@ class _Audio extends AudioEngine {
     double pitch = 1.0,
     double speed = 1.0,
     List<AudioEffect> effects = const [],
-    Audio3DPosition? position3d,
-    AudioSpatial spatial = const AudioSpatial(),
+    Audio3DPosition? position3D,
+    Audio3DSettings settings3D = const Audio3DSettings(),
     AudioChannel channel = AudioChannel.sfx,
   }) async {
-    played.add((path: path, pan: pan, at: position3d));
+    played.add((path: path, pan: pan, at: position3D));
     final id = 'sfx-${played.length}';
     log.add('play $path ${channel.name}');
     await hold?.future;
@@ -377,7 +382,9 @@ void main() {
         'resume voice-1',
         'volume voice-1 0.5',
         'stop voice-1',
-        'free src:music.ogg',
+        // Loaded by its asset key, as sound effects are (just_audio_engine
+        // 2.0.0's AudioEngine.openStream).
+        'free src:assets/music.ogg',
       ]);
       expect(music.stream, isNull);
     });
@@ -389,7 +396,7 @@ void main() {
       system.stopAll(); // …and stopped before it plays
       await pumpEventQueue();
       expect(audio.backend.log, isNot(contains('play voice-1')));
-      expect(audio.backend.log, contains('free src:music.ogg'));
+      expect(audio.backend.log, contains('free src:assets/music.ogg'));
     });
 
     test('pauses while its entity is switched off', () async {

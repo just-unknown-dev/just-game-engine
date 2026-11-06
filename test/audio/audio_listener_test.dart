@@ -11,9 +11,9 @@ import 'package:just_game_engine/just_game_engine.dart';
 class _CountingAudio extends AudioEngine {
   final List<Audio3DListener> listeners = [];
   final List<(String, Audio3DPosition)> positions = [];
-  final List<(String, AudioSpatial)> spatials = [];
+  final List<(String, Audio3DSettings)> spatials = [];
   final List<String> stopped = [];
-  final List<({String path, Audio3DPosition? at, AudioSpatial spatial, AudioChannel channel})>
+  final List<({String path, Audio3DPosition? at, Audio3DSettings spatial, AudioChannel channel})>
   played = [];
 
   /// The sounds still playing.
@@ -33,8 +33,8 @@ class _CountingAudio extends AudioEngine {
       positions.add((id, position));
 
   @override
-  void setSfxSpatial(String id, AudioSpatial spatial) =>
-      spatials.add((id, spatial));
+  void setSfx3DSettings(String id, Audio3DSettings settings) =>
+      spatials.add((id, settings));
 
   @override
   bool isSfxPlaying(String id) => live.contains(id);
@@ -54,11 +54,11 @@ class _CountingAudio extends AudioEngine {
     double pitch = 1.0,
     double speed = 1.0,
     List<AudioEffect> effects = const [],
-    Audio3DPosition? position3d,
-    AudioSpatial spatial = const AudioSpatial(),
+    Audio3DPosition? position3D,
+    Audio3DSettings settings3D = const Audio3DSettings(),
     AudioChannel channel = AudioChannel.sfx,
   }) async {
-    played.add((path: path, at: position3d, spatial: spatial, channel: channel));
+    played.add((path: path, at: position3D, spatial: settings3D, channel: channel));
     final id = 'sfx-${played.length}';
     live.add(id);
     return id;
@@ -186,7 +186,7 @@ void main() {
     expect([play.at!.x, play.at!.y, play.at!.z], [4, 0, 1]);
     expect(
       play.spatial,
-      const AudioSpatial(
+      const Audio3DSettings(
         minDistance: 2,
         maxDistance: 30,
         dopplerLevel: 1,
@@ -235,11 +235,11 @@ void main() {
     expect(audio.spatials, isEmpty);
     source
       ..maxDistance = 12
-      ..rolloff = AudioRolloff.linear;
+      ..rolloff = Audio3DRolloff.linear;
     frames(3);
     expect(audio.spatials, hasLength(1));
     expect(audio.spatials.single.$2.maxDistance, 12);
-    expect(audio.spatials.single.$2.rolloff, AudioRolloff.linear);
+    expect(audio.spatials.single.$2.rolloff, Audio3DRolloff.linear);
   });
 
   test('a 2-D source is never positioned', () {

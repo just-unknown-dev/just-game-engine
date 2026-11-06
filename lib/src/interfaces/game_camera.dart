@@ -49,7 +49,7 @@ abstract interface class GameCamera {
   void canvasMatrixInto(Matrix4 out);
 
   /// The ray from the camera through the pixel [screen].
-  Ray3 screenToWorldRay(Offset screen, [Ray3? out]);
+  Ray3D screenToWorldRay(Offset screen, [Ray3D? out]);
 
   /// What the camera sees, for culling — kept up to date on each read.
   ViewVolume get viewVolume;

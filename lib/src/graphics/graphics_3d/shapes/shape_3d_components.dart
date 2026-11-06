@@ -57,7 +57,7 @@ class Cube3DComponent extends Primitive3DComponent {
     ..add(depth);
 
   @override
-  ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
+  Shape3DMesh buildMesh([Shape3DUv uv = Shape3DUv.natural]) {
     final hx = Primitive3DComponent.size(width) / 2,
         hy = Primitive3DComponent.size(height) / 2,
         hz = Primitive3DComponent.size(depth) / 2;
@@ -130,7 +130,7 @@ class Plane3DComponent extends Primitive3DComponent {
     ..add(depth);
 
   @override
-  ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
+  Shape3DMesh buildMesh([Shape3DUv uv = Shape3DUv.natural]) {
     final hx = Primitive3DComponent.size(width) / 2,
         hz = Primitive3DComponent.size(depth) / 2;
     return (MeshBuilder(uv)..face(
@@ -210,7 +210,7 @@ class Sphere3DComponent extends Primitive3DComponent {
     ..addBool(smooth);
 
   @override
-  ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
+  Shape3DMesh buildMesh([Shape3DUv uv = Shape3DUv.natural]) {
     final r = Primitive3DComponent.size(radius);
     final n = Primitive3DComponent.count(rings, 2, 64);
     final b = MeshBuilder(uv)
@@ -294,7 +294,7 @@ class Cylinder3DComponent extends Primitive3DComponent {
     ..addBool(smooth);
 
   @override
-  ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
+  Shape3DMesh buildMesh([Shape3DUv uv = Shape3DUv.natural]) {
     final r = Primitive3DComponent.size(radius),
         hy = Primitive3DComponent.size(height) / 2;
     final s = Primitive3DComponent.count(segments, 3, 128);
@@ -389,7 +389,7 @@ class Capsule3DComponent extends Primitive3DComponent {
   );
 
   @override
-  ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
+  Shape3DMesh buildMesh([Shape3DUv uv = Shape3DUv.natural]) {
     final r = Primitive3DComponent.size(radius), c = _half;
     final n = Primitive3DComponent.count(rings, 1, 32);
     final cap = uv.anyway(r * math.pi / 2);
@@ -488,7 +488,7 @@ class Cone3DComponent extends Primitive3DComponent {
     ..addBool(smooth);
 
   @override
-  ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
+  Shape3DMesh buildMesh([Shape3DUv uv = Shape3DUv.natural]) {
     final r = Primitive3DComponent.size(radius),
         h = Primitive3DComponent.size(height),
         hy = h / 2;
@@ -588,7 +588,7 @@ class Torus3DComponent extends Primitive3DComponent {
     ..addBool(smooth);
 
   @override
-  ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
+  Shape3DMesh buildMesh([Shape3DUv uv = Shape3DUv.natural]) {
     final big = Primitive3DComponent.size(radius),
         r = Primitive3DComponent.size(tubeRadius);
     final t = Primitive3DComponent.count(sides, 3, 64);
@@ -707,7 +707,7 @@ class Ramp3DComponent extends Primitive3DComponent {
   }
 
   @override
-  ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
+  Shape3DMesh buildMesh([Shape3DUv uv = Shape3DUv.natural]) {
     final c = _corners;
     final h = Primitive3DComponent.size(height),
         d = Primitive3DComponent.size(depth);
@@ -789,7 +789,7 @@ class Stairs3DComponent extends Primitive3DComponent {
     ..addInt(steps);
 
   @override
-  ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
+  Shape3DMesh buildMesh([Shape3DUv uv = Shape3DUv.natural]) {
     final hx = Primitive3DComponent.size(width) / 2,
         hy = Primitive3DComponent.size(height) / 2,
         hz = Primitive3DComponent.size(depth) / 2;
@@ -962,7 +962,7 @@ class Arch3DComponent extends Primitive3DComponent {
   }
 
   @override
-  ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
+  Shape3DMesh buildMesh([Shape3DUv uv = Shape3DUv.natural]) {
     final (cx, cy) = _centre;
     final hz = Primitive3DComponent.size(depth) / 2;
     final n = _steps;
@@ -1125,7 +1125,7 @@ class Polygon3DComponent extends Primitive3DComponent {
       Outline.clean([for (final p in points) (p.dx, p.dy)]);
 
   @override
-  ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]) {
+  Shape3DMesh buildMesh([Shape3DUv uv = Shape3DUv.natural]) {
     final outline = _outline;
     final b = MeshBuilder(uv);
     if (outline.length < 3) return b.build();

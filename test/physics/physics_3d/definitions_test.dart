@@ -123,6 +123,19 @@ void main() {
       }
     });
 
+    test('a character saves its authored height, not a height override', () {
+      final schema = Physics3DDefinitions.characterBody;
+      final body = CharacterBody3DComponent(height: 1.8)..heightOverride = 1.2;
+      final saved = jsonDecode(jsonEncode(schema.encode(body))) as Map<String, dynamic>;
+      final fields = saved['fields'] as Map<String, dynamic>;
+      expect(fields['height'], 1.8);
+      expect(fields.values, isNot(contains(1.2)), reason: 'the override is run time only');
+      expect(schema.fields.map((f) => f.name), isNot(contains('heightOverride')));
+      expect(schema.hints.fields.keys, isNot(contains('heightOverride')));
+      final loaded = schema.decode(saved);
+      expect((loaded.height, loaded.heightOverride, loaded.effectiveHeight), (1.8, null, 1.8));
+    });
+
     test('a joint to nobody saves nothing and loads as the world', () {
       final schema = Physics3DDefinitions.hingeJoint;
       final loaded = schema.decode(

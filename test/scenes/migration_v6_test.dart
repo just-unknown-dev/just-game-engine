@@ -2,169 +2,38 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
-import 'package:just_game_engine_formats/just_game_engine_formats.dart'
-    show V5ToV6;
 
 /// The engine's own definitions, fresh for this file.
 final _coreDefinitions = BuiltInComponents.registry();
 
-/// A version-5 scene shaped like level_01: a Level Map at the origin with a
-/// child whose saved offset is stale, a spinning coin with an inline
-/// timeline, a tilted thing and a moving thing.
-Map<String, dynamic> _v5() =>
+/// A version-6 scene shaped like level_01: a Level Map at the origin with a
+/// tilted child, as format 6 saves them — positions with `z`, one
+/// three-angle `rotation`, and a parent link without an offset.
+Map<String, dynamic> _v6() =>
     jsonDecode('''
 {
-  "version": 5,
+  "version": 6,
   "name": "level",
-  "root": {"name": "root", "localPosition": {"dx": 0.0, "dy": 0.0},
-           "localRotation": 0.0, "localScale": 1.0, "isActive": true,
-           "children": []},
+  "mode": "2d",
   "entities": [
     {"name": "Level Map", "parentName": null, "components": [
       {"type": "TransformComponent", "fields": {
-        "position": {"x": 0.0, "y": 0.0}, "rotation": 0.0,
-        "scale": {"x": 1.0, "y": 1.0, "z": 1.0},
-        "rotationX": 0.0, "rotationY": 0.0}}]},
+        "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "rotation": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "scale": {"x": 1.0, "y": 1.0, "z": 1.0}}}]},
     {"name": "Tiles_0", "parentName": "Level Map", "components": [
       {"type": "TransformComponent", "fields": {
-        "position": {"x": 96.0, "y": -416.0}, "rotation": 0.5,
-        "scale": {"x": 1.0, "y": 1.0, "z": 1.0},
-        "rotationX": 0.25, "rotationY": -0.5}},
-      {"type": "ParentComponent", "fields": {
-        "parentId": 0, "localOffset": {"dx": 128.0, "dy": -256.0},
-        "localRotation": 0.0}}]},
-    {"name": "Coin", "parentName": null, "components": [
-      {"type": "TransformComponent", "fields": {
-        "position": {"x": 5.0, "y": 6.0}, "rotation": 0.0,
+        "position": {"x": 96.0, "y": -416.0, "z": 0.0},
+        "rotation": {"x": 0.25, "y": -0.5, "z": 0.5},
         "scale": {"x": 1.0, "y": 1.0, "z": 1.0}}},
-      {"type": "VelocityComponent", "fields": {
-        "velocity": {"x": 3.0, "y": 4.0}, "maxSpeed": 10.0}},
-      {"type": "TimelinePlayerComponent", "fields": {
-        "timelinePath": "",
-        "inline": {"formatVersion": 1, "duration": 1.0, "fps": 30,
-          "wrap": "loop", "tracks": [
-            {"kind": "property", "component": "TransformComponent",
-             "field": "rotation", "keys": [{"t": 0.0, "v": 0.0}]},
-            {"kind": "property", "component": "TransformComponent",
-             "field": "position", "channel": "y", "keys": []}
-          ]},
-        "playOnStart": true, "speed": 1.0, "wrap": "fromTimeline",
-        "listenSignal": ""}}]}
+      {"type": "ParentComponent", "fields": {"parentId": 0}}]}
   ],
   "editor": {"guides": []}
 }
 ''')
         as Map<String, dynamic>;
 
-Map<String, dynamic> _fields(
-  Map<String, dynamic> scene,
-  String name,
-  String type,
-) {
-  final e = (scene['entities'] as List).cast<Map>().firstWhere(
-    (e) => e['name'] == name,
-  );
-  return ((e['components'] as List).cast<Map>().firstWhere(
-            (c) => c['type'] == type,
-          )['fields']
-          as Map)
-      .cast<String, dynamic>();
-}
-
-/// A migration run with no package rules.
-MigrationRun _run([MigrationHooks? hooks]) =>
-    MigrationRun(hooks ?? MigrationHooks.none);
-
 void main() {
-  group('V5ToV6', () {
-    test('transforms get z and a three-angle rotation', () {
-      final out = const V5ToV6().apply(_v5(), _run());
-      final t = _fields(out, 'Tiles_0', 'TransformComponent');
-      expect(t['position'], {'x': 96.0, 'y': -416.0, 'z': 0.0});
-      expect(t['rotation'], {'x': 0.25, 'y': -0.5, 'z': 0.5});
-      expect(t.containsKey('rotationX'), isFalse);
-      expect(t.containsKey('rotationY'), isFalse);
-      final flat = _fields(out, 'Coin', 'TransformComponent');
-      expect(flat['rotation'], {'x': 0.0, 'y': 0.0, 'z': 0.0});
-      expect(_fields(out, 'Coin', 'VelocityComponent')['velocity'], {
-        'x': 3.0,
-        'y': 4.0,
-        'z': 0.0,
-      });
-    });
-
-    test('parent offsets go, the stale one is reported, root goes', () {
-      final run = _run();
-      final out = const V5ToV6().apply(_v5(), run);
-      final link = _fields(out, 'Tiles_0', 'ParentComponent');
-      expect(link.keys, ['parentId']);
-      expect(run.notes, hasLength(1));
-      expect(run.notes.single.fromVersion, 5);
-      expect(run.notes.single.message, contains('Tiles_0'));
-      expect(out.containsKey('root'), isFalse);
-      expect(out['mode'], '2d');
-      expect(out['editor'], {'guides': []}, reason: 'left alone');
-    });
-
-    test('inline timelines move to the current timeline format', () {
-      final out = const V5ToV6().apply(_v5(), _run());
-      final inline =
-          _fields(out, 'Coin', 'TimelinePlayerComponent')['inline'] as Map;
-      expect(inline['formatVersion'], TimelineFormat.current);
-      final tracks = (inline['tracks'] as List).cast<Map>();
-      expect(tracks[0]['field'], 'rotation');
-      expect(tracks[0]['channel'], 'z');
-      expect(tracks[1]['channel'], 'y', reason: 'position tracks unchanged');
-    });
-
-    test('a kit can add its own rules', () {
-      final hooks = MigrationHooks();
-      hooks.perType(5)['TransformComponent'] = (f) => f['seen'] = true;
-      final out = const V5ToV6().apply(_v5(), _run(hooks));
-      expect(_fields(out, 'Coin', 'TransformComponent')['seen'], isTrue);
-    });
-  });
-
-  group('TimelineFormat', () {
-    test('v1 rotation tracks key the right channels; offsets are dropped', () {
-      final v1 = <String, dynamic>{
-        'tracks': [
-          {
-            'kind': 'property',
-            'component': 'TransformComponent',
-            'field': 'rotationX',
-          },
-          {
-            'kind': 'property',
-            'component': 'TransformComponent',
-            'field': 'rotationY',
-          },
-          {
-            'kind': 'property',
-            'component': 'ParentComponent',
-            'field': 'localOffset',
-            'channel': 'dx',
-          },
-          {'kind': 'event', 'events': []},
-        ],
-      };
-      final copy = jsonDecode(jsonEncode(v1));
-      final out = TimelineFormat.migrate(v1);
-      expect(v1, copy, reason: 'the input is never changed');
-      expect(out['formatVersion'], TimelineFormat.current);
-      final tracks = (out['tracks'] as List).cast<Map>();
-      expect(tracks, hasLength(3));
-      expect([tracks[0]['field'], tracks[0]['channel']], ['rotation', 'x']);
-      expect([tracks[1]['field'], tracks[1]['channel']], ['rotation', 'y']);
-      expect(tracks[2]['kind'], 'event');
-    });
-
-    test('a current file is returned as it is', () {
-      final now = {'formatVersion': TimelineFormat.current, 'tracks': []};
-      expect(identical(TimelineFormat.migrate(now), now), isTrue);
-    });
-  });
-
   group('format 6 round trips', () {
     test('3-D transform and velocity values survive encode → decode', () {
       final codec = _coreDefinitions;
@@ -194,7 +63,7 @@ void main() {
     });
 
     test('a scene of format 6 loads unchanged, parents and all', () {
-      final scene = const V5ToV6().apply(_v5(), _run())..['version'] = 6;
+      final scene = _v6();
       final world = World(extensions: [BuiltInComponents.extension])
         ..initialize();
       addTearDown(world.dispose);

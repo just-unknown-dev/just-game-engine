@@ -21,7 +21,7 @@ void main() {
         is3D: true,
         minDistance: 1.5,
         maxDistance: 18,
-        rolloff: AudioRolloff.linear,
+        rolloff: Audio3DRolloff.linear,
         dopplerLevel: 1,
         farCutoff: 1200,
       ),
@@ -33,7 +33,7 @@ void main() {
     expect(back.is3D, isTrue);
     expect(back.minDistance, 1.5);
     expect(back.maxDistance, 18);
-    expect(back.rolloff, AudioRolloff.linear);
+    expect(back.rolloff, Audio3DRolloff.linear);
     expect(back.dopplerLevel, 1);
     expect(back.farCutoff, 1200);
   });
@@ -62,7 +62,7 @@ void main() {
     expect(back.clipPath, 'assets/audio/old.wav');
     expect(back.is3D, isFalse);
     expect(back.channel, AudioChannel.sfx);
-    expect(back.spatial, const AudioSpatial());
+    expect(back.spatial, const Audio3DSettings());
   });
 
   test('the Audio Listener is saved, both of its choices', () {
@@ -74,7 +74,7 @@ void main() {
     expect(def.hints.group, 'Audio');
   });
 
-  test('a source\'s settings cannot make an invalid AudioSpatial', () {
+  test('a source\'s settings cannot make an invalid Audio3DSettings', () {
     final odd = AudioSourceComponent(
       clipPath: 'a.wav',
       minDistance: 0,

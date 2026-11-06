@@ -11,8 +11,6 @@ import 'package:meta/meta.dart' show internal;
 
 import '../../ecs/ecs.dart';
 import '../contact_pairs.dart';
-import 'collider_2d_geometry.dart';
-import 'physics_2d_bodies.dart' show wakeBody2D;
 import 'physics_2d_components.dart';
 import 'physics_2d_events.dart';
 
@@ -44,39 +42,6 @@ final class Physics2DContacts {
   // (not just the first frame of contact).
   final Map<Entity, int> _groundContactCount = {};
 
-  // Pairs of bodies a joint holds with collideConnected off, and how many
-  // such joints: their contacts send no events.
-  final Map<BodyPair, int> _jointed = {};
-
-  /// A joint with `collideConnected` off now holds [a] and [b] ([joined]),
-  /// or no longer does: while one does, their contacts send no events —
-  /// the native backend never lets them collide, and the pure-Dart one
-  /// does, but quietly. An exit for them, if they touched as they were
-  /// joined, goes to [events].
-  void jointedPair(
-    Physics2DBody a,
-    Physics2DBody b, {
-    required bool joined,
-    EventBus? events,
-  }) {
-    final pair = BodyPair(a, b);
-    final count = (_jointed[pair] ?? 0) + (joined ? 1 : -1);
-    if (count > 0) {
-      _jointed[pair] = count;
-    } else {
-      _jointed.remove(pair);
-    }
-    if (!joined) return;
-    // Touching as they were joined: that contact ends now (Box2D ends it
-    // too), and none begins while the joint holds them.
-    final contact = _pairs.end(a, b, sensor: false, all: true);
-    if (contact == null) return;
-    _removeGroundContact(contact);
-    if (!contact.exits || events == null) return;
-    final entities = contact.entities;
-    events.fire(CollisionExit2DEvent(entityA: entities.a, entityB: entities.b));
-  }
-
   /// A removed body sends no contact-end events that can still be traced to
   /// an entity, so the contacts it was part of are settled here: whatever it
   /// stood on stops counting, and whatever stood on it loses that ground.
@@ -100,7 +65,7 @@ final class Physics2DContacts {
         }
         if (rebuilt) {
           final other = contact.other(body);
-          if (!other.isStatic) wakeBody2D(physics, other);
+          if (!other.isStatic) physics.wakeBody(other);
         }
       },
     );
@@ -110,7 +75,6 @@ final class Physics2DContacts {
   void clear() {
     _groundContactCount.clear();
     _pairs.clear();
-    _jointed.clear();
   }
 
   /// Sends this update's events to [events]: the begins and ends the
@@ -131,7 +95,6 @@ final class Physics2DContacts {
       final entityA = entities[a];
       final entityB = entities[b];
       if (entityA == null || entityB == null) return;
-      if (_jointed.isNotEmpty && _jointed.containsKey(BodyPair(a, b))) return;
       final contact = _pairs.begin(a, b, entityA, entityB, sensor: false);
       // Another pair of their shapes: they touch already.
       if (contact == null) return;
@@ -266,10 +229,8 @@ final class Physics2DContacts {
       Physics2DBody body, [
       Offset shift = Offset.zero,
     ]) {
-      if (shift != Offset.zero) {
-        return Collider2DGeometry.proxiesOf(body, shift: shift);
-      }
-      return (proxies ??= {})[body] ??= Collider2DGeometry.proxiesOf(body);
+      if (shift != Offset.zero) return body.proxies(shift: shift);
+      return (proxies ??= {})[body] ??= body.proxies();
     }
 
     for (final contact in _pairs.contacts) {
@@ -365,12 +326,8 @@ final class Physics2DContacts {
   /// where the two boxes round them meet (neither physics backend reports a
   /// contact's point in 2-D).
   static Offset contactPoint(Physics2DBody a, Physics2DBody b) {
-    final ra = a
-        .getCompoundBounds(Offset(a.position.x, a.position.y))
-        .inflate(0.5);
-    final rb = b
-        .getCompoundBounds(Offset(b.position.x, b.position.y))
-        .inflate(0.5);
+    final ra = a.boundsAt(Offset(a.position.x, a.position.y)).inflate(0.5);
+    final rb = b.boundsAt(Offset(b.position.x, b.position.y)).inflate(0.5);
     final left = math.max(ra.left, rb.left),
         right = math.min(ra.right, rb.right);
     final top = math.max(ra.top, rb.top),

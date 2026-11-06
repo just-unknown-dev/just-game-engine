@@ -7,8 +7,6 @@ library;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 import 'package:just_game_engine/just_game_engine_3d.dart';
-import 'package:just_game_engine_formats/just_game_engine_formats.dart'
-    show V10ToV11;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +18,8 @@ void main() {
     addTearDown(engine.dispose);
     final defs = engine.context.definitions;
     expect([
-      for (final MapEntry(key: old, value: renamed) in V10ToV11.renames.entries)
+      for (final MapEntry(key: old, value: renamed)
+          in SceneFormat.renamedComponents.entries)
         if (defs.byName(renamed) == null) '$old → $renamed',
     ], isEmpty);
   });

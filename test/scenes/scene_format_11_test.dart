@@ -9,8 +9,6 @@ import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
-import 'package:just_game_engine_formats/just_game_engine_formats.dart'
-    show V10ToV11;
 
 /// [component] saved as the current format does, under the v10 [oldType].
 Map<String, dynamic> _asV10(
@@ -51,7 +49,8 @@ void main() {
     // The 3-D ones (named …3D…) need Graphics3D and Physics3D: see the
     // 3-D file.
     final twoD = {
-      for (final MapEntry(key: old, value: renamed) in V10ToV11.renames.entries)
+      for (final MapEntry(key: old, value: renamed)
+          in SceneFormat.renamedComponents.entries)
         if (!renamed.contains('3D')) old: renamed,
     };
     expect(twoD, hasLength(greaterThan(15)));

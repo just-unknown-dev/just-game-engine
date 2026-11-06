@@ -71,8 +71,10 @@ abstract final class SceneLoader {
   ///
   /// [codecs] defaults to the world's `context.definitions`, and [hooks] —
   /// the packages' migration rules — to its `context.migrations`. An older
-  /// file is migrated first; [onMigrated] hears what that found (it is not
-  /// called for a file already current).
+  /// file is migrated first, and a package's renamed components and fields
+  /// are renamed at any version; [onMigrated] hears what that found
+  /// ([SceneMigrationResult.migrated]: it is not called for a file nothing
+  /// changed in).
   static List<Entity> load(
     World world,
     Map<String, dynamic> json, {

@@ -74,7 +74,7 @@ final class Graphics3DShapes {
   /// [shape]'s mesh, for an entity scaled by [scale] (which counts only
   /// for a texture tiled per metre); null when it has no triangles.
   GpuPrimitive? meshFor(Primitive3DComponent shape, Vector3 scale) {
-    final uv = tilesInMetres(shape) ? _metres(scale) : ShapeUv.natural;
+    final uv = tilesInMetres(shape) ? _metres(scale) : Shape3DUv.natural;
     final key = (shape.shapeKey, uv.key);
     final known = _meshes[key];
     if (known != null) {
@@ -125,15 +125,15 @@ final class Graphics3DShapes {
   }
 
   /// How [shape]'s texture is laid out at [scale], drawn with its own look.
-  static ShapeUv uvFor(Primitive3DComponent shape, Vector3 scale) {
-    if (!shape.tileInMetres || shape.texture.isEmpty) return ShapeUv.natural;
+  static Shape3DUv uvFor(Primitive3DComponent shape, Vector3 scale) {
+    if (!shape.tileInMetres || shape.texture.isEmpty) return Shape3DUv.natural;
     return _metres(scale);
   }
 
   // Rounded, so a scale animating by a hair does not make a mesh a frame.
-  static ShapeUv _metres(Vector3 scale) {
+  static Shape3DUv _metres(Vector3 scale) {
     double q(double v) => (v.abs() * 1000).roundToDouble() / 1000;
-    return ShapeUv.metresAt(q(scale.x), q(scale.y), q(scale.z));
+    return Shape3DUv.metresAt(q(scale.x), q(scale.y), q(scale.z));
   }
 
   /// Whether [shape]'s maps repeat per metre of the world, so its mesh is
@@ -179,11 +179,11 @@ final class Graphics3DShapes {
   /// [shape]'s look as a glTF-style material: colours made linear, blended
   /// when it is not opaque, its texture (as texture 0) repeated
   /// [Primitive3DComponent.tiling] times.
-  static MaterialData materialDataOf(Primitive3DComponent shape) {
+  static Material3DData materialDataOf(Primitive3DComponent shape) {
     final (r, g, b) = LinearColor.of(shape.color);
     final (er, eg, eb) = LinearColor.of(shape.emission);
     final alpha = shape.opacity.clamp(0.0, 1.0) * shape.color.a;
-    return MaterialData(
+    return Material3DData(
       name: shape.shapeName,
       baseColor: (r, g, b, alpha),
       metallic: shape.metallic.clamp(0.0, 1.0),

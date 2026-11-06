@@ -1,14 +1,14 @@
-# just_game_engine 2.0.0-dev.4 — API map
+# just_game_engine 2.0.0 — API map
 
-Per area: the types a game uses most, what each is for, and the members people call. The full reference is the dartdoc on pub.dev: <https://pub.dev/documentation/just_game_engine/2.0.0-dev.4/> (`latest` there is the 1.x line).
+Per area: the types a game uses most, what each is for, and the members people call. The full reference is the dartdoc on pub.dev: <https://pub.dev/documentation/just_game_engine/2.0.0/>.
 
-Generated from `lib/` with an analyzer dump of the public libraries, so every name and signature is what 2.0.0-dev.4 exports. Typedefs are written out; long parameter lists keep positional and `required` parameters and cut the rest to `…`.
+Generated from `lib/` with an analyzer dump of the public libraries, so every name and signature is what 2.0.0 exports. Typedefs are written out; long parameter lists keep positional and `required` parameters and cut the rest to `…`.
 
 | Library | Exports |
 |---|---|
-| `package:just_game_engine/just_game_engine.dart` | 759 names: 612 from the engine, 147 [re-exported](#re-exported-packages) |
+| `package:just_game_engine/just_game_engine.dart` | 759 names: 614 from the engine, 145 [re-exported](#re-exported-packages) |
 | `package:just_game_engine/widgets.dart` | 17 screen widgets ([list](#widgetsdart)) |
-| `package:just_game_engine/just_game_engine_3d.dart` | 159 names: 72 from the engine ([3-D graphics](#3-d-graphics), [3-D physics](#3-d-physics)), 87 re-exported: 43 from `just_graphics_engine`, 30 from `just_physics_engine`'s 3-D side, 9 maths types (the main library's) and 5 from `just_game_engine_formats` |
+| `package:just_game_engine/just_game_engine_3d.dart` | 162 names: 71 from the engine ([3-D graphics](#3-d-graphics), [3-D physics](#3-d-physics)), 91 re-exported: 45 from `just_graphics_engine`, 32 from `just_physics_engine`'s 3-D side, 9 maths types (the main library's) and 5 from `just_game_engine_formats` |
 
 Achievements, sign-in, leaderboards, currency, inventory and ads are `EngineService`s in the separate package `just_game_services` (not yet published).
 
@@ -52,7 +52,7 @@ An engine's registries, loaders and package state live in its `EngineContext` (`
   - `static const ContextExtension extension`
   - `static ComponentDefinitionRegistry registry()` — the ECS core's components and these, without a context.
   - `static List<ComponentCodec> get all`
-  - `static List<FieldType> get fieldTypes` — the features' own field types (physics layers and shapes, 2-D material overrides).
+  - `static List<FieldType> get fieldTypes` — the features' own field types (physics layers and shapes, 2-D material overrides, input actions).
   - `static const List<String> graphics3DTypes`, `physics3DTypes` — the 3-D components, named so a scene without `Graphics3D`/`Physics3D` says how to turn them on.
 - **`ContextExtension`** — what a package installs into a context.
   - `String get id`
@@ -62,7 +62,7 @@ An engine's registries, loaders and package state live in its `EngineContext` (`
   - `Future<void> stop()`
 
 - **`GameEngine`** — what a service sees of its engine (`ServiceContext.engine`); `Engine` implements it.
-  - `World get world`, `EngineContext get context`, `AssetManager get assets`, `RenderingEngine get rendering`
+  - `World get world`, `EngineContext get context`, `AssetManager get assets`, `RenderingEngine get rendering`, `CameraEngine get camera`, `InputService get input`, `AudioEngine get audio`
   - `ServiceHost get services`, `T service<T extends EngineService>()`, `T? maybeService<T extends EngineService>()`, `bool get isInitialized`, `bool get isDisposed`
 
 Also: `ServiceHost` (`engine.services`), `ServiceContext` (`engine`, `context`, `events`), `SceneCacheService` (a service whose scene caches `Engine.releaseUnused` empties, as `Graphics3D`'s), `ContextResource`, `LoaderOverride`.
@@ -78,6 +78,8 @@ Entities are ids with components, stored by archetype. Systems run each frame by
   - `void addSystem(System system)`
   - `List<Entity> query(List<Type> componentTypes)`
   - `Entity? findEntityByName(String name, {bool includeInactive = true})`
+  - `int queryVersion(List<Type> componentTypes)` — moves only when what that query matches may have changed
+  - `int get structureVersion` — one number for the whole world: it moves when an entity is made or destroyed, gains, loses or replaces a component, is switched on or off, or is re-parented (`TransformHierarchy.adopt` too), never for a field; `void markStructureChanged()` moves it for a change the world cannot see (a `ChildrenComponent`'s list reordered in place)
 - **`Entity`** — a handle to one entity.
   - `T? getComponent<T extends Component>()`
   - `void addComponent(Component component)`
@@ -175,6 +177,10 @@ Sprites are data: `SpriteComponent` (an image or atlas region) and `SpriteAnimat
 - `void registerSpriteSystems(World world, {…, bool animators = true, bool timelines = true})` — adds the sprite systems, and the animator and timeline systems unless told not to; `registerAnimatorSystems` and `registerTimelineSystems` add those alone.
 - **`SpriteAtlas`** — pages, regions and clips (TexturePacker, Aseprite, grid sheets).
   - `static Future<SpriteAtlas> fromAsset(String jsonPath, {required AssetManager assets})`
+  - `Iterable<String> get clipNames`
+- **`AtlasParser`** — turns an atlas's JSON into a `SpriteAtlas`, at once: it reads only the JSON, and the pages load their images after. `TexturePackerAtlasParser`, `AsepriteAtlasParser`, `GridSheetAtlasParser`.
+  - `SpriteAtlas parse(Map<String, dynamic> json, String basePath)`
+  - `static AtlasParser detect(Map<String, dynamic> json, {String? jsonPath})` — the parser for that JSON
 - **`AnimatorComponent`** — runs an `.animator.json` graph.
   - `AnimatorComponent({String graphPath = '', bool enabled = true, bool faceVelocity = false})`
   - `void setBool(String name, bool value)`
@@ -253,6 +259,7 @@ Also: `MapCollisionSystem`, `TileChangedEvent`, `TileAssets`, `LevelMapData`, `M
   - `RigidBody2DComponent({Body2DType bodyType, double mass, double friction, double restitution, …, int layer, int? collidesWith})`
   - `void addForce(Offset force)`, `addImpulse(Offset impulse)`, `addTorque(double torque)`, `addAngularImpulse(double impulse)`, `setVelocity(Offset velocity)`, `setAngularVelocity(double velocity)`, `wakeUp()`
   - `bool get isStatic`, `isKinematic`, `isDynamic`
+  - `double? gravityScaleOverride`, `bool collidesWithNothing` — run time, never saved: a gravity scale gameplay gives the body for now (a jump's rise and fall), and a switch that has it collide with nothing (a crumbled platform), so the saved `gravityScale` and `collidesWith` stay as authored; `double get effectiveGravityScale`, `int? get effectiveCollidesWith` are what the body has
 - **`Collider2DComponent`** — a body's shape (`Collider2DShape`: box, circle, capsule, polygon, segment, chain, or `matchShape` for what the entity draws), with its own offset, rotation and scale, and one-way; and `reflectivity`, how much of a `RayTracer2D` ray it sends back (0, the default, absorbs it). Alone, a static body. It follows the entity's scale.
   - `Collider2DComponent({Collider2DShape shape, Vector2? size, double radius, …, Offset offset, bool oneWay, …, double reflectivity = 0.0})`
 - **`PhysicsLayers`** — sixteen named collision layers and which collide; `engine.context.physicsLayers`, read from `assets/project/physics.json` on `initialize()`.
@@ -266,6 +273,7 @@ Also: `MapCollisionSystem`, `TileChangedEvent`, `TileAssets`, `LevelMapData`, `M
 - **`CharacterBody2DComponent`** — a character gameplay moves rather than the simulation (the 3-D `CharacterBody3DComponent`, field for field): a capsule or a box (`CharacterBody2DShape`) that walks slopes, climbs steps, keeps to the floor, rides platforms and pushes bodies. It needs no rigid body or collider. `Physics2DSystem` moves it before each step (`Physics2DCharacters`).
   - `CharacterBody2DComponent({CharacterBody2DShape shape, double radius, double width, double height, Offset offset, double maxSlopeAngle, double stepHeight, double stickToFloor, …, int layer, int? collidesWith, bool detectable})`
   - `Offset moveVelocity`, `void jump(double speed)`; after each step `velocity`, `groundState` (`Ground2DState`), `isGrounded`, `groundNormal`, `groundVelocity`, `groundEntity`
+  - `double? gravityScaleOverride` (run time, never saved), `double get effectiveGravityScale` — as on `RigidBody2DComponent`
 - **`Physics2DQueries`** — rays, casts and overlaps, answering with entities; `physicsSystem.queries` is the system's own.
   - `Physics2DQueries(Physics2DSystem system)`
   - `Physics2DHit? raycast(Offset origin, Offset direction, {double maxDistance, int layerMask, Entity? ignore, bool includeSensors})`, `List<Physics2DHit> raycastAll(…)`, `Physics2DHit? circleCast(…)`
@@ -299,7 +307,7 @@ Also: `CollisionStay2DEvent`, `CollisionExit2DEvent`, `SensorEnter2DEvent`, `Sen
   - `void play(String name, {double? fade, bool restart = false})`, `playBlend(…)`, `setBlendWeights(List<double> weights)`, `release({double? fade})`
 - **`SocketComponent`** — pins its entity to a joint of its parent's model.
   - `SocketComponent({String node = ''})`
-- **`Light3DComponent`** — a directional, point or spot light (`Light3DKind`), shining along the entity's +Z; a scene with no lights gets a default sun.
+- **`Light3DComponent`** — a directional, point or spot light (`Light3DKind`, just_graphics_engine's, re-exported), shining along the entity's +Z; a scene with no lights gets a default sun.
   - `Light3DComponent({Light3DKind kind = Light3DKind.point, Color color, double intensity = 10.0, double range = 0.0, double innerConeAngle = 0.0, double outerConeAngle})`
 - **`EnvironmentComponent`** — sky (gradient or `.hdr`), ambient light, reflections, fog and exposure.
   - `EnvironmentComponent({bool sky = true, Color zenith, Color horizon, Color ground, …, double exposure = 1.0, bool fog = false, …})`
@@ -312,7 +320,7 @@ Also: `CollisionStay2DEvent`, `CollisionExit2DEvent`, `SensorEnter2DEvent`, `Sen
   - `void register(RenderProvider<Component> provider)`
 - **`Animation3DSystem`** — advances each player's clip and crossfade, then moves socket entities to their nodes (priority `animation`, 70); added by `Graphics3D`.
 
-Also: `Graphics3DSceneRenderer` (`dynamicResolution`, `renderScale`; it looks the world over once per engine frame, however many views it draws, through its `frame:` callback), `Graphics3DModels`, `Graphics3DModelAsset`, `Graphics3DModelLoader`, `Graphics3DShapes`, `SkeletalClipTrack` and `SkeletalAnimationTarget` (timelines and animator graphs on a skeleton), `RenderProvider`, `RenderProviderContext`, `RenderProviderOutput`, `MaterialSlots`, `LinearColor`, `Material3DOverridesFieldType`; definitions `Graphics3DDefinitions`, `Shape3DDefinitions`, `Material3DDefinitions`, `Lighting3DDefinitions`; and the just_graphics_engine types a game names (the renderer and its views, lights and settings, the GPU resources the engine hands out, model, mesh and material data), re-exported. Its GPU plumbing, model cooking, test doubles and `RenderView` (which clashes with Flutter's) come from `package:just_graphics_engine/just_graphics_engine.dart` itself.
+Also: `Graphics3DSceneRenderer` (`dynamicResolution`, `renderScale`; it looks the world over once per engine frame, however many views it draws, through its `frame:` callback), `Graphics3DModels`, `Graphics3DModelAsset`, `Graphics3DModelLoader`, `Graphics3DShapes`, `SkeletalClipTrack` and `SkeletalAnimationTarget` (timelines and animator graphs on a skeleton), `RenderProvider`, `RenderProviderContext`, `RenderProviderOutput`, `MaterialSlots`, `LinearColor`, `Material3DOverridesFieldType`; definitions `Graphics3DDefinitions`, `Shape3DDefinitions`, `Material3DDefinitions`, `Lighting3DDefinitions`; and the just_graphics_engine types a game names (the renderer and its views, lights and settings, the GPU resources the engine hands out, model, mesh and material data: `Render3DScene`, `Render3DView`, `Light3DKind`, `Material3DData`, `Shape3DMesh` and the rest), re-exported, with `List<String> modelClipNamesOf(Uint8List bytes)`, a model file's clip names as the loader names them, read at once from its JSON. Its GPU plumbing, model cooking and test doubles come from `package:just_graphics_engine/just_graphics_engine.dart` itself.
 
 ## 3-D physics
 
@@ -323,11 +331,11 @@ Also: `Graphics3DSceneRenderer` (`dynamicResolution`, `renderScale`; it looks th
   - `static void registerDefinitions(EngineContext context)`, `static bool get isSupported`, `static String? get unsupportedReason`
   - `bool get isStarted`, `Physics3DEngine get engine`, `Physics3DSystem get system`, `Physics3DQueries get queries`, `bool get hasWorld`, `Physics3DWorld get world`
 - **`engine.physics3D`** (an extension in `just_game_engine_3d.dart`) — the `Physics3D` given in `EngineConfig.services`, or null.
-- **Components**: `RigidBody3DComponent` (`bodyType`, `mass`, `friction`, `restitution`, `linearDamping`, `angularDamping`, `gravityScale`, `isSensor`, `lockRotation`, `continuousCollision`, `canSleep`, `layer`; `addForce`, `addImpulse`, `setVelocity`, …), `Collider3DComponent` (`shape`: `Collider3DShape`), `CharacterBody3DComponent` (`moveVelocity`, `jump`, `isGrounded`, `groundVelocity`, …), joints `FixedJoint3DComponent`, `PointJoint3DComponent`, `HingeJoint3DComponent`, `SliderJoint3DComponent`, `DistanceJoint3DComponent`, `SixDofJoint3DComponent` (`Joint3DComponent`), `CameraCollision3DComponent`.
+- **Components**: `RigidBody3DComponent` (`bodyType`, `mass`, `friction`, `restitution`, `linearDamping`, `angularDamping`, `gravityScale`, `isSensor`, `lockRotation`, `continuousCollision`, `canSleep`, `layer`; `addForce`, `addImpulse`, `setVelocity`, …; at run time `gravityScaleOverride`, never saved, and `effectiveGravityScale`), `Collider3DComponent` (`shape`: `Collider3DShape`), `CharacterBody3DComponent` (`moveVelocity`, `jump`, `isGrounded`, `groundVelocity`, …; at run time `gravityScaleOverride` and `heightOverride` — a crouch — never saved, so the authored `gravityScale` and `height` stay, with `effectiveGravityScale` and `effectiveHeight`), joints `FixedJoint3DComponent`, `PointJoint3DComponent`, `HingeJoint3DComponent`, `SliderJoint3DComponent`, `DistanceJoint3DComponent`, `SixDofJoint3DComponent` (`Joint3DComponent`), `CameraCollision3DComponent`.
 - **`Physics3DSystem`** — steps the world: `Physics3DSystem(Physics3DWorld physics, {Collider3DGeometry? geometry})`, `Physics3DSystem.lazy(Physics3DWorld Function() create, …)`; `entityOf`, `bodyOf`, `characterOf`.
 - **Events**: `CollisionEnter3DEvent`, `CollisionStay3DEvent`, `CollisionExit3DEvent`, `SensorEnter3DEvent`, `SensorExit3DEvent`.
 - **`Physics3DQueries`** — `raycast`, `raycastAll`, `sphereCast`, `shapeCast`, `overlapSphere`, `overlapBox`, `overlap` (`Physics3DHit`).
-- Also: `Physics3DDefinitions`, `Collider3DShapes`, `Collider3DGeometry`, `AssetCollider3DGeometry`, `CameraCollision3DStage`, and just_physics_engine's 3-D side: `Physics3DEngine`, `Physics3DWorld`, `JoltPhysicsEngine`, `Physics3DUnsupportedError`, the shapes (`Box3DShape` … `Compound3DShape`), settings, hits and events.
+- Also: `Physics3DDefinitions`, `Collider3DShapes`, `Collider3DGeometry`, `AssetCollider3DGeometry`, `CameraCollision3DStage`, and just_physics_engine's 3-D side: `Physics3DEngine`, `Physics3DWorld`, `JoltPhysicsEngine`, `Physics3DUnsupportedError`, the shapes (`Box3DShape` … `Compound3DShape`), settings, hits and events (`Physics3DEvents` and `Character3DContacts` for the packed reads). A collision grid edited while a scene plays reaches the running world (`Physics3DWorld.setLayerMasks`).
 
 ## Input
 
@@ -340,13 +348,16 @@ Also: `Graphics3DSceneRenderer` (`dynamicResolution`, `renderScale`; it looks th
 - **`InputActionAsset`** — maps, bindings, schemes, players.
   - `InputActionAsset.parse(String source)`
 - **`InputAction`** — a live action.
-  - `bool isPressed()`
+  - `bool get isPressed`
   - `bool wasPressedThisFrame()`
   - `Offset readVector2()`
 - **`InputComponent`** — a player's input on an entity.
   - `bool isDown(String action)`
   - `bool wasPressed(String action)`
   - `Offset vector(String action)`
+- **`InputDefinitions`** — the input components' definitions, and the field kinds of a saved input action's name.
+  - `static const InputActionFieldType actionType`, `static const InputActionListFieldType actionListType` — a field holding one action's name (`SimpleMovementComponent.action`), or several, saved as text; the editor offers the project's actions for it, and the Input Actions editor finds it when an action is renamed, moved or deleted
+  - `static const List<FieldType> fieldTypes` (registered by `BuiltInComponents.extension`), `static bool isActionKind(FieldType kind)`
 
 Also: `InputSystem`, `PlayerInputManager`, `PlayerInput`, `CacheInputOverrideStore`, `KeyboardKeys`, `GamepadControls`. The `...Def` asset model and validation: import `package:just_inputs/just_inputs.dart`.
 
@@ -363,11 +374,11 @@ Also: `InputSystem`, `PlayerInputManager`, `PlayerInput`, `CacheInputOverrideSto
   - `void playOneShot(String clipPath, {Vector3? position, …})` — a sound played once, with nothing added to an entity.
 - **`AudioListenerComponent`** — where 3-D sounds are heard from.
   - `AudioListenerComponent({bool atCamera = false, bool faceCamera = false})`
-- **`AudioSpatial`** — how a 3-D sound is heard: `minDistance`, `maxDistance`, `rolloff`, `dopplerLevel`, `farCutoff`; `mix(...)` works it out.
+- **`Audio3DSettings`** — how a 3-D sound is heard: `minDistance`, `maxDistance`, `rolloff`, `dopplerLevel`, `farCutoff`; `mix(...)` works it out.
 - `enum AudioChannel { master, music, sfx, voice, ambient }` — mixer channels.
-- `enum AudioRolloff { inverse, linear, none }` — how a 3-D sound fades with distance.
+- `enum Audio3DRolloff { inverse, linear, none }` — how a 3-D sound fades with distance.
 
-Also: `MusicManager`, `SoundEffectManager`, `AudioStreamComponent`, `AudioRequests`, `AudioRequest`, `AudioSpatialMix`; `Engine.suspendAudio()` / `resumeAudio()` (what `GameWidget` does as the app goes to the background and comes back).
+Also: `MusicManager`, `SoundEffectManager`, `AudioStreamComponent`, `AudioRequests`, `AudioRequest`, `Audio3DMix`; `Engine.suspendAudio()` / `resumeAudio()` (what `GameWidget` does as the app goes to the background and comes back).
 
 ## Particles and effects
 
@@ -504,18 +515,18 @@ Also: `BuildContextLocalization`, `DialogueChoices`, `SubtitleOverlay`, `LocaleS
 
 The engine library re-exports these names; anything else from these packages needs its own import:
 
-- `just_audio_engine` (17): Audio3DListener, Audio3DPosition, AudioBackend, AudioBus, AudioBusGraph, AudioChannel, AudioClip, AudioEffect, AudioEffectType, AudioEngine, AudioRolloff, AudioSpatial, AudioSpatialMix, AudioState, AudioStream, MusicManager, SoundEffectManager
-- `just_dart` (9): Aabb3, Frustum, JustMatrix4, Matrix4, Plane, Quaternion, Ray3, Vector2, Vector3
-- `just_game_engine_formats` (40): AnimatorBlendMotion, AnimatorBlendTree, AnimatorBlendType, AnimatorCondition, AnimatorGraph, AnimatorOp, AnimatorParameter, AnimatorParameterType, AnimatorState, AnimatorTransition, ComponentMigration, EntityMigration, FieldMigration, Material2DEffect, Material2DEffects, Material2DFile, Material2DKind, Material2DParam, Material2DValue, MaterialChain, MigrationHooks, MigrationNote, MigrationRun, PrefabApply, PrefabCollapse, PrefabEntity, PrefabExpander, PrefabFile, PrefabInstance, PrefabNode, PrefabOverride, ResolvedMaterial, SceneFormat, SceneManifest, SceneMigrationResult, SceneNames, SceneStarters, TimelineFormat, TrackMigration, UnsupportedFormatVersionException (the 3-D library adds Material3DAlpha, Material3DFile, Material3DKind and Material3DUv; the migration steps, `V0ToV1` … `V10ToV11` and the timeline's, are formats' own: import `package:just_game_engine_formats/just_game_engine_formats.dart` to name one)
-- `just_inputs` (43): ActionValueType, BindingDisplay, BindingOverrides, DeviceChange, DeviceListener, GamepadControls, GamepadDevice, GamepadSource, InputAction, InputActionAsset, InputActionCallback, InputActionMap, InputActionPhase, InputActions, InputControl, InputDevice, InputEvent, InputOverrideStore, InputService, InputSubscription, JoinBehavior, JustGamepadsSource, KeyboardDevice, KeyboardKeys, LookActions, LookInput, LookSettings, MemoryInputOverrideStore, MouseControls, MouseDevice, OnScreenDevice, PlayerInput, PlayerInputManager, PointerLock, RawInputListener, RebindCanceled, RebindCompleted, RebindResult, RebindState, RebindingOperation, TouchscreenControls, TouchscreenDevice, rebindPlayer
+- `just_audio_engine` (14): Audio3DListener, Audio3DMix, Audio3DPosition, Audio3DRolloff, Audio3DSettings, AudioBackend, AudioChannel, AudioEffect, AudioEffectType, AudioEngine, AudioState, AudioStream, MusicManager, SoundEffectManager
+- `just_dart` (9): Aabb3, Frustum, Matrix4, Matrix4Transforms, Plane, Quaternion, Ray3D, Vector2, Vector3
+- `just_game_engine_formats` (39): AnimatorBlendMotion, AnimatorBlendTree, AnimatorBlendType, AnimatorCondition, AnimatorGraph, AnimatorOp, AnimatorParameter, AnimatorParameterType, AnimatorState, AnimatorTransition, ComponentMigration, EntityMigration, FieldMigration, Material2DEffect, Material2DEffects, Material2DFile, Material2DKind, Material2DParam, Material2DValue, MaterialChain, MigrationHooks, MigrationNote, PrefabApply, PrefabCollapse, PrefabEntity, PrefabExpander, PrefabFile, PrefabInstance, PrefabNode, PrefabOverride, ResolvedMaterial, SceneFormat, SceneManifest, SceneMigrationResult, SceneNames, SceneStarters, TimelineFormat, TrackMigration, UnsupportedFormatVersionException (the 3-D library adds Material3DAlpha, Material3DFile, Material3DKind and Material3DUv; the migration steps, the scene's and the timeline's, are internal to just_game_engine_formats: `SceneFormat` and `TimelineFormat` run them, and `SceneFormat.renamedComponents` / `renamedFields` list format 11's renames)
+- `just_inputs` (44): ActionValueType, BindingDisplay, BindingOverrides, DeviceChange, DeviceListener, GamepadControls, GamepadDevice, GamepadSource, InputAction, InputActionAsset, InputActionCallback, InputActionMap, InputActionPhase, InputActions, InputControl, InputDevice, InputNotifier, InputOverrideStore, InputService, InputServicePlayers, InputSubscription, JoinBehavior, JustGamepadsSource, KeyboardDevice, KeyboardKeys, LookActions, LookInput, LookSettings, MemoryInputOverrideStore, MouseControls, MouseDevice, OnScreenDevice, PlayerInput, PlayerInputManager, PointerLock, RawInputListener, RebindCanceled, RebindCompleted, RebindResult, RebindState, RebindingOperation, TouchscreenControls, TouchscreenDevice, rebindPlayer
 - `just_memory` (11): ArenaStats, CacheBudgetStats, DisposeCallback, MemoryCleanupResult, MemoryProfileSnapshot, MemoryProfiler, MemoryScope, MemoryStats, PoolManager, PoolStats, SystemMemorySnapshot
-- `just_physics_engine` (25): Body2DType, Box2DJoint, Box2DPhysicsEngine, Capsule2DShape, Chain2DShape, Circle2DShape, CircleCast2DHit, DistanceJoint2D, Ground2DState, Joint2D, Joint2DKind, MouseJoint2D, Mover2DShape, OneWayDirection, Physics2DBody, Physics2DEngine, Polygon2DShape, Ray2D, Ray2DHit, Rectangle2DShape, RevoluteJoint2D, RoundedPolygon2DShape, Segment2DShape, Shape2D, WeldJoint2D
+- `just_physics_engine` (26): Body2DType, Box2DJoint, Box2DPhysicsEngine, Capsule2DShape, Chain2DShape, Circle2DShape, CircleCast2DHit, DistanceJoint2D, Ground2DState, Joint2D, Joint2DKind, MouseJoint2D, Mover2DShape, OneWayDirection, Physics2DBody, Physics2DEngine, PhysicsEngineFactory, Polygon2DShape, Ray2D, Ray2DHit, Rectangle2DShape, RevoluteJoint2D, RoundedPolygon2DShape, Segment2DShape, Shape2D, WeldJoint2D
 - `just_signals` (2): Computed, Signal
 
 ## Removed in 2.0
 
 The compatibility members earlier 2.0 dev releases kept are gone; [MIGRATION](MIGRATION.md#removed-apis) says what replaces each. `Engine`: `getSystem` (use `subsystem<T>()`), `parallax`; `Entity`: `generation`; `HierarchySystem`; `ILifecycle`, `IEnableable`, `IPausable`, `IRenderable`, `IUpdatable`, `LifecycleStateMixin`; `ParallaxSystem`; `RenderingEngine`: `addRenderable`, `layerCount`, `markLayerOrderDirty`, `markSpatialIndexDirty`, `onRenderBackground`, `onRenderOverlay`, `removeRenderable`, `renderableCount`, `renderables`, `useSpatialIndex`, `spriteBatchFactory`; `RectangleRenderable`, `CircleRenderable`, `LineRenderable`; `SpriteSheet`; `ParallaxLayer.repeat` (use `repeatX`/`repeatY`); `TagComponent`: `tag`; `offload`, `offloadUnit`; the `GameLoop` typedefs `UpdateCallback`, `RenderCallback`, `FrameCallback`; `VelocitySignals`, `HealthSignals`; `PhysicsJointBindingSystem` (`Physics2DSystem` makes the joints); `Physics2DSystem`'s `camera`, `drawsOutlines`, `outlineFilter` and `render` (a `Collider2DDebuggerSystem` draws the outlines); `TrackBindingKind`; `RaycastSystem`, `RaycastColliderComponent`, `RaycastHit`, `RayTracer`, `RayTrace` and `RayTraceSegment` (rays go through the physics: `Physics2DQueries`, and `RayTracer2D` for bounces off a collider's `reflectivity`). Parameters: `Entity(generation:)`, `ViewCullingSystem(gridCellSize:)`.
 
-The 2.0.0-dev.4 renames (`CameraSystem` → `CameraEngine`, `Camera` → `OutputCamera`, `ComponentSchema` and `SchemaField` → `ComponentDefinition` and `FieldDefinition`, `PrefabLibrary.of(context)` → `context.prefabLibrary`, …) are listed in the [CHANGELOG](CHANGELOG.md) and [MIGRATION](MIGRATION.md#renamed-in-200-dev4).
+The renames since 2.0.0-dev.3 (`CameraSystem` → `CameraEngine`, `Camera` → `OutputCamera`, `ComponentSchema` and `SchemaField` → `ComponentDefinition` and `FieldDefinition`, `PrefabLibrary.of(context)` → `context.prefabLibrary`, …) are listed in the [CHANGELOG](CHANGELOG.md) and [MIGRATION](MIGRATION.md#renamed-since-200-dev3).
 
 What changed since 1.x: [CHANGELOG](https://github.com/just-unknown-dev/just-game-engine/blob/main/CHANGELOG.md), [MIGRATION](https://github.com/just-unknown-dev/just-game-engine/blob/main/MIGRATION.md).

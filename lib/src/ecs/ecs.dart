@@ -36,8 +36,8 @@ export 'spatial/spatial_index.dart';
 // The hooks a package adds its own scene migrations through
 // (`context.migrations`), and the error a file newer than this version
 // reads fails with (the tags file is one). The scene format itself and
-// its results are the scenes barrel's; the migration steps (`V0ToV1` …
-// `V10ToV11`) stay in the formats package.
+// its results are the scenes barrel's; the migration steps are internal to
+// the formats package.
 export 'package:just_game_engine_formats/just_game_engine_formats.dart'
     show
         ComponentMigration,

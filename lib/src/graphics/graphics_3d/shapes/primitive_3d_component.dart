@@ -128,7 +128,7 @@ abstract class Primitive3DComponent extends Component
     ..addBool(doubleSided);
 
   /// Its triangles, textured by [uv].
-  ShapeMesh buildMesh([ShapeUv uv = ShapeUv.natural]);
+  Shape3DMesh buildMesh([Shape3DUv uv = Shape3DUv.natural]);
 
   /// Its bounds in its entity's own space into [out].
   void boundsInto(Aabb3 out);
@@ -244,8 +244,8 @@ final class ShapeValues {
   }
 }
 
-/// A [ShapeMesh] as the engine's [ModelGeometry], for picking and colliders.
-extension ShapeMeshGeometry on ShapeMesh {
+/// A [Shape3DMesh] as the engine's [ModelGeometry], for picking and colliders.
+extension Shape3DMeshGeometry on Shape3DMesh {
   /// Its triangles alone.
   ModelGeometry get geometry => ModelGeometry(positions, indices);
 }

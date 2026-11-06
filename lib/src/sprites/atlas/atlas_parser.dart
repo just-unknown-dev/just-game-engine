@@ -2,16 +2,17 @@ part of 'atlas.dart';
 
 /// Common interface for all sprite atlas parsers.
 ///
-/// Parsers transform a decoded JSON map into a [SpriteAtlas] data model.
-/// All image I/O (page loading) is handled by [SpriteAtlasPage.loadImage]
-/// after parsing; parsers work purely on JSON structure and perform no async
-/// operations themselves (except returning a Future for API consistency).
+/// Parsers transform a decoded JSON map into a [SpriteAtlas] data model,
+/// synchronously: they read nothing but [json]. Image I/O (page loading)
+/// is handled by [SpriteAtlasPage.loadImage] after parsing, so a tool that
+/// wants only an atlas's regions or clip names
+/// ([SpriteAtlas.clipNames]) parses without loading an image.
 abstract class AtlasParser {
-  /// Parse [json] into a [SpriteAtlas].
+  /// Parse [json] into a [SpriteAtlas], its pages' images not loaded.
   ///
   /// [basePath] is the directory component of the atlas JSON file path
   /// (e.g. `"assets/sprites/"`) used to resolve relative texture paths.
-  Future<SpriteAtlas> parse(Map<String, dynamic> json, String basePath);
+  SpriteAtlas parse(Map<String, dynamic> json, String basePath);
 
   // ── Format detection ──────────────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ abstract class AtlasParser {
   ///
   /// | Condition | Parser selected |
   /// |---|---|
+  /// | `meta.frameWidth` and `meta.frameHeight`, no `"frames"` | [GridSheetAtlasParser] |
   /// | `meta.app` contains `"aseprite"` | [AsepriteAtlasParser] |
   /// | Top-level `"textures"` list | [TexturePackerAtlasParser] (multi-page) |
   /// | `"frames"` is a JSON array | [TexturePackerAtlasParser] (JSON-Array) |

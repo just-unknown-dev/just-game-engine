@@ -173,6 +173,25 @@ void main() {
     });
   });
 
+  test('a selected skinned model is outlined in its pose', () async {
+    await service.models.load(_barPath);
+    final renderer = service.sceneRenderer;
+    final bar = engine.world.createEntityWithComponents([
+      TransformComponent(),
+      ModelComponent(model: _barPath),
+      AnimationPlayerComponent(clip: 'bend'),
+    ], name: 'Bar');
+    renderer.aids = SceneEditorAids()..highlighted = () => [bar];
+    renderer.update(view);
+    final skinned = renderer.scene.instances.where((i) => i.skin != null).toList();
+    expect(skinned, isNotEmpty);
+    expect(renderer.scene.overlays, hasLength(2 * renderer.scene.instances.length));
+    for (final overlay in renderer.scene.overlays) {
+      expect(overlay.skin, isNotNull, reason: 'drawn posed, the x-ray too');
+    }
+    expect(renderer.scene.overlays.first.skin, same(skinned.first.skin));
+  });
+
   group('a change of structure', () {
     test('keeps the instances of what still stands', () async {
       await service.models.load(cubePath);

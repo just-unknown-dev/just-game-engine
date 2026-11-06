@@ -31,7 +31,7 @@ void main() {
     late World world;
 
     setUp(() {
-      physics = Physics2DEngine()..initialize();
+      physics = PhysicsEngineFactory.create2D()..initialize();
       world = World()..initialize();
       world.addSystem(Physics2DSystem(physics));
     });

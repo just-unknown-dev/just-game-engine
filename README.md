@@ -1,8 +1,8 @@
 # Just Game Engine
 
-A game engine for Flutter: 2D, with 3D graphics and physics to opt into. A game is entities, components and systems (ECS) in a `World`; its levels are JSON scenes loaded at runtime. The engine brings level maps, sprites and animator graphs, timelines, virtual cameras, physics, particles, audio and action-based input, and draws inside an ordinary Flutter widget. It runs on Android, iOS, Windows, macOS, Linux and the web (JavaScript or WebAssembly).
+A game engine for Flutter: 2D, with 3D graphics and physics to opt into. A game is entities, components and systems (ECS) in a `World`; its levels are JSON scenes loaded at runtime. The engine brings level maps, sprites and animator graphs, timelines, virtual cameras, physics, particles, audio and action-based input, and draws inside an ordinary Flutter widget. It is built for Android, iOS, Windows, macOS, Linux and the web (JavaScript or WebAssembly); [Platforms](#platforms) says which are verified.
 
-2.0.0 is a breaking release, out first as dev releases, now 2.0.0-dev.4. Coming from 1.x? Read [MIGRATION.md](MIGRATION.md).
+2.0.0 is a breaking release, and the first stable 2.0. Coming from 1.x? Read [MIGRATION.md](MIGRATION.md). Coming from a 2.0 dev release? Read the [CHANGELOG](CHANGELOG.md) entries after yours.
 
 | 2D | 3D |
 |---|---|
@@ -17,10 +17,28 @@ The levels in these pictures are scenes the editor saves, loaded and run by the 
 
 ```yaml
 dependencies:
-  just_game_engine: ^2.0.0-dev.4
+  just_game_engine: ^2.0.0
 ```
 
-Needs Flutter 3.47.1 or newer. To build for Linux, also install what the audio plugin links: OpenAL Soft and libsndfile (`sudo apt install libopenal-dev libsndfile1-dev` on Debian and Ubuntu; players need `libopenal1` and `libsndfile1`).
+Needs Flutter 3.47 (3.47.1 or newer): see [Flutter versions](#flutter-versions). To build for Linux, also install what the audio plugin links: OpenAL Soft and libsndfile (`sudo apt install libopenal-dev libsndfile1-dev` on Debian and Ubuntu; players need `libopenal1` and `libsndfile1`).
+
+### Flutter versions
+
+The 3-D renderer draws with Flutter GPU, a Flutter preview whose API changes between Flutter minor releases. So each release is made for one Flutter minor series: just_game_engine 2.0.x and just_graphics_engine 0.2.x are made for Flutter 3.47 (3.47.1 or newer; tested on 3.47.9). just_graphics_engine keeps Flutter GPU behind its own API (`GpuDevice`), so a change in Flutter GPU stays inside it, and a Flutter that changes Flutter GPU gets a release made for it.
+
+Pin Flutter in your app's pubspec:
+
+```yaml
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.47.1 <3.48.0"
+```
+
+Pub enforces this range in your app's own pubspec (when its `sdk` lower bound is 3.9 or newer, as here), but ignores a Flutter upper bound in a package's pubspec, so the engine cannot keep a newer Flutter out by itself. Games made with the `just` CLI get the range and the exact Flutter without asking: `just.json` pins `"flutter": "3.47.9"`, `just sdk install` installs it (in `~/.just/flutter/<version>`), and `just flutter …` and `just dart …` run it.
+
+### Platforms
+
+Verified on Windows, Android (Vulkan) and the web. Linux, iOS and macOS are untested: they are expected to build, but have never been run. [Platforms](doc/guides/platforms.md) says what each one can do.
 
 ## Quick start
 
@@ -165,10 +183,10 @@ void addCameras(Engine engine) {
 ### Physics
 
 - The same model as 3-D (`package:just_game_engine/just_game_engine_3d.dart`), with a `2D` tag: `RigidBody2DComponent` is how a body moves (static, kinematic or dynamic; mass, friction, bounce, damping, gravity scale, sensor, layer and filter) and `Collider2DComponent` its shape (box, circle, capsule, polygon, segment, chain, or *match shape*: whatever the entity draws; offset, rotation, one-way). A collider alone is a static body. `Physics2DSystem` steps `engine.physics` and syncs transforms and velocities back.
-- Push a body from code with `addForce`, `addImpulse`, `addTorque`, `setVelocity` and the rest on `RigidBody2DComponent`; it reports `isGrounded`, `groundNormal` and its velocities after each step.
+- Push a body from code with `addForce`, `addImpulse`, `addTorque`, `setVelocity` and the rest on `RigidBody2DComponent`; it reports `isGrounded`, `groundNormal` and its velocities after each step. Gameplay that changes a body for a while sets its run-time overrides, never saved: `gravityScaleOverride` (a jump's rise and fall) and `collidesWithNothing` (a crumbled platform), so a save keeps the authored `gravityScale` and `collidesWith`.
 - `CharacterBody2DComponent` is a character gameplay moves instead (3-D's `CharacterBody3DComponent`): set its `moveVelocity`, call `jump`, and it walks slopes, climbs steps, rides platforms and stands on one-way ones, the same on every platform. It needs no rigid body or collider.
 - Physics comes from `just_physics_engine`: Box2D v3 through FFI where its native library loads, and a pure-Dart engine with the same API on the web or wherever it does not.
-- Joints (`DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent`, `WheelJoint2DComponent`), queries through `Physics2DQueries` (raycast, circle cast, overlaps, by layer), rays that bounce off reflective colliders (`RayTracer2D`, a collider's saved `reflectivity`), and ECS events: `CollisionEnter2DEvent`, `CollisionStay2DEvent` (opt in with `Physics2DSystem.reportContactStay`), `CollisionExit2DEvent`, `SensorEnter2DEvent`, `SensorExit2DEvent`. Some joint options wait on the physics engine; see the [known limitations](MIGRATION.md#known-limitations-in-200).
+- Joints (`DistanceJoint2DComponent`, `FixedJoint2DComponent`, `SliderJoint2DComponent`, `WheelJoint2DComponent`), queries through `Physics2DQueries` (raycast, circle cast, overlaps, by layer), rays that bounce off reflective colliders (`RayTracer2D`, a collider's saved `reflectivity`), and ECS events: `CollisionEnter2DEvent`, `CollisionStay2DEvent` (opt in with `Physics2DSystem.reportContactStay`), `CollisionExit2DEvent`, `SensorEnter2DEvent`, `SensorExit2DEvent`. On native Box2D, queries skip a body whose collision mask is 0; see the [known limitations](MIGRATION.md#known-limitations-in-200).
 
 
 ### 3-D graphics
@@ -205,7 +223,7 @@ Future<Engine> start3D() async {
 
 ### 3-D physics
 
-- `EngineConfig(services: [Physics3D()])`, from `package:just_game_engine/just_game_engine_3d.dart`: `RigidBody3DComponent`, `Collider3DComponent` (box, sphere, capsule, cylinder, convex hull, mesh, height field, or matching a 3-D shape), `CharacterBody3DComponent` and six joints, simulated on Jolt Physics, with the same names, fields and events as 2-D (`3D` for `2D`).
+- `EngineConfig(services: [Physics3D()])`, from `package:just_game_engine/just_game_engine_3d.dart`: `RigidBody3DComponent`, `Collider3DComponent` (box, sphere, capsule, cylinder, convex hull, mesh, height field, or matching a 3-D shape), `CharacterBody3DComponent` and six joints, simulated on Jolt Physics, with the same names, fields and events as 2-D (`3D` for `2D`). A crouch sets the character's run-time `heightOverride`, so its saved `height` stays as authored.
 - The app's pubspec builds Jolt:
 
   ```yaml
@@ -333,7 +351,7 @@ The engine is built on `just_physics_engine`, `just_graphics_engine`, `just_inpu
 - [App structure](doc/guides/app-structure.md): a suggested app structure (Engine · Signal · Presentation).
 - [CHANGELOG.md](CHANGELOG.md).
 - [API map](https://github.com/just-unknown-dev/just-game-engine/blob/main/API.md): the public API by area (in the repository, not in the package).
-- [API reference](https://pub.dev/documentation/just_game_engine/2.0.0-dev.4/) (`latest` on pub.dev is the 1.x line).
+- [API reference](https://pub.dev/documentation/just_game_engine/2.0.0/) on pub.dev.
 
 ## Links
 

@@ -136,6 +136,9 @@ class TransformHierarchy {
   /// Settle [child] as a fresh link: its local transform is worked out from
   /// where it is now. Call after re-parenting.
   void adopt(Entity child) {
+    // Moved to another parent, or another place among its siblings: the
+    // world's shape changed ([World.structureVersion]).
+    world.markStructureChanged();
     final link = child.getComponent<ParentComponent>();
     if (link == null) return;
     link.invalidateLocal();

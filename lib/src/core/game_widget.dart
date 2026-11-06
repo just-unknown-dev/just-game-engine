@@ -49,7 +49,7 @@ class GameWidget extends StatefulWidget {
   ///
   /// [GameWidget] still unconditionally forwards every key event to
   /// [Engine.input] (so polling-based ECS systems, e.g.
-  /// `keyboard.isKeyDown`, keep seeing the key) — forwarding for gameplay
+  /// `input.keyboard.isDown`, keep seeing the key) — forwarding for gameplay
   /// and the value returned to Flutter's key system are independent
   /// concerns. For any key in this set, the internal `Focus.onKeyEvent`
   /// returns [KeyEventResult.ignored] instead of [KeyEventResult.handled],
@@ -179,17 +179,18 @@ class _GameWidgetState extends State<GameWidget>
     widget.engine.layers.addListener(_onLayersChanged);
     _syncControllers();
 
-    // Keys held when the game loses the keyboard would never see their
-    // key-ups: let them go.
+    // Keys and mouse buttons held when the game loses the keyboard would
+    // never see their ups: let them go.
     _focusNode.addListener(() {
-      if (!_focusNode.hasFocus && !_layerHasFocus) _releaseKeyboard();
+      if (!_focusNode.hasFocus && !_layerHasFocus) _releaseHeld();
     });
   }
 
-  /// The engine's input lets go of every key — while it has one.
-  void _releaseKeyboard() {
+  /// The engine's input lets go of every key and mouse button — while it
+  /// has one.
+  void _releaseHeld() {
     final engine = widget.engine;
-    if (engine.isInitialized) engine.input.releaseKeyboard();
+    if (engine.isInitialized) engine.input.releaseHeld();
   }
 
   /// Hands a pointer event to the engine's input, while it has one.
@@ -442,9 +443,9 @@ class _GameWidgetState extends State<GameWidget>
       if (event.logicalKey == LogicalKeyboardKey.backquote) {
         if (event is KeyDownEvent) {
           terminal.toggle();
-          // Keys held as it opens are the game's no longer: let them go,
-          // as when the game loses focus.
-          if (terminal.isVisible) _releaseKeyboard();
+          // Keys and buttons held as it opens are the game's no longer: let
+          // them go, as when the game loses focus.
+          if (terminal.isVisible) _releaseHeld();
         }
         return KeyEventResult.handled;
       }
@@ -475,7 +476,7 @@ class _GameWidgetState extends State<GameWidget>
     }
 
     // Normal gameplay path: forward to the engine unconditionally so
-    // polling-based systems (KeyboardInput.isKeyDown) keep seeing every
+    // polling-based systems (`input.keyboard.isDown`) keep seeing every
     // key regardless of what we return to Flutter below.
     if (widget.engine.isInitialized) widget.engine.input.handleKeyEvent(event);
 
@@ -535,7 +536,7 @@ class _GameWidgetState extends State<GameWidget>
       focusNode: _outerFocus,
       onKeyEvent: _handleBubbledKey,
       onFocusChange: (focused) {
-        if (!focused) _releaseKeyboard();
+        if (!focused) _releaseHeld();
       },
       child: l10n == null
           ? stack

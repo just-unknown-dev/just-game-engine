@@ -54,7 +54,7 @@ void main() {
 
   group('layer ids', () {
     test('a Tiled map without layer ids gets one per layer', () async {
-      final result = _import(await tiled.TileMapParser.parse(_noIds));
+      final result = _import(await tiled.TmxParser.parse(_noIds));
       final ids = [for (final l in result.map.layers) l.id];
       expect(ids.toSet(), hasLength(3));
       expect(ids.every((id) => id > 0), isTrue);
@@ -69,7 +69,7 @@ void main() {
 
     test('a repeated Tiled layer id: the first keeps it, the next gets a new '
         'one', () async {
-      final result = _import(await tiled.TileMapParser.parse(_repeated));
+      final result = _import(await tiled.TmxParser.parse(_repeated));
       expect(
         [for (final l in result.map.layers) (l.name, l.id)],
         [('A', 2), ('B', 4), ('C', 3)],

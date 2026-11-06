@@ -216,8 +216,8 @@ final class TileAssets {
     final dir = directoryOf(path);
     final provider = _Provider(dir, readText);
     final parsed = path.toLowerCase().endsWith('.tmj')
-        ? await tiled.TmjParser.parse(text, tsxProvider: provider)
-        : await tiled.TileMapParser.parse(text, tsxProvider: provider);
+        ? await tiled.TmjParser.parse(text, fileProvider: provider)
+        : await tiled.TmxParser.parse(text, fileProvider: provider);
     final result = TiledInterop.importMap(
       parsed,
       tilesetPath: (i, _) => '$path#$i',
@@ -353,16 +353,16 @@ final class TileAssets {
   }
 }
 
-class _Provider implements tiled.TsxProvider {
+class _Provider implements tiled.TiledFileProvider {
   _Provider(this.dir, this.readText);
   final String dir;
   final TextReader readText;
 
   @override
-  Future<String> getTsx(String source) =>
+  Future<String> loadTileset(String source) =>
       readText(TileAssets.join(dir, source));
 
   @override
-  Future<String> getTemplate(String source) =>
+  Future<String> loadTemplate(String source) =>
       readText(TileAssets.join(dir, source));
 }

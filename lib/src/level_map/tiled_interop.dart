@@ -608,8 +608,8 @@ abstract final class TiledInterop {
             final cells = TileChunkStore();
             if (layer.isChunked) {
               for (final chunk in layer.chunks) {
-                for (var i = 0; i < chunk.data.length; i++) {
-                  final c = toCell(chunk.data[i]);
+                for (var i = 0; i < chunk.gids.length; i++) {
+                  final c = toCell(chunk.gids[i]);
                   if (c != TileCell.empty) {
                     cells.setCell(
                       chunk.x + i % chunk.width,
@@ -620,7 +620,7 @@ abstract final class TiledInterop {
                 }
               }
             } else {
-              final raw = layer.rawGids;
+              final raw = layer.gids;
               for (var i = 0; i < raw.length; i++) {
                 final c = toCell(raw[i]);
                 if (c != TileCell.empty) {
@@ -851,7 +851,7 @@ abstract final class TiledInterop {
               y: c.cy * TileChunkStore.size,
               width: TileChunkStore.size,
               height: TileChunkStore.size,
-              data: Uint32List.fromList([
+              gids: Uint32List.fromList([
                 for (final cell in c.cells) toRaw(cell),
               ]),
             ),
@@ -879,19 +879,7 @@ abstract final class TiledInterop {
           properties: tiled.TiledProperties(values, types),
           width: width,
           height: height,
-          data: raw == null
-              ? const []
-              : [for (final g in raw) tiled.TiledGid.idOf(g)],
-          flipHorizontal: raw == null
-              ? const []
-              : [for (final g in raw) tiled.TiledGid.isFlippedHorizontally(g)],
-          flipVertical: raw == null
-              ? const []
-              : [for (final g in raw) tiled.TiledGid.isFlippedVertically(g)],
-          flipDiagonal: raw == null
-              ? const []
-              : [for (final g in raw) tiled.TiledGid.isFlippedDiagonally(g)],
-          rawData: raw,
+          gids: raw,
           chunks: chunks,
         ),
       );

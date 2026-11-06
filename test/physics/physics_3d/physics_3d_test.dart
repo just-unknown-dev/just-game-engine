@@ -68,6 +68,38 @@ void main() {
     expect(physics3D.queries.raycast(Vector3(0, -10, 0), Vector3(0, 1, 0))?.entity, box);
   });
 
+  test('a collision grid edited while a 3-D scene plays reaches its world', () async {
+    final fake = FakePhysics3DEngine();
+    final engine = await _engine(Physics3D(engine: fake));
+    List<int> grid() => [for (var i = 0; i < 16; i++) engine.context.physicsLayers.maskOf(i)];
+    engine.world.createEntityWithComponents([
+      TransformComponent(),
+      Collider3DComponent(size: Vector3(10, 1, 10)),
+      RigidBody3DComponent(bodyType: Body3DType.static, layer: 1),
+    ], name: 'Floor');
+    final crate = engine.world.createEntityWithComponents([
+      TransformComponent(position: Vector3(0, -1.5, 0)),
+      Collider3DComponent(),
+      RigidBody3DComponent(layer: 2),
+    ], name: 'Crate');
+    double crateY() => crate.getComponent<TransformComponent>()!.position.y;
+    for (var i = 0; i < 60; i++) {
+      engine.world.update(1 / 60);
+    }
+    final world = fake.worlds.single;
+    expect(world.layerMasks, grid());
+    expect(crateY(), closeTo(-1, 0.1), reason: 'resting on the floor');
+
+    engine.context.physicsLayers = engine.context.physicsLayers.withCollision(1, 2, false);
+    engine.world.update(1 / 60);
+    expect(world.layerMasks, grid());
+    expect((world.layerMasks[1] >> 2) & 1, 0, reason: 'layers 1 and 2 no longer collide');
+    for (var i = 0; i < 60; i++) {
+      engine.world.update(1 / 60);
+    }
+    expect(crateY(), greaterThan(0), reason: 'fallen through the floor');
+  });
+
   test('stopping takes the system out and disposes the world', () async {
     final fake = FakePhysics3DEngine();
     final engine = await _engine(Physics3D(engine: fake));

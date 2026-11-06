@@ -197,7 +197,7 @@ final class Physics3DBodies {
         restitution: rigid?.restitution ?? 0.0,
         linearDamping: rigid?.linearDamping ?? 0.05,
         angularDamping: rigid?.angularDamping ?? 0.05,
-        gravityFactor: rigid?.gravityScale ?? 1.0,
+        gravityFactor: rigid?.effectiveGravityScale ?? 1.0,
         mass: rigid?.mass ?? 0.0,
       ),
     );
@@ -235,8 +235,10 @@ final class Physics3DBodies {
     if (rigid.restitution != link.restitution) {
       physics.setRestitution(body, link.restitution = rigid.restitution);
     }
-    if (rigid.gravityScale != link.gravityFactor) {
-      physics.setGravityFactor(body, link.gravityFactor = rigid.gravityScale);
+    // The scale gameplay gave it for now, or else its saved one.
+    final gravityScale = rigid.effectiveGravityScale;
+    if (gravityScale != link.gravityFactor) {
+      physics.setGravityFactor(body, link.gravityFactor = gravityScale);
       physics.wake(body);
     }
     if (rigid.layer != link.layer) {
@@ -546,7 +548,7 @@ final class _BodyLink {
     _angularDamping = r?.angularDamping ?? 0.05;
     friction = r?.friction ?? 0.5;
     restitution = r?.restitution ?? 0;
-    gravityFactor = r?.gravityScale ?? 1;
+    gravityFactor = r?.effectiveGravityScale ?? 1;
     layer = r?.layer ?? 0;
     motionQuality = Physics3DBodies.quality(r);
   }

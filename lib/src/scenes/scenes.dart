@@ -9,7 +9,6 @@ export 'prefab_components.dart';
 export 'package:just_game_engine_formats/just_game_engine_formats.dart'
     show
         MigrationNote,
-        MigrationRun,
         SceneFormat,
         SceneManifest,
         SceneMigrationResult,

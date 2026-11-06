@@ -87,7 +87,7 @@ Achievements, sign-in, leaderboards, a currency wallet, an inventory and ads are
 
 ```yaml pubspec.yaml
 dependencies:
-  just_game_engine: ^2.0.0-dev.4
+  just_game_engine: ^2.0.0
   just_game_services: ^0.1.0
 ```
 

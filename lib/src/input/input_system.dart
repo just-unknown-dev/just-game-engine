@@ -66,7 +66,7 @@ class InputSystem extends System {
           case ActionValueType.axis || ActionValueType.button:
             into.axes[key] = action.readAxis();
         }
-        into.down[key] = action.isPressed();
+        into.down[key] = action.isPressed;
         if (action.wasPressedThisFrame()) into.pressed.add(key);
         if (action.wasReleasedThisFrame()) into.released.add(key);
         if (action.wasPerformedThisFrame()) into.performed.add(key);

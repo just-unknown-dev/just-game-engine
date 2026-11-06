@@ -6,7 +6,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart'
     show compute, debugPrint, visibleForTesting;
 import 'package:flutter/painting.dart';
-import 'package:just_dart/just_dart.dart' show Aabb3, JustMatrix4, Matrix4;
+import 'package:just_dart/just_dart.dart'
+    show Aabb3, Matrix4, Matrix4Transforms;
 import 'package:just_graphics_engine/assets.dart';
 import 'package:just_graphics_engine/gpu.dart';
 import 'package:just_graphics_engine/renderer.dart';
@@ -41,7 +42,7 @@ final class SceneEditorAids {
   (double, double, double, double) highlightColor = (1.0, 0.62, 0.15, 1.0);
 
   /// Lit, unlit or wireframe.
-  RenderViewMode viewMode = RenderViewMode.lit;
+  Render3DViewMode viewMode = Render3DViewMode.lit;
 
   /// A slice: nothing higher than this (engine Y, so 3 m up is -3) is
   /// drawn. Null for none.
@@ -115,7 +116,7 @@ final class Graphics3DSceneRenderer extends SceneRenderer {
   final int? Function()? frame;
 
   /// The scene as last extracted from the world.
-  final RenderScene scene = RenderScene();
+  final Render3DScene scene = Render3DScene();
 
   /// What an editor adds to its views; null in a game.
   SceneEditorAids? aids;
@@ -223,7 +224,7 @@ final class Graphics3DSceneRenderer extends SceneRenderer {
   @visibleForTesting
   int get debugSurfaces => _surfaces.length;
 
-  final RenderView _view = RenderView();
+  final Render3DView _view = Render3DView();
   final Matrix4 _scratch = Matrix4.identity();
   final Matrix4 _root = Matrix4.identity();
   double _alpha = 1;
@@ -232,13 +233,17 @@ final class Graphics3DSceneRenderer extends SceneRenderer {
   int _shapeRevision = -1;
   final List<_ProviderProxy> _providerProxies = [];
   int _providerVersion = -1;
-  final List<PunctualLight> _lightPool = [];
+  final List<Punctual3DLight> _lightPool = [];
   // Each light's colour made linear, worked out again only when it changes.
   final List<_LinearColor> _lightColors = [];
   final _LinearColor _sunColor = _LinearColor();
   World? _world;
   // The frame the world was last looked over in (see [frame]).
   int? _lookedFrame;
+  // The displayed frame the GPU was last checked in, and whether it was
+  // behind then (see [_gpuBehind]).
+  int? _busyFrame;
+  bool _busy = false;
   // What the editor's aids hid for the last view, shown again for the next.
   final List<MeshInstance> _hiddenInstances = [];
   final List<InstanceBatch> _hiddenBatches = [];
@@ -275,10 +280,17 @@ final class Graphics3DSceneRenderer extends SceneRenderer {
       _drawNote(canvas, size, _failure?.toString() ?? unsupportedReason!);
       return;
     }
-    update(view);
+    final frame = this.frame?.call();
     final surface = _surfaceFor(view);
+    if (_gpuBehind(frame)) {
+      // The GPU is behind: this view's last image again, so frames don't
+      // queue up on it.
+      _drawImage(canvas, surface, size);
+      return;
+    }
+    update(view);
     try {
-      final done = renderer.render(scene, _view, surface);
+      final done = renderer.render(scene, _view, surface, frame: frame);
       lastFrame = done;
       unawaited(done.then((_) {}, onError: _fail));
     } on Object catch (error) {
@@ -288,9 +300,29 @@ final class Graphics3DSceneRenderer extends SceneRenderer {
       // The renderer is shared (a model's thumbnail, say): an editor's view
       // settings stay with its views.
       renderer
-        ..viewMode = RenderViewMode.lit
+        ..viewMode = Render3DViewMode.lit
         ..clipPlane = null;
     }
+    _drawImage(canvas, surface, size);
+  }
+
+  /// Whether a view drawn in [frame] is skipped because the GPU is behind
+  /// ([Renderer3D.isBusy]). It is asked once a displayed frame: every view
+  /// of one frame (an editor's panes, its preview of the game's camera) is
+  /// drawn or skipped together, so their own renders never count against
+  /// each other. A view drawn outside the engine's frame (null) asks for
+  /// itself.
+  bool _gpuBehind(int? frame) {
+    if (frame == null) return renderer.isBusy;
+    if (frame != _busyFrame) {
+      _busyFrame = frame;
+      _busy = renderer.isBusy;
+    }
+    return _busy;
+  }
+
+  /// Draws [surface]'s last presented image over [size].
+  void _drawImage(Canvas canvas, GpuSurface surface, Size size) {
     final image = surface.image;
     if (image == null) return;
     canvas.drawImageRect(
@@ -731,7 +763,7 @@ final class Graphics3DSceneRenderer extends SceneRenderer {
     final aids = this.aids;
     if (!_aided || aids == null) {
       renderer
-        ..viewMode = RenderViewMode.lit
+        ..viewMode = Render3DViewMode.lit
         ..clipPlane = null;
       return;
     }
@@ -781,7 +813,14 @@ final class Graphics3DSceneRenderer extends SceneRenderer {
       for (final instance in instances) {
         if (!instance.visible) continue;
         scene.overlays
-          ..add(OverlayDraw(instance.primitive, instance.world, color: c))
+          ..add(
+            OverlayDraw(
+              instance.primitive,
+              instance.world,
+              color: c,
+              skin: instance.skin,
+            ),
+          )
           // Faint through what stands in front of it.
           ..add(
             OverlayDraw(
@@ -789,6 +828,7 @@ final class Graphics3DSceneRenderer extends SceneRenderer {
               instance.world,
               color: (c.$1, c.$2, c.$3, c.$4 * 0.3),
               xray: true,
+              skin: instance.skin,
             ),
           );
       }
@@ -1069,14 +1109,12 @@ final class Graphics3DSceneRenderer extends SceneRenderer {
           continue;
         }
         if (count == _lightPool.length) {
-          _lightPool.add(PunctualLight(type: LightType.point));
+          _lightPool.add(Punctual3DLight(kind: Light3DKind.point));
           _lightColors.add(_LinearColor());
         }
         final color = _lightColors[count].of(light.color);
         final p = _lightPool[count++]
-          ..type = light.kind == Light3DKind.spot
-              ? LightType.spot
-              : LightType.point
+          ..kind = light.kind
           ..color = color
           ..intensity = light.intensity
           ..range = light.range > 0 ? light.range : null

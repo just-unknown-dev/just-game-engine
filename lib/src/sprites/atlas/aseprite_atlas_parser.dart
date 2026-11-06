@@ -48,7 +48,7 @@ part of 'atlas.dart';
 /// ```
 class AsepriteAtlasParser extends AtlasParser {
   @override
-  Future<SpriteAtlas> parse(Map<String, dynamic> json, String basePath) async {
+  SpriteAtlas parse(Map<String, dynamic> json, String basePath) {
     final meta = (json['meta'] as Map<String, dynamic>?) ?? {};
     final imageFile = (meta['image'] as String?) ?? 'atlas.png';
     final sizeMap = (meta['size'] as Map<String, dynamic>?) ?? {};

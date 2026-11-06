@@ -8,7 +8,7 @@ This page condenses the [full migration guide](https://github.com/just-unknown-d
 
 ## Checklist
 
-1. Raise the constraints: `just_game_engine: ^2.0.0-dev.4` and Flutter 3.47.1 or newer. `^2.0.0` alone does not pick up dev releases.
+1. Raise the constraints: `just_game_engine: ^2.0.0` and Flutter 3.47 (3.47.1 or newer; see "Flutter versions" in [Installation](/docs/installation)). Coming from a 2.0 dev release, `^2.0.0` replaces its `^2.0.0-dev` constraint.
 2. Create the engine with `Engine(config: ...)`, `await initialize()` before `runApp`, and dispose it once. Replace `Engine.instance` with a reference you pass around.
 3. Add the standard systems through `EngineConfig.defaultSystems`, or give `Physics2DSystem` the engine's physics.
 4. Replace `PhysicsBodyComponent` with a `RigidBody2DComponent` and a `Collider2DComponent`, and the collision events with the `...2D` events.
@@ -17,7 +17,7 @@ This page condenses the [full migration guide](https://github.com/just-unknown-d
 7. Replace camera behaviours and `CameraFollowComponent` with virtual cameras, and read input as actions from `just_inputs`.
 8. Replace the in-game UI components, the Tiled components, `engine.animation` and the tweens, and read tags with `hasTag` and `tags`.
 9. Move render hooks to the hook chains, and fix imports: `package:just_game_engine/widgets.dart` for the widgets, and the source package for names no longer re-exported.
-10. Check the removed and renamed APIs, re-test what behaves differently, and read the known limitations if you use joints or audio streams.
+10. Check the removed and renamed APIs, re-test what behaves differently, and read the known limitations if you query bodies whose collision mask is 0 or change a playing sound.
 
 ## Engine lifecycle
 
@@ -168,7 +168,7 @@ void readInput(Engine engine, Entity player) {
 
 | 1.6 | 2.0 |
 |---|---|
-| `engine.input.keyboard.isKeyDown(key)` | an action: `engine.input.actions.action('map/name').isPressed()` |
+| `engine.input.keyboard.isKeyDown(key)` | an action: `engine.input.actions.action('map/name').isPressed` |
 | `InputComponent.isButtonPressed('jump')` | `input.isDown('jump')`; also `wasPressed`, `wasReleased`, `wasPerformed`, `axis` |
 | `VirtualJoystick`, `JoystickInputComponent` | on-screen controls in the asset, drawn by `OnScreenControls` |
 
@@ -198,6 +198,8 @@ Future<Engine> startGame() async {
 
 Saved progress carries over: achievements, currency and inventory still save to the `jge_engine` database. `engine.achievements` and the others now throw a `StateError` naming the fix when the engine has no such service. The managers' `bindWorld`, `initialize` and `dispose` are now `start` and `stop`, called by the engine. The Steam and Epic providers are gone; they did nothing.
 
+The services changed a little too. `AdsManager`'s ready signals are nouns (`isInitialized` → `sdkReady`, `isInterstitialReady` → `interstitialReady`, `isRewardedReady` → `rewardedReady`, `isAppOpenReady` → `appOpenReady`), and its `isInterstitialAdReady`, `isRewardedAdReady` and `isAppOpenAdReady` getters are gone: read the signals' `value`. An `AdsProvider` of your own returns a `RewardedAdResult`, `(shown: …, reward: …)`, from `showRewardedAd()`. An `Achievement`'s `goal` must be positive and finite. Changes are saved together a moment later instead of at once; `flush()` on the achievement, currency and inventory managers saves them now.
+
 ## Imports
 
 - **Widgets moved** to `package:just_game_engine/widgets.dart`: `DialogueBox`, `DialogueChoices`, `SubtitleOverlay`, `LocalizedText`, `GameCameraControls`, `OnScreenControls`, `RebindList` and the rest. `GameWidget`, `GameLayers`, `LocalizationScope` and `GameTerminal` stay in the main library.
@@ -210,7 +212,7 @@ Saved progress carries over: achievements, currency and inventory still save to 
 | `SceneEditor`, `Scene`, `SceneNode`, `engine.sceneEditor` | entities, and `SceneLoader` for JSON scenes |
 | `engine.animation`, the tweens, `AnimationStateComponent` | `SpriteAnimationComponent`, effects (`MoveEffect`, `FadeEffect` and the rest) and timelines |
 | `TileMapLayerComponent`, `TiledMapFactory`, `TileMapRenderSystem`, `TiledCollisionSystem` | `LevelMapComponent`, `LevelMapSystem`, `MapCollisionSystem` |
-| `TextComponent`, `ButtonComponent`, `UIComponent` | `just_ui_editor`, or Flutter widgets over `GameWidget` |
+| `TextComponent`, `ButtonComponent`, `UIComponent` | `just_ui_editor`'s `UiTextComponent`, `UiButtonComponent`, `UiElementComponent`, or Flutter widgets over `GameWidget` |
 | `engine.network` and the networking classes | nothing: they were stubs |
 | `tagComponent.tag` | `tags`, `entity.hasTag('enemy')`, `world.allTagged`, `world.findTagged` |
 | `onRenderOverlay`, `onRenderBackground` | `engine.rendering.overlayHooks.add(...)` and `backgroundHooks` |
@@ -234,9 +236,10 @@ Saved progress carries over: achievements, currency and inventory still save to 
 | `getBounds()`, `getMemoryUsage()`, `getVisibleBounds()`, `getCacheStats()`, `getSystemNames()` | the getters `bounds`, `memoryUsage`, `visibleBounds`, `cacheStats`, `systemNames` |
 | `CircleComponent`, `RectangleComponent`, `PolygonComponent`, `LineComponent`, `CapsuleComponent` | `Circle2DComponent`, `Rectangle2DComponent`, `Polygon2DComponent`, `Line2DComponent`, `Capsule2DComponent`; saved scenes are renamed as they load (format 11) |
 | `RectangleRenderable`, `CircleRenderable`, `LineRenderable`; `SpriteSheet` | the 2-D shape components or a `CustomRenderable`; an atlas (`SpriteAtlas.fromAsset`) |
+| `await parser.parse(json, basePath)` (an `AtlasParser`'s `Future<SpriteAtlas>`) | `parser.parse(json, basePath)`: it returns the `SpriteAtlas` at once |
 | `VelocitySignals`, `HealthSignals`; `offload` | a `ComponentSignal` over the field; Flutter's `compute` |
 
-Coming from an earlier 2.0 dev release? The full guide's [Renamed in 2.0.0-dev.4](https://github.com/just-unknown-dev/just-game-engine/blob/main/MIGRATION.md#renamed-in-200-dev4) lists what dev.4 renamed: every component's name ends in `Component`, `ComponentSchema` and `SchemaField` are `ComponentDefinition` and `FieldDefinition`, `PrefabLibrary.of(context)` is `context.prefabLibrary`, `PhysicsJointBindingSystem` is gone (`Physics2DSystem` makes the joints), and more.
+Coming from an earlier 2.0 dev release? The full guide's [Renamed since 2.0.0-dev.3](https://github.com/just-unknown-dev/just-game-engine/blob/main/MIGRATION.md#renamed-since-200-dev3) lists what was renamed after dev.3: every component's name ends in `Component`, `ComponentSchema` and `SchemaField` are `ComponentDefinition` and `FieldDefinition`, `PrefabLibrary.of(context)` is `context.prefabLibrary`, `PhysicsJointBindingSystem` is gone (`Physics2DSystem` makes the joints), and more.
 
 ## Behaviour you may notice
 
@@ -251,11 +254,8 @@ Coming from an earlier 2.0 dev release? The full guide's [Renamed in 2.0.0-dev.4
 
 These wait on `just_physics_engine` and `just_audio_engine`. The fields involved are saved as usual, so scenes need no change when the limits lift.
 
-- **Joint anchors.** `anchor` and `connectedAnchor` of `DistanceJoint2DComponent` and `FixedJoint2DComponent` are not passed to the physics engine. A wheel joint's axle anchor is honoured on native Box2D only.
-- **`collideConnected`.** Jointed bodies with it off send no contact events between them, but on the pure-Dart backend (the web) they still push each other apart.
 - **Queries on native Box2D** skip bodies whose collision mask is 0; the Dart backend finds them.
-- **3-D collision layers.** Which layers a 3-D world keeps apart is fixed when the world is made: a collision grid changed while a 3-D scene plays reaches the next world.
-- **Stream channels.** An `AudioStreamComponent`'s channel volume does not apply to the stream, and a playing sound's pitch, pan, speed and loop cannot change.
+- **Playing sounds.** A playing sound's pitch, pan, speed and loop cannot change until it plays again.
 
 ## Saved data
 

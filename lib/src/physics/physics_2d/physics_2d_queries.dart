@@ -7,7 +7,6 @@ import 'dart:ui';
 import 'package:just_physics_engine/just_physics_engine.dart';
 
 import '../../ecs/ecs.dart';
-import 'collider_2d_geometry.dart';
 import 'physics_2d_system.dart';
 
 /// What a 2-D query hit.
@@ -191,7 +190,7 @@ final class Physics2DQueries {
 
   /// Whether a shape of [body]'s overlaps (or touches) [box].
   static bool _overlaps(Physics2DBody body, Shape2DProxy box) {
-    for (final proxy in Collider2DGeometry.proxiesOf(body)) {
+    for (final proxy in body.proxies()) {
       final d = Shape2DDistance.between(proxy, box);
       if (d.overlaps || d.distance <= proxy.radius) return true;
     }

@@ -2,7 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart' show AssetBundle, AssetManifest;
-import 'package:just_dart/just_dart.dart' show Aabb3, JustMatrix4, Vector3;
+import 'package:just_dart/just_dart.dart'
+    show Aabb3, Matrix4Transforms, Vector3;
 import 'package:just_graphics_engine/assets.dart';
 import 'package:just_graphics_engine/renderer.dart';
 import 'package:meta/meta.dart' show internal;

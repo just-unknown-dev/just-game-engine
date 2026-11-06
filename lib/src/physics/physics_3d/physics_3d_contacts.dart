@@ -18,8 +18,8 @@ import 'physics_3d_events.dart';
 /// ([CollisionStay3DEvent]) is the world's own, sent each step while
 /// `Physics3D.reportContactStay` asks the world for them, where the 2-D
 /// system makes its stays itself; and jointed bodies send their contacts
-/// like any others, because Jolt lets jointed bodies collide, where the
-/// 2-D system quiets the pairs a joint holds (Box2D keeps them apart).
+/// like any others, because Jolt lets jointed bodies collide, where a 2-D
+/// joint keeps its bodies apart unless its `collideConnected` is on.
 @internal
 final class Physics3DContacts {
   /// Contacts in the world [physics] gives, named by [entities].
@@ -35,6 +35,10 @@ final class Physics3DContacts {
   final bool Function(Entity entity) isSensor;
 
   final ContactPairs<int> _pairs = ContactPairs();
+
+  // The world's events, read into one buffer kept between updates: no
+  // object per event, only for the events gameplay is sent.
+  final Physics3DEvents _events = Physics3DEvents();
 
   /// [body]'s contacts end: with no exit when it is gone for good (its
   /// entity destroyed, switched off or without its collider, as Unity
@@ -55,55 +59,57 @@ final class Physics3DContacts {
   /// Sends the world's events since the last update to [bus]; after a step
   /// ([stepped]), also the exits of pairs a body made again left apart.
   void dispatch(EventBus bus, {required bool stepped}) {
-    final events = _physics().drainEvents();
-    for (final e in events) {
-      switch (e.type) {
+    final events = _events;
+    _physics().readEvents(events);
+    for (var i = 0; i < events.count; i++) {
+      final bodyA = events.bodyAOf(i), bodyB = events.bodyBOf(i);
+      switch (events.typeOf(i)) {
         case Physics3DEventType.contactBegin:
-          final a = entities[e.bodyA];
-          final b = entities[e.bodyB];
+          final a = entities[bodyA];
+          final b = entities[bodyB];
           if (a == null || b == null) continue; // Not a body it made.
-          final contact = _pairs.begin(e.bodyA, e.bodyB, a, b, sensor: false);
+          final contact = _pairs.begin(bodyA, bodyB, a, b, sensor: false);
           if (contact == null || !contact.enters) continue;
           bus.fire(
             CollisionEnter3DEvent(
               entityA: a,
               entityB: b,
-              point: e.point,
-              normal: e.normal,
-              depth: e.depth,
+              point: _pointOf(i),
+              normal: _normalOf(i),
+              depth: events.depthOf(i),
             ),
           );
         case Physics3DEventType.contactStay:
-          final a = entities[e.bodyA];
-          final b = entities[e.bodyB];
+          final a = entities[bodyA];
+          final b = entities[bodyB];
           if (a == null || b == null) continue;
           bus.fire(
             CollisionStay3DEvent(
               entityA: a,
               entityB: b,
-              point: e.point,
-              normal: e.normal,
-              depth: e.depth,
+              point: _pointOf(i),
+              normal: _normalOf(i),
+              depth: events.depthOf(i),
             ),
           );
         case Physics3DEventType.contactEnd:
           // Known by its bodies: a body destroyed since is ended already.
-          final contact = _pairs.end(e.bodyA, e.bodyB, sensor: false);
+          final contact = _pairs.end(bodyA, bodyB, sensor: false);
           if (contact == null || !contact.exits) continue;
           final pair = contact.entities;
           bus.fire(CollisionExit3DEvent(entityA: pair.a, entityB: pair.b));
         case Physics3DEventType.sensorBegin:
-          final a = entities[e.bodyA];
-          final b = entities[e.bodyB];
+          final a = entities[bodyA];
+          final b = entities[bodyB];
           if (a == null || b == null) continue;
           final (sensor, other) = _sensorFirst(a, b);
           final contact = identical(sensor, a)
-              ? _pairs.begin(e.bodyA, e.bodyB, a, b, sensor: true)
-              : _pairs.begin(e.bodyB, e.bodyA, b, a, sensor: true);
+              ? _pairs.begin(bodyA, bodyB, a, b, sensor: true)
+              : _pairs.begin(bodyB, bodyA, b, a, sensor: true);
           if (contact == null || !contact.enters) continue;
           bus.fire(SensorEnter3DEvent(sensor: sensor, other: other));
         case Physics3DEventType.sensorEnd:
-          final contact = _pairs.end(e.bodyA, e.bodyB, sensor: true);
+          final contact = _pairs.end(bodyA, bodyB, sensor: true);
           if (contact == null || !contact.exits) continue;
           final pair = contact.entities;
           bus.fire(SensorExit3DEvent(sensor: pair.a, other: pair.b));
@@ -124,6 +130,20 @@ final class Physics3DContacts {
             : CollisionExit3DEvent(entityA: a, entityB: b),
       );
     }
+  }
+
+  /// The [i]th event's point, as the event sent keeps it.
+  Vector3 _pointOf(int i) {
+    final v = Vector3.zero();
+    _events.pointInto(i, v);
+    return v;
+  }
+
+  /// The [i]th event's normal, as the event sent keeps it.
+  Vector3 _normalOf(int i) {
+    final v = Vector3.zero();
+    _events.normalInto(i, v);
+    return v;
   }
 
   (Entity, Entity) _sensorFirst(Entity a, Entity b) =>

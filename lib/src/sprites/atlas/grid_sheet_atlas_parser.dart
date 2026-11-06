@@ -37,7 +37,7 @@ class GridSheetAtlasParser extends AtlasParser {
   }
 
   @override
-  Future<SpriteAtlas> parse(Map<String, dynamic> json, String basePath) async {
+  SpriteAtlas parse(Map<String, dynamic> json, String basePath) {
     final meta = (json['meta'] as Map).cast<String, dynamic>();
     final width = (meta['frameWidth'] as num).toDouble();
     final height = (meta['frameHeight'] as num).toDouble();

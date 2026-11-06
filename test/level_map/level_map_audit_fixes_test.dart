@@ -27,7 +27,7 @@ void main() {
 
   test('an image layer carries its groups\' look', () async {
     final result = TiledInterop.importMap(
-      await tiled.TileMapParser.parse(_imageInHiddenGroup),
+      await tiled.TmxParser.parse(_imageInHiddenGroup),
       tilesetPath: (i, _) => 'set#$i',
       imagePath: (_) => 'set.png',
     );

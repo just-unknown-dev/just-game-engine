@@ -134,7 +134,7 @@ final engine = Engine(
 - `type` is the string written to scenes. Renaming it orphans saved levels; list old names in `aliases` instead.
 - `create` makes a component with default values, which loading then overwrites field by field.
 - Each `FieldDefinition` has a `name` (the JSON key, also stable), a `kind`, a `read` and a `write`. `min` and `max` clamp numbers as they load. A field with no `write` is saved but never restored.
-- `FieldTypes` holds the kinds: `boolean`, `integer`, `decimal`, `text`, `assetRef`, `entityRef`, `tagRef`, `tagList`, `spawnerRef`, `target`, `enumeration`, `list`, `map`, `vector2`, `vector3`, `euler`, `color`, `offset`, `shapePaintStyle` and more.
+- `FieldTypes` holds the kinds: `boolean`, `integer`, `decimal`, `text`, `assetRef`, `entityRef`, `tagRef`, `tagList`, `spawnerRef`, `target`, `enumeration`, `list`, `map`, `vector2`, `vector3`, `euler`, `color`, `offset`, `shapePaintStyle` and more. A feature's own kinds live with its definitions: a field that holds an input action's name is `InputDefinitions.actionType` (several: `actionListType`), saved as text all the same, so the editor offers the project's actions for it and the Input Actions editor finds it when an action is renamed.
 - `ComponentDefinition.extend(base, ...)` defines a subclass of an engine component, keeping the base's fields and adding yours.
 - `hints` (`ComponentHints`, `FieldHint`) only shape how an editor's inspector shows the component.
 
@@ -144,7 +144,7 @@ final engine = Engine(
 
 Every scene carries a `version`. `SceneFormat.current` is the newest format the engine knows: 11, where every component's name ends in `Component`; 10 in 2.0.0-dev.2 and dev.3, which added prefab instances; and 9 in 2.0.0-dev.1. A file at an older version is migrated in memory as it loads; the file on disk is never rewritten. Pass `onMigrated` to hear about it: the `SceneMigrationResult` has `fromVersion` and `notes` worth showing a developer.
 
-A package adds its own rules to the engine's migration steps through `context.migrations` (a `MigrationHooks`), usually from its extension. Those rules run as part of the engine's steps, so they only apply to files saved at an older format.
+A package adds its own rules to the engine's migration steps through `context.migrations` (a `MigrationHooks`), usually from its extension. Those rules run as part of the engine's steps, so they only apply to files saved at an older format. The exception is a package's renamed components and fields (`renamedTypes`, `renamedFields`): they are renamed at every load, whatever the file's format, so a package can rename a saved component at any time. `onMigrated` hears about that too.
 
 ## When a scene does not load
 

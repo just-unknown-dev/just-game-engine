@@ -6,6 +6,8 @@ export 'physics_layers.dart';
 export 'package:just_physics_engine/just_physics_engine.dart'
     show
         Physics2DEngine,
+        // The platform's 2-D engine: PhysicsEngineFactory.create2D().
+        PhysicsEngineFactory,
         Box2DPhysicsEngine,
         Physics2DBody,
         Shape2D,

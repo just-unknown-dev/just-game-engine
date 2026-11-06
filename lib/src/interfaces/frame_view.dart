@@ -17,7 +17,7 @@ import 'camera_lens.dart';
 /// [RenderingEngine] fills it at most once a frame, and only when something
 /// reads it (`RenderingEngine.view`).
 ///
-/// Matrices follow the engine's conventions (see `JustMatrix4`): world axes
+/// Matrices follow the engine's conventions (see `Matrix4Transforms`): world axes
 /// +X right, +Y down, +Z forward; clip space x, y in −1..1 with y down,
 /// depth 0..1.
 class FrameView {

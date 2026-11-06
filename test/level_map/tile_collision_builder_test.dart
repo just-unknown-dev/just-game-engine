@@ -1,5 +1,6 @@
 // A layer's collision as bodies: whole-cell ground merged into long boxes,
-// everything else convex polygons small enough for Box2D.
+// ramps joined with the ground beneath and beyond them into one convex
+// polygon each, everything else convex polygons small enough for Box2D.
 
 import 'dart:ui';
 
@@ -243,6 +244,210 @@ void main() {
     });
   });
 
+  group('ramps', () {
+    test('a ramp, the ground beneath it and the level ground at its top '
+        'are one convex polygon', () {
+      final bodies = _ramps([
+        '.........',
+        '...../###',
+        '..../####',
+        '.../#####',
+        '#########',
+        '#########',
+      ]);
+      expect(bodies, hasLength(2));
+      final ramp = bodies.singleWhere((b) => !b.isBox);
+      expect(_points(ramp), {
+        const Offset(96, 128),
+        const Offset(192, 32),
+        const Offset(288, 32),
+        const Offset(288, 128),
+      });
+      expect(
+        ramp.cells.first,
+        const TileCoord(3, 3),
+        reason: 'its first slope',
+      );
+      expect(ramp.cells, hasLength(15));
+      expect(ramp.cells.toSet(), hasLength(15));
+      final floor = bodies.singleWhere((b) => b.isBox);
+      expect(floor.bounds, const Rect.fromLTWH(0, 128, 288, 64));
+      expect(floor.cells, hasLength(18));
+      expect(_area(bodies), closeTo(32 * 32 * (15 + 18 - 1.5), 1e-6));
+    });
+
+    test(
+      'a run ends at each foot: down to the floor, and up the next rise',
+      () {
+        final bodies = _ramps([
+          r'##\......./#',
+          r'###\...../##',
+          '############',
+        ]);
+        final ramps = bodies.where((b) => !b.isBox).toList();
+        expect(ramps.map(_points).toSet(), {
+          {
+            const Offset(0, 64),
+            const Offset(0, 0),
+            const Offset(64, 0),
+            const Offset(128, 64),
+          },
+          {
+            const Offset(288, 64),
+            const Offset(352, 0),
+            const Offset(384, 0),
+            const Offset(384, 64),
+          },
+        });
+        expect(bodies.where((b) => b.isBox).map((b) => b.bounds), [
+          const Rect.fromLTWH(0, 64, 384, 32),
+        ]);
+        expect(
+          _area(bodies),
+          closeTo(32 * 32 * (2 + 3 + 0.5 + 0.5 + 12 + 4), 1e-6),
+        );
+      },
+    );
+
+    test('a ramp onto level ground a thousand tiles long is one polygon', () {
+      final long = '#' * 1000;
+      final bodies = _ramps(['./$long', '##$long']);
+      expect(_points(bodies.singleWhere((b) => !b.isBox)), {
+        const Offset(32, 32),
+        const Offset(64, 0),
+        const Offset(32064, 0),
+        const Offset(32064, 32),
+      });
+      expect(bodies.where((b) => b.isBox), hasLength(1));
+    });
+
+    test('22.5° slopes in pairs are one straight line', () {
+      final bodies = _ramps(['ab#', '###']);
+      final ramp = bodies.singleWhere((b) => !b.isBox);
+      expect(_points(ramp), {
+        const Offset(0, 32),
+        const Offset(64, 0),
+        const Offset(96, 0),
+        const Offset(96, 32),
+      });
+    });
+
+    test(
+      'a run stops at a wall, and where the ground beneath it gives out',
+      () {
+        final wall = _ramps(['..#', './#', '###']);
+        expect(_points(wall.singleWhere((b) => !b.isBox)), {
+          const Offset(32, 64),
+          const Offset(64, 32),
+          const Offset(64, 64),
+        });
+        expect(wall.where((b) => b.isBox).map((b) => b.bounds).toSet(), {
+          const Rect.fromLTWH(64, 0, 32, 64),
+          const Rect.fromLTWH(0, 64, 96, 32),
+        });
+
+        final ledge = _ramps(['../###', './##..', '######']);
+        expect(_points(ledge.singleWhere((b) => !b.isBox)), {
+          const Offset(32, 64),
+          const Offset(96, 0),
+          const Offset(128, 0),
+          const Offset(128, 64),
+        });
+        expect(
+          ledge.where((b) => b.isBox).map((b) => b.bounds),
+          containsAll([const Rect.fromLTWH(128, 0, 64, 32)]),
+        );
+      },
+    );
+
+    test('ceiling slopes, and slopes of a kind merged by rows, stay apart', () {
+      final ceiling = _ramps(['#v', '##']);
+      expect(ceiling.where((b) => !b.isBox).single.polygon, hasLength(3));
+
+      final oneWay = TilesetData(
+        name: 'w',
+        tileWidth: 16,
+        tileHeight: 16,
+        columns: 2,
+        tileCount: 2,
+      );
+      oneWay.tileOrNew(0).collision = TileCollision.full(
+        16,
+        16,
+        kind: 'oneWay',
+      );
+      oneWay.tileOrNew(1).collision = TileCollision(
+        kind: 'oneWay',
+        shapes: [
+          const TilePolygonShape([
+            Offset(0, 16),
+            Offset(16, 0),
+            Offset(16, 16),
+          ]),
+        ],
+      );
+      final cells = TileChunkStore()
+        ..setCell(0, 1, TileCell.make(0, 1))
+        ..setCell(1, 0, TileCell.make(0, 1))
+        ..setCell(1, 1, TileCell.make(0, 0))
+        ..setCell(2, 0, TileCell.make(0, 0))
+        ..setCell(2, 1, TileCell.make(0, 0));
+      final bodies = TileCollisionBuilder.build(
+        cells: cells,
+        geometry: MapGeometry(tileWidth: 16, tileHeight: 16),
+        tilesetAt: (_) => oneWay,
+      );
+      final slopes = bodies.where((b) => !b.isBox).toList();
+      expect(slopes, hasLength(2));
+      for (final s in slopes) {
+        expect(s.polygon, hasLength(3));
+        expect(s.cells, hasLength(1));
+      }
+    });
+
+    for (final (backend, make) in [
+      ('native Box2D', PhysicsEngineFactory.create2D),
+      ('pure Dart', Physics2DEngine.pureDart),
+    ]) {
+      group('on $backend, a sharp 32 × 48 box', () {
+        test('runs down off the level ground over the crest, and on along '
+            'the floor, without catching', () {
+          final run = _slide(
+            make,
+            [
+              r'######\.........',
+              r'#######\........',
+              r'########\.......',
+              r'#########\......',
+              '################',
+            ],
+            from: 3,
+            toward: 14,
+          );
+          expect(run.past, isTrue, reason: '$run');
+          expect(run.stalled, 0, reason: '$run');
+        });
+
+        test('and the same the other way', () {
+          final run = _slide(
+            make,
+            [
+              '........./######',
+              '......../#######',
+              '......./########',
+              '....../#########',
+              '################',
+            ],
+            from: 12,
+            toward: 1,
+          );
+          expect(run.past, isTrue, reason: '$run');
+          expect(run.stalled, 0, reason: '$run');
+        });
+      });
+    }
+  });
+
   test('merging cells: rows, then stacks of the same span', () {
     final cells = {
       for (var x = 0; x < 3; x++) ...[TileCoord(x, 0), TileCoord(x, 1)],
@@ -257,6 +462,121 @@ void main() {
       hasLength(7),
     );
   });
+}
+
+/// The basic shapes' tiles a ramp map is drawn with: a block, the 45° floor
+/// slopes rising and falling to the right, a 45° ceiling slope, and the two
+/// halves of a 22.5° rise.
+const _rampTiles = {'#': 0, '/': 8, r'\': 9, 'v': 10, 'a': 12, 'b': 13};
+
+TileChunkStore _rampCells(List<String> rows) {
+  final cells = TileChunkStore();
+  for (var y = 0; y < rows.length; y++) {
+    for (var x = 0; x < rows[y].length; x++) {
+      final id = _rampTiles[rows[y][x]];
+      if (id != null) cells.setCell(x, y, TileCell.make(0, id));
+    }
+  }
+  return cells;
+}
+
+/// [rows] drawn with the basic shapes (32 px tiles) as bodies.
+List<MapBodySpec> _ramps(List<String> rows) {
+  final ts = BuiltInTilesets.build(BuiltInTilesets.basicShapes)!;
+  return TileCollisionBuilder.build(
+    cells: _rampCells(rows),
+    geometry: MapGeometry(tileWidth: 32, tileHeight: 32),
+    tilesetAt: (slot) => slot == 0 ? ts : null,
+  );
+}
+
+/// [body]'s polygon's points, map-local.
+Set<Offset> _points(MapBodySpec body) => {
+  for (final p in body.polygon!) p + body.center,
+};
+
+/// How much of the map [bodies] cover.
+double _area(List<MapBodySpec> bodies) {
+  var area = 0.0;
+  for (final b in bodies) {
+    area += b.isBox
+        ? b.size!.width * b.size!.height
+        : PolygonDecompose.signedArea2(
+                PolygonDecompose.clean(b.polygon!),
+              ).abs() /
+              2;
+  }
+  return area;
+}
+
+/// A sharp 32 × 48 box on [rows] (the basic shapes, 32 px tiles) driven
+/// from the top of column [from] toward column [toward] as a platformer
+/// drives its player — 300 px/s along, held down at 300 px/s — under the
+/// platformer template's gravity. Whether it gets past [toward]'s middle
+/// within two seconds, and how many steps it moved less than half a pixel.
+({bool past, int stalled}) _slide(
+  Physics2DEngine Function() make,
+  List<String> rows, {
+  required int from,
+  required int toward,
+}) {
+  final physics = make()
+    ..initialize()
+    ..setGravity(0, 2200);
+  final world = World()..initialize();
+  addTearDown(() {
+    world.dispose();
+    physics.dispose();
+  });
+  world.context.tiles.putTileset(
+    'ramps.tileset.json',
+    BuiltInTilesets.build(BuiltInTilesets.basicShapes)!,
+  );
+  world.addSystem(Physics2DSystem(physics));
+  registerLevelMapSystems(world);
+  final data = LevelMapData(tileWidth: 32, tileHeight: 32)
+    ..addTileset('ramps.tileset.json');
+  final layer = data.addLayer(name: 'Ground')..collides = true;
+  for (final (x, y, cell) in _rampCells(rows).cells) {
+    layer.cells.setCell(x, y, cell);
+  }
+  world.createEntityWithComponents([
+    TransformComponent(),
+    LevelMapComponent(inline: data),
+  ]);
+  var top = 0;
+  while (rows[top][from] == '.') {
+    top++;
+  }
+  final box = world.createEntityWithComponents([
+    TransformComponent(position: Vector3(from * 32 + 16, top * 32 - 24.5, 0)),
+    VelocityComponent(),
+    RigidBody2DComponent(
+      mass: 1,
+      friction: 0.2,
+      restitution: 0,
+      lockRotation: true,
+    ),
+    Collider2DComponent(size: Vector2(32, 48)),
+  ]);
+  final velocity = box.getComponent<VelocityComponent>()!.velocity;
+  final at = box.getComponent<TransformComponent>()!.position;
+  for (var i = 0; i < 30; i++) {
+    world.update(1 / 60);
+  }
+  final dir = toward > from ? 1.0 : -1.0;
+  final goal = toward * 32 + 16.0;
+  var stalled = 0;
+  for (var i = 0; i < 120; i++) {
+    if (dir > 0 ? at.x >= goal : at.x <= goal) {
+      return (past: true, stalled: stalled);
+    }
+    final x = at.x;
+    velocity.setValues(300 * dir, 300, 0);
+    world.update(1 / 60);
+    if ((at.x - x).abs() < 0.5) stalled++;
+  }
+  return (past: false, stalled: stalled);
 }
 
 double _cos(double degrees) => _trig(degrees, true);

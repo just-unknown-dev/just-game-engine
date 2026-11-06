@@ -10,6 +10,12 @@ import 'package:just_game_engine/just_game_engine.dart';
 
 /// Records the voices streams make; [failLoads] makes every load throw.
 class _Backend implements AudioBackend {
+  @override
+  Future<bool> initialize() async => true;
+
+  @override
+  Stream<String> get voiceEndedStream => const Stream.empty();
+
   final List<String> log = [];
   bool failLoads = false;
   int _voices = 0;
@@ -28,7 +34,6 @@ class _Backend implements AudioBackend {
     double pan = 0.0,
     double pitch = 1.0,
     double speed = 1.0,
-    String busName = 'sfx',
     bool spatial = false,
     double lowPass = 0,
   }) async {
@@ -74,8 +79,8 @@ class _Audio extends AudioEngine {
     double pitch = 1.0,
     double speed = 1.0,
     List<AudioEffect> effects = const [],
-    Audio3DPosition? position3d,
-    AudioSpatial spatial = const AudioSpatial(),
+    Audio3DPosition? position3D,
+    Audio3DSettings settings3D = const Audio3DSettings(),
     AudioChannel channel = AudioChannel.sfx,
   }) async {
     final id = 'sfx-${++_played}';

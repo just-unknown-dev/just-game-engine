@@ -282,65 +282,7 @@ abstract final class Collider2DGeometry {
   }
 
   /// [shape]'s bounds in its body's space.
-  static Rect boundsOf(Shape2D shape) => shape.getBounds(Offset.zero);
-
-  /// [body]'s shapes as the distance and cast tests see them — convex
-  /// cores with a radius, in the world, turned with the body and moved by
-  /// [shift]: a circle as one point, a capsule or segment as two, a polygon
-  /// as its corners, a chain as one piece per link. As the physics engine's
-  /// own overlap and cast queries take them.
-  static List<Shape2DProxy> proxiesOf(
-    Physics2DBody body, {
-    Offset shift = Offset.zero,
-  }) {
-    final c = math.cos(body.angle), s = math.sin(body.angle);
-    final px = body.position.x + shift.dx, py = body.position.y + shift.dy;
-    Offset at(Offset p) =>
-        Offset(c * p.dx - s * p.dy + px, s * p.dx + c * p.dy + py);
-    final out = <Shape2DProxy>[];
-    void add(Shape2D shape) {
-      switch (shape) {
-        case Circle2DShape():
-          out.add(Shape2DProxy([at(shape.center)], shape.radius));
-        case Capsule2DShape():
-          out.add(
-            Shape2DProxy([at(shape.center1), at(shape.center2)], shape.radius),
-          );
-        case RoundedPolygon2DShape():
-          out.add(
-            Shape2DProxy([
-              for (final v in shape.vertices) at(v),
-            ], shape.cornerRadius),
-          );
-        case Polygon2DShape():
-          if (shape.vertices.isNotEmpty) {
-            out.add(Shape2DProxy([for (final v in shape.vertices) at(v)], 0));
-          }
-        case Segment2DShape():
-          out.add(
-            Shape2DProxy([at(shape.point1), at(shape.point2)], shape.thickness),
-          );
-        case Chain2DShape():
-          final v = shape.vertices;
-          if (v.length < 2) break;
-          final n = shape.loop && v.length > 2 ? v.length : v.length - 1;
-          for (var i = 0; i < n; i++) {
-            out.add(
-              Shape2DProxy([
-                at(v[i]),
-                at(v[(i + 1) % v.length]),
-              ], shape.thickness),
-            );
-          }
-        default:
-          break;
-      }
-    }
-
-    add(body.shape);
-    body.additionalShapes.forEach(add);
-    return out;
-  }
+  static Rect boundsOf(Shape2D shape) => shape.boundsAt(Offset.zero);
 
   /// The mass, in kg, of a square unit of a body whose own mass is 0: water
   /// 1 m (100 units) deep, as a 3-D body is worked out from its volume. A
@@ -357,7 +299,7 @@ abstract final class Collider2DGeometry {
     if (rigid.mass > 0) return rigid.mass;
     var area = shape.area;
     if (!(area > 0)) {
-      final bounds = shape.getBounds(Offset.zero);
+      final bounds = shape.boundsAt(Offset.zero);
       area = math.max(bounds.width, 1.0) * math.max(bounds.height, 1.0);
     }
     return area * autoMassPerSquareUnit;
@@ -382,11 +324,11 @@ abstract final class Collider2DGeometry {
         0.5 * s.radius * s.radius +
             s.center.dx * s.center.dx +
             s.center.dy * s.center.dy,
-      RoundedPolygon2DShape s => box(s.getBounds(Offset.zero)),
+      RoundedPolygon2DShape s => box(s.boundsAt(Offset.zero)),
       Polygon2DShape s =>
-        _polygonInertia(s.vertices) ?? box(s.getBounds(Offset.zero)),
+        _polygonInertia(s.vertices) ?? box(s.boundsAt(Offset.zero)),
       Capsule2DShape s => _capsuleInertia(s.center1, s.center2, s.radius),
-      _ => box(shape.getBounds(Offset.zero), least: 1),
+      _ => box(shape.boundsAt(Offset.zero), least: 1),
     };
     return mass * perMass;
   }

@@ -6,9 +6,16 @@ There are two ways in. A new project made with the `just` command-line tool come
 
 ## Requirements
 
-- **Flutter 3.47.1 or newer.** It is the first stable release where Flutter GPU can be switched on in Windows and Linux release builds, which the 3D renderer needs. Every app builds the renderer's shaders; a 2D game never loads them.
+- **Flutter 3.47 (3.47.1 or newer).** 3.47.1 is the first stable release where Flutter GPU can be switched on in Windows and Linux release builds, which the 3D renderer needs, and this engine release is made for the 3.47 series (see "Flutter versions" below). Every app builds the renderer's shaders; a 2D game never loads them.
 - **A desktop for the editor.** The editor runs in a debug build on Windows, macOS or Linux.
 - **Linux builds** also need what the audio plugin links: OpenAL Soft and libsndfile (`sudo apt install libopenal-dev libsndfile1-dev` on Debian and Ubuntu). Players need `libopenal1` and `libsndfile1`.
+
+## Flutter versions
+
+The 3D renderer draws with Flutter GPU, a Flutter preview whose API changes between Flutter minor releases. So each release is made for one Flutter minor series: `just_game_engine` 2.0.x and `just_graphics_engine` 0.2.x are made for Flutter 3.47 (3.47.1 or newer; tested on 3.47.9). `just_graphics_engine` keeps Flutter GPU behind its own API, so a change in Flutter GPU stays inside it, and a Flutter that changes Flutter GPU gets a release made for it.
+
+- **A game made with `just`** gets the right Flutter without asking. Its `just.json` pins the exact version (`"flutter": "3.47.9"`) and its pubspec gets the range below. `just` finds that Flutter on your machine or installs it (`just sdk install`, into `~/.just/flutter/<version>`); run it with `just flutter ...` and `just dart ...`.
+- **Any other app** pins Flutter in its own pubspec, as Path 2 shows: `flutter: ">=3.47.1 <3.48.0"`. Pub enforces this range for the app's own pubspec (when its `sdk` lower bound is 3.9 or newer), but ignores a Flutter upper bound in a package's pubspec, so the engine cannot keep a newer Flutter out by itself.
 
 ## Path 1: a new game with the CLI
 
@@ -22,7 +29,7 @@ just game run            # the game
 just game run --editor   # the game with the level editor (desktop, debug)
 ```
 
-`just create` runs `flutter create`, writes `just.json`, and adds `just_core_cli` and `just_game_engine_cli` to the dev dependencies. It then hands the folder to the game plugin, which lays the game template over it on engine versions that work together, writes the first level (`level_01`), and adds the editor (`just_game_engine_editor`, with `just_asset_store`) from pub.dev as dev dependencies. Plugins and kits come later, from the editor's Asset Store. If a step fails, `just create` deletes the folder it made (or empties the empty folder you gave it).
+`just create` runs `flutter create` with the Flutter the engine release is made for (installing it when you say so), writes `just.json`, and adds `just_core_cli` and `just_game_engine_cli` to the dev dependencies. It then hands the folder to the game plugin, which lays the game template over it on engine versions that work together, writes the first level (`level_01`), and adds the editor (`just_game_engine_editor`, with `just_asset_store`) from pub.dev as dev dependencies. Plugins and kits come later, from the editor's Asset Store. If a step fails, `just create` deletes the folder it made (or empties the empty folder you gave it).
 
 | Path | What it holds |
 |---|---|
@@ -31,7 +38,7 @@ just game run --editor   # the game with the level editor (desktop, debug)
 | `lib/game/` | The game: its boot, systems and spawners. |
 | `lib/editor/` | What the editor needs from the game. It never ships. |
 | `assets/scenes/` | The levels, as the JSON the editor saves. |
-| `just.json` | The project's title and the tool set it is on. |
+| `just.json` | The project's title, the tool set it is on and the exact Flutter it is built with. |
 
 `just game run` runs `flutter run` on `lib/main.dart`; with `--editor` it runs `lib/main_editor.dart` on this desktop. If `just` is already another program on your machine (such as the `just` command runner), type `ju` instead: it is the same tool. [The just CLI](/docs/cli) covers every command and option.
 
@@ -42,7 +49,7 @@ Add the engine to `pubspec.yaml`, list the asset folders your game loads from, a
 ```yaml pubspec.yaml
 environment:
   sdk: ^3.11.0
-  flutter: ">=3.47.1"
+  flutter: ">=3.47.1 <3.48.0"
 
 dependencies:
   flutter:
@@ -51,7 +58,7 @@ dependencies:
   # flutter_web_plugins; depending on it here keeps web builds compiling.
   flutter_web_plugins:
     sdk: flutter
-  just_game_engine: ^2.0.0-dev.4
+  just_game_engine: ^2.0.0
 
 flutter:
   assets:
@@ -64,7 +71,7 @@ flutter:
 
 List only folders and files that exist: Flutter stops the build on an asset entry it cannot find. A new app has none of these yet, so add each folder as you create it, and `assets/project/physics.json` once the editor has written it.
 
-> **Warning:** Write the dev release into the constraint. `^2.0.0` alone does not pick up dev releases, so it will not find 2.0.0-dev.4.
+> **Warning:** Keep the upper bound in the `flutter` range. Pub ignores a Flutter upper bound in the packages an app depends on, so without it a newer Flutter, whose Flutter GPU may have changed, would build your game. See "Flutter versions" above.
 
 One import gives you the engine: `package:just_game_engine/just_game_engine.dart`. The ready-made widgets (dialogue boxes, on-screen controls, rebinding lists) are in `package:just_game_engine/widgets.dart`; import it only if you use them.
 

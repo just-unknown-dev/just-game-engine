@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:just_physics_engine/physics_3d.dart';
 
 import '../../ecs/ecs.dart';
+import '../physics_context.dart';
+import '../physics_layers.dart';
 import 'collider_3d_shapes.dart';
 import 'physics_3d_bodies.dart';
 import 'physics_3d_characters.dart';
@@ -33,11 +35,11 @@ import 'physics_3d_joints.dart';
 /// control. Taking it out of its world or disposing it removes everything
 /// it made from [physics]; the world itself belongs to whoever made it.
 ///
-/// The collision layers a world keeps apart are fixed when it is made
-/// ([Physics3DWorldSettings.layerMasks]): just_physics_engine 2.0.0's
-/// [Physics3DWorld] cannot change them later, so a grid edited while a 3-D
-/// scene plays (`EngineContext.physicsLayers`) reaches the next world made,
-/// not this one. A body's own layer can change at any time.
+/// The collision layers a world keeps apart start as it was made
+/// ([Physics3DWorldSettings.layerMasks]). A grid edited while a 3-D scene
+/// plays (`EngineContext.physicsLayers` set to a new one) reaches the
+/// running world at the next update ([Physics3DWorld.setLayerMasks]). A
+/// body's own layer can change at any time.
 class Physics3DSystem extends System {
   /// A system stepping [physics]; mesh and hull colliders take their
   /// triangles from [geometry].
@@ -119,6 +121,10 @@ class Physics3DSystem extends System {
   int _seenStructureVersion = -1;
   int _stepIndex = 0;
 
+  // The project's collision grid as last looked at: a set of layers is
+  // immutable, so an edit is a new object. Null before the first look.
+  PhysicsLayers? _seenLayers;
+
   /// The entity whose body, or character's body, [body] is; null for one
   /// this system did not make.
   Entity? entityOf(int body) => _entityByBody[body];
@@ -142,6 +148,7 @@ class Physics3DSystem extends System {
     _refresh();
     // Nothing 3-D yet: no world to make, step or read.
     if (_physics == null && _bodies.isEmpty && _characters.isEmpty) return;
+    _followLayers();
     _bodies.sync(deltaTime);
     _joints.sync(world);
     if (deltaTime > 0) _characters.move(deltaTime);
@@ -186,6 +193,21 @@ class Physics3DSystem extends System {
     return version;
   }
 
+  /// Gives the world the project's collision grid when it changed since the
+  /// last look. The first look only notes it: the world was made with a
+  /// grid of its own (the project's, for `Physics3D`'s). Nothing is made
+  /// while it is unchanged.
+  void _followLayers() {
+    final layers = world.context.physicsLayers;
+    final seen = _seenLayers;
+    if (identical(layers, seen)) return;
+    _seenLayers = layers;
+    if (seen == null) return;
+    physics.setLayerMasks([
+      for (var i = 0; i < PhysicsLayers.count; i++) layers.maskOf(i),
+    ]);
+  }
+
   /// Brings the links up to date when what they are made from changed.
   void _refresh() {
     final version = _linksVersion();
@@ -205,5 +227,6 @@ class Physics3DSystem extends System {
     _entityByBody.clear();
     _contacts.clear();
     _seenStructureVersion = -1;
+    _seenLayers = null;
   }
 }

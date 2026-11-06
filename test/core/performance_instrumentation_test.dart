@@ -21,7 +21,7 @@ void main() {
     });
 
     test('physics stats expose last simulation step counters', () {
-      final physics = Physics2DEngine();
+      final physics = PhysicsEngineFactory.create2D();
       physics.initialize();
 
       physics.update(1 / 60);

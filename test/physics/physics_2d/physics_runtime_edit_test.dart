@@ -12,7 +12,7 @@ void main() {
   late World world;
 
   setUp(() {
-    physics = Physics2DEngine()..initialize();
+    physics = PhysicsEngineFactory.create2D()..initialize();
     physics.setGravity(0, 2200);
     world = World()..initialize();
     world.addSystem(Physics2DSystem(physics));
@@ -71,9 +71,39 @@ void main() {
     expect(run(ballEntity, 60), closeTo(-40, 1));
   });
 
+  test(
+    'locking a live body\'s rotation keeps the body and stops it turning',
+    () {
+      final spinner = world.createEntityWithComponents([
+        TransformComponent(position: Vector3(500, 0, 0)),
+        RigidBody2DComponent(
+          gravityScale: 0,
+          angularDamping: 0,
+          initialAngularVelocity: 3,
+        ),
+        Collider2DComponent(size: Vector2(20, 20)),
+      ], name: 'spinner');
+      final transform = spinner.getComponent<TransformComponent>()!;
+      run(spinner, 10);
+      final body = spinner.getComponent<Physics2DBodyRefComponent>()!.body;
+      expect(transform.angle, isNot(closeTo(0, 1e-3)), reason: 'it turns');
+
+      spinner.getComponent<RigidBody2DComponent>()!.lockRotation = true;
+      run(spinner, 2);
+      expect(
+        spinner.getComponent<Physics2DBodyRefComponent>()!.body,
+        same(body),
+        reason: 'not made again',
+      );
+      final locked = transform.angle;
+      run(spinner, 30);
+      expect(transform.angle, closeTo(locked, 1e-6));
+    },
+  );
+
   test('a solid body made after a sensor in a disposed world is solid', () {
     // A sensor in another world, gone before this one starts.
-    final other = Physics2DEngine()..initialize();
+    final other = PhysicsEngineFactory.create2D()..initialize();
     other.addBody(
       Physics2DBody(
         position: Vector2(0, 0),

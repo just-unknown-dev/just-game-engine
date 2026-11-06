@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_game_engine/just_game_engine.dart';
 
 final _backends = <String, Physics2DEngine Function()>{
-  'native': Physics2DEngine.new,
+  'native': PhysicsEngineFactory.create2D,
   'pure Dart': Physics2DEngine.pureDart,
 };
 

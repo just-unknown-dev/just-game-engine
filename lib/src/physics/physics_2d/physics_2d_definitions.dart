@@ -697,13 +697,51 @@ abstract final class Physics2DDefinitions {
     _b<T>('enabled', (c) => c.enabled, (c, v) => c.enabled = v),
   ];
 
-  // The anchors are saved on every joint but shown only where a backend
-  // takes them: just_physics_engine 2.0.0's distance, fixed and slider
-  // joints take none, and a wheel only its axle (see Physics2DJoints).
-  static const Map<String, FieldHint> _jointHints = {
+  // The anchors are saved on every joint and shown where the joint takes
+  // them (see Physics2DJoints): a distance joint both, a fixed joint its
+  // own, a slider and a wheel the other body's.
+  static const Map<String, FieldHint> _distanceJointHints = {
+    'connectedBody': _connectedBodyHint,
+    'anchor': FieldHint(
+      label: 'Anchor',
+      description:
+          'Where on this body the joint holds, in its own space: its '
+          'centre by default.',
+    ),
+    'connectedAnchor': FieldHint(
+      label: 'Other anchor',
+      description:
+          "Where on the other body it holds, in that body's space: its "
+          'centre by default.',
+    ),
+    'collideConnected': _collideConnectedHint,
+    'enabled': FieldHint(label: 'Enabled'),
+  };
+
+  /// A fixed joint's: it welds the bodies at its own anchor.
+  static const Map<String, FieldHint> _fixedJointHints = {
+    'connectedBody': _connectedBodyHint,
+    'anchor': FieldHint(
+      label: 'Anchor',
+      description:
+          'Where the bodies are welded, on this body in its own space: '
+          'its centre by default.',
+    ),
+    'connectedAnchor': FieldHint(label: 'Other anchor', visible: false),
+    'collideConnected': _collideConnectedHint,
+    'enabled': FieldHint(label: 'Enabled'),
+  };
+
+  /// A slider's: its axis runs through the other body's anchor.
+  static const Map<String, FieldHint> _sliderJointHints = {
     'connectedBody': _connectedBodyHint,
     'anchor': FieldHint(label: 'Anchor', visible: false),
-    'connectedAnchor': FieldHint(label: 'Other anchor', visible: false),
+    'connectedAnchor': FieldHint(
+      label: 'Other anchor',
+      description:
+          "Where the axis runs through the other body, in that body's "
+          'space: its centre by default.',
+    ),
     'collideConnected': _collideConnectedHint,
     'enabled': FieldHint(label: 'Enabled'),
   };
@@ -717,9 +755,8 @@ abstract final class Physics2DDefinitions {
   static const _collideConnectedHint = FieldHint(
     label: 'Collide connected',
     description:
-        'Off, the two bodies send no collision events to each other. '
-        'Jointed bodies never collide on native platforms; on the web they '
-        'still do.',
+        'Whether the two bodies collide with each other. Off, they pass '
+        'through each other and send each other no collision events.',
   );
 
   /// A wheel's: its axle on the wheel is shown.
@@ -732,7 +769,7 @@ abstract final class Physics2DDefinitions {
       label: 'Axle',
       description:
           'Where on the wheel it turns, in its own space: its centre by '
-          'default. On the web the wheel always turns about its centre.',
+          'default.',
     ),
   };
 
@@ -761,7 +798,7 @@ abstract final class Physics2DDefinitions {
             'Distance': ['length', 'stiffness', 'damping'],
           },
           fields: {
-            ..._jointHints,
+            ..._distanceJointHints,
             'length': FieldHint(
               label: 'Length',
               scrub: ScrubHint(fractionDigits: 2),
@@ -818,7 +855,7 @@ abstract final class Physics2DDefinitions {
           icon: Icons.hub_outlined,
           accentColor: _accent,
           fieldGroups: {'Joint': _jointFields},
-          fields: _jointHints,
+          fields: _fixedJointHints,
         ),
         fields: _joint<FixedJoint2DComponent>(),
       );
@@ -845,7 +882,7 @@ abstract final class Physics2DDefinitions {
         FieldRowHint('Range', {'minPosition': 'Min', 'maxPosition': 'Max'}),
       ],
       fields: {
-        ..._jointHints,
+        ..._sliderJointHints,
         'axis': const FieldHint(label: 'Axis'),
         'useLimits': const FieldHint(label: 'Limits'),
         'minPosition': FieldHint(

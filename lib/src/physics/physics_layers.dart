@@ -92,10 +92,10 @@ final class PhysicsLayers {
   static const int maxNameLength = 24;
 
   /// The file format [toJson] writes; [fromJson] refuses newer ones.
-  static const int formatVersion = 1;
+  static const int formatVersion = PhysicsLayersFile.formatVersion;
 
   /// Where a project keeps its layers.
-  static const String defaultPath = 'assets/project/physics.json';
+  static const String defaultPath = PhysicsLayersFile.path;
 
   /// Layer 0 called `Default`, nothing else named, everything colliding.
   static final PhysicsLayers defaults = PhysicsLayers();
@@ -277,65 +277,46 @@ final class PhysicsLayers {
     return _copy(masks: m);
   }
 
-  /// What the project file keeps: the version, then each layer that has a
-  /// name, a colour, a description or ignores another — by number, which a
-  /// rename leaves alone.
-  Map<String, dynamic> toJson() => {
-    'version': formatVersion,
-    'layers': [
-      for (var i = 0; i < count; i++)
-        if (names[i].isNotEmpty ||
-            _masks[i] != all ||
-            _colors[i] != null ||
-            _descriptions[i].isNotEmpty)
-          {
-            'index': i,
-            if (names[i].isNotEmpty) 'name': names[i],
-            if (_colors[i] case final c?) 'color': c.toARGB32(),
-            if (_descriptions[i].isNotEmpty) 'description': _descriptions[i],
-            if (_masks[i] != all)
-              'ignores': [
-                for (var b = 0; b < count; b++)
-                  if (!_bit(_masks[i], b)) b,
-              ],
-          },
-    ],
-  };
+  /// What the project file keeps ([PhysicsLayersFile.toJson]): the
+  /// version, then each layer that has a name, a colour, a description or
+  /// ignores another — by number, which a rename leaves alone.
+  Map<String, dynamic> toJson() => PhysicsLayersFile.toJson([
+    for (var i = 0; i < count; i++)
+      if (names[i].isNotEmpty ||
+          _masks[i] != all ||
+          _colors[i] != null ||
+          _descriptions[i].isNotEmpty)
+        PhysicsLayerEntry(
+          i,
+          name: names[i],
+          color: _colors[i]?.toARGB32(),
+          description: _descriptions[i],
+          ignores: [
+            for (var b = 0; b < count; b++)
+              if (!_bit(_masks[i], b)) b,
+          ],
+        ),
+  ]);
 
-  /// Reads what [toJson] wrote. Throws [UnsupportedFormatVersionException]
-  /// for a file from a newer engine, and [FormatException] for one that is
-  /// not an object.
+  /// Reads what [toJson] wrote, through [PhysicsLayersFile.read]: each
+  /// layer listed is applied in order, so of a layer listed twice the later
+  /// name wins and the ignores add up. Throws
+  /// [UnsupportedFormatVersionException] for a file from a newer engine,
+  /// and [FormatException] for one that is not an object or is broken (a
+  /// `version` that is not a whole number, an `index` that is not a
+  /// number).
   static PhysicsLayers fromJson(Object? json) {
-    if (json is! Map) {
-      throw const FormatException('The physics layers file is not an object.');
-    }
-    final version = (json['version'] as num?)?.toInt() ?? formatVersion;
-    if (version > formatVersion) {
-      throw UnsupportedFormatVersionException(
-        'physics layers',
-        version,
-        formatVersion,
-      );
-    }
     final names = List<String>.filled(count, '');
     final masks = List<int>.filled(count, all);
     final colors = List<Color?>.filled(count, null);
     final descriptions = List<String>.filled(count, '');
-    final layers = json['layers'];
-    if (layers is List) {
-      for (final entry in layers.whereType<Map>()) {
-        final i = (entry['index'] as num?)?.toInt();
-        if (i == null || !isValid(i)) continue;
-        if (entry['name'] case final String name) names[i] = name;
-        if (entry['color'] case final int color) colors[i] = Color(color);
-        if (entry['description'] case final String text) {
-          descriptions[i] = text;
-        }
-        if (entry['ignores'] case final List ignores) {
-          for (final b in ignores.whereType<num>()) {
-            if (isValid(b.toInt())) masks[i] = _set(masks[i], b.toInt(), false);
-          }
-        }
+    for (final e in PhysicsLayersFile.read(json)) {
+      final i = e.index;
+      if (e.name.isNotEmpty) names[i] = e.name;
+      if (e.color case final color?) colors[i] = Color(color);
+      if (e.description.isNotEmpty) descriptions[i] = e.description;
+      for (final b in e.ignores) {
+        masks[i] = _set(masks[i], b, false);
       }
     }
     return PhysicsLayers(

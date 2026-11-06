@@ -29,50 +29,35 @@ import 'physics_2d_body_ref_component.dart';
 ///
 /// Springs ([DistanceJoint2DComponent.stiffness],
 /// [WheelJoint2DComponent.stiffness]) are a frequency in hertz and a
-/// damping ratio on both backends, as Box2D and the 3-D joints take them;
-/// for the pure-Dart joints they are turned into that engine's own terms
-/// here ([dartSpring]). A slider's and a wheel's axis is in the joint
-/// entity's space, turned to the world's as the joint is made.
+/// damping ratio, as Box2D and the 3-D joints take them, on both backends.
+/// A slider's and a wheel's axis is in the joint entity's space, turned to
+/// the world's as the joint is made.
 ///
-/// **What the backends take** (just_physics_engine 2.0.0). Its joint
-/// factories take no anchors and no `collideConnected`, so:
-/// - a distance joint holds the two bodies' centres apart, a fixed joint
-///   holds the bodies where they are when it is made (welded at their
-///   midpoint on the native, Box2D, backend), and a slider slides the second
-///   body along its axis from where it is (anchored at its centre on the
-///   native backend): [Joint2DComponent.anchor] and
-///   [Joint2DComponent.connectedAnchor] are saved but not used by these
-///   three, so the inspector does not offer them, and changing them makes
-///   nothing again;
-/// - a wheel turns about [Joint2DComponent.connectedAnchor] on the wheel
-///   on the native backend (`Box2DPhysicsEngine.createWheelJoint` takes its
-///   axle); the pure-Dart wheel turns about its centre. Its
-///   [Joint2DComponent.anchor] is not used;
-/// - [Joint2DComponent.collideConnected]: the native backend never lets two
-///   jointed bodies collide, and the pure-Dart one always does. Off, their
-///   contacts send no events either way; on, the pure-Dart backend sends
-///   them.
+/// **What each joint takes** (just_physics_engine 2.0.0, the same on both
+/// backends). An anchor is in its entity's space, turned to the world's as
+/// the joint is made; at zero it is the entity's position:
+/// - a distance joint keeps [Joint2DComponent.anchor] on this body and
+///   [Joint2DComponent.connectedAnchor] on the other its length apart;
+/// - a fixed joint welds the two bodies as they are, at its
+///   [Joint2DComponent.anchor];
+/// - a slider slides the other body along its axis through its
+///   [Joint2DComponent.connectedAnchor], and a wheel turns about its
+///   [Joint2DComponent.connectedAnchor], its axle;
+/// - [Joint2DComponent.collideConnected]: off, the two bodies pass through
+///   each other, so their contacts send no events; on, they collide.
 ///
-/// (`Box2DPhysicsEngine.createWeldJoint` and `createPrismaticJoint` take one
-/// world point, but just_box_2d 0.1.0 makes both of the joint's frames
-/// unturned: made at another point than the backend's own, a joint between
-/// bodies turned apart swings the second body round it — a slider's car
-/// left its rail by the distance to the point. So the engine keeps the
-/// backend's own choice.)
+/// The anchor a joint does not take (a fixed joint's connected anchor, a
+/// slider's and a wheel's own anchor) is saved but not offered by the
+/// inspector, and changing it makes nothing again. A native joint keeps the
+/// angle between its bodies as it was when made (just_box_2d 0.2.0), so a
+/// weld, a slider or a wheel between bodies turned apart holds them so.
 final class Physics2DJoints {
-  /// Joints made in [physics]. [onQuiet] hears of each pair of bodies a
-  /// joint with [Joint2DComponent.collideConnected] off starts or stops
-  /// holding, so their contacts send no events while it does.
-  Physics2DJoints(this.physics, {required this.onQuiet});
+  /// Joints made in [physics].
+  Physics2DJoints(this.physics);
 
   /// The physics engine the joints are made in and removed from — the one
   /// that holds the entities' bodies.
   final Physics2DEngine physics;
-
-  /// A joint holding `a` and `b` with `collideConnected` off was made
-  /// (`joined`), or taken down.
-  final void Function(Physics2DBody a, Physics2DBody b, {required bool joined})
-  onQuiet;
 
   /// Each joint component's joint, by component.
   final Map<Component, _JointBinding> _bindings = {};
@@ -149,10 +134,6 @@ final class Physics2DJoints {
       _bindings[comp] = created
         ..target = target
         ..frame = _frame;
-      if (!comp.collideConnected) {
-        created.quiet = true;
-        onQuiet(bodyA, bodyB, joined: true);
-      }
       wanted++;
     }
 
@@ -233,152 +214,77 @@ final class Physics2DJoints {
     final physics = this.physics;
     switch (comp) {
       case DistanceJoint2DComponent():
-        // Between the bodies' centres: neither backend takes anchors for a
-        // distance joint (see the class doc).
         final joint = physics.addDistanceJoint(
           bodyA,
           bodyB,
+          anchorA: _worldAnchor(a, comp.anchor),
+          anchorB: _worldAnchor(b, comp.connectedAnchor),
           length: comp.length,
-          stiffness: comp.stiffness,
-          damping: comp.damping,
+          springHertz: comp.stiffness,
+          dampingRatio: comp.damping,
+          collideConnected: comp.collideConnected,
         );
-        if (joint is DistanceJoint2D && comp.stiffness > 0) {
-          final (k, c) = dartSpring(comp.stiffness, comp.damping);
-          joint
-            ..stiffness = k
-            ..damping = c;
-        }
         return _DistanceBinding(bodyA, bodyB, [joint], comp);
 
       case FixedJoint2DComponent():
-        final joint = physics.addWeldJoint(bodyA, bodyB);
+        final joint = physics.addWeldJoint(
+          bodyA,
+          bodyB,
+          anchor: _worldAnchor(a, comp.anchor),
+          collideConnected: comp.collideConnected,
+        );
         return _WeldBinding(bodyA, bodyB, [joint], comp);
 
       case SliderJoint2DComponent():
-        final joint = physics.addPrismaticJoint(
-          bodyA,
-          bodyB,
-          _worldAxis(a, comp.axis),
-        );
-        _configurePrismaticJoint(
-          joint,
-          enableLimit: comp.useLimits,
-          lower: comp.minPosition,
-          upper: comp.maxPosition,
-          enableMotor: comp.enableMotor,
-          motorSpeed: comp.motorSpeed,
-          maxMotorForce: comp.motorMaxForce,
-        );
+        final joint =
+            physics.addPrismaticJoint(
+                bodyA,
+                bodyB,
+                _worldAxis(a, comp.axis),
+                anchor: _worldAnchor(b, comp.connectedAnchor),
+                collideConnected: comp.collideConnected,
+              )
+              ..setLimits(
+                comp.minPosition,
+                comp.maxPosition,
+                enable: comp.useLimits,
+              )
+              ..setMotor(
+                comp.motorSpeed,
+                comp.motorMaxForce,
+                enable: comp.enableMotor,
+              );
         return _PrismaticBinding(bodyA, bodyB, [joint], comp);
 
       case WheelJoint2DComponent():
-        return _WheelBinding(
-          bodyA,
-          bodyB,
-          _createWheel(a, b, bodyA, bodyB, comp),
-          comp,
-        );
+        // Its axle: the wheel's own point (its centre, unless
+        // connectedAnchor says otherwise), not the chassis's, which the
+        // wheel would orbit. A spring of 0 Hz is no spring.
+        final joint =
+            physics.addWheelJoint(
+                bodyA,
+                bodyB,
+                _worldAxis(a, comp.axis),
+                anchor: _worldAnchor(b, comp.connectedAnchor),
+                collideConnected: comp.collideConnected,
+              )
+              ..setSpring(comp.stiffness, comp.damping)
+              ..setMotor(
+                comp.motorSpeed,
+                comp.motorMaxTorque,
+                enable: comp.enableMotor,
+              );
+        return _WheelBinding(bodyA, bodyB, [joint], comp);
     }
     return null;
   }
 
-  List<Joint2D> _createWheel(
-    Entity a,
-    Entity b,
-    Physics2DBody bodyA,
-    Physics2DBody bodyB,
-    WheelJoint2DComponent comp,
-  ) {
-    final axis = _worldAxis(a, comp.axis);
-    final physics = this.physics;
-    if (physics is Box2DPhysicsEngine) {
-      // Its axle: the wheel's own point (its centre, unless
-      // connectedAnchor says otherwise) — not the chassis's, which the
-      // wheel would orbit.
-      final wheel = physics.createWheelJoint(
-        bodyA,
-        bodyB,
-        _worldAnchor(b, comp.connectedAnchor),
-        axis,
-      );
-      if (wheel != null) {
-        wheel.setWheelSpring(comp.stiffness, comp.damping);
-        wheel.setWheelMotor(
-          comp.motorSpeed,
-          comp.motorMaxTorque,
-          enable: comp.enableMotor,
-        );
-        return [wheel];
-      }
-    }
-
-    // Without native wheel joints: the physics engine's own wheel joint —
-    // the Dart one — sprung along the axis, its motor spinning the wheel.
-    final wheel = physics.addWheelJoint(bodyA, bodyB, axis);
-    if (wheel is WheelJoint2D) {
-      final (k, c) = comp.stiffness > 0
-          ? dartSpring(comp.stiffness, comp.damping)
-          : (0.0, 0.0);
-      wheel
-        ..setWheelSpring(k, c)
-        ..setWheelMotor(
-          comp.motorSpeed,
-          comp.motorMaxTorque,
-          enable: comp.enableMotor,
-        );
-    } else if (wheel is Box2DJoint) {
-      wheel
-        ..setWheelSpring(comp.stiffness, comp.damping)
-        ..setWheelMotor(
-          comp.motorSpeed,
-          comp.motorMaxTorque,
-          enable: comp.enableMotor,
-        );
-    }
-    return [wheel];
-  }
-
-  /// Destroys [binding]'s joints. On the Box2D backend one that went with
+  /// Removes [binding]'s joints. On the Box2D backend one that went with
   /// its body (removing a body takes its joints) is gone already, and
-  /// destroying it again does nothing: just_box_2d checks every handle.
+  /// removing it again does nothing.
   void _destroyBinding(_JointBinding binding) {
-    if (binding.quiet) onQuiet(binding.bodyA, binding.bodyB, joined: false);
     for (final joint in binding.joints) {
-      if (joint is Box2DJoint) joint.destroy();
       physics.removeJoint(joint);
-    }
-  }
-
-  void _configurePrismaticJoint(
-    Joint2D joint, {
-    bool? enableLimit,
-    double? lower,
-    double? upper,
-    bool? enableMotor,
-    double? motorSpeed,
-    double? maxMotorForce,
-  }) {
-    if (joint is Box2DJoint) {
-      if (lower != null && upper != null) {
-        joint.setPrismaticLimits(lower, upper, enable: enableLimit ?? false);
-      }
-      if (motorSpeed != null && maxMotorForce != null) {
-        joint.setPrismaticMotor(
-          motorSpeed,
-          maxMotorForce,
-          enable: enableMotor ?? false,
-        );
-      }
-      return;
-    }
-
-    if (joint is PrismaticJoint2D) {
-      if (enableLimit != null) joint.limitEnabled = enableLimit;
-      if (lower != null) joint.lowerLimit = lower;
-      if (upper != null) joint.upperLimit = upper;
-      if (enableMotor != null) joint.motorEnabled = enableMotor;
-      if (motorSpeed != null) joint.motorSpeed = motorSpeed;
-      if (maxMotorForce != null) joint.maxMotorForce = maxMotorForce;
     }
   }
 
@@ -404,22 +310,6 @@ final class Physics2DJoints {
     final x = axis.dx / length, y = axis.dy / length;
     return Offset(x * cos - y * sin, x * sin + y * cos);
   }
-
-  /// A spring of [hertz] and damping [ratio] — what Box2D takes — as the
-  /// pure-Dart joints take one: the pull per unit stretched and per unit of
-  /// speed, both per unit of the bodies' mass. Worked out as Box2D's soft
-  /// step does for the engine's fixed step, so a stiff spring holds rather
-  /// than blowing up, and both backends settle alike.
-  static (double, double) dartSpring(double hertz, double ratio) {
-    if (!(hertz > 0)) return (0.0, 0.0);
-    const h = Physics2DEngine.fixedDeltaTime;
-    final omega = 2 * math.pi * hertz;
-    final a1 = 2 * ratio + h * omega;
-    final a2 = h * omega * a1;
-    final massScale = a2 / (1 + a2);
-    final biasRate = omega / a1;
-    return (massScale * biasRate / h, massScale / h);
-  }
 }
 
 /// An entity's joint component, with the body it hangs from.
@@ -435,8 +325,8 @@ bool _same(double a, double b) => a == b || (a.isNaN && b.isNaN);
 
 /// A live joint and the settings it was made with. Settings are compared
 /// field by field each frame — no string is built — and a change makes the
-/// joint again; a setting no backend takes for the joint (see
-/// [Physics2DJoints]) is not compared, so changing it makes nothing again.
+/// joint again; an anchor the joint does not take (see [Physics2DJoints]) is
+/// not compared, so changing it makes nothing again.
 sealed class _JointBinding {
   _JointBinding(this.bodyA, this.bodyB, this.joints);
 
@@ -450,10 +340,6 @@ sealed class _JointBinding {
   /// The update that last wanted this joint.
   int frame = 0;
 
-  /// Whether its bodies' contacts were silenced
-  /// ([Joint2DComponent.collideConnected] off).
-  bool quiet = false;
-
   /// Whether [comp] still asks for exactly this joint.
   bool matches(Component comp);
 }
@@ -464,11 +350,15 @@ final class _DistanceBinding extends _JointBinding {
     super.bodyB,
     super.joints,
     DistanceJoint2DComponent c,
-  ) : length = c.length,
+  ) : anchor = c.anchor,
+      connectedAnchor = c.connectedAnchor,
+      length = c.length,
       stiffness = c.stiffness,
       damping = c.damping,
       collideConnected = c.collideConnected;
 
+  final Offset anchor;
+  final Offset connectedAnchor;
   final double length;
   final double stiffness;
   final double damping;
@@ -477,18 +367,23 @@ final class _DistanceBinding extends _JointBinding {
   @override
   bool matches(Component comp) =>
       comp is DistanceJoint2DComponent &&
+      comp.anchor == anchor &&
+      comp.connectedAnchor == connectedAnchor &&
       _same(comp.length, length) &&
       _same(comp.stiffness, stiffness) &&
       _same(comp.damping, damping) &&
       comp.collideConnected == collideConnected;
 }
 
-/// Never compared by where it is: a world anchor moves with the body, so a
-/// weld on anything moving was made again every frame.
+/// Compared by its anchor in its entity's space, never by where it is in
+/// the world: a world anchor moves with the body, so a weld on anything
+/// moving would be made again every frame.
 final class _WeldBinding extends _JointBinding {
   _WeldBinding(super.bodyA, super.bodyB, super.joints, FixedJoint2DComponent c)
-    : collideConnected = c.collideConnected;
+    : anchor = c.anchor,
+      collideConnected = c.collideConnected;
 
+  final Offset anchor;
   final bool collideConnected;
 
   // Where it holds bodyB, in bodyA's frame: as when it was first made.
@@ -538,6 +433,7 @@ final class _WeldBinding extends _JointBinding {
   @override
   bool matches(Component comp) =>
       comp is FixedJoint2DComponent &&
+      comp.anchor == anchor &&
       comp.collideConnected == collideConnected;
 }
 
@@ -547,7 +443,8 @@ final class _PrismaticBinding extends _JointBinding {
     super.bodyB,
     super.joints,
     SliderJoint2DComponent c,
-  ) : axis = c.axis,
+  ) : connectedAnchor = c.connectedAnchor,
+      axis = c.axis,
       enableLimit = c.useLimits,
       lowerTranslation = c.minPosition,
       upperTranslation = c.maxPosition,
@@ -556,6 +453,7 @@ final class _PrismaticBinding extends _JointBinding {
       maxMotorForce = c.motorMaxForce,
       collideConnected = c.collideConnected;
 
+  final Offset connectedAnchor;
   final Offset axis;
   final bool enableLimit;
   final double lowerTranslation;
@@ -568,6 +466,7 @@ final class _PrismaticBinding extends _JointBinding {
   @override
   bool matches(Component comp) =>
       comp is SliderJoint2DComponent &&
+      comp.connectedAnchor == connectedAnchor &&
       comp.axis == axis &&
       comp.useLimits == enableLimit &&
       _same(comp.minPosition, lowerTranslation) &&

@@ -261,7 +261,7 @@ class SpriteAtlas {
     String? jsonPath,
     required Future<ui.Image> Function(String imagePath) loadImage,
   }) async {
-    final atlas = await AtlasParser.detect(
+    final atlas = AtlasParser.detect(
       json,
       jsonPath: jsonPath,
     ).parse(json, basePath);
@@ -280,7 +280,7 @@ class SpriteAtlas {
   ) async {
     final basePath = _directoryOf(jsonPath);
     final parser = AtlasParser.detect(json, jsonPath: jsonPath);
-    final atlas = await parser.parse(json, basePath);
+    final atlas = parser.parse(json, basePath);
     try {
       for (final page in atlas.pages) {
         await page.loadImage(assets);
